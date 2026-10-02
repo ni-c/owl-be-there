@@ -2,7 +2,7 @@ import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
   'app.name': 'Owl Be There',
-  'app.tagline': 'Finde den Tag, an dem alle können.',
+  'app.tagline': 'Finde den Tag, der allen passt.',
 
   'home.lead':
     'Markiere im Kalender, an welchen Tagen du kannst, und sieh auf einen Blick, wann die ganze Gruppe Zeit hat. Ohne Anmeldung, ohne Tracking.',
