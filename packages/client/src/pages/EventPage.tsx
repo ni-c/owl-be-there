@@ -203,7 +203,9 @@ function EventView(props: EventViewProps) {
           <Card>
             <h2 className="mb-4 text-xl font-extrabold">
               {t('event.tabGroup')}{' '}
-              <span className="text-muted">· {answered}</span>
+              <span className="text-base font-bold text-muted">
+                · {tn('event.answers', answered)}
+              </span>
             </h2>
             {group}
           </Card>
@@ -238,9 +240,22 @@ function EventView(props: EventViewProps) {
                 }}
                 className={`min-h-11 rounded-full font-extrabold transition ${tab === value ? 'bg-surface shadow-card' : 'text-muted'}`}
               >
-                {value === 'mine'
-                  ? t('event.tabMine')
-                  : `${t('event.tabGroup')} · ${answered}`}
+                {value === 'mine' ? (
+                  t('event.tabMine')
+                ) : (
+                  <>
+                    {t('event.tabGroup')}
+                    <span
+                      aria-hidden="true"
+                      className="ml-1.5 inline-grid min-w-6 place-items-center rounded-full bg-line px-1.5 text-sm text-ink"
+                    >
+                      {answered}
+                    </span>
+                    <span className="sr-only">
+                      , {tn('event.answers', answered)}
+                    </span>
+                  </>
+                )}
               </button>
             ))}
           </div>
