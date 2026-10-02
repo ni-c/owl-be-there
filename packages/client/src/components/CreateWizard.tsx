@@ -23,7 +23,7 @@ import { errorMessage } from '../lib/errors.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
 import { rememberEvent, writeAdminToken } from '../lib/prefs.ts';
 import { navigate } from '../lib/route.ts';
-import { CalendarGrid, useMaxRows } from './CalendarGrid.tsx';
+import { CalendarGrid } from './CalendarGrid.tsx';
 import { Button, Card, Field, Notice, TextArea, TextInput } from './ui.tsx';
 
 const STEPS = 3;
@@ -37,7 +37,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const { t, tn, language, locale } = useI18n();
   const today = todayLocal();
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
-  const maxRows = useMaxRows(260);
 
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState('');
@@ -50,7 +49,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const [weekdays, setWeekdays] = useState<Set<Weekday>>(new Set());
   const [manual, setManual] = useState<Map<ISODate, Mark> | null>(null);
   const [duration, setDuration] = useState(1);
-  const [page, setPage] = useState(0);
   const [roster, setRoster] = useState('');
   const [minCount, setMinCount] = useState('');
   const [errors, setErrors] = useState<Record<string, string | null>>({});
@@ -81,7 +79,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
   const resetDays = () => {
     setManual(null);
-    setPage(0);
   };
 
   const dayProblem = (): string | null => {
@@ -390,9 +387,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                   firstWeekday={firstWeekday}
                   today={today}
                   label={t('cal.label')}
-                  page={page}
-                  onPageChange={setPage}
-                  maxRows={maxRows}
                 />
                 <p className="font-bold" aria-live="polite">
                   {tn('create.dayCount', candidates.length)}

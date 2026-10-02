@@ -124,3 +124,36 @@ async function centre(locator: Locator): Promise<{ x: number; y: number }> {
   if (!box) throw new Error('element has no box');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
+
+/**
+ * A finger swiping upwards from an element, in Chromium (real touch input):
+ * whatever the page does with it — scroll or paint — is the browser's own
+ * decision, taken from `touch-action` where the finger went down.
+ */
+export async function touchSwipeUp(
+  page: Page,
+  from: Locator,
+  distance: number
+): Promise<void> {
+  const start = await centre(from);
+  const cdp = await page.context().newCDPSession(page);
+  const point = (y: number) => [
+    { x: start.x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 },
+  ];
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: point(start.y),
+  });
+  for (let step = 1; step <= 10; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: point(start.y - (distance * step) / 10),
+    });
+    await page.waitForTimeout(20);
+  }
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await cdp.detach();
+}

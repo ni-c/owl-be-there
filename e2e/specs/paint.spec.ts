@@ -3,13 +3,14 @@ import {
   createEvent,
   day,
   dayFromNow,
+  daysFromNow,
   joinAs,
   myCalendar,
   saved,
   snapshot,
   utcDateOf,
 } from '../helpers.ts';
-import { drag } from '../touch.ts';
+import { drag, touchSwipeUp } from '../touch.ts';
 
 const D = (offset: number) => dayFromNow(offset);
 
@@ -185,5 +186,48 @@ test.describe('painting days', () => {
     );
     await page.keyboard.press('Control+z');
     await expect(day(grid, D(5))).toHaveAttribute('data-state', 'none');
+  });
+
+  test('the whole range is always shown, whatever the height of the screen', async ({
+    page,
+    request,
+  }) => {
+    // Mobile browsers change the window height while scrolling, as the
+    // address bar slides in and out. The calendar must not follow it.
+    const days = daysFromNow(3, 80);
+    const { id } = await createEvent(request, { days });
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Gina');
+    const grid = myCalendar(page);
+    await expect(grid.locator('[data-kind="day"]')).toHaveCount(days.length);
+    const size = page.viewportSize()!;
+    for (const height of [size.height - 120, 400, size.height]) {
+      await page.setViewportSize({ width: size.width, height });
+      await expect(grid.locator('[data-kind="day"]')).toHaveCount(days.length);
+    }
+    await expect(day(grid, D(80))).toHaveAttribute('data-state', 'none');
+  });
+
+  test('a long calendar still scrolls under a finger on the week column', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'chromium-mobile',
+      'real touch input exists in Chromium only'
+    );
+    const { id } = await createEvent(request, { days: daysFromNow(3, 80) });
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Hugo');
+    const grid = myCalendar(page);
+    const weekColumn = grid.locator('.cal-body .cal-row > :first-child').nth(1);
+    await weekColumn.scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => window.scrollY);
+    await touchSwipeUp(page, weekColumn, 250);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThan(before + 100);
+    // Nothing was painted on the way.
+    await expect(grid.locator('[data-state="yes"]')).toHaveCount(0);
   });
 });

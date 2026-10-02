@@ -8,7 +8,6 @@ import {
 } from '@owl/shared';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminPanel } from '../components/AdminPanel.tsx';
-import { useMaxRows } from '../components/CalendarGrid.tsx';
 import { GroupView } from '../components/GroupView.tsx';
 import {
   CalendarIcon,
@@ -156,11 +155,9 @@ function EventView(props: EventViewProps) {
   const { t, tn, locale } = useI18n();
   const wide = useWide();
   const [tab, setTab] = useState<'mine' | 'group'>('mine');
-  const [page, setPage] = useState(0);
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
   const today = todayLocal();
-  const maxRows = useMaxRows(wide ? 260 : 200);
   const { event } = data;
   const answered = data.participants.filter((p) => p.answered).length;
 
@@ -170,9 +167,6 @@ function EventView(props: EventViewProps) {
     adminToken,
     firstWeekday,
     today,
-    page,
-    onPageChange: setPage,
-    maxRows,
   };
 
   const mine = (

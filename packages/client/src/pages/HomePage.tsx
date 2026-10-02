@@ -2,12 +2,7 @@ import { EMOJIS, type InstanceInfoData } from '@owl/shared';
 import { useRef, useState } from 'react';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
-import {
-  CalendarIcon,
-  CloseIcon,
-  LockIcon,
-  StarIcon,
-} from '../components/icons.tsx';
+import { CloseIcon, LockIcon, StarIcon } from '../components/icons.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { Button, Card, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
@@ -28,11 +23,6 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   };
 
   const features = [
-    {
-      icon: <CalendarIcon size={24} />,
-      title: t('home.feature.paint.title'),
-      text: t('home.feature.paint.text'),
-    },
     {
       icon: <StarIcon size={24} />,
       title: t('home.feature.heat.title'),
@@ -120,7 +110,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
         </section>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2">
         {features.map((feature) => (
           <Card key={feature.title} className="flex flex-col gap-2">
             <span className="grid size-11 place-items-center rounded-2xl bg-brand-soft text-brand">

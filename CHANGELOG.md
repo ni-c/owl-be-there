@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-02
+
+### Fixed
+
+- On a phone, a calendar spanning more than a month no longer jumps while scrolling. It switched between month pages and the whole range whenever the address bar slid in or out and changed the window height. Month pages are gone: the calendar always shows the whole range, and only the paintable days take over the finger — the week column, past days and the margins still scroll the page.
+
+### Removed
+
+- The "Tap or drag" card on the start page: painting days by tapping and dragging is what people expect from a calendar, not a selling point. The other two cards stay.
+
 ## [0.1.1] - 2026-10-02
 
 ### Changed
@@ -29,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/ni-c/owl-be-there/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ni-c/owl-be-there/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ni-c/owl-be-there/releases/tag/v0.1.0

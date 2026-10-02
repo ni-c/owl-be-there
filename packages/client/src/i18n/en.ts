@@ -10,9 +10,6 @@ export const en = {
   'home.lead':
     'Mark the days you can make it on a calendar and see at a glance when the whole group is free. No sign-up, no tracking.',
   'home.cta': 'Plan an event',
-  'home.feature.paint.title': 'Tap or drag',
-  'home.feature.paint.text':
-    'Tap a day to switch it on, or drag across the calendar to mark a whole block — every weekend in March in one go.',
   'home.feature.heat.title': 'See the best day',
   'home.feature.heat.text':
     'The calendar turns into a heatmap and ranks the days when most people can come — also for weekends or tournaments of several days.',
@@ -150,9 +147,6 @@ export const en = {
   'cal.weekdayAll': 'All {weekday}s',
   'cal.weekToggle': 'Week {number}',
   'cal.week': 'W{number}',
-  'cal.previous': 'Previous month',
-  'cal.next': 'Next month',
-  'cal.page': '{month} ({current} of {total})',
   'cal.yes': 'can',
   'cal.maybe': 'maybe',
   'cal.no': 'not marked',

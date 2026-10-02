@@ -51,9 +51,6 @@ interface MyDaysProps {
   adminToken: string | null;
   firstWeekday: Weekday;
   today: ISODate;
-  page: number;
-  onPageChange(page: number): void;
-  maxRows: number;
   session: Session | null;
   onSession(session: Session | null): void;
   /** The organiser filling in for someone. */
@@ -726,9 +723,6 @@ function Painter(
         firstWeekday={props.firstWeekday}
         today={today}
         label={t('event.tabMine')}
-        page={props.page}
-        onPageChange={props.onPageChange}
-        maxRows={props.maxRows}
       />
       <div className="flex min-h-6 items-center justify-between gap-3 text-sm">
         <span

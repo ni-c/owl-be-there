@@ -193,10 +193,16 @@ body {
   gap: 0.2rem;
 }
 
-/* Only the grid one paints on gives up native scrolling and zooming. */
+/*
+ * Only the days one can paint give up native scrolling and zooming. The
+ * calendar always shows the whole range and may be taller than the screen: a
+ * finger on the week column, a past day or the margin still scrolls the page.
+ */
 .cal-paint .cal-body {
-  touch-action: none;
   -webkit-touch-callout: none;
+}
+.cal-paint .cal-body .cal-cell[data-kind='day'] {
+  touch-action: none;
 }
 
 .cal-cell {
@@ -225,12 +231,6 @@ body {
 .cal-cell[data-kind='outside'] {
   color: var(--owl-muted);
   opacity: 0.35;
-}
-
-.cal-cell[data-kind='inactive'] {
-  color: var(--owl-muted);
-  background: transparent;
-  opacity: 0.55;
 }
 
 .cal-cell[data-kind='past'] {

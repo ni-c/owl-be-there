@@ -15,7 +15,7 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
 - **Sharing:** the system share sheet, a QR code, and a ready-made invitation text. Messengers show the event title in their link preview.
 - **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change — never before their last candidate day.
-- **Made for phones:** a calendar that fits the screen, big tap targets, dark mode, English and German.
+- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, English and German.
 - **Self-hostable:** one container, one SQLite file.
 
 ## Self-hosting
