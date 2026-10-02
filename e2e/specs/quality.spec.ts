@@ -3,8 +3,10 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   answer,
   createEvent,
+  day,
   dayFromNow,
   joinAs,
+  myCalendar,
   showView,
 } from '../helpers.ts';
 
@@ -55,6 +57,16 @@ for (const scheme of ['light', 'dark'] as const) {
     await page.goto(`/e/${id}#admin=${adminToken}`);
     await joinAs(page, 'Ben');
     await expectAccessible(page, 'my days');
+    // Marked days have their own colours; check them too.
+    const mine = myCalendar(page);
+    await day(mine, dayFromNow(5)).click();
+    await page.getByRole('radio', { name: 'Maybe' }).click();
+    await day(mine, dayFromNow(6)).click();
+    await expect(day(mine, dayFromNow(6))).toHaveAttribute(
+      'data-state',
+      'maybe'
+    );
+    await expectAccessible(page, 'my days, marked');
     await showView(page, 'group');
     await expectAccessible(page, 'group');
     await page.getByRole('button', { name: 'Share' }).click();
