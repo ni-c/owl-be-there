@@ -13,6 +13,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@owl/shared": "*"
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/static": "^10.1.5",
+    "@owl/shared": "*",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
   }
 }

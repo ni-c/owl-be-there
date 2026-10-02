@@ -1,0 +1,19 @@
+# Only what the build needs. Everything else would invalidate the layer cache
+# or, worse, end up in the image.
+**/node_modules
+**/dist
+**/coverage
+**/test
+.git
+.github
+.githooks
+e2e
+docs
+scripts
+playwright-report
+test-results
+data
+*.md
+*.db
+*.db-*
+.env
