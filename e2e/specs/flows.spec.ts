@@ -236,3 +236,17 @@ test('German is a click away and remembered', async ({ page }) => {
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('de');
 });
+
+test('the count of answers is spelled out and follows live', async ({
+  page,
+  request,
+}) => {
+  const { id } = await createEvent(request);
+  await answer(request, id, 'Anna', [D(6)]);
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('main')).toContainText('1 answer');
+  await answer(request, id, 'Ben', [D(6)]);
+  await expect(page.locator('main')).toContainText('2 answers', {
+    timeout: 10_000,
+  });
+});
