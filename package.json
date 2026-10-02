@@ -1,6 +1,6 @@
 {
   "name": "owl-be-there",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Find the day that works for everyone: mark whole days on a calendar, see when the group is free. No accounts.",
   "license": "MIT",
