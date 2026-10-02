@@ -7,9 +7,6 @@ export const de: Dictionary = {
   'home.lead':
     'Markiere im Kalender, an welchen Tagen du kannst, und sieh auf einen Blick, wann die ganze Gruppe Zeit hat. Ohne Anmeldung, ohne Tracking.',
   'home.cta': 'Event planen',
-  'home.feature.paint.title': 'Tippen oder ziehen',
-  'home.feature.paint.text':
-    'Tippe einen Tag an, um ihn zu markieren, oder zieh über den Kalender, um einen ganzen Block zu markieren – alle Wochenenden im März in einem Rutsch.',
   'home.feature.heat.title': 'Den besten Tag sehen',
   'home.feature.heat.text':
     'Der Kalender wird zur Heatmap und zeigt die Tage, an denen die meisten können – auch für Wochenenden oder mehrtägige Turniere.',
