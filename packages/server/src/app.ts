@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import rateLimit from '@fastify/rate-limit';
 import { todayUTC } from '@owl/shared';
-import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
+import Fastify, {
+  LogController,
+  type FastifyError,
+  type FastifyInstance,
+} from 'fastify';
 import type { Config } from './config.js';
 import { systemClock, type AppContext, type Clock } from './context.js';
 import { sweepExpired } from './db/repo.js';
@@ -85,7 +89,7 @@ export async function buildApp(
             level: config.logLevel,
             ...(options.logStream && { stream: options.logStream }),
           },
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     trustProxy: config.trustProxy === false ? false : config.trustProxy,
     bodyLimit: 32 * 1024,
   });
