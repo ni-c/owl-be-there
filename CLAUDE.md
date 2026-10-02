@@ -56,6 +56,8 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **Touch pointers are captured implicitly** by the element where they went down: `event.target` stays the start cell for the whole drag and `pointerenter` never fires on the others. The paint engine therefore finds the cell under the finger by geometry.
 - **`touch-action: none` belongs on the input grid only.** On anything larger the page can no longer be scrolled on a phone (Crab Fit's most-reported mobile bug).
 - **`node:sqlite` is a release candidate in Node 26.** Keep it behind `db/sqlite.ts`.
+- **WebKit does not start on unsupported Linux distributions** (missing `libicu74` and friends). Run the WebKit projects in `mcr.microsoft.com/playwright:v<version>-noble` with a Node 26 on `PATH`; see CONTRIBUTING.
+- **A drag must end where the pointer was released.** Moves are applied once per animation frame; a quick flick can end before the next frame, so `pointerup` applies its own position before the stroke is committed.
 - **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets its own headers.
 
 ## Working agreements

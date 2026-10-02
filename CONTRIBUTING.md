@@ -27,7 +27,14 @@ Always install with `npm ci`. A plain `npm install` on some machines drops the o
 | `npm run test:e2e`      | Playwright in Chromium and WebKit, desktop and mobile with touch                    |
 | `npm run ci:local`      | All of the above, plus `npm audit` and a secret scan                                |
 
-The end-to-end suite needs the browsers once: `npx playwright install chromium webkit`.
+The end-to-end suite needs the browsers once: `npx playwright install chromium webkit`. On a Linux distribution Playwright does not support, WebKit will not start; run the suite in the official image instead, after `npm run build`:
+
+```sh
+docker run --rm --ipc=host -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work \
+  mcr.microsoft.com/playwright:v1.63.0-noble npx playwright test --config e2e/playwright.config.ts
+```
+
+The image must carry Node 26; if its Node is older, mount a Node 26 installation and put it first on `PATH`.
 
 ## Conventions
 
