@@ -54,7 +54,7 @@ export const SERVER_TEXTS = {
   },
   de: {
     appName: 'Owl Be There',
-    tagline: 'Finde den Tag, an dem alle können.',
+    tagline: 'Finde den Tag, der allen passt.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Markiere die Tage, an denen du kannst – ohne Anmeldung.'

@@ -228,7 +228,7 @@ test('German is a click away and remembered', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Language').selectOption('de');
   await expect(
-    page.getByRole('heading', { name: 'Finde den Tag, an dem alle können.' })
+    page.getByRole('heading', { name: 'Finde den Tag, der allen passt.' })
   ).toBeVisible();
   await page.reload();
   await expect(
