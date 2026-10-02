@@ -57,7 +57,8 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
             )
           )}
         </div>
-        <div className="justify-self-center">
+        {/* On a phone the owl greets first, above the heading; beside it on wider screens. */}
+        <div className="order-first justify-self-center sm:order-none">
           <Owl mood="happy" size={190} bob />
         </div>
       </section>
