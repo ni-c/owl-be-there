@@ -10,8 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-02
+
 ### Changed
 
+- The second view is called "Everyone" ("Alle") instead of "Group", with the number of answers as a badge; "Group · 1" read like the name of a group.
 - Request logging is switched off through Fastify's `logController` instead of the deprecated `disableRequestLogging` option, which Fastify 6 removes. The server no longer prints a deprecation warning at start.
 
 ## [0.1.0] - 2026-10-02
@@ -26,5 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ni-c/owl-be-there/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ni-c/owl-be-there/releases/tag/v0.1.0
