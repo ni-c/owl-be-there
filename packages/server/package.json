@@ -1,6 +1,6 @@
 {
   "name": "@owl/server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Owl Be There API server — Fastify and SQLite, serving the client as well",
   "license": "MIT",

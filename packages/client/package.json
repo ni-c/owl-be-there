@@ -1,6 +1,6 @@
 {
   "name": "@owl/client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Owl Be There web client — React, Vite, Tailwind",
   "license": "MIT",
