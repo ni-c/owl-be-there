@@ -1,0 +1,4 @@
+# Event pages say `noindex` themselves, and crawlers that build link previews
+# must be able to read them. Only the API is off limits.
+User-agent: *
+Disallow: /api/

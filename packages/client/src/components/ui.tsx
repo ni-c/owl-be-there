@@ -1,0 +1,298 @@
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
+import { useI18n } from '../i18n/index.tsx';
+import { CloseIcon } from './icons.tsx';
+
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+
+const VARIANTS: Record<Variant, string> = {
+  primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
+  secondary:
+    'bg-surface text-ink border-2 border-line hover:border-line-strong',
+  ghost: 'text-ink hover:bg-sunken',
+  danger: 'bg-danger text-white hover:opacity-90',
+};
+
+export function Button({
+  variant = 'secondary',
+  size = 'md',
+  className = '',
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const sizes = {
+    sm: 'min-h-9 px-3 text-sm gap-1.5',
+    md: 'min-h-11 px-4 gap-2',
+    lg: 'min-h-13 px-6 text-lg gap-2',
+  };
+  return (
+    <button
+      type="button"
+      {...props}
+      className={`inline-flex items-center justify-center rounded-full font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${sizes[size]} ${VARIANTS[variant]} ${className}`}
+    />
+  );
+}
+
+export function Card({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`rounded-3xl border border-line bg-surface p-4 shadow-card sm:p-6 ${className}`}
+    >
+      {children}
+    </section>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  hint?: string | undefined;
+  error?: string | null | undefined;
+  children: (props: {
+    id: string;
+    describedBy: string | undefined;
+    invalid: boolean;
+  }) => ReactNode;
+}
+
+/** A labelled control with its hint and error wired up for screen readers. */
+export function Field({ label, hint, error, children }: FieldProps) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  const describedBy =
+    [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') ||
+    undefined;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="font-bold">
+        {label}
+      </label>
+      {children({ id, describedBy, invalid: Boolean(error) })}
+      {hint && (
+        <p id={hintId} className="text-sm text-muted">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p
+          id={errorId}
+          className="text-sm font-semibold text-danger"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const inputClass =
+  'w-full rounded-2xl border-2 border-line bg-surface px-4 py-2.5 text-ink placeholder:text-muted/70 focus:border-focus focus:outline-none aria-[invalid=true]:border-danger';
+
+export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`${inputClass} min-h-11 ${props.className ?? ''}`}
+    />
+  );
+}
+
+export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className={`${inputClass} min-h-24 ${props.className ?? ''}`}
+    />
+  );
+}
+
+/** A row of mutually exclusive choices, as a radio group. */
+export function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: ReactNode }[];
+  onChange(value: T): void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="inline-flex rounded-full border-2 border-line bg-sunken p-1"
+    >
+      {options.map((option) => {
+        const checked = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => {
+              const index = options.findIndex((o) => o.value === value);
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                onChange(options[(index + 1) % options.length]!.value);
+              } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                onChange(
+                  options[(index - 1 + options.length) % options.length]!.value
+                );
+              }
+            }}
+            tabIndex={checked ? 0 : -1}
+            className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 font-bold transition ${
+              checked
+                ? 'bg-surface text-ink shadow-card'
+                : 'text-muted hover:text-ink'
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A button that stays pressed, like a filter chip. */
+export function Chip({
+  pressed,
+  onClick,
+  children,
+  className = '',
+  ...rest
+}: {
+  pressed: boolean;
+  onClick(): void;
+  children: ReactNode;
+  className?: string;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      {...rest}
+      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3.5 font-bold transition ${
+        pressed
+          ? 'border-brand bg-brand-soft text-ink'
+          : 'border-line bg-surface text-muted hover:text-ink'
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A modal dialog on the native `<dialog>`: focus is trapped and returned, Escape
+ * closes it, and a tap on the backdrop closes it too. On phones it rises from
+ * the bottom like a sheet.
+ */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose(): void;
+  title: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const { t } = useI18n();
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+  return (
+    // The backdrop click is a shortcut for the pointer; keyboard users have
+    // Escape (handled by the dialog itself) and the close button.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      onClose={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === ref.current) onClose();
+      }}
+      className="m-0 mt-auto w-full max-w-none rounded-t-3xl border border-line bg-surface p-0 text-ink shadow-card sm:m-auto sm:max-w-lg sm:rounded-3xl"
+    >
+      {open && (
+        <div className="flex max-h-[85dvh] flex-col">
+          <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
+            <h2 id={titleId} className="text-lg font-extrabold">
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-10 place-items-center rounded-full hover:bg-sunken"
+              aria-label={t('day.close')}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="overflow-y-auto px-5 py-4">{children}</div>
+        </div>
+      )}
+    </dialog>
+  );
+}
+
+export function Notice({
+  tone = 'info',
+  children,
+}: {
+  tone?: 'info' | 'error' | 'success';
+  children: ReactNode;
+}) {
+  const tones = {
+    info: 'bg-sunken text-ink',
+    error: 'bg-danger-soft text-ink border-danger',
+    success: 'bg-brand-soft text-ink',
+  };
+  return (
+    <div
+      role={tone === 'error' ? 'alert' : 'status'}
+      className={`rounded-2xl border border-line px-4 py-3 ${tones[tone]}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function VisuallyHidden({ children }: { children: ReactNode }) {
+  return <span className="sr-only">{children}</span>;
+}

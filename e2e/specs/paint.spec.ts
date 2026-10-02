@@ -1,0 +1,189 @@
+import { expect, test } from '@playwright/test';
+import {
+  createEvent,
+  day,
+  dayFromNow,
+  joinAs,
+  myCalendar,
+  saved,
+  snapshot,
+  utcDateOf,
+} from '../helpers.ts';
+import { drag } from '../touch.ts';
+
+const D = (offset: number) => dayFromNow(offset);
+
+async function myMarks(
+  request: Parameters<typeof snapshot>[0],
+  id: string,
+  name: string
+) {
+  const data = await snapshot(request, id);
+  const me = data.participants.find((p: { name: string }) => p.name === name);
+  return {
+    yes: me.yes as string[],
+    maybe: me.maybe as string[],
+    answered: me.answered as boolean,
+  };
+}
+
+test.describe('painting days', () => {
+  test('a tap switches a day on, a second tap off again', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Anna');
+    const cell = day(myCalendar(page), D(4));
+    await cell.click();
+    await expect(cell).toHaveAttribute('data-state', 'yes');
+    await expect(cell).toHaveAttribute('aria-pressed', 'true');
+    await saved(page);
+    expect((await myMarks(request, id, 'Anna')).yes).toEqual([D(4)]);
+    await cell.click();
+    await expect(cell).toHaveAttribute('data-state', 'none');
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Anna')).yes)
+      .toEqual([]);
+  });
+
+  test('a drag marks the rectangle it spans, and a drag from a marked day erases it', async ({
+    page,
+    request,
+  }, testInfo) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Ben');
+    const grid = myCalendar(page);
+    // One row down and one column to the right: a 2 × 2 block.
+    await drag(page, day(grid, D(4)), day(grid, D(12)), testInfo);
+    for (const offset of [4, 5, 11, 12]) {
+      await expect(day(grid, D(offset))).toHaveAttribute('data-state', 'yes');
+    }
+    await expect(day(grid, D(6))).toHaveAttribute('data-state', 'none');
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Ben')).yes)
+      .toEqual([D(4), D(5), D(11), D(12)]);
+
+    // Upwards and to the left this time, starting on a marked day: erases.
+    await drag(page, day(grid, D(12)), day(grid, D(5)), testInfo);
+    await expect(day(grid, D(5))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(12))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(4))).toHaveAttribute('data-state', 'yes');
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Ben')).yes)
+      .toEqual([D(4), D(11)]);
+  });
+
+  test('the maybe brush, undo, and the weekday header', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Cem');
+    const grid = myCalendar(page);
+    await page.getByRole('radio', { name: 'Maybe' }).click();
+    await day(grid, D(6)).click();
+    await expect(day(grid, D(6))).toHaveAttribute('data-state', 'maybe');
+    await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'mixed');
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(day(grid, D(6))).toHaveAttribute('data-state', 'none');
+
+    await page.getByRole('radio', { name: 'Can' }).click();
+    const weekday = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      timeZone: 'UTC',
+    }).format(utcDateOf(D(6)));
+    await page.getByRole('button', { name: `All ${weekday}s` }).click();
+    await expect(day(grid, D(6))).toHaveAttribute('data-state', 'yes');
+    await expect(day(grid, D(13))).toHaveAttribute('data-state', 'yes');
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Cem')).yes)
+      .toEqual([D(6), D(13)]);
+  });
+
+  test('rapid taps on a slow network end up on the server exactly as on screen', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Dora');
+    await page.route('**/marks', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await route.continue();
+    });
+    const grid = myCalendar(page);
+    const offsets = [
+      3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 3, 5, 7, 9, 11, 13, 14, 15, 16, 4,
+    ];
+    for (const offset of offsets) await day(grid, D(offset)).click();
+    const expected = new Set<string>();
+    for (const offset of offsets) {
+      const iso = D(offset);
+      if (expected.has(iso)) expected.delete(iso);
+      else expected.add(iso);
+    }
+    await saved(page);
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Dora')).yes, {
+        timeout: 15_000,
+      })
+      .toEqual([...expected].sort());
+    await page.reload();
+    for (const iso of expected)
+      await expect(day(myCalendar(page), iso)).toHaveAttribute(
+        'data-state',
+        'yes'
+      );
+  });
+
+  test('"none of these days" counts as an answer', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Emil');
+    await page
+      .getByRole('button', { name: 'None of these days work for me' })
+      .click();
+    await expect(
+      page.getByText('Saved: none of these days work for you.')
+    ).toBeVisible();
+    expect((await myMarks(request, id, 'Emil')).answered).toBe(true);
+  });
+
+  test('the keyboard can do everything', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name.endsWith('mobile'),
+      'keyboards are a desktop thing'
+    );
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Finn');
+    const grid = myCalendar(page);
+    await day(grid, D(4)).focus();
+    await page.keyboard.press('Space');
+    await expect(day(grid, D(4))).toHaveAttribute('data-state', 'yes');
+    await page.keyboard.press('ArrowRight');
+    await expect(day(grid, D(5))).toBeFocused();
+    // Shift + arrows span a rectangle, Space applies it.
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Space');
+    await expect(day(grid, D(5))).toHaveAttribute('data-state', 'yes');
+    await expect(day(grid, D(12))).toHaveAttribute('data-state', 'yes');
+    await page.keyboard.press('m');
+    await expect(page.getByRole('radio', { name: 'Maybe' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await page.keyboard.press('Control+z');
+    await expect(day(grid, D(5))).toHaveAttribute('data-state', 'none');
+  });
+});

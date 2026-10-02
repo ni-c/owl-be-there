@@ -1,5 +1,381 @@
 @import 'tailwindcss';
 
-@theme {
+/*
+ * Design tokens. Light is the default; dark — "night owl" — follows the
+ * system unless the reader picked one, which the inline script in index.html
+ * stamps as `data-theme` before the first paint.
+ *
+ * The heat ramp, the "yes" and the "maybe" colours were run through the
+ * dataviz validator against both surfaces: the ramp is one hue, monotone in
+ * lightness, with visible steps and its first step clear of the surface; yes
+ * and maybe stay apart under every colour-vision deficiency. Maybe is also
+ * hatched and carries a "?", so it never relies on colour alone.
+ */
+:root {
+  color-scheme: light;
+  --owl-bg: #fbf6ee;
+  --owl-surface: #ffffff;
+  --owl-sunken: #f4ece0;
+  --owl-line: #e6dac6;
+  --owl-line-strong: #cdbca2;
+  --owl-ink: #2a2118;
+  --owl-muted: #6b5b4a;
+  --owl-brand: #b5541c;
+  --owl-brand-hover: #9a4515;
+  --owl-brand-ink: #ffffff;
+  --owl-brand-soft: #f8e4d0;
+  --owl-focus: #1d4ed8;
+  --owl-danger: #b42318;
+  --owl-danger-soft: #fde8e6;
+  --owl-yes: #268262;
+  --owl-yes-ink: #ffffff;
+  --owl-maybe: #e0a020;
+  --owl-maybe-ink: #2a2118;
+  --owl-heat-0: #f1e8da;
+  --owl-heat-1: #6fbc9f;
+  --owl-heat-2: #4aa685;
+  --owl-heat-3: #268262;
+  --owl-heat-4: #1a7055;
+  --owl-heat-5: #0e5441;
+  --owl-heat-ink-low: #10261d;
+  --owl-heat-ink-high: #ffffff;
+  --owl-feather: #8b5e3c;
+  --owl-feather-dark: #6b4429;
+  --owl-belly: #f2d9b8;
+  --owl-eye: #fffaf2;
+  --owl-iris: #e8a33d;
+  --owl-beak: #e07a2e;
+  --owl-shadow: 0 1px 2px rgb(60 40 20 / 0.06), 0 4px 16px rgb(60 40 20 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --owl-bg: #16182b;
+    --owl-surface: #1e2137;
+    --owl-sunken: #23263f;
+    --owl-line: #2f3352;
+    --owl-line-strong: #454a70;
+    --owl-ink: #f3ede4;
+    --owl-muted: #b6afa6;
+    --owl-brand: #f08a4b;
+    --owl-brand-hover: #f6a06b;
+    --owl-brand-ink: #1b1308;
+    --owl-brand-soft: #3a2c2a;
+    --owl-focus: #93b4ff;
+    --owl-danger: #ff8a7a;
+    --owl-danger-soft: #3d2230;
+    --owl-yes: #2c9572;
+    --owl-yes-ink: #0c1f18;
+    --owl-maybe: #b8821c;
+    --owl-maybe-ink: #1b1308;
+    --owl-heat-0: #23263f;
+    --owl-heat-1: #1f5a4c;
+    --owl-heat-2: #23735f;
+    --owl-heat-3: #389c7e;
+    --owl-heat-4: #4fb393;
+    --owl-heat-5: #86d6b8;
+    --owl-heat-ink-low: #f3ede4;
+    --owl-heat-ink-high: #0c1f18;
+    --owl-feather: #a77650;
+    --owl-feather-dark: #835a3a;
+    --owl-belly: #e8cba4;
+    --owl-eye: #fff6e6;
+    --owl-iris: #f2b44e;
+    --owl-beak: #f08a4b;
+    --owl-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --owl-bg: #16182b;
+  --owl-surface: #1e2137;
+  --owl-sunken: #23263f;
+  --owl-line: #2f3352;
+  --owl-line-strong: #454a70;
+  --owl-ink: #f3ede4;
+  --owl-muted: #b6afa6;
+  --owl-brand: #f08a4b;
+  --owl-brand-hover: #f6a06b;
+  --owl-brand-ink: #1b1308;
+  --owl-brand-soft: #3a2c2a;
+  --owl-focus: #93b4ff;
+  --owl-danger: #ff8a7a;
+  --owl-danger-soft: #3d2230;
+  --owl-yes: #2c9572;
+  --owl-yes-ink: #0c1f18;
+  --owl-maybe: #b8821c;
+  --owl-maybe-ink: #1b1308;
+  --owl-heat-0: #23263f;
+  --owl-heat-1: #1f5a4c;
+  --owl-heat-2: #23735f;
+  --owl-heat-3: #389c7e;
+  --owl-heat-4: #4fb393;
+  --owl-heat-5: #86d6b8;
+  --owl-heat-ink-low: #f3ede4;
+  --owl-heat-ink-high: #0c1f18;
+  --owl-feather: #a77650;
+  --owl-feather-dark: #835a3a;
+  --owl-belly: #e8cba4;
+  --owl-eye: #fff6e6;
+  --owl-iris: #f2b44e;
+  --owl-beak: #f08a4b;
+  --owl-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+@theme inline {
   --font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+  --color-bg: var(--owl-bg);
+  --color-surface: var(--owl-surface);
+  --color-sunken: var(--owl-sunken);
+  --color-line: var(--owl-line);
+  --color-line-strong: var(--owl-line-strong);
+  --color-ink: var(--owl-ink);
+  --color-muted: var(--owl-muted);
+  --color-brand: var(--owl-brand);
+  --color-brand-hover: var(--owl-brand-hover);
+  --color-brand-ink: var(--owl-brand-ink);
+  --color-brand-soft: var(--owl-brand-soft);
+  --color-focus: var(--owl-focus);
+  --color-danger: var(--owl-danger);
+  --color-danger-soft: var(--owl-danger-soft);
+  --color-yes: var(--owl-yes);
+  --color-yes-ink: var(--owl-yes-ink);
+  --color-maybe: var(--owl-maybe);
+  --color-maybe-ink: var(--owl-maybe-ink);
+  --shadow-card: var(--owl-shadow);
+}
+
+html {
+  background: var(--owl-bg);
+  color: var(--owl-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+:focus-visible {
+  outline: 3px solid var(--owl-focus);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Hatching: the second channel for "maybe", so it never relies on colour. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.32) 0 3px,
+    transparent 3px 7px
+  );
+}
+
+/* ------------------------------------------------------------- calendar */
+
+.cal {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/*
+ * Seven flexible columns beside a narrow one for the month and week. On a
+ * 320-pixel phone a cell is still 33 pixels wide and 44 high; on a desktop the
+ * cells grow square up to 4rem.
+ */
+.cal-row,
+.cal-head {
+  display: grid;
+  grid-template-columns: 2.25rem repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+}
+
+/* Only the grid one paints on gives up native scrolling and zooming. */
+.cal-paint .cal-body {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 2.75rem;
+  max-height: 4rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.cal-cell[data-month-start='true'] {
+  box-shadow: inset 3px 0 0 var(--owl-line-strong);
+}
+
+.cal-cell[data-kind='outside'] {
+  color: var(--owl-muted);
+  opacity: 0.35;
+}
+
+.cal-cell[data-kind='inactive'] {
+  color: var(--owl-muted);
+  background: transparent;
+  opacity: 0.55;
+}
+
+.cal-cell[data-kind='past'] {
+  color: var(--owl-muted);
+  background: var(--owl-sunken);
+  opacity: 0.6;
+}
+
+.cal-cell[data-state='none'] {
+  background: var(--owl-surface);
+  border: 1.5px solid var(--owl-line);
+}
+
+.cal-cell[data-state='yes'] {
+  background: var(--owl-yes);
+  color: var(--owl-yes-ink);
+}
+
+.cal-cell[data-state='maybe'] {
+  background-color: var(--owl-maybe);
+  color: var(--owl-maybe-ink);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.34) 0 3px,
+    transparent 3px 7px
+  );
+}
+
+.cal-cell[data-state='off'] {
+  background: transparent;
+  border: 1.5px dashed var(--owl-line-strong);
+  color: var(--owl-muted);
+}
+
+.cal-cell[data-state='on'] {
+  background: var(--owl-brand-soft);
+  border: 1.5px solid var(--owl-brand);
+}
+
+.cal-cell[data-preview='true'] {
+  transform: scale(0.92);
+  box-shadow: 0 0 0 2px var(--owl-focus);
+}
+
+.cal-cell[data-heat='0'] {
+  background: var(--owl-heat-0);
+  color: var(--owl-ink);
+}
+.cal-cell[data-heat='1'] {
+  background: var(--owl-heat-1);
+  color: var(--owl-heat-ink-low);
+}
+.cal-cell[data-heat='2'] {
+  background: var(--owl-heat-2);
+  color: var(--owl-heat-ink-low);
+}
+.cal-cell[data-heat='3'] {
+  background: var(--owl-heat-3);
+  color: var(--owl-heat-ink-high);
+}
+.cal-cell[data-heat='4'] {
+  background: var(--owl-heat-4);
+  color: var(--owl-heat-ink-high);
+}
+.cal-cell[data-heat='5'] {
+  background: var(--owl-heat-5);
+  color: var(--owl-heat-ink-high);
+}
+
+.cal-cell[data-best='true'] {
+  box-shadow:
+    0 0 0 2px var(--owl-surface),
+    0 0 0 4px var(--owl-brand);
+}
+
+.cal-cell[data-selected='true'] {
+  box-shadow:
+    0 0 0 2px var(--owl-surface),
+    0 0 0 4px var(--owl-focus);
+}
+
+button.cal-cell:not(:disabled) {
+  cursor: pointer;
+}
+
+button.cal-cell:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+.legend-step {
+  height: 0.75rem;
+  flex: 1;
+}
+
+@media (forced-colors: active) {
+  .cal-cell[data-state='yes'],
+  .cal-cell[data-state='maybe'],
+  .cal-cell[data-heat] {
+    border: 2px solid CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------- owl motion */
+
+@keyframes owl-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+.owl-eyes {
+  transform-origin: center 46%;
+  transform-box: fill-box;
+  animation: owl-blink 6s infinite;
+}
+
+@keyframes owl-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.owl-bob {
+  animation: owl-bob 3.2s ease-in-out infinite;
+}
+
+dialog::backdrop {
+  background: rgb(20 15 10 / 0.45);
 }
