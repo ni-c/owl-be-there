@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { Store, type Backing } from '../src/lib/storage.ts';
+import { browserBacking, Store, type Backing } from '../src/lib/storage.ts';
 
 class MapBacking implements Backing {
   readonly map = new Map<string, string>();
@@ -74,5 +74,45 @@ describe('Store', () => {
     const store = new Store(null);
     store.write('owl.theme', 'light');
     expect(store.read('owl.theme', Theme)).toBe('light');
+  });
+});
+
+describe('browserBacking', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const setWindow = (value: unknown): void => {
+    Object.defineProperty(globalThis, 'window', { value, configurable: true });
+  };
+  const restore = (): void => {
+    if (original) Object.defineProperty(globalThis, 'window', original);
+    else Reflect.deleteProperty(globalThis, 'window');
+  };
+
+  it('hands out localStorage when it accepts a write', () => {
+    const storage = new MapBacking();
+    setWindow({ localStorage: storage });
+    try {
+      expect(browserBacking()).toBe(storage);
+      expect(storage.map.size).toBe(0);
+    } finally {
+      restore();
+    }
+  });
+
+  it('gives null when the browser refuses storage', () => {
+    setWindow({ localStorage: new RefusingBacking() });
+    try {
+      expect(browserBacking()).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('gives null where there is no window at all', () => {
+    setWindow(undefined);
+    try {
+      expect(browserBacking()).toBeNull();
+    } finally {
+      restore();
+    }
   });
 });
