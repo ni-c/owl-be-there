@@ -238,7 +238,7 @@ jobs:
           docker run -d --name owl --platform ${{ matrix.platform }} --read-only --tmpfs /tmp \
             --cap-drop ALL --security-opt no-new-privileges:true \
             -p 127.0.0.1:8080:8080 owl-be-there:scan-${{ matrix.tag }}
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:8080/api/health && break
             sleep 2
           done
