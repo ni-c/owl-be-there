@@ -68,6 +68,8 @@ jobs:
   # under a finger in each engine, so neither stands in for the other.
   e2e:
     runs-on: ubuntu-latest
+    # A normal run takes about five minutes; anything near this is stuck.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,11 +88,12 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # Always this one command: with the browsers cached it only installs the
+      # system libraries, which the cache does not hold. A separate
+      # `install-deps` step for the cache-hit case hung for over an hour.
       - run: npx playwright install --with-deps chromium chromium-headless-shell webkit
-        if: steps.browser-cache.outputs.cache-hit != 'true'
-      # The system libraries are not in the cache, only the browsers are.
-      - run: npx playwright install-deps chromium webkit
-        if: steps.browser-cache.outputs.cache-hit == 'true'
+        env:
+          DEBIAN_FRONTEND: noninteractive
       - run: npm run build
       - run: npm run test:e2e
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
