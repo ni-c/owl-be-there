@@ -27,9 +27,6 @@ interface GroupViewProps {
   adminToken: string | null;
   firstWeekday: Weekday;
   today: ISODate;
-  page: number;
-  onPageChange(page: number): void;
-  maxRows: number;
 }
 
 const BEST_SHOWN = 5;
@@ -143,9 +140,6 @@ export function GroupView(props: GroupViewProps) {
         firstWeekday={props.firstWeekday}
         today={today}
         label={t('event.tabGroup')}
-        page={props.page}
-        onPageChange={props.onPageChange}
-        maxRows={props.maxRows}
       />
 
       <section className="flex flex-col gap-3">

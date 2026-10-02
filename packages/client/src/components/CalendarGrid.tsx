@@ -4,18 +4,16 @@ import {
   buildWeeks,
   compareISODate,
   formatDay,
-  isOnPage,
-  paginate,
   strokeModeFor,
   tapDay,
   toggleDays,
   weekdayOf,
   WEEKDAYS,
-  type GridPage,
   type ISODate,
   type Mark,
   type Marks,
   type StrokeMode,
+  type WeekRow,
   type Weekday,
 } from '@owl/shared';
 import {
@@ -28,7 +26,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import { ChevronLeftIcon, ChevronRightIcon } from './icons.tsx';
 
 export interface HeatInfo {
   level: 0 | 1 | 2 | 3 | 4 | 5;
@@ -49,9 +46,6 @@ interface BaseProps {
   firstWeekday: Weekday;
   today: ISODate;
   label: string;
-  page: number;
-  onPageChange(page: number): void;
-  maxRows: number;
 }
 
 interface PaintProps extends BaseProps {
@@ -90,67 +84,36 @@ interface Stroke {
   moved: boolean;
 }
 
-/** The pages for a set of days, and where each day sits on them. */
-export function usePages(
+/** The week rows for a set of days: always the whole range, never paged. */
+export function useWeeks(
   days: readonly ISODate[],
-  firstWeekday: Weekday,
-  maxRows: number
-): GridPage[] {
-  return useMemo(() => {
-    const weeks = buildWeeks(days, firstWeekday);
-    return paginate(weeks, days, maxRows);
-  }, [days, firstWeekday, maxRows]);
-}
-
-/**
- * How many week rows fit on the screen beside everything else on the page.
- * Never fewer than six — a whole month — so a month page always fits.
- */
-export function useMaxRows(reserved = 220, rowHeight = 50): number {
-  const compute = useCallback(
-    () => Math.max(6, Math.floor((window.innerHeight - reserved) / rowHeight)),
-    [reserved, rowHeight]
-  );
-  const [rows, setRows] = useState(compute);
-  useEffect(() => {
-    const onResize = () => setRows(compute());
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [compute]);
-  return rows;
+  firstWeekday: Weekday
+): WeekRow[] {
+  return useMemo(() => buildWeeks(days, firstWeekday), [days, firstWeekday]);
 }
 
 export function CalendarGrid(props: CalendarGridProps) {
-  const {
-    days,
-    firstWeekday,
-    today,
-    label,
-    page: pageIndex,
-    onPageChange,
-    maxRows,
-  } = props;
+  const { days, firstWeekday, today, label } = props;
   const { t, tn, locale } = useI18n();
-  const pages = usePages(days, firstWeekday, maxRows);
-  const page = pages[Math.min(pageIndex, pages.length - 1)] ?? pages[0]!;
+  const rows = useWeeks(days, firstWeekday);
   const daySet = useMemo(() => new Set(days), [days]);
   const paint = props.mode !== 'heat';
   const disabled = paint && Boolean((props as PaintProps).disabled);
 
   const selectable = useCallback(
     (day: ISODate): boolean =>
-      daySet.has(day) && isOnPage(page, day) && compareISODate(day, today) >= 0,
-    [daySet, page, today]
+      daySet.has(day) && compareISODate(day, today) >= 0,
+    [daySet, today]
   );
 
-  // Where each day of the page sits, for the rectangle.
+  // Where each day sits in the grid, for the rectangle.
   const positions = useMemo(() => {
     const map = new Map<ISODate, Position>();
-    page.rows.forEach((row, rowIndex) =>
+    rows.forEach((row, rowIndex) =>
       row.days.forEach((day, col) => map.set(day, { row: rowIndex, col }))
     );
     return map;
-  }, [page]);
+  }, [rows]);
 
   const daysInRect = useCallback(
     (a: Position, b: Position): ISODate[] => {
@@ -165,13 +128,13 @@ export function CalendarGrid(props: CalendarGridProps) {
           col <= Math.max(a.col, b.col);
           col += 1
         ) {
-          const day = page.rows[row]?.days[col];
+          const day = rows[row]?.days[col];
           if (day && selectable(day)) result.push(day);
         }
       }
       return result;
     },
-    [page, selectable]
+    [rows, selectable]
   );
 
   /* ------------------------------------------------------- the paint engine */
@@ -316,7 +279,7 @@ export function CalendarGrid(props: CalendarGridProps) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const position = positionAt(event.clientX, event.clientY);
     if (!position) return;
-    const day = page.rows[position.row]?.days[position.col];
+    const day = rows[position.row]?.days[position.col];
     if (!day || !selectable(day)) return;
     try {
       (event.target as Element).releasePointerCapture?.(event.pointerId);
@@ -354,11 +317,10 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   const focusable = useMemo(() => {
     const list: ISODate[] = [];
-    for (const row of page.rows)
-      for (const day of row.days)
-        if (daySet.has(day) && isOnPage(page, day)) list.push(day);
+    for (const row of rows)
+      for (const day of row.days) if (daySet.has(day)) list.push(day);
     return list;
-  }, [page, daySet]);
+  }, [rows, daySet]);
 
   const tabStop =
     focused && focusable.includes(focused)
@@ -372,7 +334,7 @@ export function CalendarGrid(props: CalendarGridProps) {
       buttons.current.get(focused)?.focus();
       keyboardMoved.current = false;
     }
-  }, [focused, page]);
+  }, [focused, rows]);
 
   const move = (from: ISODate, dRow: number, dCol: number): ISODate | null => {
     const start = positions.get(from);
@@ -388,9 +350,9 @@ export function CalendarGrid(props: CalendarGridProps) {
         col = 0;
         row += 1;
       }
-      if (row < 0 || row >= page.rows.length) return null;
-      const day = page.rows[row]!.days[col]!;
-      if (daySet.has(day) && isOnPage(page, day)) return day;
+      if (row < 0 || row >= rows.length) return null;
+      const day = rows[row]!.days[col]!;
+      if (daySet.has(day)) return day;
     }
   };
 
@@ -434,21 +396,13 @@ export function CalendarGrid(props: CalendarGridProps) {
     }
     if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
-      const row = page.rows[positions.get(target)?.row ?? 0]!;
-      const inRow = row.days.filter(
-        (day) => daySet.has(day) && isOnPage(page, day)
-      );
+      const row = rows[positions.get(target)?.row ?? 0]!;
+      const inRow = row.days.filter((day) => daySet.has(day));
       const next = event.key === 'Home' ? inRow[0] : inRow[inRow.length - 1];
       if (next) {
         keyboardMoved.current = true;
         setFocused(next);
       }
-      return;
-    }
-    if (event.key === 'PageUp' || event.key === 'PageDown') {
-      event.preventDefault();
-      const nextPage = pageIndex + (event.key === 'PageDown' ? 1 : -1);
-      if (nextPage >= 0 && nextPage < pages.length) onPageChange(nextPage);
       return;
     }
     if (!paint || disabled) return;
@@ -492,7 +446,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const weekdayTargets = (weekday: Weekday): ISODate[] =>
-    // The whole range, not just the page: "every Saturday" means every one.
+    // "Every Saturday" means every one in the range.
     days.filter(
       (day) => weekdayOf(day) === weekday && compareISODate(day, today) >= 0
     );
@@ -531,35 +485,6 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   return (
     <div className={`cal ${paint && !disabled ? 'cal-paint' : ''}`}>
-      {pages.length > 1 && (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            className="grid size-11 place-items-center rounded-full border-2 border-line bg-surface disabled:opacity-40"
-            onClick={() => onPageChange(pageIndex - 1)}
-            disabled={pageIndex === 0}
-            aria-label={t('cal.previous')}
-          >
-            <ChevronLeftIcon />
-          </button>
-          <p className="text-lg font-extrabold" aria-live="polite">
-            {t('cal.page', {
-              month: page.month ? monthName(page.month, 'long') : '',
-              current: pageIndex + 1,
-              total: pages.length,
-            })}
-          </p>
-          <button
-            type="button"
-            className="grid size-11 place-items-center rounded-full border-2 border-line bg-surface disabled:opacity-40"
-            onClick={() => onPageChange(pageIndex + 1)}
-            disabled={pageIndex >= pages.length - 1}
-            aria-label={t('cal.next')}
-          >
-            <ChevronRightIcon />
-          </button>
-        </div>
-      )}
       <div
         role="grid"
         aria-label={label}
@@ -605,7 +530,7 @@ export function CalendarGrid(props: CalendarGridProps) {
           className="cal-body flex flex-col gap-1"
           onPointerDown={onPointerDown}
         >
-          {page.rows.map((row) => {
+          {rows.map((row) => {
             const weekTargets = row.days.filter((day) => selectable(day));
             return (
               <div role="row" className="cal-row" key={row.start}>
@@ -647,16 +572,15 @@ export function CalendarGrid(props: CalendarGridProps) {
                 </span>
                 {row.days.map((day) => {
                   const inSet = daySet.has(day);
-                  const onPage = isOnPage(page, day);
                   const past = compareISODate(day, today) < 0;
                   const number = Number(day.slice(8));
                   const monthStart = number === 1 && inSet;
-                  if (!inSet || !onPage) {
+                  if (!inSet) {
                     return (
                       <div role="gridcell" key={day} aria-hidden="true">
                         <div
                           className="cal-cell text-sm"
-                          data-kind={inSet ? 'inactive' : 'outside'}
+                          data-kind="outside"
                           data-month-start={monthStart}
                         >
                           {number}

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.2] - 2026-10-02
 
+### Fixed
+
+- On a phone, a calendar spanning more than a month no longer jumps while scrolling. It switched between month pages and the whole range whenever the address bar slid in or out and changed the window height. Month pages are gone: the calendar always shows the whole range, and only the paintable days take over the finger — the week column, past days and the margins still scroll the page.
+
 ### Removed
 
 - The "Tap or drag" card on the start page: painting days by tapping and dragging is what people expect from a calendar, not a selling point. The other two cards stay.

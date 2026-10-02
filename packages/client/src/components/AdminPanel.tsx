@@ -20,7 +20,7 @@ import { api, ApiFailure } from '../lib/api.ts';
 import { errorMessage } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { forgetEvent } from '../lib/prefs.ts';
-import { CalendarGrid, useMaxRows } from './CalendarGrid.tsx';
+import { CalendarGrid } from './CalendarGrid.tsx';
 import { LockIcon, TrashIcon } from './icons.tsx';
 import {
   Button,
@@ -327,8 +327,6 @@ function DaysEditor(
   const [selection, setSelection] = useState<Map<ISODate, Mark>>(
     () => new Map(days.map((day) => [day, 'yes' as Mark]))
   );
-  const [page, setPage] = useState(0);
-  const maxRows = useMaxRows(300);
 
   // The range to show: the existing days, extended up to the chosen end.
   const end = isValidISODate(until) ? maxISODate(until, last) : last;
@@ -377,9 +375,6 @@ function DaysEditor(
         firstWeekday={firstWeekday}
         today={today}
         label={t('admin.days')}
-        page={page}
-        onPageChange={setPage}
-        maxRows={maxRows}
       />
       <div>
         <Button

@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildWeeks,
   expandRange,
-  isOnPage,
-  paginate,
   rowStartOf,
   type Weekday,
 } from '../src/index.js';
@@ -79,42 +77,5 @@ describe('buildWeeks', () => {
     expect(
       buildWeeks(['2026-10-10', '2026-10-03', '2026-10-03'], MONDAY)
     ).toEqual(buildWeeks(['2026-10-03', '2026-10-10'], MONDAY));
-  });
-});
-
-describe('paginate', () => {
-  const days = expandRange('2026-10-01', '2026-12-31');
-  const rows = buildWeeks(days, MONDAY);
-
-  it('keeps everything on one page when it fits', () => {
-    const pages = paginate(rows, days, rows.length);
-    expect(pages).toHaveLength(1);
-    expect(pages[0]!.month).toBeNull();
-    expect(isOnPage(pages[0]!, '2026-11-15')).toBe(true);
-  });
-
-  it('splits by month when it does not, sharing the weeks that straddle', () => {
-    const pages = paginate(rows, days, 6);
-    expect(pages.map((page) => page.month)).toEqual([
-      '2026-10',
-      '2026-11',
-      '2026-12',
-    ]);
-    // 26 October to 1 November is on the October page and the November page.
-    expect(pages[0]!.rows.at(-1)!.start).toBe('2026-10-26');
-    expect(pages[1]!.rows[0]!.start).toBe('2026-10-26');
-    expect(isOnPage(pages[1]!, '2026-10-31')).toBe(false);
-    expect(isOnPage(pages[1]!, '2026-11-01')).toBe(true);
-    for (const page of pages) expect(page.rows.length).toBeLessThanOrEqual(6);
-  });
-
-  it('treats a limit below one as one row', () => {
-    expect(paginate(rows.slice(0, 1), days, 0)).toHaveLength(1);
-  });
-
-  it('gives one empty page for no rows', () => {
-    expect(paginate([], [], 6)).toEqual([
-      { key: 'all', month: null, rows: [] },
-    ]);
   });
 });
