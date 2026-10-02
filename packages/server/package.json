@@ -1,0 +1,18 @@
+{
+  "name": "@owl/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Owl Be There API server — Fastify and SQLite, serving the client as well",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "dev": "node --watch --env-file-if-exists=../../.env dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@owl/shared": "*"
+  }
+}

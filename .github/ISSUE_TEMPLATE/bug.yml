@@ -1,0 +1,42 @@
+name: Bug report
+description: Something behaves wrongly or breaks
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Owl Be There version
+      placeholder: '0.1.0 (image tag or commit)'
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Where does it run?
+      options:
+        - Docker (ghcr.io image)
+        - Built from source
+        - A public instance (please name it below)
+        - other
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: 'Safari on iPhone 15, iOS 26.1 · Firefox 145 on Windows · …'
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what did you expect?
+      description: Steps to reproduce help most. Please do not paste event links — they are the key to an event.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: From `docker logs` or the browser console.
+      render: text

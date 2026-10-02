@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--owl:head-->
+    <title>Owl Be There</title>
+    <meta
+      name="description"
+      content="Find the day that works for everyone. Mark the days you can make it on a calendar and see at a glance when the whole group is free. No sign-up."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!--/owl:head-->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      /*
+       * Stamp the theme before the first paint, so a dark-mode reader never
+       * sees a flash of the light page. The choice lives in localStorage; the
+       * app rewrites it whenever it changes.
+       */
+      (function () {
+        try {
+          var theme = localStorage.getItem('owl.theme');
+          if (theme === '"light"' || theme === '"dark"') {
+            document.documentElement.setAttribute(
+              'data-theme',
+              JSON.parse(theme)
+            );
+          }
+        } catch (error) {
+          /* A blocked localStorage is not worth a blank page. */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

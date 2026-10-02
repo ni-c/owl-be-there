@@ -1,0 +1,59 @@
+{
+  "name": "owl-be-there",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Find the day that works for everyone: mark whole days on a calendar, see when the group is free. No accounts.",
+  "license": "MIT",
+  "author": "Willi Thiel",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ni-c/owl-be-there.git"
+  },
+  "homepage": "https://github.com/ni-c/owl-be-there#readme",
+  "bugs": "https://github.com/ni-c/owl-be-there/issues",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
+    "build": "npm run build:shared && npm run build -w @owl/server && npm run build -w @owl/client",
+    "build:shared": "npm run build -w @owl/shared",
+    "dev": "npm run build:shared && concurrently -n shared,server,client -c blue,green,cyan \"npm run watch -w @owl/shared\" \"npm run dev -w @owl/server\" \"npm run dev -w @owl/client\"",
+    "start": "node packages/server/dist/index.js",
+    "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:tz": "node scripts/test-time-zones.ts",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "scan:secrets": "docker run --rm -v \"$PWD\":/repo:ro aquasec/trivy:0.73.0 fs --scanners secret --exit-code 1 --skip-dirs '**/node_modules' --skip-dirs '**/dist' --skip-dirs coverage --skip-dirs playwright-report --skip-dirs test-results /repo",
+    "ci:local": "npm run lint && npm run typecheck && npm audit --audit-level=high && npm run scan:secrets && npm run test:coverage && npm run test:tz && npm run build && npm run test:e2e"
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
+    "@vitest/coverage-v8": "^5.0.3",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.11.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fast-check": "^4.10.2",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

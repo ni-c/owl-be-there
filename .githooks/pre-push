@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Lint and types before anything leaves the machine — a few seconds, so it is
+# not worth bypassing. The test suites run in CI on every pull request.
+#
+# Enabled by `core.hooksPath`, which the `prepare` script in package.json sets
+# on every `npm install`. To do it by hand:
+#
+#     git config core.hooksPath .githooks
+
+set -e
+
+printf '\033[2mpre-push: lint\033[0m\n'
+npm run --silent lint
+
+printf '\033[2mpre-push: typecheck\033[0m\n'
+npm run --silent typecheck
+
+printf '\033[2mpre-push: ok\033[0m\n'

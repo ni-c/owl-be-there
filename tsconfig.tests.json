@@ -1,0 +1,33 @@
+{
+  // Everything that tests the application but is not part of it.
+  //
+  // The per-package configs cover `src` only — they exist to build. Vitest and
+  // Playwright both transpile rather than typecheck, so without this file a test
+  // could pass a number where a string belongs and nobody would hear about it.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false,
+    // `scripts/` is run by Node itself, which strips the types rather than
+    // compiling them, and its resolver wants the file name that is really there.
+    "allowImportingTsExtensions": true,
+    // Pointed at the sources, the same as the Vitest alias: a type check that
+    // silently depends on a fresh build would one day check last week's types.
+    "paths": {
+      "@owl/shared": ["./packages/shared/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/shared/test/**/*.ts",
+    "packages/server/test/**/*.ts",
+    "e2e/**/*.ts",
+    "scripts/**/*.ts",
+    "vitest.config.ts",
+    "packages/client/vite.config.ts"
+  ]
+}
