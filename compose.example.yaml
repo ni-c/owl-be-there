@@ -1,0 +1,42 @@
+# A minimal deployment: one container, one volume, behind a reverse proxy on
+# the same machine that terminates TLS. Copy to compose.yaml and adjust the
+# three marked values.
+
+services:
+  owl:
+    image: ghcr.io/ni-c/owl-be-there:0.1.0
+    restart: unless-stopped
+    environment:
+      # 1. The public address, without a trailing slash.
+      PUBLIC_URL: https://owl.example.org
+      # The proxy reaches the container from the network's gateway; trust
+      # exactly that network and nothing else.
+      TRUST_PROXY: 172.31.255.0/24
+      # 2. Shown on the privacy page. All optional.
+      OPERATOR_NAME: Example Organisation
+      OPERATOR_CONTACT: privacy@example.org
+      LOG_RETENTION_DAYS: '7'
+      BACKUP_RETENTION_DAYS: '7'
+    volumes:
+      - ./data:/data
+    # 3. Loopback only: Docker publishes ports past the host firewall, so a
+    # port bound to 0.0.0.0 would be reachable from the internet directly.
+    ports:
+      - 127.0.0.1:8080:8080
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 1.0
+    networks:
+      - owl
+
+networks:
+  owl:
+    ipam:
+      config:
+        - subnet: 172.31.255.0/24

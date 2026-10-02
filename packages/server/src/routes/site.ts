@@ -1,0 +1,110 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import fastifyStatic from '@fastify/static';
+import { isId, RETENTION_DAYS } from '@owl/shared';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { AppContext } from '../context.js';
+import { snapshot } from '../db/repo.js';
+import { defaultHead, eventHead } from '../pages.js';
+
+/** `/api/instance` and `/api/health`: what the client and a monitor ask. */
+export function registerInstanceRoutes(
+  app: FastifyInstance,
+  ctx: AppContext
+): void {
+  const { config } = ctx;
+
+  app.get('/api/instance', async (_request, reply) =>
+    reply.header('cache-control', 'no-cache').send({
+      version: ctx.version,
+      creationEnabled: config.creationEnabled,
+      retentionDays: RETENTION_DAYS,
+      logRetentionDays: config.logRetentionDays,
+      backupRetentionDays: config.backupRetentionDays,
+      operatorName: config.operatorName,
+      operatorContact: config.operatorContact,
+      imprintUrl: config.imprintUrl,
+    })
+  );
+
+  // Unauthenticated and not rate limited, for the container healthcheck. It
+  // asks the database something, so a locked or missing file shows up here.
+  app.get('/api/health', async (_request, reply) => {
+    ctx.db.get('SELECT 1');
+    return reply.header('cache-control', 'no-store').send({ ok: true });
+  });
+}
+
+/**
+ * The client: its static files, and `index.html` with the right head for every
+ * page. Anything under `/api` that matched no route is a JSON 404; any other
+ * unknown path is the app's own "not found" page, with a 404 status.
+ */
+export async function registerSite(
+  app: FastifyInstance,
+  ctx: AppContext
+): Promise<void> {
+  const { template, config } = ctx;
+  const page = (
+    reply: FastifyReply,
+    head: string,
+    status = 200
+  ): FastifyReply =>
+    reply
+      .code(status)
+      .header('content-type', 'text/html; charset=utf-8')
+      .header('cache-control', 'no-cache')
+      .send(template!.render(head));
+
+  if (template && config.clientDir) {
+    app.get('/', async (_request, reply) =>
+      page(reply, defaultHead(config.publicUrl, '/'))
+    );
+    app.get('/privacy', async (_request, reply) =>
+      page(reply, defaultHead(config.publicUrl, '/privacy'))
+    );
+    app.get<{ Params: { id: string } }>('/e/:id', async (request, reply) => {
+      // Reads only: a crawler fetching a preview must not keep an event alive.
+      const data = isId(request.params.id)
+        ? snapshot(ctx.db, request.params.id)
+        : null;
+      reply.header('x-robots-tag', 'noindex, nofollow');
+      return data
+        ? page(reply, eventHead(config.publicUrl, data))
+        : page(reply, defaultHead(config.publicUrl, request.url), 404);
+    });
+
+    // Without `index: false`: that option decides which error a directory
+    // produces, and with it `/` would answer 403 instead of reaching the
+    // route above. The route above wins anyway, being more specific.
+    await app.register(fastifyStatic, {
+      root: config.clientDir,
+      setHeaders: (res, path) => {
+        res.header(
+          'cache-control',
+          path.includes(`${join('/', 'assets')}/`)
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache'
+        );
+      },
+    });
+  }
+
+  app.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith('/api') || !template) {
+      return reply
+        .code(404)
+        .send({ error: 'not_found', message: 'No such endpoint' });
+    }
+    return page(
+      reply,
+      defaultHead(config.publicUrl, request.url.split('?')[0]!),
+      404
+    );
+  });
+}
+
+/** Whether a directory holds a built client. */
+export function hasClient(dir: string | null): boolean {
+  return dir !== null && existsSync(join(dir, 'index.html'));
+}

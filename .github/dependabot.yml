@@ -46,6 +46,18 @@ updates:
           - minor
           - patch
 
+  # Exists so the digest-pinned base image gets refreshed at all. Node majors
+  # are excluded: the image has to sit on an LTS line, and roughly half of all
+  # Node majors never become one. Crossing a major is a decision, not an update.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
