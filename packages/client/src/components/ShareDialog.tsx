@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/index.tsx';
 import { CopyIcon, ShareIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
 import { Button, Dialog, Notice } from './ui.tsx';
+import { eventLink } from '../lib/links.ts';
 
 /** Copy text, falling back to selecting it where the clipboard is refused. */
 async function copy(text: string): Promise<boolean> {
@@ -111,15 +112,17 @@ export function ShareDialog({
   event,
   adminToken,
   justCreated,
+  publicUrl,
 }: {
   open: boolean;
   onClose(): void;
   event: EventViewData;
   adminToken: string | null;
   justCreated: boolean;
+  publicUrl: string | null;
 }) {
   const { t } = useI18n();
-  const url = `${window.location.origin}/e/${event.id}`;
+  const url = eventLink(publicUrl, event.id, window.location.origin);
   const invitation = t('share.inviteText', {
     emoji: EMOJIS[event.emoji],
     title: event.title,

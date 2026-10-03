@@ -80,7 +80,7 @@ server {
 
 The application sets its own security headers (a strict Content Security Policy, `Referrer-Policy: no-referrer` and the rest); do not add a second CSP in the proxy.
 
-**Moving to another domain:** set `PUBLIC_URL` to the new origin and make the old one answer with a permanent redirect that keeps the path, e.g. `return 301 https://new.example.org$request_uri;`. The browser carries the `#admin=…` fragment across the redirect, so organiser links keep working. What a browser remembers (your name per event, "your events") is stored per origin and does not move.
+**Moving to another domain:** set `PUBLIC_URL` to the new origin. You can keep the old domain serving the application as well — point a second server block at the same container. Links to share, QR codes, invitation texts and link previews then always carry `PUBLIC_URL`, whichever domain a visitor came through, so the old one fades out without breaking a single link. What a browser remembers (your name per event, "your events", the organiser token) is stored per origin, which is why keeping the old domain alive beats a redirect. If you redirect anyway, keep the path (`return 301 https://new.example.org$request_uri;`); the browser carries the `#admin=…` fragment across, so organiser links still work.
 
 ### Operating it
 

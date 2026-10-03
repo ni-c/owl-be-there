@@ -26,6 +26,7 @@ import { calendarFileUrl } from '../lib/api.ts';
 import { useEventStore } from '../hooks/useEventStore.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
+import { eventLink } from '../lib/links.ts';
 import {
   readAdminToken,
   readSession,
@@ -63,7 +64,13 @@ function useWide(): boolean {
   return wide;
 }
 
-export function EventPage({ id }: { id: string }) {
+export function EventPage({
+  id,
+  publicUrl,
+}: {
+  id: string;
+  publicUrl: string | null;
+}) {
   const { t } = useI18n();
   useMemo(() => takeAdminTokenFromFragment(id), [id]);
   const { store, state } = useEventStore(id);
@@ -133,6 +140,7 @@ export function EventPage({ id }: { id: string }) {
       shareOpen={shareOpen}
       onShare={setShareOpen}
       justCreated={justCreated}
+      publicUrl={publicUrl}
     />
   );
 }
@@ -148,6 +156,7 @@ interface EventViewProps {
   shareOpen: boolean;
   onShare(open: boolean): void;
   justCreated: boolean;
+  publicUrl: string | null;
 }
 
 function EventView(props: EventViewProps) {
@@ -184,7 +193,7 @@ function EventView(props: EventViewProps) {
     <div className="flex flex-col gap-5">
       <EventHeader data={data} onShare={() => props.onShare(true)} />
       {stale && <Notice>{t('event.stale')}</Notice>}
-      <StatusBanner data={data} />
+      <StatusBanner data={data} publicUrl={props.publicUrl} />
 
       {wide ? (
         <div className="grid grid-cols-2 items-start gap-5">
@@ -295,6 +304,7 @@ function EventView(props: EventViewProps) {
         event={event}
         adminToken={adminToken}
         justCreated={props.justCreated}
+        publicUrl={props.publicUrl}
       />
       <span className="sr-only">
         {tn('event.duration', event.durationDays)}
@@ -362,7 +372,13 @@ function EventHeader({
   );
 }
 
-function StatusBanner({ data }: { data: EventSnapshotData }) {
+function StatusBanner({
+  data,
+  publicUrl,
+}: {
+  data: EventSnapshotData;
+  publicUrl: string | null;
+}) {
   const { t, locale } = useI18n();
   const { event } = data;
   if (event.status === 'open') return null;
@@ -376,7 +392,7 @@ function StatusBanner({ data }: { data: EventSnapshotData }) {
     location: event.location,
     start: event.finalStart,
     end: event.finalEnd,
-    url: `${window.location.origin}/e/${event.id}`,
+    url: eventLink(publicUrl, event.id, window.location.origin),
   });
   return (
     <section className="flex flex-col items-center gap-4 rounded-3xl border-2 border-brand bg-brand-soft p-5 text-center sm:flex-row sm:text-left">

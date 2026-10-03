@@ -213,6 +213,7 @@ describe('requests', () => {
       backupRetentionDays: null,
       operatorName: 'Example Org',
       imprintUrl: 'https://example.org/imprint',
+      publicUrl: 'https://owl.example.org',
     });
     expect(info.json().version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(

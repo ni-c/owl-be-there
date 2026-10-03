@@ -184,6 +184,8 @@ export const InstanceInfo = z.object({
   operatorName: z.string().nullable(),
   operatorContact: z.string().nullable(),
   imprintUrl: z.string().nullable(),
+  /** The canonical origin; links to share are built on it, whatever domain served the page. */
+  publicUrl: z.url(),
 });
 
 export const ApiErrorBody = z.object({
