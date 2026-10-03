@@ -14,6 +14,10 @@ import {
 async function expectAccessible(page: Page, label: string): Promise<void> {
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    // Days outside the range are faded on purpose and hidden from assistive
+    // technology: text of an inactive component has no contrast requirement
+    // (WCAG 1.4.3, "Incidental"). Whether a row has any depends on the date.
+    .exclude('.cal-cell[data-kind="outside"]')
     .analyze();
   const serious = results.violations.filter(
     (v) => v.impact === 'serious' || v.impact === 'critical'
