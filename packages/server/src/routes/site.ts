@@ -24,6 +24,7 @@ export function registerInstanceRoutes(
       operatorName: config.operatorName,
       operatorContact: config.operatorContact,
       imprintUrl: config.imprintUrl,
+      publicUrl: config.publicUrl,
     })
   );
 

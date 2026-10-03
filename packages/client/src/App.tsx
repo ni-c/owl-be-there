@@ -44,7 +44,13 @@ function Shell() {
       page = <HomePage instance={instance} />;
       break;
     case 'event':
-      page = <EventPage key={route.id} id={route.id} />;
+      page = (
+        <EventPage
+          key={route.id}
+          id={route.id}
+          publicUrl={instance?.publicUrl ?? null}
+        />
+      );
       break;
     case 'privacy':
       page = <PrivacyPage instance={instance} />;

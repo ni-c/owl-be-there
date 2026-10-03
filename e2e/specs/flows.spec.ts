@@ -42,7 +42,8 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   const link = await page
     .getByRole('textbox', { name: 'Link for everyone' })
     .inputValue();
-  expect(link).toMatch(/\/e\/[1-9A-HJ-NP-Za-km-z]{12}$/);
+  // The canonical origin from PUBLIC_URL, not the 127.0.0.1 the test opened.
+  expect(link).toMatch(/^http:\/\/localhost:\d+\/e\/[1-9A-HJ-NP-Za-km-z]{12}$/);
   await expect(
     page.getByRole('textbox', { name: 'Your organiser link' })
   ).toHaveValue(/#admin=/);

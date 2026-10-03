@@ -36,7 +36,9 @@ export default defineConfig({
     env: {
       PORT: String(PORT),
       HOST: '127.0.0.1',
-      PUBLIC_URL: `http://127.0.0.1:${PORT}`,
+      // Not the address the tests open: links to share must carry PUBLIC_URL,
+      // not whatever origin served the page.
+      PUBLIC_URL: `http://localhost:${PORT}`,
       CLIENT_DIR: 'packages/client/dist',
       DATA_DIR: 'e2e/.tmp/data',
       RATE_LIMIT_MULTIPLIER: '1000',
