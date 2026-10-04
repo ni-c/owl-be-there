@@ -1,3 +1,4 @@
+import { get } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getEvent } from '../src/db/repo.js';
 import {
@@ -136,4 +137,27 @@ describe('the sweep', () => {
     t.clock.time = Date.UTC(2027, 5, 1);
     expect(t.app.sweep()).toBe(0);
   });
+});
+
+describe('shutting down', () => {
+  it('ends the open streams instead of waiting for them', async () => {
+    const { id } = await createEvent(t.app);
+    // A plain HTTP client, as a browser holds the stream: it reads the first
+    // message and keeps the connection open.
+    const ended = new Promise<void>((resolve, reject) => {
+      get(`${base}/api/events/${id}/stream`, (response) => {
+        response.once('data', () => void close());
+        response.on('end', resolve);
+      }).on('error', reject);
+    });
+    let closed = false;
+    const close = async () => {
+      await t.app.close();
+      closed = true;
+    };
+    await ended;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(closed).toBe(true);
+    expect(t.app.hub.size).toBe(0);
+  }, 3000);
 });

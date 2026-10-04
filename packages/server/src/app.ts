@@ -224,7 +224,10 @@ export async function buildApp(
     }
     return ids.length;
   });
-  app.addHook('onClose', async () => hub.close());
+  // Before the server stops, not after: it waits for every open connection to
+  // finish, and a live stream never finishes by itself — on `onClose` a
+  // single open browser tab held the shutdown until the hard timeout.
+  app.addHook('preClose', async () => hub.close());
 
   return app;
 }
