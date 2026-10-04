@@ -61,6 +61,10 @@ export const ja: Dictionary = {
   'error.tooManyDays': '候補日は最大{max}日です。',
   'error.noBlock': '候補に連続する{count}日間がありません。',
   'error.past': 'その日はもう過ぎています。',
+  'error.tooFar': '先すぎます。5年以内の日を選んでね。',
+  'error.slowDown': 'この名前のパスワードを何度も間違えました。数分待ってね。',
+  'error.daysChanged':
+    'その間に別の場所で日程が変更されました。確認してもう一度保存してね。',
   'error.generic': 'うまくいかなかったよ。もう一度試してね。',
   'error.offline': 'オフラインのようです。あとで試してね。',
   'error.rateLimited': '操作が少し速すぎるみたい。少し待ってね。',

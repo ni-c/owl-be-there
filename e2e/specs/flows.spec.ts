@@ -78,6 +78,34 @@ test('the organiser link is taken from the fragment and removed from the address
   ).toBeVisible();
 });
 
+test('a link with a made-up organiser key does not replace the real one', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+
+  // A fresh page load, as when the link is opened from a message: from the
+  // event page itself, only the fragment would change and nothing reloads.
+  await page.goto('/');
+  const checked = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/events/${id}/admin`)
+  );
+  await page.goto(`/e/${id}#admin=${'A'.repeat(43)}`);
+  expect((await checked).status()).toBe(403);
+  expect(new URL(page.url()).hash).toBe('');
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toContain(adminToken);
+});
+
 test('two people see each other live, and the day sheet names them', async ({
   browser,
   request,

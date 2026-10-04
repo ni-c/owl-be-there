@@ -1,5 +1,7 @@
+import { utcDateOf } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import { MIGRATIONS, migrate, MigrationError } from '../src/db/migrations.js';
+import { listEvents, purgeEmpty } from '../src/db/repo.js';
 import { Db } from '../src/db/sqlite.js';
 
 const fresh = (): Db => {
@@ -193,6 +195,23 @@ describe('migrate', () => {
 });
 
 describe('Db.tx', () => {
+  it('throws the first error when SQLite already rolled back', () => {
+    const db = new Db(':memory:');
+    db.exec('CREATE TABLE t (v INTEGER) STRICT');
+    expect(() =>
+      db.tx(() => {
+        db.run('INSERT INTO t VALUES (1)');
+        // What SQLite does by itself on a full disk or an I/O error.
+        db.exec('ROLLBACK');
+        throw new Error('disk full');
+      })
+    ).toThrow('disk full');
+    expect(db.all('SELECT v FROM t')).toEqual([]);
+    // And the connection is usable again.
+    db.tx(() => db.run('INSERT INTO t VALUES (2)'));
+    expect(db.all('SELECT v FROM t')).toEqual([{ v: 2 }]);
+  });
+
   it('commits on return and rolls back on a throw', () => {
     const db = new Db(':memory:');
     db.exec('CREATE TABLE t (v INTEGER) STRICT');
@@ -237,5 +256,51 @@ describe('Db.tx', () => {
     db.checkpoint();
     db.close();
     expect(() => db.close()).not.toThrow();
+  });
+});
+
+describe('listing and purging new events', () => {
+  const event = (db: Db, id: string, createdAt: number) =>
+    db.run(
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+       VALUES (?, 'h', ?, 'owl', 'en', 1, ?, ?, '2027-06-01')`,
+      id,
+      `Event ${id}`,
+      createdAt,
+      createdAt
+    );
+  const day = (iso: string) => utcDateOf(iso).getTime();
+
+  it('lists from the given day on, newest first, with how many joined', () => {
+    const db = fresh();
+    event(db, 'old', day('2027-02-28'));
+    event(db, 'start', day('2027-03-01'));
+    event(db, 'late', day('2027-03-02') + 5000);
+    db.run(
+      "INSERT INTO participants (id, event_id, name, name_key, source, created_at) VALUES ('p', 'start', 'Max', 'max', 'self', 0)"
+    );
+    const listed = listEvents(db, '2027-03-01');
+    expect(listed.map((e) => e.id)).toEqual(['late', 'start']);
+    expect(listed.map((e) => e.participants)).toEqual([0, 1]);
+    expect(listed[1]!.created).toBe('2027-03-01T00:00:00Z');
+    expect(listEvents(db, null)).toHaveLength(3);
+    expect(listEvents(db, '2027-03-03')).toEqual([]);
+  });
+
+  it('purges only the empty ones since the day', () => {
+    const db = fresh();
+    event(db, 'old', day('2027-02-28'));
+    event(db, 'empty', day('2027-03-01'));
+    event(db, 'joined', day('2027-03-01'));
+    db.run(
+      "INSERT INTO participants (id, event_id, name, name_key, source, created_at) VALUES ('p', 'joined', 'Max', 'max', 'self', 0)"
+    );
+    expect(purgeEmpty(db, '2027-03-01')).toEqual(['empty']);
+    expect(
+      db
+        .all<{ id: string }>('SELECT id FROM events ORDER BY id')
+        .map((r) => r.id)
+    ).toEqual(['joined', 'old']);
+    expect(purgeEmpty(db, '2027-03-01')).toEqual([]);
   });
 });

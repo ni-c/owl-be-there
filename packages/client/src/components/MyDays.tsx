@@ -2,6 +2,7 @@ import {
   clearDays,
   compareISODate,
   joinMarks,
+  onCandidates,
   LIMITS,
   sameMarks,
   toggleDays,
@@ -565,23 +566,33 @@ function Painter(
     }
   }, [participant, queue]);
 
+  // The organiser may have removed days since these marks were made; the
+  // server refuses marks on days that are no longer candidates.
+  const candidates = useMemo(() => new Set(data.event.days), [data.event.days]);
+  const save = useCallback(
+    (next: Marks) => {
+      const kept = onCandidates(next, candidates);
+      setMarks(kept);
+      queue.push(kept);
+    },
+    [candidates, queue]
+  );
+
   const change = useCallback(
     (next: Map<ISODate, Mark>, changed: number) => {
       setUndo((stack) => [...stack.slice(-(UNDO_LIMIT - 1)), marks]);
-      setMarks(next);
-      queue.push(next);
+      save(next);
       setAnnouncement(tn('cal.changed', changed));
     },
-    [marks, queue, tn]
+    [marks, save, tn]
   );
 
   const undoLast = useCallback(() => {
     const previous = undo[undo.length - 1];
     if (!previous) return;
     setUndo(undo.slice(0, -1));
-    setMarks(previous);
-    queue.push(previous);
-  }, [undo, queue]);
+    save(previous);
+  }, [undo, save]);
 
   const future = useMemo(
     () => data.event.days.filter((day) => compareISODate(day, today) >= 0),

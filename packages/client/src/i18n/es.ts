@@ -62,6 +62,12 @@ export const es: Dictionary = {
   'error.tooManyDays': 'Como máximo, {max} días.',
   'error.noBlock': 'No hay {count} días seguidos para elegir.',
   'error.past': 'Ese día ya ha pasado.',
+  'error.tooFar':
+    'Eso está demasiado lejos. Elige días dentro de los próximos cinco años.',
+  'error.slowDown':
+    'Demasiadas contraseñas incorrectas para este nombre. Espera unos minutos.',
+  'error.daysChanged':
+    'Los días se cambiaron en otro sitio mientras tanto. Revísalos y vuelve a guardar.',
   'error.generic': 'Algo ha fallado. Inténtalo de nuevo.',
   'error.offline': 'Parece que no tienes conexión. Inténtalo más tarde.',
   'error.rateLimited': 'Vas un poco rápido. Espera un momento.',

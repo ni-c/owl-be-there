@@ -203,7 +203,42 @@ describe('SaveQueue', () => {
     expect(sent).toEqual([]);
     queue.push(marks('2027-03-06')); // in flight
     queue.push(marks('2027-03-07')); // pending
-    queue.flushOnLeave(); // in flight already: the pending one waits
+    // In flight already: the newest state goes out too, based on the
+    // revision the request under way will make.
+    queue.flushOnLeave();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]![1]).toBe(true);
+    expect(sent[1]![0]).toMatchObject({ baseRev: 4, yes: ['2027-03-07'] });
+    // Nothing is left pending for a second leave.
+    queue.flushOnLeave();
+    expect(sent).toHaveLength(2);
+  });
+
+  it('neither sends nor retries once disposed of', async () => {
+    let reject: (error: Error) => void = () => undefined;
+    const timers: (() => void)[] = [];
+    const sent: SaveRequest[] = [];
+    const queue = new SaveQueue({
+      baseRev: 0,
+      send: (request) => {
+        sent.push(request);
+        return new Promise((_resolve, fail) => {
+          reject = fail;
+        });
+      },
+      timers: {
+        setTimeout: (fn) => timers.push(fn),
+        clearTimeout: () => undefined,
+      },
+    });
+    queue.push(marks('2027-03-06'));
+    queue.dispose();
+    // The request under way fails like a network error would.
+    reject(new Error('offline'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(timers).toEqual([]);
+    queue.push(marks('2027-03-07'));
+    queue.flushOnLeave();
     expect(sent).toHaveLength(1);
   });
 

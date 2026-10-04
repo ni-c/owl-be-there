@@ -78,7 +78,13 @@ export class Db {
       this.db.exec('COMMIT');
       return result;
     } catch (error) {
-      this.db.exec('ROLLBACK');
+      // SQLite may have rolled back on its own (a full disk, an I/O error);
+      // then ROLLBACK fails too, and the first error is the one that matters.
+      try {
+        this.db.exec('ROLLBACK');
+      } catch {
+        // already rolled back
+      }
       throw error;
     } finally {
       this.depth = 0;

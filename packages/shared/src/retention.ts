@@ -1,6 +1,9 @@
 import { addDays, compareISODate, maxISODate, type ISODate } from './dates.js';
 import { RETENTION_DAYS } from './limits.js';
 
+/** The last day an ISO date can name. */
+const LAST_DAY: ISODate = '9999-12-31';
+
 export interface RetentionInput {
   /** The UTC day of the last change. */
   lastWriteDay: ISODate;
@@ -28,9 +31,19 @@ export function expiresOn({
       ? lastCandidateDay
       : maxISODate(finalEnd, lastCandidateDay);
   return maxISODate(
-    addDays(lastWriteDay, RETENTION_DAYS),
-    addDays(lastRelevant, 1)
+    later(lastWriteDay, RETENTION_DAYS),
+    later(lastRelevant, 1)
   );
+}
+
+/**
+ * `days` after `day`, but never past 9999-12-31: a day with a five-digit year
+ * sorts before every four-digit one, so it would lose every comparison and the
+ * sweep would take the event at once.
+ */
+function later(day: ISODate, days: number): ISODate {
+  const result = addDays(day, days);
+  return result.length > 10 ? LAST_DAY : result;
 }
 
 /** Whether an event whose last day is `expires` is gone by `today`. */

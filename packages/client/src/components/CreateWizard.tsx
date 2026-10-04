@@ -58,6 +58,8 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const rangeProblem = useMemo(() => {
     if (!isValidISODate(from) || !isValidISODate(to)) return t('error.noDays');
     if (compareISODate(from, today) < 0) return t('error.past');
+    if (compareISODate(to, addDays(today, LIMITS.horizon)) > 0)
+      return t('error.tooFar');
     if (compareISODate(to, from) < 0) return t('error.range');
     if (diffDays(from, to) + 1 > LIMITS.span) return t('error.rangeTooLong');
     return null;

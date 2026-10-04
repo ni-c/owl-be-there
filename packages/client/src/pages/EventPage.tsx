@@ -22,7 +22,7 @@ import { Owl } from '../components/Owl.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Button, Card, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
-import { calendarFileUrl } from '../lib/api.ts';
+import { api, calendarFileUrl } from '../lib/api.ts';
 import { useEventStore } from '../hooks/useEventStore.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
@@ -36,19 +36,30 @@ import {
 } from '../lib/prefs.ts';
 
 /**
- * The organiser key arrives in the URL fragment. It is moved into local
- * storage and removed from the address bar at once, so that copying the
- * address shares the event — not the right to delete it.
+ * The organiser key arrives in the URL fragment. It is removed from the
+ * address bar at once, so that copying the address shares the event — not the
+ * right to delete it. Without a key on this device it is stored right away;
+ * one that would replace a different key is handed back to be checked first,
+ * so a link with a made-up key cannot cost the organiser their access.
  */
-function takeAdminTokenFromFragment(eventId: string): void {
-  const match = /^#admin=([\w-]{20,128})$/.exec(window.location.hash);
-  if (!match) return;
-  writeAdminToken(eventId, match[1]!);
+function takeAdminTokenFromFragment(eventId: string): string | null {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#admin=')) return null;
   window.history.replaceState(
     window.history.state,
     '',
     window.location.pathname
   );
+  const match = /^#admin=([\w-]{20,128})$/.exec(hash);
+  if (!match) return null;
+  const candidate = match[1]!;
+  const stored = readAdminToken(eventId);
+  if (stored === candidate) return null;
+  if (stored === null) {
+    writeAdminToken(eventId, candidate);
+    return null;
+  }
+  return candidate;
 }
 
 /** Wide enough for the two views side by side (56rem). */
@@ -72,9 +83,27 @@ export function EventPage({
   publicUrl: string | null;
 }) {
   const { t } = useI18n();
-  useMemo(() => takeAdminTokenFromFragment(id), [id]);
+  const candidate = useMemo(() => takeAdminTokenFromFragment(id), [id]);
   const { store, state } = useEventStore(id);
   const [adminToken, setAdminToken] = useState(() => readAdminToken(id));
+
+  // A key from the link that differs from the stored one replaces it only if
+  // the server says it is this event's.
+  useEffect(() => {
+    if (candidate === null) return;
+    let current = true;
+    api
+      .checkAdmin(id, candidate)
+      .then((valid) => {
+        if (!valid || !current) return;
+        writeAdminToken(id, candidate);
+        setAdminToken(candidate);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [id, candidate]);
   const [session, setSession] = useState<Session | null>(() => readSession(id));
   const [shareOpen, setShareOpen] = useState(() =>
     Boolean((window.history.state as { created?: boolean } | null)?.created)

@@ -89,9 +89,11 @@ The application sets its own security headers (a strict Content Security Policy,
 ```sh
 docker compose exec owl node packages/server/dist/cli.js stats
 docker compose exec owl node packages/server/dist/cli.js delete <event id>
+docker compose exec owl node packages/server/dist/cli.js list 2027-03-01
+docker compose exec owl node packages/server/dist/cli.js purge 2027-03-01 --yes
 ```
 
-`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. Expired events are swept on start and every hour.
+`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people joined, and `purge` deletes those among them that nobody joined — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
 
 **Backups:** copy `owl.db` with SQLite's online backup (`sqlite3 data/owl.db ".backup backup.db"`) rather than the file itself, which may be mid-write. Keep `secret.key` too; without it, participants with a password must log in again. Keep backups only as long as the privacy page says.
 

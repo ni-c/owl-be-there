@@ -1,3 +1,4 @@
+import type { PasswordThrottle } from './auth/throttle.js';
 import type { Config } from './config.js';
 import type { Db } from './db/sqlite.js';
 import type { PageTemplate } from './pages.js';
@@ -19,6 +20,9 @@ export interface AppContext {
   hub: SseHub;
   template: PageTemplate | null;
   version: string;
+  /** The security headers every response carries. */
+  headers: Record<string, string>;
+  throttle: PasswordThrottle;
 }
 
 /**

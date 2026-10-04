@@ -63,6 +63,12 @@ export const en = {
   'error.tooManyDays': 'At most {max} days.',
   'error.noBlock': 'There are no {count} days in a row to choose from.',
   'error.past': 'That day has already passed.',
+  'error.tooFar':
+    'That is too far ahead. Choose days within the next five years.',
+  'error.slowDown':
+    'Too many wrong passwords for this name. Please wait a few minutes.',
+  'error.daysChanged':
+    'The days were changed somewhere else in the meantime. Check them and save again.',
   'error.generic': 'That didn’t work. Please try again.',
   'error.offline': 'You seem to be offline. Try again later.',
   'error.rateLimited': 'That was a bit quick. Please wait a moment.',

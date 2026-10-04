@@ -59,6 +59,57 @@ describe('emoji', () => {
   });
 });
 
+describe('retention at the end of the calendar', () => {
+  it('stops at 9999-12-31 instead of rolling into a five-digit year', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-01-01',
+        lastCandidateDay: '9999-12-31',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-12-01',
+        lastCandidateDay: '9999-12-02',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+    // The day before the end still works as always.
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-01-01',
+        lastCandidateDay: '9999-12-30',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+  });
+});
+
+describe('names', () => {
+  it('refuses a name made only of invisible characters', () => {
+    expect(SessionBody.safeParse({ name: '\u200C' }).success).toBe(false);
+    expect(SessionBody.safeParse({ name: '\u3164' }).success).toBe(false);
+    expect(SessionBody.safeParse({ name: 'Max' }).success).toBe(true);
+  });
+});
+
+describe('editing days', () => {
+  it('needs the days an edit started from, and nothing more without days', () => {
+    expect(UpdateEventBody.safeParse({ days: ['2027-03-06'] }).success).toBe(
+      false
+    );
+    expect(
+      UpdateEventBody.safeParse({
+        days: ['2027-03-06'],
+        baseDays: ['2027-03-05'],
+      }).success
+    ).toBe(true);
+    expect(UpdateEventBody.safeParse({ title: 'x' }).success).toBe(true);
+    expect(UpdateEventBody.safeParse({ baseDays: [] }).success).toBe(true);
+  });
+});
+
 describe('retention', () => {
   it('keeps an event ninety days after its last change', () => {
     expect(

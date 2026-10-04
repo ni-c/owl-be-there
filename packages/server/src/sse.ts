@@ -16,6 +16,7 @@ export const DEFAULT_STREAM_LIMITS: StreamLimits = {
 interface Stream {
   response: ServerResponse;
   clientKey: string;
+  expiry: NodeJS.Timeout;
 }
 
 /**
@@ -32,12 +33,19 @@ export class SseHub {
   private count = 0;
   private readonly heartbeat: NodeJS.Timeout;
   private readonly limits: StreamLimits;
+  private readonly maxLifetimeMs: number;
 
   constructor(
     limits: StreamLimits = DEFAULT_STREAM_LIMITS,
-    heartbeatMs = 25_000
+    heartbeatMs = 25_000,
+    /**
+     * How long one stream may stay open. The client reconnects on its own, so
+     * a connection that stopped reading — but never closed — frees its slot.
+     */
+    maxLifetimeMs = 30 * 60_000
   ) {
     this.limits = limits;
+    this.maxLifetimeMs = maxLifetimeMs;
     // A comment line now and then keeps proxies and phone networks from
     // closing a connection that looks idle.
     this.heartbeat = setInterval(
@@ -63,7 +71,18 @@ export class SseHub {
     response: ServerResponse,
     version: number
   ): void {
-    const stream: Stream = { response, clientKey };
+    // The client may have gone while the route was still deciding; its
+    // 'close' has then fired already and would never free the slot.
+    if (response.destroyed || response.writableEnded) return;
+    const stream: Stream = {
+      response,
+      clientKey,
+      expiry: setTimeout(
+        () => this.hangUp(eventId, stream),
+        this.maxLifetimeMs
+      ),
+    };
+    stream.expiry.unref();
     let set = this.streams.get(eventId);
     if (!set) {
       set = new Set();
@@ -73,6 +92,9 @@ export class SseHub {
     this.count += 1;
     this.perClient.set(clientKey, (this.perClient.get(clientKey) ?? 0) + 1);
     response.on('close', () => this.remove(eventId, stream));
+    // A write racing a closing socket fails here rather than as an uncaught
+    // error that would take the process down.
+    response.on('error', () => this.remove(eventId, stream));
     // Reconnect after five seconds when the connection drops, and say where
     // the event is now, so a client that reconnects can tell whether it missed
     // anything.
@@ -81,9 +103,16 @@ export class SseHub {
     );
   }
 
+  /** Stop sending to a stream and end it, with a last message if given. */
+  private hangUp(eventId: string, stream: Stream, last?: string): void {
+    this.remove(eventId, stream);
+    if (!stream.response.writableEnded) stream.response.end(last);
+  }
+
   private remove(eventId: string, stream: Stream): void {
     const set = this.streams.get(eventId);
     if (!set?.delete(stream)) return;
+    clearTimeout(stream.expiry);
     if (set.size === 0) this.streams.delete(eventId);
     this.count -= 1;
     const remaining = (this.perClient.get(stream.clientKey) ?? 1) - 1;
@@ -103,7 +132,7 @@ export class SseHub {
     const set = this.streams.get(eventId);
     if (!set) return;
     for (const stream of [...set]) {
-      stream.response.end('event: deleted\ndata: {}\n\n');
+      this.hangUp(eventId, stream, 'event: deleted\ndata: {}\n\n');
     }
   }
 
@@ -113,8 +142,8 @@ export class SseHub {
 
   close(): void {
     clearInterval(this.heartbeat);
-    for (const set of this.streams.values()) {
-      for (const stream of [...set]) stream.response.end();
+    for (const [eventId, set] of [...this.streams]) {
+      for (const stream of [...set]) this.hangUp(eventId, stream);
     }
   }
 

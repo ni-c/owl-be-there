@@ -93,4 +93,17 @@ describe('loadConfig', () => {
     expect(config.backupRetentionDays).toBe(0);
     expect(problemsOf({ LOG_RETENTION_DAYS: '-1' })).toHaveLength(1);
   });
+
+  it('accepts addresses, subnets and the named ranges as trusted proxies', () => {
+    expect(
+      loadConfig({ TRUST_PROXY: '10.0.0.0/8, ::1, fd00::/8, loopback' })
+        .trustProxy
+    ).toEqual(['10.0.0.0/8', '::1', 'fd00::/8', 'loopback']);
+  });
+
+  it('refuses a trusted proxy that is not an address', () => {
+    for (const value of ['true', '10.0.0.0/33', '::1/129', '10.0.0.1/8/8']) {
+      expect(problemsOf({ TRUST_PROXY: value }).join()).toMatch(/TRUST_PROXY/);
+    }
+  });
 });

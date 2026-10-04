@@ -61,7 +61,9 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **WebKit does not start on unsupported Linux distributions** (missing `libicu74` and friends). Run the WebKit projects in `mcr.microsoft.com/playwright:v<version>-noble` with a Node 26 on `PATH`; see CONTRIBUTING.
 - **A drag must end where the pointer was released.** Moves are applied once per animation frame; a quick flick can end before the next frame, so `pointerup` applies its own position before the stroke is committed.
 - **Playwright starts the `webServer` before `globalSetup`.** Anything the server reads at startup — the e2e data directory — has to be prepared in the `webServer` command itself; a reset in `globalSetup` comes too late and the server opens the previous run's database.
-- **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets its own headers.
+- **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets `ctx.headers` itself. Hang up on a stream through the hub (`hangUp`), which forgets it before ending it — a write to an ended response is an uncaught error.
+- **`events.version` moves on every write, marks included.** It is no concurrency token for the organiser's edits; the day list carries `baseDays` instead.
+- **Anything async in a route happens before `db.tx`** (scrypt hashing above all), so what was checked before the `await` is checked again inside the transaction.
 
 ## Working agreements
 

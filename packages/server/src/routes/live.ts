@@ -7,7 +7,7 @@ import { eventOr404 } from './events.js';
  * `GET /api/events/:id/stream` — server-sent events for one event.
  *
  * The route takes the response over from Fastify, so the `onSend` header hook
- * never runs for it; the headers it needs are set here. `X-Accel-Buffering`
+ * never runs for it; it sets the same security headers itself. `X-Accel-Buffering`
  * tells nginx not to collect the stream into chunks.
  */
 export function registerLiveRoutes(
@@ -33,8 +33,7 @@ export function registerLiveRoutes(
         'cache-control': 'no-store',
         connection: 'keep-alive',
         'x-accel-buffering': 'no',
-        'x-content-type-options': 'nosniff',
-        'referrer-policy': 'no-referrer',
+        ...ctx.headers,
       });
       ctx.hub.add(event.id, key, reply.raw, event.version);
     }

@@ -62,6 +62,12 @@ export const nl: Dictionary = {
   'error.tooManyDays': 'Maximaal {max} dagen.',
   'error.noBlock': 'Er zijn geen {count} opeenvolgende dagen om uit te kiezen.',
   'error.past': 'Die dag is al voorbij.',
+  'error.tooFar':
+    'Dat is te ver vooruit. Kies dagen binnen de komende vijf jaar.',
+  'error.slowDown':
+    'Te veel verkeerde wachtwoorden voor deze naam. Wacht een paar minuten.',
+  'error.daysChanged':
+    'De dagen zijn intussen ergens anders gewijzigd. Controleer ze en sla opnieuw op.',
   'error.generic': 'Dat ging niet goed. Probeer het nog eens.',
   'error.offline': 'Je lijkt offline te zijn. Probeer het later nog eens.',
   'error.rateLimited': 'Dat ging wel erg snel. Wacht even.',

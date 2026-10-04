@@ -8,6 +8,7 @@ import {
   isValidISODate,
   LIMITS,
   maxISODate,
+  minISODate,
   type EmojiKey,
   type EventSnapshotData,
   type ISODate,
@@ -120,9 +121,11 @@ export function AdminPanel(props: AdminPanelProps) {
       </Section>
       <Section title={t('admin.days')}>
         <DaysEditor
+          // Days changed elsewhere start a fresh edit from the new list.
+          key={event.days.join()}
           {...props}
-          onSave={(days) =>
-            run(() => api.updateEvent(event.id, { days }, adminToken))
+          onSave={(days, baseDays) =>
+            run(() => api.updateEvent(event.id, { days, baseDays }, adminToken))
           }
         />
       </Section>
@@ -316,7 +319,9 @@ function DetailsForm({
 }
 
 function DaysEditor(
-  props: AdminPanelProps & { onSave(days: ISODate[]): Promise<void> }
+  props: AdminPanelProps & {
+    onSave(days: ISODate[], baseDays: ISODate[]): Promise<void>;
+  }
 ) {
   const { data, today, firstWeekday } = props;
   const { t } = useI18n();
@@ -351,14 +356,23 @@ function DaysEditor(
             type="date"
             value={until}
             min={last}
+            max={addDays(today, LIMITS.horizon)}
             className="max-w-48"
             onChange={(e) => {
               const value = e.target.value;
               setUntil(value);
               if (!isValidISODate(value) || compareISODate(value, last) <= 0)
                 return;
+              // Never past what an event may span or how far ahead it may
+              // reach — a far date typed in must not throw.
+              const limit = minISODate(
+                addDays(first, LIMITS.span - 1),
+                addDays(today, LIMITS.horizon)
+              );
+              const upTo = minISODate(value, limit);
+              if (compareISODate(upTo, last) <= 0) return;
               const next = new Map(selection);
-              for (const day of expandRange(addDays(last, 1), value))
+              for (const day of expandRange(addDays(last, 1), upTo))
                 next.set(day, 'yes');
               setSelection(next);
             }}
@@ -380,7 +394,7 @@ function DaysEditor(
         <Button
           variant="primary"
           disabled={selected.length === 0}
-          onClick={() => void props.onSave(selected)}
+          onClick={() => void props.onSave(selected, days)}
         >
           {t('mine.save')}
         </Button>

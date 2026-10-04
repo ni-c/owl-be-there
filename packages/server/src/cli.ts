@@ -1,8 +1,14 @@
 import { join } from 'node:path';
-import { isId, todayUTC } from '@owl/shared';
+import { isId, isValidISODate, todayUTC } from '@owl/shared';
 import { loadConfig } from './config.js';
 import { migrate } from './db/migrations.js';
-import { deleteEvent, stats, sweepExpired } from './db/repo.js';
+import {
+  deleteEvent,
+  listEvents,
+  purgeEmpty,
+  stats,
+  sweepExpired,
+} from './db/repo.js';
 import { Db } from './db/sqlite.js';
 
 /**
@@ -12,13 +18,21 @@ import { Db } from './db/sqlite.js';
  *     node packages/server/dist/cli.js stats
  *     node packages/server/dist/cli.js delete <event id>
  *     node packages/server/dist/cli.js sweep
+ *     node packages/server/dist/cli.js list [<YYYY-MM-DD>]
+ *     node packages/server/dist/cli.js purge <YYYY-MM-DD> [--yes]
  *
  * `delete` is for abuse reports: it removes one event and everything in it,
  * the same way the organiser's own delete button does. It works against a
  * running server — SQLite takes care of the locking — but a live stream to
  * that event only learns about it when it reconnects.
+ *
+ * `list` and `purge` are for a flood of new events: `list` shows the events
+ * created since a day with how many people joined, and `purge` deletes those
+ * among them that nobody joined. Without `--yes` it only says what it would
+ * delete.
  */
-const USAGE = 'Usage: cli.js stats | delete <event id> | sweep';
+const USAGE =
+  'Usage: cli.js stats | delete <event id> | sweep | list [<YYYY-MM-DD>] | purge <YYYY-MM-DD> [--yes]';
 
 function run(args: string[]): number {
   const [command, argument] = args;
@@ -47,6 +61,37 @@ function run(args: string[]): number {
         const ids = sweepExpired(db, todayUTC());
         db.checkpoint();
         console.log(`Deleted ${ids.length} expired event(s).`);
+        return 0;
+      }
+      case 'list': {
+        if (argument !== undefined && !isValidISODate(argument)) {
+          console.error('Give the first day as YYYY-MM-DD.');
+          return 2;
+        }
+        for (const event of listEvents(db, argument ?? null)) {
+          console.log(
+            `${event.id}  ${event.created}  ${String(event.participants).padStart(3)}  ${event.title}`
+          );
+        }
+        return 0;
+      }
+      case 'purge': {
+        if (argument === undefined || !isValidISODate(argument)) {
+          console.error('Give the first day as YYYY-MM-DD.');
+          return 2;
+        }
+        if (args[2] !== '--yes') {
+          const ids = listEvents(db, argument)
+            .filter((event) => event.participants === 0)
+            .map((event) => event.id);
+          console.log(
+            `Would delete ${ids.length} event(s) nobody joined; add --yes to do it.`
+          );
+          return 0;
+        }
+        const ids = purgeEmpty(db, argument);
+        db.checkpoint();
+        console.log(`Deleted ${ids.length} event(s) nobody joined.`);
         return 0;
       }
       default:

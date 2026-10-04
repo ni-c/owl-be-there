@@ -164,6 +164,62 @@ describe('EventStore', () => {
     store.stop();
   });
 
+  it('tries the stream again after polling for a while, and polls no more once it is back', async () => {
+    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(ID);
+    store.start();
+    await flush();
+    const first = FakeEventSource.instances[0]!;
+    first.readyState = FakeEventSource.CLOSED;
+    first.emit('error');
+    // A second error from the same closed source does not stack timers.
+    first.emit('error');
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(FakeEventSource.instances).toHaveLength(2);
+    const polled = requests.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(requests).toHaveLength(polled);
+    store.stop();
+  });
+
+  it('does not retry the stream after stop', async () => {
+    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(ID);
+    store.start();
+    await flush();
+    const source = FakeEventSource.instances[0]!;
+    source.readyState = FakeEventSource.CLOSED;
+    source.emit('error');
+    store.stop();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it('keeps a newer snapshot when an older GET lands after it', async () => {
+    let answer: (response: Response) => void = () => undefined;
+    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(ID);
+    store.start();
+    await flush();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            answer = resolve;
+          })
+      )
+    );
+    const refreshing = store.refresh();
+    // A write answers with version 3 while the GET is still travelling.
+    store.apply(snapshot(3) as never);
+    answer(jsonResponse(200, snapshot(2), { etag: '"v2"' }));
+    await refreshing;
+    const state = store.getState();
+    expect(state.status === 'ready' && state.data.event.version).toBe(3);
+    store.stop();
+  });
+
   it('polls where there is no EventSource at all', async () => {
     vi.stubGlobal('EventSource', undefined);
     responses.push(jsonResponse(200, snapshot(1)));

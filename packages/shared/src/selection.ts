@@ -139,3 +139,14 @@ export function joinMarks(
   for (const day of yes) marks.set(day, 'yes');
   return marks;
 }
+
+/**
+ * The marks that lie on candidate days. The organiser may remove days after
+ * someone marked them, and the server refuses marks on days that are gone.
+ * The same map comes back when nothing had to go.
+ */
+export function onCandidates(marks: Marks, days: ReadonlySet<ISODate>): Marks {
+  const kept = new Map<ISODate, Mark>();
+  for (const [day, mark] of marks) if (days.has(day)) kept.set(day, mark);
+  return kept.size === marks.size ? marks : kept;
+}
