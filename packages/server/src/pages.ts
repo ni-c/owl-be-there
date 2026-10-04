@@ -111,7 +111,7 @@ export function defaultHead(publicUrl: string, path: string): string {
     path,
     title: `${texts.appName} — ${texts.tagline}`,
     description:
-      'Mark the days you can make it on a calendar and see at a glance when the whole group is free. No sign-up, no tracking.',
+      'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.',
     imageAlt: texts.previewImageAlt,
     noindex: false,
     icon: '/favicon.svg',

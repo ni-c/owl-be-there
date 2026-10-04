@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Six more interface languages: Spanish, French, Portuguese, Italian, Japanese and Dutch. Link previews and calendar files speak them too. Japanese text uses a bundled Noto Sans CJK JP font, so no request leaves for a font service.
+
+### Changed
+
+- The language picker lists the languages alphabetically by their own names: Deutsch, English, Español, Français, Italiano, Nederlands, Português, 日本語.
+- Shorter, plainer English and German texts throughout, starting with the tagline "Find a day everyone can make." / "Findet einen Tag, an dem alle können."
+- The database gains one migration that lets events store the new languages. It rebuilds the `events` table once on the first start; events, participants and their days are kept.
+
 ## [0.1.5] - 2026-10-03
 
 ### Changed

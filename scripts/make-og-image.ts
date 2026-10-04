@@ -28,7 +28,7 @@ const html = `<!doctype html><html><head><style>
   <div class="owl">${owl}</div>
   <div>
     <h1>Owl Be There</h1>
-    <p>Find the day that works for everyone.</p>
+    <p>Find a day everyone can make.</p>
     <div class="cal">${[
       '#f1e8da',
       '#6fbc9f',

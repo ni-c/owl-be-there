@@ -1,4 +1,9 @@
-import type { InstanceInfoData } from '@owl/shared';
+import {
+  isLanguage,
+  LANGUAGE_NAMES,
+  languagesByName,
+  type InstanceInfoData,
+} from '@owl/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Owl } from './components/Owl.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
@@ -135,12 +140,16 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
             <select
               className={selectClass}
               value={language}
-              onChange={(event) =>
-                setLanguage(event.target.value === 'de' ? 'de' : 'en')
-              }
+              onChange={(event) => {
+                if (isLanguage(event.target.value))
+                  setLanguage(event.target.value);
+              }}
             >
-              <option value="de">Deutsch</option>
-              <option value="en">English</option>
+              {languagesByName().map((code) => (
+                <option key={code} value={code} lang={code}>
+                  {LANGUAGE_NAMES[code]}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex items-center gap-2">

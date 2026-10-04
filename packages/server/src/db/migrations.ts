@@ -4,6 +4,7 @@ import type { Db } from './sqlite.js';
 interface Migration {
   version: number;
   sql: string;
+  rebuildsReferencedTable?: boolean;
 }
 
 /**
@@ -87,6 +88,48 @@ CREATE TABLE marks (
 CREATE INDEX marks_event_day ON marks (event_id, day);
 `,
   },
+  {
+    version: 2,
+    rebuildsReferencedTable: true,
+    sql: `
+CREATE TABLE events_new (
+  id TEXT PRIMARY KEY,
+  admin_hash TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  description TEXT CHECK (description IS NULL OR length(description) <= 500),
+  location TEXT CHECK (location IS NULL OR length(location) <= 120),
+  emoji TEXT NOT NULL,
+  creator_name TEXT CHECK (creator_name IS NULL OR length(creator_name) <= 40),
+  language TEXT NOT NULL CHECK (language IN ('de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt')),
+  duration_days INTEGER NOT NULL CHECK (duration_days BETWEEN 1 AND 14),
+  min_count INTEGER CHECK (min_count IS NULL OR min_count >= 1),
+  closed_at INTEGER,
+  final_start TEXT,
+  final_end TEXT,
+  created_at INTEGER NOT NULL,
+  last_write_at INTEGER NOT NULL,
+  expires_on TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  CHECK ((final_start IS NULL) = (final_end IS NULL)),
+  CHECK (final_start IS NULL OR closed_at IS NOT NULL)
+) STRICT;
+
+INSERT INTO events_new (
+  id, admin_hash, title, description, location, emoji, creator_name,
+  language, duration_days, min_count, closed_at, final_start, final_end,
+  created_at, last_write_at, expires_on, version
+)
+SELECT
+  id, admin_hash, title, description, location, emoji, creator_name,
+  language, duration_days, min_count, closed_at, final_start, final_end,
+  created_at, last_write_at, expires_on, version
+FROM events;
+
+DROP TABLE events;
+ALTER TABLE events_new RENAME TO events;
+CREATE INDEX events_expires_on ON events (expires_on);
+`,
+  },
 ];
 
 export class MigrationError extends Error {
@@ -137,15 +180,31 @@ export function migrate(
   let count = 0;
   for (const migration of migrations) {
     if (done.has(migration.version)) continue;
-    db.tx(() => {
-      db.exec(migration.sql);
-      db.run(
-        'INSERT INTO schema_migrations (version, checksum, applied_at) VALUES (?, ?, ?)',
-        migration.version,
-        checksum(migration.sql),
-        Date.now()
-      );
-    });
+    // SQLite cannot widen a CHECK constraint in place. Dropping the parent
+    // table with foreign keys enabled would cascade-delete its child rows.
+    if (migration.rebuildsReferencedTable) db.exec('PRAGMA foreign_keys = OFF');
+    try {
+      db.tx(() => {
+        db.exec(migration.sql);
+        if (
+          migration.rebuildsReferencedTable &&
+          db.all('PRAGMA foreign_key_check').length > 0
+        ) {
+          throw new MigrationError(
+            `Migration ${migration.version} broke foreign keys.`
+          );
+        }
+        db.run(
+          'INSERT INTO schema_migrations (version, checksum, applied_at) VALUES (?, ?, ?)',
+          migration.version,
+          checksum(migration.sql),
+          Date.now()
+        );
+      });
+    } finally {
+      if (migration.rebuildsReferencedTable)
+        db.exec('PRAGMA foreign_keys = ON');
+    }
     count += 1;
   }
   return count;

@@ -1,6 +1,6 @@
 # Owl Be There
 
-**Find the day that works for everyone.**
+**Find a day everyone can make.**
 
 Owl Be There helps a group pick a day — for a match, a tournament, a hike or a barbecue. The organiser picks the candidate days, everyone marks the days they can make it on a calendar, and the calendar turns into a heatmap that shows at a glance when the whole group is free.
 
@@ -15,8 +15,10 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
 - **Sharing:** the system share sheet, a QR code, and a ready-made invitation text. Messengers show the event title in their link preview.
 - **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change — never before their last candidate day.
-- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, English and German.
+- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Dutch, English, French, German, Italian, Japanese, Portuguese and Spanish.
 - **Self-hostable:** one container, one SQLite file.
+
+The Japanese interface uses a locally hosted Noto Sans CJK JP font (© 2014–2021 Adobe). Its SIL Open Font License is included with the font files.
 
 ## Self-hosting
 

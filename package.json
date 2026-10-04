@@ -2,7 +2,7 @@
   "name": "owl-be-there",
   "version": "0.1.5",
   "private": true,
-  "description": "Find the day that works for everyone: mark whole days on a calendar, see when the group is free. No accounts.",
+  "description": "Find a day everyone can make. Mark your days on a calendar and see what works for the group. No accounts.",
   "license": "MIT",
   "author": "Willi Thiel",
   "repository": {

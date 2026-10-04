@@ -422,4 +422,29 @@ describe('the calendar file', () => {
     expect(file.body).toContain('LOCATION:North field');
     expect(file.body).toContain(`URL:https://owl.example.org/e/${id}`);
   });
+
+  it('uses the event language for its note', async () => {
+    for (const [language, note] of [
+      ['es', 'Fecha elegida con Owl Be There'],
+      ['fr', 'Date choisie avec Owl Be There'],
+      ['pt', 'Data escolhida com Owl Be There'],
+      ['it', 'Data scelta con Owl Be There'],
+      ['ja', 'Owl Be Thereで決めた日程'],
+      ['nl', 'Datum gekozen met Owl Be There'],
+    ]) {
+      const { id, adminToken } = await createEvent(t.app, { language });
+      await t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/status`,
+        headers: admin(adminToken),
+        payload: { status: 'finalized', start: '2027-03-06' },
+      });
+      const file = await t.app.inject({
+        method: 'GET',
+        url: `/api/events/${id}/calendar.ics`,
+      });
+      expect(file.statusCode).toBe(200);
+      expect(file.body).toContain(`DESCRIPTION:${note}`);
+    }
+  });
 });

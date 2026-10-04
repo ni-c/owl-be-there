@@ -159,6 +159,28 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+@font-face {
+  font-family: 'Noto Sans CJK JP UI';
+  src: url('/fonts/noto-sans-cjk-jp-ui.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans CJK JP';
+  src: url('/fonts/noto-sans-cjk-jp-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+html:lang(ja) body {
+  font-family:
+    'Nunito Variable', 'Noto Sans CJK JP UI', 'Noto Sans CJK JP', ui-rounded,
+    system-ui, sans-serif;
+}
+
 :focus-visible {
   outline: 3px solid var(--owl-focus);
   outline-offset: 2px;

@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
+import { es } from '../src/i18n/es.ts';
+import { fr } from '../src/i18n/fr.ts';
+import { it as italian } from '../src/i18n/it.ts';
+import { ja } from '../src/i18n/ja.ts';
+import { nl } from '../src/i18n/nl.ts';
+import { pt } from '../src/i18n/pt.ts';
 import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
@@ -13,13 +19,17 @@ afterEach(() => {
 });
 
 describe('i18n', () => {
-  it('has every English text in German, with the same placeholders', () => {
+  it('has every English text in each translation, with the same placeholders', () => {
     const placeholders = (text: string) =>
       [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
-    expect(Object.keys(de).sort()).toEqual(Object.keys(en).sort());
-    for (const key of Object.keys(en) as (keyof typeof en)[]) {
-      expect(placeholders(de[key]), key).toEqual(placeholders(en[key]));
-      expect(de[key].trim(), key).not.toBe('');
+    for (const dictionary of [de, es, fr, italian, ja, nl, pt]) {
+      expect(Object.keys(dictionary).sort()).toEqual(Object.keys(en).sort());
+      for (const key of Object.keys(en) as (keyof typeof en)[]) {
+        expect(placeholders(dictionary[key]), key).toEqual(
+          placeholders(en[key])
+        );
+        expect(dictionary[key].trim(), key).not.toBe('');
+      }
     }
   });
 
@@ -43,13 +53,50 @@ describe('i18n', () => {
     expect(translator('de').t('mine.hello', { name: 'Anna' })).toBe(
       'Hallo Anna!'
     );
+    expect(translator('es').tn('create.dayCount', 1)).toBe('1 día para elegir');
+    expect(translator('es').tn('create.dayCount', 0)).toBe(
+      '0 días para elegir'
+    );
+    expect(translator('fr').tn('create.dayCount', 1)).toBe('1 jour au choix');
+    expect(translator('fr').tn('create.dayCount', 0)).toBe('0 jour au choix');
+    expect(translator('pt').tn('create.dayCount', 1)).toBe('1 dia à escolha');
+    expect(translator('pt').tn('create.dayCount', 0)).toBe('0 dias à escolha');
+    expect(translator('it').tn('create.dayCount', 1)).toBe(
+      '1 giorno tra cui scegliere'
+    );
+    expect(translator('it').tn('create.dayCount', 0)).toBe(
+      '0 giorni tra cui scegliere'
+    );
+    expect(translator('ja').tn('create.dayCount', 0)).toBe('候補は0日');
+    expect(translator('ja').tn('create.dayCount', 1)).toBe('候補は1日');
+    expect(translator('ja').tn('create.dayCount', 2)).toBe('候補は2日');
+    expect(translator('nl').tn('create.dayCount', 0)).toBe(
+      '0 dagen om uit te kiezen'
+    );
+    expect(translator('nl').tn('create.dayCount', 1)).toBe(
+      '1 dag om uit te kiezen'
+    );
+    expect(translator('nl').tn('create.dayCount', 2)).toBe(
+      '2 dagen om uit te kiezen'
+    );
   });
 
   it('starts in the stored language, else the browser’s, else English', () => {
     expect(detectLanguage('de', ['en-US'])).toBe('de');
-    expect(detectLanguage(null, ['fr-FR', 'de-AT', 'en'])).toBe('de');
+    expect(detectLanguage('es', ['en-US'])).toBe('es');
+    expect(detectLanguage(null, ['es-ES', 'en-GB'])).toBe('es');
+    expect(detectLanguage('fr', ['en-US'])).toBe('fr');
+    expect(detectLanguage(null, ['fr-FR', 'en-GB'])).toBe('fr');
+    expect(detectLanguage('pt', ['en-US'])).toBe('pt');
+    expect(detectLanguage(null, ['pt-PT', 'en-GB'])).toBe('pt');
+    expect(detectLanguage('it', ['en-US'])).toBe('it');
+    expect(detectLanguage(null, ['it-IT', 'de-AT', 'en'])).toBe('it');
+    expect(detectLanguage('ja', ['en-US'])).toBe('ja');
+    expect(detectLanguage(null, ['ja-JP', 'en-GB'])).toBe('ja');
+    expect(detectLanguage('nl', ['en-US'])).toBe('nl');
+    expect(detectLanguage(null, ['nl-NL', 'en-GB'])).toBe('nl');
     expect(detectLanguage(null, ['EN-gb'])).toBe('en');
-    expect(detectLanguage(null, ['fr', 'it'])).toBe('en');
+    expect(detectLanguage(null, ['no', 'da'])).toBe('en');
     expect(detectLanguage(null, [])).toBe('en');
   });
 });

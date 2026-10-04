@@ -7,6 +7,7 @@ import {
   compareISODate,
   CreateEventBody,
   isId,
+  isLanguage,
   LIMITS,
   makeId,
   nameKey,
@@ -328,7 +329,8 @@ export function registerEventRoutes(
           uid: `${event.id}@owl-be-there`,
           title: event.title,
           description:
-            SERVER_TEXTS[event.language === 'de' ? 'de' : 'en'].calendarNote,
+            SERVER_TEXTS[isLanguage(event.language) ? event.language : 'en']
+              .calendarNote,
           location: event.location,
           start: event.final_start,
           end: event.final_end,

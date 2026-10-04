@@ -9,10 +9,10 @@ import { defineConfig, devices } from '@playwright/test';
  * one address, which is exactly what they exist to stop.
  */
 const PORT = 4320;
+const DATA_DIR = 'e2e/.tmp/data';
 
 export default defineConfig({
   testDir: './specs',
-  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -29,7 +29,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'node packages/server/dist/index.js',
+    // The data directory is emptied here, not in a globalSetup: Playwright
+    // starts the web server first, so the server would open the old database.
+    command: `node -e "require('node:fs').rmSync('${DATA_DIR}', { recursive: true, force: true })" && node packages/server/dist/index.js`,
     cwd: '..',
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
@@ -40,7 +42,7 @@ export default defineConfig({
       // not whatever origin served the page.
       PUBLIC_URL: `http://localhost:${PORT}`,
       CLIENT_DIR: 'packages/client/dist',
-      DATA_DIR: 'e2e/.tmp/data',
+      DATA_DIR,
       RATE_LIMIT_MULTIPLIER: '1000',
       LOG_LEVEL: 'warn',
       OPERATOR_NAME: 'Example Organisation',

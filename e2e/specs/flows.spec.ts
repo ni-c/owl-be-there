@@ -37,7 +37,7 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
     page.getByRole('heading', { name: 'Share with your group' })
   ).toBeVisible();
   await expect(
-    page.getByText('Done! Now send the link to your group.')
+    page.getByText('All set! Send the link to the others.')
   ).toBeVisible();
   const link = await page
     .getByRole('textbox', { name: 'Link for everyone' })
@@ -131,7 +131,7 @@ test('a protected name needs its password on another device', async ({
   await laptop.getByLabel('Your name', { exact: true }).fill('maxi');
   await laptop.getByRole('button', { name: 'Continue' }).click();
   await expect(
-    laptop.getByText('“maxi” is protected. Please enter the password.')
+    laptop.getByText('“maxi” is protected. Enter the password to continue.')
   ).toBeVisible();
   await laptop.getByLabel('Password', { exact: true }).fill('wrong!');
   await laptop.getByRole('button', { name: 'Continue' }).click();
@@ -157,7 +157,7 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
   await expect(best.getByText('enough people')).toBeVisible();
   await best.getByRole('button', { name: 'Choose this date' }).click();
 
-  await expect(page.getByText('It’s decided!')).toBeVisible();
+  await expect(page.getByText('The date is set!')).toBeVisible();
   const ics = await request.get(`/api/events/${id}/calendar.ics`);
   expect(ics.status()).toBe(200);
   expect(await ics.text()).toContain(
@@ -212,7 +212,7 @@ test('an unknown event says so, with a confused owl rather than an error', async
   const response = await page.goto('/e/AAAAAAAAAAAA');
   expect(response?.status()).toBe(404);
   await expect(
-    page.getByRole('heading', { name: 'This event does not exist (any more).' })
+    page.getByRole('heading', { name: 'We can’t find this event.' })
   ).toBeVisible();
 });
 
@@ -222,20 +222,179 @@ test('the privacy page names the operator and the log retention', async ({
   await page.goto('/privacy');
   await expect(page.getByRole('heading', { name: 'Privacy' })).toBeVisible();
   await expect(page.getByText('Example Organisation')).toBeVisible();
-  await expect(page.getByText(/for 7 days to fend off abuse/)).toBeVisible();
+  await expect(
+    page.getByText(/These logs are deleted after 7 days/)
+  ).toBeVisible();
 });
 
 test('German is a click away and remembered', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Language').selectOption('de');
   await expect(
-    page.getByRole('heading', { name: 'Finde den Tag, der allen passt.' })
+    page.getByRole('heading', { name: 'Findet einen Tag, an dem alle können.' })
   ).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole('button', { name: 'Event planen' })
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('de');
+});
+
+test('Spanish is remembered and new events use it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('es');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Encontrad un día que os venga bien a todos.',
+    })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('es');
+  await page.getByRole('button', { name: 'Planear un evento' }).click();
+  await page.getByLabel('Título').fill('Partido en el parque');
+  await page.getByRole('button', { name: 'Siguiente' }).click();
+  await page.getByRole('button', { name: 'Siguiente' }).click();
+  await page.getByRole('button', { name: 'Crear evento' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Compartir con el grupo' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('es');
+});
+
+test('French is remembered and new events use it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('fr');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Trouvez une date qui convient à tout le monde.',
+    })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
+  await page.getByRole('button', { name: 'Organiser un événement' }).click();
+  await page.getByLabel('Titre').fill('Foot au parc');
+  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Créer l’événement' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Partager avec le groupe' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('fr');
+});
+
+test('Portuguese is remembered and new events use it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('pt');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Encontrem um dia em que todos possam.',
+    })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('pt');
+  await page.getByRole('button', { name: 'Planear um evento' }).click();
+  await page.getByLabel('Título').fill('Jogo no parque');
+  await page.getByRole('button', { name: 'Seguinte' }).click();
+  await page.getByRole('button', { name: 'Seguinte' }).click();
+  await page.getByRole('button', { name: 'Criar evento' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Partilhar com o grupo' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('pt');
+});
+
+test('Italian is remembered and new events use it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('it');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Trova un giorno che vada bene a tutti.',
+    })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('it');
+  await page.getByRole('button', { name: 'Organizza un evento' }).click();
+  await page.getByLabel('Titolo').fill('Partita al parco');
+  await page.getByRole('button', { name: 'Avanti' }).click();
+  await page.getByRole('button', { name: 'Avanti' }).click();
+  await page.getByRole('button', { name: 'Crea evento' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Condividi con il gruppo' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('it');
+});
+
+test('Japanese is remembered and new events use it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('ja');
+  await expect(
+    page.getByRole('heading', {
+      name: 'みんなが集まれる日を見つけよう。',
+    })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ja');
+  expect(
+    await page.evaluate(async () => {
+      const faces = await document.fonts.load(
+        '16px "Noto Sans CJK JP UI"',
+        'みんな'
+      );
+      return faces.some(
+        (face) =>
+          face.family === 'Noto Sans CJK JP UI' && face.status === 'loaded'
+      );
+    })
+  ).toBe(true);
+  await page.getByRole('button', { name: '予定を立てる' }).click();
+  await page.getByLabel('タイトル').fill('公園でサッカー');
+  await page.getByRole('button', { name: '次へ' }).click();
+  await page.getByRole('button', { name: '次へ' }).click();
+  await page.getByRole('button', { name: '予定を作る' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'みんなに共有' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('ja');
+});
+
+test('Dutch is remembered and new events use it', async ({ page, request }) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('nl');
+  await expect(
+    page.getByRole('heading', { name: 'Vind een dag waarop iedereen kan.' })
+  ).toBeVisible();
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('nl');
+  await page.getByRole('button', { name: 'Plan een evenement' }).click();
+  await page.getByLabel('Titel').fill('Voetbal in het park');
+  await page.getByRole('button', { name: 'Volgende' }).click();
+  await page.getByRole('button', { name: 'Volgende' }).click();
+  await page.getByRole('button', { name: 'Evenement maken' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Deel met je groep' })
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  expect((await snapshot(request, id)).event.language).toBe('nl');
 });
 
 test('the count of answers is spelled out and follows live', async ({
