@@ -126,10 +126,13 @@
 
 /*
  * Tailwind 4 gives buttons the arrow cursor; everything that does something on
- * a click shows the hand again. A disabled button keeps its own cursor from
- * the `disabled:` utility, which comes after this layer.
+ * a click shows the hand again. Links are listed too: WebKit leaves them at
+ * `auto` and draws the hand itself, so only this makes it the same in every
+ * engine. A disabled button keeps its own cursor from the `disabled:` utility,
+ * which comes after this layer.
  */
 @layer base {
+  a[href],
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']),
   select:not(:disabled),
