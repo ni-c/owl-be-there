@@ -10,6 +10,8 @@ const BY_CODE: Partial<Record<string, TranslationKey>> = {
   closed: 'who.closed',
   full: 'who.full',
   wrong_password: 'who.wrongPassword',
+  slow_down: 'error.slowDown',
+  days_changed: 'error.daysChanged',
 };
 
 /** A sentence for the reader about what went wrong — never a stack trace. */

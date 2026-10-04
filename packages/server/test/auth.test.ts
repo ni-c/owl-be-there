@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { hashPassword, verifyPassword } from '../src/auth/passwords.js';
 import { loadSecret } from '../src/auth/secret.js';
 import {
+  DEFAULT_THROTTLE_LIMITS,
+  PasswordThrottle,
+} from '../src/auth/throttle.js';
+import {
   hashAdminToken,
   newAdminToken,
   readParticipantToken,
@@ -121,5 +125,54 @@ describe('loadSecret', () => {
 
   it('passes on errors other than an existing file', () => {
     expect(() => loadSecret('/nonexistent/dir', null)).toThrow(/ENOENT/);
+  });
+});
+
+describe('PasswordThrottle', () => {
+  const clock = {
+    time: 0,
+    now() {
+      return this.time;
+    },
+  };
+  const limits = { ...DEFAULT_THROTTLE_LIMITS, perNetwork: 3, capacity: 2 };
+
+  it('lets a network ask only so often in a window, then again', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    expect(throttle.attempt('e', 'a', 'net')).toBe(0);
+    expect(throttle.attempt('e', 'b', 'net')).toBe(0);
+    expect(throttle.attempt('e', 'c', 'net')).toBe(0);
+    expect(throttle.attempt('e', 'd', 'net')).toBe(limits.networkWindowMs);
+    expect(throttle.attempt('e', 'd', 'other')).toBe(0);
+    clock.time = limits.networkWindowMs;
+    expect(throttle.attempt('e', 'd', 'net')).toBe(0);
+  });
+
+  it('caps the wait at its maximum', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    for (let miss = 0; miss < 40; miss += 1) throttle.failed('e', 'max');
+    expect(throttle.attempt('e', 'max', 'net')).toBe(limits.maxDelayMs);
+  });
+
+  it('forgets misses long past', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    for (let miss = 0; miss < 4; miss += 1) throttle.failed('e', 'max');
+    clock.time = 2 * limits.maxDelayMs + 1;
+    // Counted afresh: one miss, no wait.
+    throttle.failed('e', 'max');
+    expect(throttle.attempt('e', 'max', 'net')).toBe(0);
+  });
+
+  it('remembers no more names and networks than its capacity', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    for (const name of ['a', 'b', 'c']) {
+      throttle.failed('e', name);
+      throttle.attempt('e', name, name);
+    }
+    expect(throttle.size).toEqual({ names: 2, networks: 2 });
   });
 });

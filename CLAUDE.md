@@ -8,17 +8,18 @@ A group finds a **day** (or a block of consecutive days) for an event: the organ
 
 All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install` (see Traps).
 
-| Command                 | Purpose                                                                 |
-| ----------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`           | API on :8080 and the client with hot reload on :5173                    |
-| `npm run lint`          | ESLint + Prettier                                                       |
-| `npm run typecheck`     | every package, the tests and the end-to-end tree                        |
-| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`) |
-| `npm run test:coverage` | the same with thresholds                                                |
-| `npm run test:tz`       | shared and client tests under six time zones                            |
-| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch          |
-| `npm run ci:local`      | everything CI runs                                                      |
-| `npm run build`         | shared → server → client                                                |
+| Command                 | Purpose                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `npm run dev`           | API on :8080 and the client with hot reload on :5173                                  |
+| `npm run lint`          | ESLint + Prettier                                                                     |
+| `npm run typecheck`     | every package, the tests and the end-to-end tree                                      |
+| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`)               |
+| `npm run test:coverage` | the same with thresholds                                                              |
+| `npm run test:tz`       | shared and client tests under six time zones                                          |
+| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch                        |
+| `npm run ci:local`      | everything CI runs                                                                    |
+| `npm run build`         | shared → server → client                                                              |
+| `npm run screenshot`    | after a build: the README's pictures of the start page example (`docs/`) and `og.png` |
 
 ## Layout
 
@@ -60,7 +61,10 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **`node:sqlite` is a release candidate in Node 26.** Keep it behind `db/sqlite.ts`.
 - **WebKit does not start on unsupported Linux distributions** (missing `libicu74` and friends). Run the WebKit projects in `mcr.microsoft.com/playwright:v<version>-noble` with a Node 26 on `PATH`; see CONTRIBUTING.
 - **A drag must end where the pointer was released.** Moves are applied once per animation frame; a quick flick can end before the next frame, so `pointerup` applies its own position before the stroke is committed.
-- **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets its own headers.
+- **Playwright starts the `webServer` before `globalSetup`.** Anything the server reads at startup — the e2e data directory — has to be prepared in the `webServer` command itself; a reset in `globalSetup` comes too late and the server opens the previous run's database.
+- **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets `ctx.headers` itself. Hang up on a stream through the hub (`hangUp`), which forgets it before ending it — a write to an ended response is an uncaught error. The hub closes in `preClose`: the server waits for open connections before `onClose`, and a live stream never ends on its own.
+- **`events.version` moves on every write, marks included.** It is no concurrency token for the organiser's edits; the day list carries `baseDays` instead.
+- **Anything async in a route happens before `db.tx`** (scrypt hashing above all), so what was checked before the `await` is checked again inside the transaction.
 
 ## Working agreements
 

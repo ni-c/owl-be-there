@@ -33,6 +33,18 @@ describe('prefs', () => {
     expect(prefs.readLanguage()).toBeNull();
     prefs.writeLanguage('de');
     expect(prefs.readLanguage()).toBe('de');
+    prefs.writeLanguage('es');
+    expect(prefs.readLanguage()).toBe('es');
+    prefs.writeLanguage('fr');
+    expect(prefs.readLanguage()).toBe('fr');
+    prefs.writeLanguage('pt');
+    expect(prefs.readLanguage()).toBe('pt');
+    prefs.writeLanguage('it');
+    expect(prefs.readLanguage()).toBe('it');
+    prefs.writeLanguage('ja');
+    expect(prefs.readLanguage()).toBe('ja');
+    prefs.writeLanguage('nl');
+    expect(prefs.readLanguage()).toBe('nl');
   });
 
   it('keeps one session per event and ignores a malformed one', () => {

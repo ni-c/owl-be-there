@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon, escapeHtml, PageTemplate } from '../src/pages.js';
+import { emojiIcon } from '@owl/shared';
+import { escapeHtml, PageTemplate } from '../src/pages.js';
 import {
   createEvent,
   eventBody,
@@ -87,9 +88,21 @@ describe('pages', () => {
     expect(response.body).toContain(
       '<meta name="robots" content="noindex, nofollow" />'
     );
-    expect(response.body).toContain('Mark the days you can make it');
+    expect(response.body).toContain('Add the days you can make it');
     // The head sits within the first kilobytes a preview crawler reads.
     expect(response.body.indexOf('og:title')).toBeLessThan(2048);
+  });
+
+  it('shows the emoji as the tab icon and keeps it out of the title', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: 'Kick-off' });
+    const body = (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body;
+    expect(body).toContain('<title>Kick-off · Owl Be There</title>');
+    // A link preview has no icon, so it keeps the emoji.
+    expect(body).toContain(
+      '<meta property="og:title" content="⚽ Kick-off" />'
+    );
+    expect(body).toContain(`<link rel="icon" href="${emojiIcon('⚽')}" />`);
   });
 
   it('counts answers and announces a chosen date in the preview, in the event language', async () => {
@@ -108,7 +121,99 @@ describe('pages', () => {
     });
     expect(
       (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body
-    ).toMatch(/Es ist entschieden: Sa\., 6\. März 2027/);
+    ).toMatch(/Der Termin steht: Sa\., 6\. März 2027/);
+  });
+
+  it('previews Spanish events in Spanish', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'es' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('Marca los días que te vienen bien');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain('Ya hay fecha: sáb, 6 de marzo de 2027');
+  });
+
+  it('previews French events in French', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'fr' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('Indique les jours où tu es libre');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain('La date est fixée : sam. 6 mars 2027');
+  });
+
+  it('previews Portuguese events in Portuguese', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'pt' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('Marca os dias em que podes');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain(
+      'A data está marcada: sábado, 6 de março de 2027'
+    );
+  });
+
+  it('previews Italian events in Italian', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'it' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('Segna i giorni in cui ci sei');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain('La data è decisa: sab 6 marzo 2027');
+  });
+
+  it('previews Japanese events in Japanese', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'ja' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('行ける日を選んでね');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain('日程決定：2027年3月6日(土)');
+  });
+
+  it('previews Dutch events in Dutch', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app, { language: 'nl' });
+    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(open.body).toContain('Vul in wanneer je kunt');
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/events/${id}/status`,
+      headers: { 'x-admin-token': adminToken },
+      payload: { status: 'finalized', start: '2027-03-06' },
+    });
+    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
   });
 
   it('answers an unknown event or path with the app and a 404', async () => {

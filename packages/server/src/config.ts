@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { isAbsolute, resolve } from 'node:path';
 
 /**
@@ -137,13 +138,15 @@ export function loadConfig(env: Env = process.env): Config {
     problems.push('IMPRINT_URL must be an http(s) URL');
   }
 
+  const trustProxy = parseTrustProxy(read(env, 'TRUST_PROXY'), problems);
+
   const config: Config = {
     host,
     port,
     dataDir,
     publicUrl,
     clientDir,
-    trustProxy: parseTrustProxy(read(env, 'TRUST_PROXY')),
+    trustProxy,
     creationEnabled: boolean('CREATION_ENABLED', true),
     maxEvents: integer('MAX_EVENTS', 10_000, 1, 10_000_000),
     rateLimitMultiplier: integer('RATE_LIMIT_MULTIPLIER', 1, 1, 100_000),
@@ -191,12 +194,33 @@ function parsePublicUrl(raw: string, problems: string[]): string {
  * same machine. `false` (or `none`) trusts nobody, which is right when the
  * server faces the internet itself.
  */
-function parseTrustProxy(raw: string | null): string[] | false {
+function parseTrustProxy(
+  raw: string | null,
+  problems: string[]
+): string[] | false {
   if (raw === null) return ['127.0.0.1', '::1'];
   if (['false', 'none', 'off', '0'].includes(raw.toLowerCase())) return false;
   const entries = raw
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry !== '');
+  const invalid = entries.filter((entry) => !isProxyEntry(entry));
+  if (invalid.length > 0) {
+    problems.push(
+      `TRUST_PROXY must list addresses, subnets or loopback, linklocal, uniquelocal — not ${invalid.join(', ')}`
+    );
+  }
   return entries.length > 0 ? entries : false;
+}
+
+/** An address, a subnet in CIDR notation, or one of proxy-addr's names. */
+function isProxyEntry(entry: string): boolean {
+  if (['loopback', 'linklocal', 'uniquelocal'].includes(entry)) return true;
+  const [address, bits, ...rest] = entry.split('/');
+  if (rest.length > 0 || address === undefined) return false;
+  const version = isIP(address);
+  if (version === 0) return false;
+  if (bits === undefined) return true;
+  if (!/^\d{1,3}$/.test(bits)) return false;
+  return Number(bits) <= (version === 4 ? 32 : 128);
 }

@@ -42,3 +42,13 @@ export type EmojiKey = keyof typeof EMOJIS;
 export const EMOJI_KEYS = Object.keys(EMOJIS) as [EmojiKey, ...EmojiKey[]];
 
 export const DEFAULT_EMOJI: EmojiKey = 'owl';
+
+/**
+ * An emoji as a favicon: an SVG with one text element, as a data URL. An event
+ * page shows its emoji in the browser tab this way, and only this way — the
+ * title stays text, so the tab does not show the emoji twice.
+ */
+export function emojiIcon(emoji: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}

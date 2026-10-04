@@ -11,6 +11,9 @@ import {
   isExpired,
   isId,
   isLanguage,
+  LANGUAGE_NAMES,
+  LANGUAGES,
+  languagesByName,
   LIMITS,
   makeId,
   MarksBody,
@@ -53,6 +56,57 @@ describe('emoji', () => {
   it('has a default that is on the list, and no duplicates', () => {
     expect(EMOJI_KEYS).toContain(DEFAULT_EMOJI);
     expect(new Set(Object.values(EMOJIS)).size).toBe(EMOJI_KEYS.length);
+  });
+});
+
+describe('retention at the end of the calendar', () => {
+  it('stops at 9999-12-31 instead of rolling into a five-digit year', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-01-01',
+        lastCandidateDay: '9999-12-31',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-12-01',
+        lastCandidateDay: '9999-12-02',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+    // The day before the end still works as always.
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-01-01',
+        lastCandidateDay: '9999-12-30',
+        finalEnd: null,
+      })
+    ).toBe('9999-12-31');
+  });
+});
+
+describe('names', () => {
+  it('refuses a name made only of invisible characters', () => {
+    expect(SessionBody.safeParse({ name: '\u200C' }).success).toBe(false);
+    expect(SessionBody.safeParse({ name: '\u3164' }).success).toBe(false);
+    expect(SessionBody.safeParse({ name: 'Max' }).success).toBe(true);
+  });
+});
+
+describe('editing days', () => {
+  it('needs the days an edit started from, and nothing more without days', () => {
+    expect(UpdateEventBody.safeParse({ days: ['2027-03-06'] }).success).toBe(
+      false
+    );
+    expect(
+      UpdateEventBody.safeParse({
+        days: ['2027-03-06'],
+        baseDays: ['2027-03-05'],
+      }).success
+    ).toBe(true);
+    expect(UpdateEventBody.safeParse({ title: 'x' }).success).toBe(true);
+    expect(UpdateEventBody.safeParse({ baseDays: [] }).success).toBe(true);
   });
 });
 
@@ -100,20 +154,75 @@ describe('texts', () => {
     expect(formatDayRange('2027-03-06', '2027-03-07', 'de-DE')).toMatch(
       /^Sa\., 6\.\s?–\s?So\., 7\. März 2027$/
     );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'es-ES')).toBe(
+      'sáb, 6 de marzo de 2027'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'fr-FR')).toBe(
+      'sam. 6 mars 2027'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'pt-PT')).toBe(
+      'sábado, 6 de março de 2027'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'it-IT')).toBe(
+      'sab 6 marzo 2027'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'ja-JP')).toBe(
+      '2027年3月6日(土)'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-07', 'ja-JP')).toBe(
+      '2027/03/06(土)～2027/03/07(日)'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-06', 'nl-NL')).toBe(
+      'za 6 maart 2027'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-07', 'nl-NL')).toMatch(
+      /^za 6\s?–\s?zo 7 maart 2027$/
+    );
   });
 
   it('counts answers in previews', () => {
     expect(SERVER_TEXTS.en.previewOpen(0)).not.toMatch(/\d/);
     expect(SERVER_TEXTS.en.previewOpen(1)).toContain('1 answer so far');
     expect(SERVER_TEXTS.de.previewOpen(2)).toContain('bisher 2 Antworten');
+    expect(SERVER_TEXTS.es.previewOpen(1)).toContain('1 respuesta');
+    expect(SERVER_TEXTS.es.previewOpen(2)).toContain('2 respuestas');
+    expect(SERVER_TEXTS.fr.previewOpen(1)).toContain('1 réponse');
+    expect(SERVER_TEXTS.fr.previewOpen(2)).toContain('2 réponses');
+    expect(SERVER_TEXTS.pt.previewOpen(1)).toContain('1 resposta');
+    expect(SERVER_TEXTS.pt.previewOpen(2)).toContain('2 respostas');
+    expect(SERVER_TEXTS.it.previewOpen(1)).toContain('1 risposta');
+    expect(SERVER_TEXTS.it.previewOpen(2)).toContain('2 risposte');
+    expect(SERVER_TEXTS.ja.previewOpen(0)).not.toMatch(/\d/);
+    expect(SERVER_TEXTS.ja.previewOpen(1)).toContain('回答は現在1人');
+    expect(SERVER_TEXTS.ja.previewOpen(2)).toContain('回答は現在2人');
+    expect(SERVER_TEXTS.nl.previewOpen(1)).toContain('1 antwoord');
+    expect(SERVER_TEXTS.nl.previewOpen(2)).toContain('2 antwoorden');
   });
 
   it('announces a decision and signs calendar entries', () => {
     expect(SERVER_TEXTS.en.previewDecided('Sat 6 March')).toBe(
-      "It's decided: Sat 6 March"
+      'The date is set: Sat 6 March'
     );
     expect(SERVER_TEXTS.de.previewDecided('Sa., 6. März')).toBe(
-      'Es ist entschieden: Sa., 6. März'
+      'Der Termin steht: Sa., 6. März'
+    );
+    expect(SERVER_TEXTS.es.previewDecided('sáb, 6 de marzo')).toBe(
+      'Ya hay fecha: sáb, 6 de marzo'
+    );
+    expect(SERVER_TEXTS.fr.previewDecided('sam. 6 mars')).toBe(
+      'La date est fixée : sam. 6 mars'
+    );
+    expect(SERVER_TEXTS.pt.previewDecided('sábado, 6 de março')).toBe(
+      'A data está marcada: sábado, 6 de março'
+    );
+    expect(SERVER_TEXTS.it.previewDecided('sab 6 marzo')).toBe(
+      'La data è decisa: sab 6 marzo'
+    );
+    expect(SERVER_TEXTS.ja.previewDecided('2027年3月6日(土)')).toBe(
+      '日程決定：2027年3月6日(土)'
+    );
+    expect(SERVER_TEXTS.nl.previewDecided('za 6 maart')).toBe(
+      'De datum staat vast: za 6 maart'
     );
     expect(SERVER_TEXTS.de.previewOpen(1)).toContain('bisher 1 Antwort');
     expect(SERVER_TEXTS.de.previewOpen(0)).not.toMatch(/\d/);
@@ -122,7 +231,44 @@ describe('texts', () => {
 
   it('knows its languages', () => {
     expect(isLanguage('de')).toBe(true);
-    expect(isLanguage('fr')).toBe(false);
+    expect(isLanguage('es')).toBe(true);
+    expect(isLanguage('fr')).toBe(true);
+    expect(isLanguage('pt')).toBe(true);
+    expect(isLanguage('it')).toBe(true);
+    expect(isLanguage('ja')).toBe(true);
+    expect(isLanguage('nl')).toBe(true);
+    expect(isLanguage('sv')).toBe(false);
+  });
+
+  it('lists its languages by code, and by their own names for the picker', () => {
+    expect(LANGUAGES).toEqual(['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt']);
+    expect(languagesByName().map((code) => LANGUAGE_NAMES[code])).toEqual([
+      'Deutsch',
+      'English',
+      'Español',
+      'Français',
+      'Italiano',
+      'Nederlands',
+      'Português',
+      '日本語',
+    ]);
+    expect([...languagesByName()].sort()).toEqual([...LANGUAGES]);
+    // A fresh copy each time, so sorting never reorders LANGUAGES itself.
+    expect(languagesByName()).not.toBe(languagesByName());
+  });
+
+  it('has every server text in each language, none of them empty', () => {
+    const keys = Object.keys(SERVER_TEXTS.en).sort();
+    for (const language of LANGUAGES) {
+      const texts = SERVER_TEXTS[language];
+      expect(Object.keys(texts).sort(), language).toEqual(keys);
+      for (const value of Object.values(texts)) {
+        const text = typeof value === 'function' ? value(0) : value;
+        expect(text.trim(), language).not.toBe('');
+      }
+      expect(texts.previewOpen(2), language).toMatch(/2/);
+      expect(texts.previewDecided('X'), language).toContain('X');
+    }
   });
 });
 

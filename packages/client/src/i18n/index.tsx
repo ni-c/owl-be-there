@@ -10,8 +10,23 @@ import {
 import { readLanguage, writeLanguage } from '../lib/prefs.ts';
 import { de } from './de.ts';
 import { en, type Dictionary, type TranslationKey } from './en.ts';
+import { es } from './es.ts';
+import { fr } from './fr.ts';
+import { it } from './it.ts';
+import { ja } from './ja.ts';
+import { nl } from './nl.ts';
+import { pt } from './pt.ts';
 
-const DICTIONARIES: Record<Language, Dictionary> = { en, de };
+const DICTIONARIES: Record<Language, Dictionary> = {
+  de,
+  en,
+  es,
+  fr,
+  it,
+  ja,
+  nl,
+  pt,
+};
 
 /** Keys that come in `_one` / `_other` pairs, without the suffix. */
 type CountedKey = {

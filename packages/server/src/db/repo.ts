@@ -1,5 +1,6 @@
 import {
   addDays,
+  utcDateOf,
   diffDays,
   expiresOn,
   todayUTC,
@@ -494,7 +495,8 @@ const COLUMNS: Record<Exclude<keyof EventPatch, 'days'>, string> = {
  * Added days are stamped with the moment they arrived, so everyone who
  * answered before sees them as new rather than as days they said no to. A
  * chosen date that no longer fits — a day of it removed, or the duration
- * changed — is dropped, and the poll stays closed.
+ * changed — is dropped, and the poll stays closed; one that still fits ends
+ * where the new duration says.
  */
 export function updateEvent(
   db: Db,
@@ -518,6 +520,21 @@ export function updateEvent(
     if (patch.days) {
       const wanted = new Set(patch.days);
       const current = getDays(db, eventId).map((row) => row.day);
+      const removed = current.filter((day) => !wanted.has(day));
+      if (removed.length > 0) {
+        // Whoever loses marks with a removed day gets a new revision, so their
+        // other devices take the server's marks instead of resending the old.
+        db.run(
+          `UPDATE participants SET rev = rev + 1
+           WHERE event_id = ? AND id IN (
+             SELECT participant_id FROM marks
+             WHERE event_id = ? AND day IN (SELECT value FROM json_each(?))
+           )`,
+          eventId,
+          eventId,
+          JSON.stringify(removed)
+        );
+      }
       for (const day of current) {
         if (!wanted.has(day)) {
           db.run(
@@ -540,14 +557,20 @@ export function updateEvent(
       }
     }
     const event = getEvent(db, eventId)!;
-    if (
-      event.final_start !== null &&
-      !blockFits(db, event, event.final_start)
-    ) {
-      db.run(
-        'UPDATE events SET final_start = NULL, final_end = NULL WHERE id = ?',
-        eventId
-      );
+    if (event.final_start !== null) {
+      if (blockFits(db, event, event.final_start)) {
+        // The block still fits, but its end follows the duration.
+        db.run(
+          'UPDATE events SET final_end = ? WHERE id = ?',
+          addDays(event.final_start, event.duration_days - 1),
+          eventId
+        );
+      } else {
+        db.run(
+          'UPDATE events SET final_start = NULL, final_end = NULL WHERE id = ?',
+          eventId
+        );
+      }
     }
     touch(db, eventId, now);
   });
@@ -612,6 +635,39 @@ export function sweepExpired(db: Db, today: ISODate): string[] {
       .map((row) => row.id);
     if (ids.length > 0)
       db.run('DELETE FROM events WHERE expires_on < ?', today);
+    return ids;
+  });
+}
+
+export interface EventListing {
+  id: string;
+  title: string;
+  created: string;
+  participants: number;
+}
+
+/**
+ * Events created on or after a day, newest first, with how many people joined
+ * — for an operator looking into a flood of new events.
+ */
+export function listEvents(db: Db, since: ISODate | null): EventListing[] {
+  const from = since === null ? 0 : utcDateOf(since).getTime();
+  return db.all<EventListing>(
+    `SELECT e.id, e.title,
+            strftime('%Y-%m-%dT%H:%M:%SZ', e.created_at / 1000, 'unixepoch') AS created,
+            (SELECT count(*) FROM participants p WHERE p.event_id = e.id) AS participants
+     FROM events e WHERE e.created_at >= ? ORDER BY e.created_at DESC`,
+    from
+  );
+}
+
+/** Delete events created on or after a day that nobody joined; return their ids. */
+export function purgeEmpty(db: Db, since: ISODate): string[] {
+  return db.tx(() => {
+    const ids = listEvents(db, since)
+      .filter((event) => event.participants === 0)
+      .map((event) => event.id);
+    for (const id of ids) db.run('DELETE FROM events WHERE id = ?', id);
     return ids;
   });
 }

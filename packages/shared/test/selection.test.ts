@@ -5,6 +5,8 @@ import {
   cellAt,
   cellsInRect,
   joinMarks,
+  onCandidates,
+  othersOnDays,
   sameMarks,
   splitMarks,
   strokeModeFor,
@@ -180,5 +182,69 @@ describe('marks on the wire', () => {
     expect(sameMarks(joinMarks([], []), joinMarks(['2027-03-06'], []))).toBe(
       false
     );
+  });
+});
+
+describe('onCandidates', () => {
+  it('drops marks on days that are no longer candidates', () => {
+    const marks = joinMarks(['2027-03-06'], ['2027-03-07']);
+    const kept = onCandidates(marks, new Set(['2027-03-06']));
+    expect(splitMarks(kept)).toEqual({ yes: ['2027-03-06'], maybe: [] });
+  });
+
+  it('hands back the same map when nothing goes', () => {
+    const marks = joinMarks(['2027-03-06'], []);
+    expect(onCandidates(marks, new Set(['2027-03-06', '2027-03-07']))).toBe(
+      marks
+    );
+  });
+
+  it('handles empty marks and no candidates at all', () => {
+    expect(onCandidates(new Map(), new Set()).size).toBe(0);
+    expect(onCandidates(joinMarks(['2027-03-06'], []), new Set()).size).toBe(0);
+  });
+});
+
+describe('othersOnDays', () => {
+  const person = (
+    id: string,
+    yes: string[],
+    maybe: string[] = [],
+    answered = true
+  ) => ({ id, answered, yes, maybe });
+  const days = ['2027-03-06', '2027-03-07'];
+
+  it('counts the others who can and who might, per day', () => {
+    const map = othersOnDays(
+      days,
+      [
+        person('me', ['2027-03-06']),
+        person('a', ['2027-03-06'], ['2027-03-07']),
+        person('b', ['2027-03-07']),
+      ],
+      'me'
+    );
+    expect(map.get('2027-03-06')).toEqual({ yes: 1, maybe: 0, total: 2 });
+    expect(map.get('2027-03-07')).toEqual({ yes: 1, maybe: 1, total: 2 });
+  });
+
+  it('leaves out those who have not answered, and oneself', () => {
+    const map = othersOnDays(
+      days,
+      [person('me', days), person('silent', [], [], false), person('a', [])],
+      'me'
+    );
+    expect(map.get('2027-03-06')).toEqual({ yes: 0, maybe: 0, total: 1 });
+  });
+
+  it('is empty with nobody else answered, or with no days', () => {
+    expect(othersOnDays(days, [person('me', days)], 'me').size).toBe(0);
+    expect(othersOnDays(days, [], 'me').size).toBe(0);
+    expect(othersOnDays([], [person('a', days)], 'me').size).toBe(0);
+  });
+
+  it('counts a day in both lists as yes', () => {
+    const map = othersOnDays(days, [person('a', days, days)], 'me');
+    expect(map.get('2027-03-06')).toEqual({ yes: 1, maybe: 0, total: 1 });
   });
 });

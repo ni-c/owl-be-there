@@ -16,44 +16,23 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-function CopyField({
-  label,
-  value,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
+function CopyField({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const id = `copy-${label.replace(/\W/g, '')}`;
-  const select = (element: HTMLInputElement | HTMLTextAreaElement) =>
-    element.select();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="font-bold">
         {label}
       </label>
       <div className="flex gap-2">
-        {multiline ? (
-          <textarea
-            id={id}
-            readOnly
-            value={value}
-            rows={3}
-            onFocus={(event) => select(event.target)}
-            className="min-h-20 flex-1 rounded-2xl border-2 border-line bg-sunken px-3 py-2 text-sm"
-          />
-        ) : (
-          <input
-            id={id}
-            readOnly
-            value={value}
-            onFocus={(event) => select(event.target)}
-            className="min-h-11 min-w-0 flex-1 rounded-2xl border-2 border-line bg-sunken px-3 text-sm"
-          />
-        )}
+        <input
+          id={id}
+          readOnly
+          value={value}
+          onFocus={(event) => event.target.select()}
+          className="min-h-11 min-w-0 flex-1 rounded-2xl border-2 border-line bg-sunken px-3 text-sm"
+        />
         <Button
           onClick={async () => {
             if (await copy(value)) {
@@ -153,7 +132,6 @@ export function ShareDialog({
           </Button>
         )}
         <CopyField label={t('share.link')} value={url} />
-        <CopyField label={t('share.invite')} value={invitation} multiline />
         <figure className="flex flex-col items-center gap-2">
           <QrCode text={url} />
           <figcaption className="text-sm font-bold text-muted">

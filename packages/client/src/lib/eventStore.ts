@@ -12,6 +12,8 @@ export type EventState =
 const REFETCH_DELAY_MS = 400;
 /** How often to poll when the live stream is refused or unavailable. */
 const POLL_MS = 30_000;
+/** How long to poll before trying the live stream again. */
+const STREAM_RETRY_MS = 5 * 60_000;
 
 /**
  * One event as the client knows it: the latest snapshot, kept fresh by the
@@ -28,6 +30,7 @@ export class EventStore {
   private source: EventSource | null = null;
   private refetchTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private streamRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private fetching: Promise<void> | null = null;
   private stopped = false;
   readonly id: string;
@@ -60,8 +63,10 @@ export class EventStore {
     this.source = null;
     if (this.refetchTimer) clearTimeout(this.refetchTimer);
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.streamRetryTimer) clearTimeout(this.streamRetryTimer);
     this.refetchTimer = null;
     this.pollTimer = null;
+    this.streamRetryTimer = null;
   }
 
   /** Fetch now, unless a fetch is already under way. */
@@ -82,6 +87,12 @@ export class EventStore {
         }
         return;
       }
+      // A write may have applied a newer snapshot while this GET travelled.
+      if (
+        this.state.status === 'ready' &&
+        result.data.event.version < this.state.data.event.version
+      )
+        return;
       this.etag = result.etag;
       this.set({ status: 'ready', data: result.data, stale: false });
     } catch (error) {
@@ -135,10 +146,19 @@ export class EventStore {
     });
     source.addEventListener('error', () => {
       // EventSource reconnects by itself after a dropped connection. Only a
-      // refusal (429, 404) closes it for good; then poll instead.
+      // refusal (429, 404, a proxy's 502 during a deploy) closes it for good;
+      // then poll instead, and try the stream again after a while.
       if (source.readyState === EventSource.CLOSED && !this.stopped) {
         this.source = null;
         this.startPolling();
+        this.streamRetryTimer ??= setTimeout(() => {
+          this.streamRetryTimer = null;
+          if (this.stopped) return;
+          if (this.pollTimer) clearInterval(this.pollTimer);
+          this.pollTimer = null;
+          void this.refresh();
+          this.openStream();
+        }, STREAM_RETRY_MS);
       }
     });
   }

@@ -7,6 +7,11 @@ import Fastify, {
   type FastifyError,
   type FastifyInstance,
 } from 'fastify';
+import {
+  DEFAULT_THROTTLE_LIMITS,
+  PasswordThrottle,
+  type ThrottleLimits,
+} from './auth/throttle.js';
 import type { Config } from './config.js';
 import { systemClock, type AppContext, type Clock } from './context.js';
 import { sweepExpired } from './db/repo.js';
@@ -32,6 +37,7 @@ export interface BuildAppOptions {
   logStream?: { write(line: string): void };
   streamLimits?: StreamLimits;
   heartbeatMs?: number;
+  throttleLimits?: Partial<ThrottleLimits>;
 }
 
 declare module 'fastify' {
@@ -72,6 +78,28 @@ export function contentSecurityPolicy(scriptHashes: readonly string[]): string {
   ].join('; ');
 }
 
+/**
+ * The headers every response carries. The live stream takes over its response
+ * and skips the `onSend` hook, so it sets these itself from `ctx.headers`.
+ */
+export function securityHeaders(
+  csp: string,
+  https: boolean
+): Record<string, string> {
+  return {
+    'x-content-type-options': 'nosniff',
+    // Event links are access keys; they must not travel on in a Referer.
+    'referrer-policy': 'no-referrer',
+    'x-frame-options': 'DENY',
+    'cross-origin-opener-policy': 'same-origin',
+    'cross-origin-resource-policy': 'same-origin',
+    'permissions-policy':
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    'content-security-policy': csp,
+    ...(https && { 'strict-transport-security': 'max-age=31536000' }),
+  };
+}
+
 export async function buildApp(
   options: BuildAppOptions
 ): Promise<FastifyInstance> {
@@ -105,6 +133,8 @@ export async function buildApp(
       )
     : null;
   const hub = new SseHub(options.streamLimits, options.heartbeatMs);
+  const csp = contentSecurityPolicy(template?.scriptHashes ?? []);
+  const https = config.publicUrl.startsWith('https:');
   const ctx: AppContext = {
     config,
     db,
@@ -113,23 +143,18 @@ export async function buildApp(
     hub,
     template,
     version: readVersion(),
+    headers: securityHeaders(csp, https),
+    throttle: new PasswordThrottle(clock, {
+      ...DEFAULT_THROTTLE_LIMITS,
+      ...options.throttleLimits,
+      perNetwork:
+        (options.throttleLimits?.perNetwork ??
+          DEFAULT_THROTTLE_LIMITS.perNetwork) * config.rateLimitMultiplier,
+    }),
   };
 
-  const csp = contentSecurityPolicy(template?.scriptHashes ?? []);
-  const https = config.publicUrl.startsWith('https:');
   app.addHook('onSend', async (_request, reply, payload) => {
-    reply.header('x-content-type-options', 'nosniff');
-    // Event links are access keys; they must not travel on in a Referer.
-    reply.header('referrer-policy', 'no-referrer');
-    reply.header('x-frame-options', 'DENY');
-    reply.header('cross-origin-opener-policy', 'same-origin');
-    reply.header('cross-origin-resource-policy', 'same-origin');
-    reply.header(
-      'permissions-policy',
-      'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
-    );
-    reply.header('content-security-policy', csp);
-    if (https) reply.header('strict-transport-security', 'max-age=31536000');
+    reply.headers(ctx.headers);
     return payload;
   });
 
@@ -199,7 +224,10 @@ export async function buildApp(
     }
     return ids.length;
   });
-  app.addHook('onClose', async () => hub.close());
+  // Before the server stops, not after: it waits for every open connection to
+  // finish, and a live stream never finishes by itself — on `onClose` a
+  // single open browser tab held the shutdown until the hard timeout.
+  app.addHook('preClose', async () => hub.close());
 
   return app;
 }

@@ -41,7 +41,14 @@ export function expandRange(
 }
 
 export type CandidateProblem =
-  'empty' | 'too_many' | 'invalid' | 'duplicate' | 'unsorted' | 'past' | 'span';
+  | 'empty'
+  | 'too_many'
+  | 'invalid'
+  | 'duplicate'
+  | 'unsorted'
+  | 'past'
+  | 'too_far'
+  | 'span';
 
 /**
  * What is wrong with a list of candidate days, or null when nothing is.
@@ -49,11 +56,13 @@ export type CandidateProblem =
  * The list must be valid dates in strictly ascending order, at most
  * `LIMITS.days` of them, spanning at most `LIMITS.span` days. With `earliest`
  * given, the first day may not lie before it; editing an event passes null,
- * because days that have since passed are allowed to stay.
+ * because days that have since passed are allowed to stay. With `latest`
+ * given, the last day may not lie after it.
  */
 export function checkCandidateDays(
   days: readonly string[],
-  earliest: ISODate | null
+  earliest: ISODate | null,
+  latest: ISODate | null = null
 ): CandidateProblem | null {
   if (days.length === 0) return 'empty';
   if (days.length > LIMITS.days) return 'too_many';
@@ -66,6 +75,7 @@ export function checkCandidateDays(
   const first = days[0]!;
   const last = days[days.length - 1]!;
   if (earliest !== null && compareISODate(first, earliest) < 0) return 'past';
+  if (latest !== null && compareISODate(last, latest) > 0) return 'too_far';
   if (diffDays(first, last) + 1 > LIMITS.span) return 'span';
   return null;
 }

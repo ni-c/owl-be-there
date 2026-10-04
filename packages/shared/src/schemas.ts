@@ -3,7 +3,7 @@ import { isValidISODate } from './dates.js';
 import { EMOJI_KEYS } from './emoji.js';
 import { ID_PATTERN } from './ids.js';
 import { LIMITS } from './limits.js';
-import { cleanLine, cleanText } from './text.js';
+import { cleanLine, cleanText, nameKey } from './text.js';
 import { LANGUAGES } from './texts.js';
 
 /*
@@ -44,7 +44,10 @@ export const IsoDay = z
 
 export const Id = z.string().regex(ID_PATTERN, 'Not a valid id');
 
-export const Name = requiredLine(LIMITS.name);
+export const Name = requiredLine(LIMITS.name).refine(
+  (name) => nameKey(name) !== '',
+  'A name needs a visible character'
+);
 
 /** A password being set. Logging in accepts any length up to the maximum. */
 export const NewPassword = z
@@ -73,16 +76,28 @@ export const CreateEventBody = z.strictObject({
   roster: z.array(Name).max(LIMITS.roster).optional(),
 });
 
-export const UpdateEventBody = z.strictObject({
-  title: requiredLine(LIMITS.title).optional(),
-  description: paragraph(LIMITS.description).nullable().optional(),
-  location: line(LIMITS.location).nullable().optional(),
-  emoji: Emoji.optional(),
-  creatorName: line(LIMITS.creatorName).nullable().optional(),
-  durationDays: z.int().min(1).max(LIMITS.durationDays).optional(),
-  minCount: z.int().min(1).max(LIMITS.participants).nullable().optional(),
-  days: DayList.min(1).optional(),
-});
+export const UpdateEventBody = z
+  .strictObject({
+    title: requiredLine(LIMITS.title).optional(),
+    description: paragraph(LIMITS.description).nullable().optional(),
+    location: line(LIMITS.location).nullable().optional(),
+    emoji: Emoji.optional(),
+    creatorName: line(LIMITS.creatorName).nullable().optional(),
+    durationDays: z.int().min(1).max(LIMITS.durationDays).optional(),
+    minCount: z.int().min(1).max(LIMITS.participants).nullable().optional(),
+    days: DayList.min(1).optional(),
+    /**
+     * The candidate days the organiser started from. A new list replaces the
+     * old one wholesale, so the server refuses it when the days changed since —
+     * a second tab must not silently remove days, and their marks, added in
+     * the first.
+     */
+    baseDays: DayList.optional(),
+  })
+  .refine((body) => body.days === undefined || body.baseDays !== undefined, {
+    message: 'New days need the days they replace',
+    path: ['baseDays'],
+  });
 
 export const StatusBody = z.discriminatedUnion('status', [
   z.strictObject({ status: z.literal('open') }),

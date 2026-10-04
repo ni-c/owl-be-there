@@ -56,3 +56,32 @@ describe('nameKey', () => {
     expect(nameKey('İlkay')).toBe('i̇lkay');
   });
 });
+
+describe('invisible characters', () => {
+  it('removes the soft hyphen and other invisible characters from text', () => {
+    expect(cleanLine('Ma\u00ADx')).toBe('Max');
+    expect(cleanLine('M\u034Fa\u180Ex\u2062')).toBe('Max');
+  });
+
+  it('keeps an emoji its variation selector in text, but not in a name key', () => {
+    expect(cleanLine('Party \u2764\uFE0F')).toBe('Party \u2764\uFE0F');
+    expect(nameKey('Max\uFE0F')).toBe(nameKey('Max'));
+  });
+
+  it('cannot mint a second name with a blank filler or joiner', () => {
+    for (const lookalike of [
+      'Max\u3164',
+      'M\u200Cax',
+      'Max\u2800',
+      'Ma\u00ADx',
+    ]) {
+      expect(nameKey(lookalike)).toBe('max');
+    }
+  });
+
+  it('gives a name of only invisible characters an empty key', () => {
+    expect(nameKey('\u200C')).toBe('');
+    expect(nameKey('\u3164\u2800')).toBe('');
+    expect(nameKey('')).toBe('');
+  });
+});

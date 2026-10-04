@@ -23,7 +23,8 @@ import { Button, Chip, Dialog, Notice } from './ui.tsx';
 
 interface GroupViewProps {
   data: EventSnapshotData;
-  store: EventStore;
+  /** Needed only with `adminToken`, to apply a chosen date. */
+  store?: EventStore;
   adminToken: string | null;
   firstWeekday: Weekday;
   today: ISODate;
@@ -112,7 +113,7 @@ export function GroupView(props: GroupViewProps) {
   }
 
   const choose = async (block: RankedBlock) => {
-    if (!adminToken) return;
+    if (!adminToken || !store) return;
     setError(null);
     try {
       store.apply(

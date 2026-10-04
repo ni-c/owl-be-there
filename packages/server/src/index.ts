@@ -9,6 +9,9 @@ import { Db } from './db/sqlite.js';
 /** How often expired events are swept out. Their last day is a whole day. */
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
+/** How long a shutdown may take before the process gives up waiting. */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
 async function main(): Promise<void> {
   let config;
   try {
@@ -27,14 +30,15 @@ async function main(): Promise<void> {
   const secret = loadSecret(config.dataDir, config.secret);
   const app = await buildApp({ config, db, secret });
 
-  app.sweep();
-  const sweeper = setInterval(() => {
+  const sweep = (): void => {
     try {
       app.sweep();
     } catch (error) {
       app.log.error({ err: error }, 'sweeping expired events failed');
     }
-  }, SWEEP_INTERVAL_MS);
+  };
+  sweep();
+  const sweeper = setInterval(sweep, SWEEP_INTERVAL_MS);
   sweeper.unref();
 
   // The process is PID 1 in the container, so it handles the signals itself:
@@ -45,10 +49,21 @@ async function main(): Promise<void> {
     stopping = true;
     app.log.info({ signal }, 'shutting down');
     clearInterval(sweeper);
-    await app.close();
-    db.checkpoint();
-    db.close();
-    process.exit(0);
+    // A connection that will not close must not keep the container from
+    // stopping; the orchestrator would kill it less gracefully anyway.
+    setTimeout(() => {
+      app.log.error('shutdown took too long; exiting');
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS).unref();
+    try {
+      await app.close();
+      db.checkpoint();
+      db.close();
+      process.exit(0);
+    } catch (error) {
+      app.log.error({ err: error }, 'shutting down failed');
+      process.exit(1);
+    }
   };
   process.on('SIGTERM', () => void stop('SIGTERM'));
   process.on('SIGINT', () => void stop('SIGINT'));

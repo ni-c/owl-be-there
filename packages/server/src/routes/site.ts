@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import fastifyStatic from '@fastify/static';
 import { isId, RETENTION_DAYS } from '@owl/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { AppContext } from '../context.js';
+import { limit, type AppContext } from '../context.js';
 import { snapshot } from '../db/repo.js';
 import { defaultHead, eventHead } from '../pages.js';
 
@@ -64,22 +64,34 @@ export async function registerSite(
     app.get('/privacy', async (_request, reply) =>
       page(reply, defaultHead(config.publicUrl, '/privacy'))
     );
-    app.get<{ Params: { id: string } }>('/e/:id', async (request, reply) => {
-      // Reads only: a crawler fetching a preview must not keep an event alive.
-      const data = isId(request.params.id)
-        ? snapshot(ctx.db, request.params.id)
-        : null;
-      reply.header('x-robots-tag', 'noindex, nofollow');
-      return data
-        ? page(reply, eventHead(config.publicUrl, data))
-        : page(reply, defaultHead(config.publicUrl, request.url), 404);
-    });
+    app.get<{ Params: { id: string } }>(
+      '/e/:id',
+      // The same limit as the API read: each request builds a whole snapshot.
+      { config: limit(config, 600, '1 minute') },
+      async (request, reply) => {
+        // Reads only: a crawler fetching a preview must not keep an event alive.
+        const data = isId(request.params.id)
+          ? snapshot(ctx.db, request.params.id)
+          : null;
+        reply.header('x-robots-tag', 'noindex, nofollow');
+        return data
+          ? page(reply, eventHead(config.publicUrl, data))
+          : page(
+              reply,
+              defaultHead(config.publicUrl, request.url.split('?')[0]!),
+              404
+            );
+      }
+    );
 
     // Without `index: false`: that option decides which error a directory
     // produces, and with it `/` would answer 403 instead of reaching the
     // route above. The route above wins anyway, being more specific.
     await app.register(fastifyStatic, {
       root: config.clientDir,
+      // The built client has no dotfiles; anything that looks like one is not
+      // meant to be served, should CLIENT_DIR ever point wider.
+      dotfiles: 'deny',
       setHeaders: (res, path) => {
         res.header(
           'cache-control',

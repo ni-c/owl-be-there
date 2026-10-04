@@ -254,6 +254,18 @@ export const api = {
     });
   },
 
+  /** Whether `admin` is this event's organiser key. */
+  async checkAdmin(id: string, admin: string): Promise<boolean> {
+    try {
+      await requestEmpty('GET', `${events(id)}/admin`, {
+        credentials: { admin },
+      });
+      return true;
+    } catch (failure) {
+      if (failure instanceof ApiFailure && failure.status === 403) return false;
+      throw failure;
+    }
+  },
   deleteEvent(id: string, admin: string) {
     return requestEmpty('DELETE', events(id), { credentials: { admin } });
   },

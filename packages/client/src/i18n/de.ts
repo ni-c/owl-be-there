@@ -2,21 +2,27 @@ import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
   'app.name': 'Owl Be There',
-  'app.tagline': 'Finde den Tag, der allen passt.',
+  'app.tagline': 'Findet einen Tag, an dem alle können.',
 
   'home.lead':
-    'Markiere im Kalender, an welchen Tagen du kannst, und sieh auf einen Blick, wann die ganze Gruppe Zeit hat. Ohne Anmeldung, ohne Tracking.',
+    'Wann könnt ihr alle? Markiert eure Tage im Kalender und findet es heraus. Ohne Anmeldung und Tracking.',
   'home.cta': 'Event planen',
-  'home.feature.heat.title': 'Den besten Tag sehen',
+  'home.feature.heat.title': 'Seht, wann es passt',
   'home.feature.heat.text':
     'Der Kalender wird zur Heatmap und zeigt die Tage, an denen die meisten können – auch für Wochenenden oder mehrtägige Turniere.',
   'home.feature.private.title': 'Keine Konten',
   'home.feature.private.text':
-    'Nur dein Name. Keine E-Mail, keine Cookies, kein Tracking – und jedes Event löscht sich selbst, wenn es vorbei ist.',
-  'home.myEvents': 'Deine Events auf diesem Gerät',
+    'Ein Name reicht. Keine E-Mail, keine Cookies, kein Tracking. Alte Events werden automatisch gelöscht.',
+  'home.example.title': 'So sieht es aus',
+  'home.example.text':
+    'Trag als Anna deine Tage ein und sieh zu, wie sich der Kalender der Gruppe ändert.',
+  'home.example.eventTitle': 'Team-Abendessen',
+  'home.example.hint': 'Probier es aus – nichts wird gespeichert.',
+  'home.example.reset': 'Von vorn',
+  'home.myEvents': 'Deine Events',
   'home.organiser': 'Organisation',
   'home.forget': '{title} aus dieser Liste entfernen',
-  'home.creationDisabled': 'Diese Instanz nimmt gerade keine neuen Events an.',
+  'home.creationDisabled': 'Hier kannst du gerade keine neuen Events anlegen.',
 
   'create.title': 'Event planen',
   'create.step': 'Schritt {current} von {total}',
@@ -26,90 +32,92 @@ export const de: Dictionary = {
   'create.emoji': 'Symbol',
   'create.description': 'Beschreibung (optional)',
   'create.descriptionHint':
-    'Reiner Text – Links werden angezeigt, sind aber nicht klickbar.',
+    'Links erscheinen als Text. Anklicken kann man sie nicht.',
   'create.location': 'Ort (optional)',
   'create.locationPlaceholder': 'Sportplatz Nord',
   'create.creator': 'Dein Name (optional)',
   'create.creatorHint':
-    'Erscheint als „organisiert von“. Deine eigenen Tage markierst du wie alle anderen.',
+    'Dein Name erscheint bei „organisiert von“. Deine Tage trägst du später ein.',
   'create.when': 'Wann könnte es sein?',
   'create.from': 'Von',
   'create.to': 'Bis',
   'create.weekdays': 'Nur an diesen Wochentagen',
-  'create.weekdaysHint': 'Keiner ausgewählt heißt: jeder Tag.',
+  'create.weekdaysHint': 'Ohne Auswahl sind alle Tage dabei.',
   'create.duration': 'Tage am Stück',
   'create.durationHint':
-    'Für ein Turnier-Wochenende wähle 2 – die Übersicht sucht dann 2 gute Tage am Stück.',
-  'create.fineTune':
-    'Tippe oder ziehe im Kalender, um einzelne Tage herauszunehmen.',
+    'Soll es ein ganzes Wochenende sein? Wähle 2. Dann sucht die Übersicht zwei passende Tage am Stück.',
+  'create.fineTune': 'Tippe oder ziehe im Kalender, um Tage wegzulassen.',
   'create.dayCount_one': '{count} Tag zur Auswahl',
   'create.dayCount_other': '{count} Tage zur Auswahl',
   'create.who': 'Wer ist dabei?',
   'create.roster': 'Namen (optional)',
   'create.rosterHint':
-    'Einer pro Zeile. Dann tippt jede Person nur ihren Namen an, und du siehst, wer noch nicht geantwortet hat.',
+    'Ein Name pro Zeile. Alle wählen später ihren Namen aus. Du siehst, wer noch fehlt.',
   'create.minCount': 'Benötigte Personen (optional)',
-  'create.minCountHint':
-    'Tage, an denen genug Leute können, werden hervorgehoben.',
+  'create.minCountHint': 'Tage mit genug Leuten heben wir hervor.',
   'create.back': 'Zurück',
   'create.next': 'Weiter',
   'create.submit': 'Event anlegen',
   'create.creating': 'Wird angelegt…',
 
   'error.titleRequired': 'Bitte gib dem Event einen Titel.',
-  'error.range': 'Das Ende liegt vor dem Anfang.',
+  'error.range': 'Das Enddatum liegt vor dem Startdatum.',
   'error.rangeTooLong': 'Der Zeitraum darf höchstens ein Jahr lang sein.',
   'error.noDays': 'Wähle mindestens einen Tag.',
   'error.tooManyDays': 'Höchstens {max} Tage.',
   'error.noBlock': 'Es gibt keine {count} Tage am Stück zur Auswahl.',
   'error.past': 'Dieser Tag ist schon vorbei.',
-  'error.generic': 'Da ist etwas schiefgegangen. Bitte versuch es noch einmal.',
-  'error.offline': 'Du scheinst offline zu sein. Bitte versuch es noch einmal.',
-  'error.rateLimited':
-    'Das war gerade viel auf einmal – bitte warte einen Moment.',
-  'error.forbidden': 'Dieser Link erlaubt das nicht.',
+  'error.tooFar':
+    'Das liegt zu weit in der Zukunft. Wähle Tage in den nächsten fünf Jahren.',
+  'error.slowDown':
+    'Zu viele falsche Passwörter für diesen Namen. Warte bitte ein paar Minuten.',
+  'error.daysChanged':
+    'Die Tage wurden inzwischen woanders geändert. Prüf sie und speichere noch einmal.',
+  'error.generic': 'Das hat nicht geklappt. Versuch es bitte noch mal.',
+  'error.offline': 'Du bist wohl offline. Versuch es später noch mal.',
+  'error.rateLimited': 'Das ging etwas schnell. Warte bitte kurz.',
+  'error.forbidden': 'Mit diesem Link geht das nicht.',
   'error.nameTaken': 'Diesen Namen hat schon jemand.',
 
-  'event.loading': 'Event wird gesucht…',
-  'event.notFound.title': 'Dieses Event gibt es nicht (mehr).',
+  'event.loading': 'Event wird geladen…',
+  'event.notFound.title': 'Dieses Event finden wir nicht.',
   'event.notFound.text':
-    'Vielleicht wurde es gelöscht oder der Link ist unvollständig. Events löschen sich selbst, wenn sie vorbei sind.',
+    'Vielleicht wurde es gelöscht. Oder der Link ist nicht vollständig.',
   'event.deleted': 'Dieses Event wurde gelöscht.',
-  'event.stale': 'Zeige den letzten Stand – Verbindung wird wiederhergestellt…',
+  'event.stale': 'Du siehst den letzten Stand. Wir verbinden uns neu…',
   'event.organisedBy': 'organisiert von {name}',
   'event.duration_one': '{count} Tag',
   'event.duration_other': '{count} Tage am Stück',
   'event.minCount_one': 'braucht {count} Person',
   'event.minCount_other': 'braucht {count} Personen',
   'event.expires':
-    'Wird am {date} automatisch gelöscht, wenn sich bis dahin nichts ändert.',
+    'Wird am {date} gelöscht, wenn sich bis dahin nichts ändert.',
   'event.share': 'Teilen',
   'event.tabs': 'Ansichten',
   'event.tabMine': 'Meine Tage',
   'event.tabGroup': 'Alle',
   'event.answers_one': '{count} Antwort',
   'event.answers_other': '{count} Antworten',
-  'event.closed': 'Diese Umfrage ist geschlossen.',
-  'event.decided': 'Es ist entschieden!',
+  'event.closed': 'Die Abstimmung ist geschlossen.',
+  'event.decided': 'Der Termin steht!',
   'event.addToCalendar': 'In den Kalender',
   'event.icsFile': 'Kalenderdatei',
   'event.google': 'Google Kalender',
-  'event.home': 'Owl Be There – Startseite',
 
-  'who.title': 'Wer bist du?',
+  'who.title': 'Wie heißt du?',
   'who.pick': 'Tippe deinen Namen an:',
   'who.someoneElse': 'Jemand anderes',
   'who.name': 'Dein Name',
   'who.password': 'Passwort',
   'who.addPassword': 'Meinen Eintrag mit einem Passwort schützen',
   'who.passwordHint':
-    'Ohne Passwort kann jeder mit dem Link deine Tage ändern, indem er deinen Namen eintippt.',
+    'Ohne Passwort kann jede Person mit dem Link deinen Namen eingeben und deine Tage ändern.',
   'who.continue': 'Weiter',
-  'who.protected': '„{name}“ ist geschützt. Bitte gib das Passwort ein.',
+  'who.protected': '„{name}“ ist geschützt. Gib bitte das Passwort ein.',
   'who.wrongPassword': 'Das Passwort stimmt nicht.',
   'who.passwordTooShort': 'Bitte mindestens {min} Zeichen.',
   'who.closed':
-    'Die Umfrage ist geschlossen – neue Namen können nicht mehr dazukommen.',
+    'Die Abstimmung ist geschlossen. Neue Namen sind nicht mehr möglich.',
   'who.full': 'Dieses Event ist voll.',
 
   'mine.hello': 'Hallo {name}!',
@@ -118,7 +126,7 @@ export const de: Dictionary = {
   'mine.brushYes': 'Kann',
   'mine.brushMaybe': 'Vielleicht',
   'mine.hint':
-    'Tippe Tage an oder ziehe über mehrere. Nochmal tippen nimmt sie raus.',
+    'Tippe einen Tag an oder ziehe über mehrere. Nochmal tippen entfernt ihn.',
   'mine.undo': 'Rückgängig',
   'mine.all': 'Alle',
   'mine.none': 'Keine',
@@ -126,17 +134,15 @@ export const de: Dictionary = {
   'mine.noneSaved': 'Gespeichert: Du kannst an keinem dieser Tage.',
   'mine.note': 'Notiz (optional)',
   'mine.notePlaceholder': 'z. B. erst ab 18 Uhr',
-  'mine.newDays_one':
-    'Seit deinem letzten Besuch ist {count} Tag dazugekommen – schau mal.',
-  'mine.newDays_other':
-    'Seit deinem letzten Besuch sind {count} Tage dazugekommen – schau mal.',
+  'mine.newDays_one': '{count} neuer Tag ist dazugekommen. Schau mal rein.',
+  'mine.newDays_other': 'Es gibt {count} neue Tage. Schau mal rein.',
   'mine.saved': 'Gespeichert',
   'mine.saving': 'Speichert…',
-  'mine.retrying': 'Offline – neuer Versuch…',
-  'mine.failed': 'Konnte nicht speichern.',
+  'mine.retrying': 'Offline. Wir versuchen es noch mal…',
+  'mine.failed': 'Speichern hat nicht geklappt.',
   'mine.closed':
-    'Die Umfrage ist geschlossen. Deine Tage lassen sich nicht mehr ändern.',
-  'mine.entry': 'Dein Eintrag',
+    'Die Abstimmung ist geschlossen. Du kannst deine Tage nicht mehr ändern.',
+  'mine.entry': 'Eintrag bearbeiten',
   'mine.rename': 'Name',
   'mine.setPassword': 'Passwort setzen',
   'mine.newPassword': 'Neues Passwort',
@@ -162,17 +168,17 @@ export const de: Dictionary = {
   'cal.othersCan_one': '{count} andere Person kann',
   'cal.othersCan_other': '{count} andere können',
   'cal.heat': '{yes} können, {maybe} vielleicht, {no} nicht',
-  'cal.gap': 'Wochen ohne Tage zur Auswahl ausgelassen',
+  'cal.gap': 'Wochen ohne mögliche Tage übersprungen',
   'cal.changed_one': '{count} Tag geändert',
   'cal.changed_other': '{count} Tage geändert',
 
   'group.empty.title': 'Noch keine Antworten',
   'group.empty.text':
-    'Teile den Link mit deiner Gruppe – der Kalender füllt sich, sobald sie antworten.',
+    'Schick den Link an die anderen. Ihre Antworten siehst du hier.',
   'group.legend': 'Mehr Leute können',
   'group.legendFew': 'wenige',
   'group.legendAll': 'alle',
-  'group.maybeHalf': 'Ein Vielleicht zählt halb.',
+  'group.maybeHalf': 'Vielleicht zählt halb.',
   'group.best': 'Beste Tage',
   'group.count': '{yes} von {total} können',
   'group.maybeCount': '+{count} vielleicht',
@@ -181,12 +187,10 @@ export const de: Dictionary = {
   'group.choose': 'Diesen Termin festlegen',
   'group.chosen': 'Festgelegt',
   'group.people': 'Wer zählt mit',
-  'group.hiddenHint':
-    'Tippe einen Namen an, um die Person aus der Zählung zu nehmen.',
+  'group.hiddenHint': 'Tippe auf einen Namen, um die Person nicht mitzuzählen.',
   'group.showAll': 'Alle zählen',
   'group.waiting': 'Noch keine Antwort von: {names}',
-  'group.noBlocks':
-    'Es gibt keinen Termin mehr, an dem genug Tage am Stück noch vor uns liegen.',
+  'group.noBlocks': 'Es gibt keine passenden Tage am Stück mehr.',
 
   'day.can': 'Kann',
   'day.maybe': 'Vielleicht',
@@ -196,25 +200,24 @@ export const de: Dictionary = {
   'day.close': 'Schließen',
 
   'share.title': 'Mit der Gruppe teilen',
-  'share.created': 'Geschafft! Jetzt schick den Link an deine Gruppe.',
+  'share.created': 'Fertig! Schick den Link an die anderen.',
   'share.link': 'Link für alle',
   'share.copy': 'Kopieren',
   'share.copied': 'Kopiert!',
   'share.native': 'Teilen…',
   'share.qr': 'Zum Öffnen scannen',
-  'share.invite': 'Einladungstext',
   'share.inviteText':
-    '{emoji} {title} – trag ein, an welchen Tagen du kannst: {url}',
+    '{emoji} {title} – wann kannst du? Trag deine Tage ein: {url}',
   'share.adminTitle': 'Dein Organisations-Link',
   'share.adminWarning':
-    'Behalte diesen Link für dich: Wer ihn hat, kann das Event ändern und löschen. Heb ihn gut auf – nur mit ihm kommst du von einem anderen Gerät wieder hinein.',
+    'Diesen Link behältst du am besten für dich. Wer ihn hat, kann das Event ändern oder löschen. Bewahre ihn gut auf. Nur damit kannst du das Event auch von einem anderen Gerät aus verwalten.',
 
   'admin.title': 'Organisation',
   'admin.close': 'Umfrage schließen',
   'admin.reopen': 'Umfrage wieder öffnen',
   'admin.unchoose': 'Festlegung aufheben',
   'admin.chooseHint':
-    'Den Termin legst du bei den besten Tagen in der Gruppenansicht fest.',
+    'Wähle den Termin bei „Beste Tage“ in der Gruppenansicht.',
   'admin.edit': 'Details',
   'admin.days': 'Tage',
   'admin.addDays': 'Tage hinzufügen bis',
@@ -227,7 +230,7 @@ export const de: Dictionary = {
   'admin.removeConfirm': '{name} und alle Tage dieser Person entfernen?',
   'admin.delete': 'Event löschen',
   'admin.deleteConfirm':
-    'Dieses Event für alle löschen? Das lässt sich nicht rückgängig machen.',
+    'Event für alle löschen? Das lässt sich nicht rückgängig machen.',
   'admin.deleteYes': 'Endgültig löschen',
   'admin.saved': 'Gespeichert',
   'admin.noPeople': 'Noch niemand da.',
@@ -243,33 +246,33 @@ export const de: Dictionary = {
 
   'privacy.title': 'Datenschutz',
   'privacy.intro':
-    'Owl Be There ist so gebaut, dass es so wenig wie möglich über dich weiß. Hier steht alles, was gespeichert wird, und wie lange.',
+    'Owl Be There speichert nur, was für die Planung nötig ist. Hier steht, was das ist und wann es gelöscht wird.',
   'privacy.stored.title': 'Was gespeichert wird',
   'privacy.stored.event':
-    'Zu einem Event: Titel, die optionale Beschreibung, Ort, Symbol und der Name der Organisatorin oder des Organisators, die Tage zur Auswahl und die Einstellungen.',
+    'Für jedes Event speichern wir Titel, Symbol, mögliche Tage und Einstellungen. Beschreibung, Ort und der Name der organisierenden Person sind optional.',
   'privacy.stored.person':
-    'Zu jeder Person: der eingetippte Name, ein Passwort-Hash, falls ein Passwort gesetzt wurde, eine optionale Notiz und die markierten Tage.',
+    'Zu jeder Person speichern wir den Namen und die markierten Tage. Falls angegeben, auch eine Notiz und einen Passwort-Hash.',
   'privacy.stored.nothingElse':
-    'Sonst nichts: keine Konten, keine E-Mail-Adressen, keine Cookies, keine Statistik und keine Anfragen an andere Dienste. Die Anwendung speichert keine IP-Adressen.',
+    'Es gibt keine Konten, E-Mail-Adressen, Cookies oder Statistiken. Die App fragt keine anderen Dienste an und speichert keine IP-Adressen.',
   'privacy.visible.title': 'Wer es sieht',
   'privacy.visible.text':
-    'Wer den Link eines Events hat, sieht dessen Namen und Markierungen. Event-Seiten sind für Suchmaschinen gesperrt.',
+    'Alle mit dem Event-Link sehen die Namen und Markierungen. Suchmaschinen sollen Event-Seiten nicht erfassen.',
   'privacy.device.title': 'Auf deinem Gerät',
   'privacy.device.text':
-    'Dein Browser merkt sich in seinem lokalen Speicher, welche Events du geöffnet hast, wer du darin bist und deine Einstellungen. Auf der Startseite kannst du Events aus dieser Liste entfernen.',
+    'Dein Browser speichert geöffnete Events auf deinem Gerät. Dazu gehören dein Name im Event und deine Einstellungen. Auf der Startseite kannst du Events aus der Liste entfernen.',
   'privacy.retention.title': 'Wann gelöscht wird',
   'privacy.retention.text':
-    'Ein Event wird {days} Tage nach seiner letzten Änderung automatisch gelöscht, aber nie, bevor sein letzter Tag vorbei ist. Die Organisation kann es jederzeit löschen.',
+    'Wir löschen ein Event {days} Tage nach der letzten Änderung. Frühestens aber nach seinem letzten Tag. Die Organisation kann es jederzeit löschen.',
   'privacy.logs':
-    'Der Webserver vor dieser Instanz führt zur Abwehr von Missbrauch Zugriffsprotokolle mit IP-Adressen, die nach {days} Tagen gelöscht werden.',
+    'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {days} Tagen gelöscht.',
   'privacy.backups':
-    'Sicherungen werden {days} Tage aufbewahrt; ein gelöschtes Event ist danach auch aus ihnen verschwunden.',
+    'Backups bleiben {days} Tage gespeichert. Danach ist ein gelöschtes Event auch daraus verschwunden.',
   'privacy.operator.title': 'Wer diese Instanz betreibt',
   'privacy.operator.contact': 'Kontakt: {contact}',
   'privacy.source':
-    'Owl Be There ist Open Source. Du kannst genau nachlesen, was es tut, oder es selbst betreiben.',
+    'Owl Be There ist Open Source. Du kannst den Code ansehen oder die App selbst betreiben.',
 
-  'notFound.title': 'Huhu? Diese Seite gibt es nicht.',
+  'notFound.title': 'Diese Seite finden wir nicht.',
   'notFound.home': 'Zur Startseite',
 
   'emoji.owl': 'Eule',

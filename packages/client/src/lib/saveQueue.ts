@@ -51,6 +51,7 @@ export class SaveQueue {
   private inFlight = false;
   private retry: unknown = null;
   private attempt = 0;
+  private disposed = false;
   private status: SaveStatus = 'idle';
   baseRev: number;
 
@@ -97,14 +98,21 @@ export class SaveQueue {
    * lets the request outlive the page.
    */
   flushOnLeave(): void {
-    if (this.pending === null || this.inFlight) return;
+    if (this.pending === null || this.disposed) return;
     const marks = this.pending;
     this.pending = null;
-    void this.sendFn(this.requestFor(marks), true).catch(() => undefined);
+    // With a request still travelling, the newest state goes out too, based on
+    // the revision that request will make if it lands — otherwise the last
+    // change before closing the page would be lost. Should it not land, the
+    // server refuses this one as stale, which loses nothing more than before.
+    const request = this.requestFor(marks);
+    if (this.inFlight) request.baseRev += 1;
+    void this.sendFn(request, true).catch(() => undefined);
   }
 
-  /** Stop retrying; whatever is pending is dropped. */
+  /** Stop retrying; whatever is pending is dropped, now and later. */
   dispose(): void {
+    this.disposed = true;
     if (this.retry !== null) this.timers.clearTimeout(this.retry);
     this.retry = null;
     this.pending = null;
@@ -125,7 +133,7 @@ export class SaveQueue {
 
   private async flush(): Promise<void> {
     const marks = this.pending;
-    if (marks === null) return;
+    if (marks === null || this.disposed) return;
     this.pending = null;
     this.inFlight = true;
     this.setStatus('saving');
@@ -146,6 +154,9 @@ export class SaveQueue {
       else this.setStatus('saved');
     } catch (error) {
       this.inFlight = false;
+      // A request that was under way when the queue was disposed of is not
+      // retried: nobody is left to see it, and it would retry for ever.
+      if (this.disposed) return;
       this.pending ??= marks;
       if (error instanceof PermanentSaveError) {
         this.pending = null;

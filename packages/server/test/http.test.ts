@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clientKey,
   expandIPv6,
+  networkKey,
   parseBody,
   ValidationError,
 } from '../src/http.js';
@@ -31,6 +32,24 @@ describe('clientKey', () => {
 
   it('passes through anything that is not an address', () => {
     expect(clientKey('unknown')).toBe('unknown');
+  });
+});
+
+describe('networkKey', () => {
+  it('keeps IPv4 addresses, mapped or not, as they are', () => {
+    expect(networkKey('203.0.113.7')).toBe('203.0.113.7');
+    expect(networkKey('::ffff:203.0.113.7')).toBe('203.0.113.7');
+  });
+
+  it('puts every /64 of an IPv6 /48 in one bucket', () => {
+    const a = networkKey('2001:db8:1:2::1');
+    expect(a).toBe('2001:0db8:0001::/48');
+    expect(networkKey('2001:db8:1:ffff:1:2:3:4')).toBe(a);
+    expect(networkKey('2001:db8:2::1')).not.toBe(a);
+  });
+
+  it('passes through anything that is not an address', () => {
+    expect(networkKey('unknown')).toBe('unknown');
   });
 });
 

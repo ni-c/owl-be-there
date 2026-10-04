@@ -261,7 +261,10 @@ describe('the organiser', () => {
       method: 'PATCH',
       url: `/api/events/${id}`,
       headers: admin(adminToken),
-      payload: { days: ['2027-03-06', '2027-03-08'] },
+      payload: {
+        days: ['2027-03-06', '2027-03-08'],
+        baseDays: ['2027-03-05', ...WEEKEND],
+      },
     });
     expect(response.statusCode).toBe(200);
     const participant = response.json().participants[0];
@@ -276,14 +279,20 @@ describe('the organiser', () => {
       method: 'PATCH',
       url: `/api/events/${id}`,
       headers: admin(adminToken),
-      payload: { days: ['2027-03-05', '2027-03-20'] },
+      payload: {
+        days: ['2027-03-05', '2027-03-20'],
+        baseDays: ['2027-03-05', ...WEEKEND],
+      },
     });
     expect(keep.statusCode).toBe(200);
     const add = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
       headers: admin(adminToken),
-      payload: { days: ['2027-03-05', '2027-03-06', '2027-03-20'] },
+      payload: {
+        days: ['2027-03-05', '2027-03-06', '2027-03-20'],
+        baseDays: ['2027-03-05', '2027-03-20'],
+      },
     });
     expect(add.statusCode).toBe(400);
     expect(add.json().message).toBe('past');
@@ -341,7 +350,10 @@ describe('the organiser', () => {
       method: 'PATCH',
       url: `/api/events/${id}`,
       headers: admin(adminToken),
-      payload: { days: ['2027-03-05', '2027-03-06'] },
+      payload: {
+        days: ['2027-03-05', '2027-03-06'],
+        baseDays: ['2027-03-05', ...WEEKEND],
+      },
     });
     expect(response.json().event).toMatchObject({
       status: 'closed',
@@ -421,5 +433,30 @@ describe('the calendar file', () => {
     expect(file.body).toContain('DTSTART;VALUE=DATE:20270306');
     expect(file.body).toContain('LOCATION:North field');
     expect(file.body).toContain(`URL:https://owl.example.org/e/${id}`);
+  });
+
+  it('uses the event language for its note', async () => {
+    for (const [language, note] of [
+      ['es', 'Fecha elegida con Owl Be There'],
+      ['fr', 'Date choisie avec Owl Be There'],
+      ['pt', 'Data escolhida com Owl Be There'],
+      ['it', 'Data scelta con Owl Be There'],
+      ['ja', 'Owl Be Thereで決めた日程'],
+      ['nl', 'Datum gekozen met Owl Be There'],
+    ]) {
+      const { id, adminToken } = await createEvent(t.app, { language });
+      await t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/status`,
+        headers: admin(adminToken),
+        payload: { status: 'finalized', start: '2027-03-06' },
+      });
+      const file = await t.app.inject({
+        method: 'GET',
+        url: `/api/events/${id}/calendar.ics`,
+      });
+      expect(file.statusCode).toBe(200);
+      expect(file.body).toContain(`DESCRIPTION:${note}`);
+    }
   });
 });

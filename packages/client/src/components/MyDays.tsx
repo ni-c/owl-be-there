@@ -1,13 +1,11 @@
 import {
-  clearDays,
-  compareISODate,
   joinMarks,
+  onCandidates,
+  othersOnDays,
   LIMITS,
   sameMarks,
-  toggleDays,
   type EventSnapshotData,
   type ISODate,
-  type Mark,
   type Marks,
   type ParticipantViewData,
   type Weekday,
@@ -41,9 +39,9 @@ import {
   SaveQueue,
   type SaveStatus,
 } from '../lib/saveQueue.ts';
-import { CalendarGrid, type HintInfo } from './CalendarGrid.tsx';
-import { CheckIcon, LockIcon, UndoIcon } from './icons.tsx';
-import { Button, Chip, Field, Notice, Segmented, TextInput } from './ui.tsx';
+import { CheckIcon, LockIcon } from './icons.tsx';
+import { MarksEditor } from './MarksEditor.tsx';
+import { Button, Chip, Field, Notice, TextInput } from './ui.tsx';
 
 interface MyDaysProps {
   data: EventSnapshotData;
@@ -490,8 +488,6 @@ function Greeting({
 
 /* -------------------------------------------------------------- painting */
 
-const UNDO_LIMIT = 50;
-
 function Painter(
   props: MyDaysProps & {
     participant: ParticipantViewData;
@@ -499,16 +495,13 @@ function Painter(
   }
 ) {
   const { data, participant, credentials, today, store } = props;
-  const { t, tn } = useI18n();
+  const { t } = useI18n();
   const eventId = data.event.id;
   const locked = data.event.status !== 'open' && !props.editingFor;
-  const [brush, setBrush] = useState<Mark>('yes');
   const [marks, setMarks] = useState<Marks>(() =>
     joinMarks(participant.yes, participant.maybe)
   );
-  const [undo, setUndo] = useState<Marks[]>([]);
   const [status, setStatus] = useState<SaveStatus>('idle');
-  const [announcement, setAnnouncement] = useState('');
   const [note, setNote] = useState(participant.note ?? '');
   const credentialsRef = useRef(credentials);
   credentialsRef.current = credentials;
@@ -565,47 +558,23 @@ function Painter(
     }
   }, [participant, queue]);
 
-  const change = useCallback(
-    (next: Map<ISODate, Mark>, changed: number) => {
-      setUndo((stack) => [...stack.slice(-(UNDO_LIMIT - 1)), marks]);
-      setMarks(next);
-      queue.push(next);
-      setAnnouncement(tn('cal.changed', changed));
+  // The organiser may have removed days since these marks were made; the
+  // server refuses marks on days that are no longer candidates.
+  const candidates = useMemo(() => new Set(data.event.days), [data.event.days]);
+  const save = useCallback(
+    (next: Marks) => {
+      const kept = onCandidates(next, candidates);
+      setMarks(kept);
+      queue.push(kept);
     },
-    [marks, queue, tn]
-  );
-
-  const undoLast = useCallback(() => {
-    const previous = undo[undo.length - 1];
-    if (!previous) return;
-    setUndo(undo.slice(0, -1));
-    setMarks(previous);
-    queue.push(previous);
-  }, [undo, queue]);
-
-  const future = useMemo(
-    () => data.event.days.filter((day) => compareISODate(day, today) >= 0),
-    [data.event.days, today]
+    [candidates, queue]
   );
 
   // How many of the others can on each day: the gentle nudge towards agreement.
-  const hints = useMemo(() => {
-    const map = new Map<ISODate, HintInfo>();
-    const others = data.participants.filter(
-      (p) => p.id !== participant.id && p.answered
-    );
-    if (others.length === 0) return map;
-    for (const day of data.event.days) {
-      let yes = 0;
-      let maybe = 0;
-      for (const other of others) {
-        if (other.yes.includes(day)) yes += 1;
-        else if (other.maybe.includes(day)) maybe += 1;
-      }
-      map.set(day, { yes, maybe, total: others.length });
-    }
-    return map;
-  }, [data, participant.id]);
+  const hints = useMemo(
+    () => othersOnDays(data.event.days, data.participants, participant.id),
+    [data, participant.id]
+  );
 
   const unseen = useMemo(
     () => new Set(participant.unseen),
@@ -637,89 +606,13 @@ function Painter(
 
   return (
     <div className="flex flex-col gap-4">
-      {locked ? (
-        <Notice>{t('mine.closed')}</Notice>
-      ) : (
-        <>
-          {unseen.size > 0 && (
-            <Notice tone="success">{tn('mine.newDays', unseen.size)}</Notice>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Segmented<Mark>
-              label={t('mine.brush')}
-              value={brush}
-              onChange={setBrush}
-              options={[
-                {
-                  value: 'yes',
-                  label: (
-                    <>
-                      <span className="grid size-5 place-items-center rounded-md bg-yes text-yes-ink">
-                        <CheckIcon size={14} />
-                      </span>
-                      {t('mine.brushYes')}
-                    </>
-                  ),
-                },
-                {
-                  value: 'maybe',
-                  label: (
-                    <>
-                      <span className="hatch grid size-5 place-items-center rounded-md bg-maybe text-xs font-black text-maybe-ink">
-                        ?
-                      </span>
-                      {t('mine.brushMaybe')}
-                    </>
-                  ),
-                },
-              ]}
-            />
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={undoLast}
-                disabled={undo.length === 0}
-              >
-                <UndoIcon size={16} />
-                {t('mine.undo')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  const result = toggleDays(marks, future, brush);
-                  if (result.changed > 0) change(result.marks, result.changed);
-                }}
-              >
-                {t('mine.all')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  const result = clearDays(marks, future);
-                  if (result.changed > 0) change(result.marks, result.changed);
-                }}
-              >
-                {t('mine.none')}
-              </Button>
-            </div>
-          </div>
-          <p className="text-sm text-muted">{t('mine.hint')}</p>
-        </>
-      )}
-      <CalendarGrid
-        mode="paint"
+      <MarksEditor
         days={data.event.days}
         marks={marks}
-        brush={brush}
-        onChange={change}
-        disabled={locked}
+        onMarksChange={save}
+        locked={locked}
         hints={hints}
         unseen={unseen}
-        onBrushChange={setBrush}
-        onUndo={undoLast}
         firstWeekday={props.firstWeekday}
         today={today}
         label={t('event.tabMine')}
@@ -731,9 +624,6 @@ function Painter(
           className={`inline-flex items-center gap-1 font-bold ${status === 'failed' ? 'text-danger' : 'text-muted'}`}
         >
           {status === 'saved' && <CheckIcon size={14} />} {statusText[status]}
-        </span>
-        <span className="sr-only" aria-live="polite">
-          {announcement}
         </span>
       </div>
       {!locked && marks.size === 0 && !participant.answered && (

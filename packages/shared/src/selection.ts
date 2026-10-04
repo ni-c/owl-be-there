@@ -139,3 +139,46 @@ export function joinMarks(
   for (const day of yes) marks.set(day, 'yes');
   return marks;
 }
+
+/**
+ * The marks that lie on candidate days. The organiser may remove days after
+ * someone marked them, and the server refuses marks on days that are gone.
+ * The same map comes back when nothing had to go.
+ */
+export function onCandidates(marks: Marks, days: ReadonlySet<ISODate>): Marks {
+  const kept = new Map<ISODate, Mark>();
+  for (const [day, mark] of marks) if (days.has(day)) kept.set(day, mark);
+  return kept.size === marks.size ? marks : kept;
+}
+
+/**
+ * How many of the others can on each day — the gentle nudge towards agreement
+ * shown while someone marks their own days. Only people who answered count;
+ * with nobody else answered there is nothing to show.
+ */
+export function othersOnDays(
+  days: readonly ISODate[],
+  participants: readonly {
+    id: string;
+    answered: boolean;
+    yes: readonly ISODate[];
+    maybe: readonly ISODate[];
+  }[],
+  self: string
+): Map<ISODate, { yes: number; maybe: number; total: number }> {
+  const map = new Map<ISODate, { yes: number; maybe: number; total: number }>();
+  const others = participants.filter((p) => p.id !== self && p.answered);
+  if (others.length === 0) return map;
+  const yes = others.map((p) => new Set(p.yes));
+  const maybe = others.map((p) => new Set(p.maybe));
+  for (const day of days) {
+    let y = 0;
+    let m = 0;
+    for (let i = 0; i < others.length; i += 1) {
+      if (yes[i]!.has(day)) y += 1;
+      else if (maybe[i]!.has(day)) m += 1;
+    }
+    map.set(day, { yes: y, maybe: m, total: others.length });
+  }
+  return map;
+}

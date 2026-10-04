@@ -112,3 +112,29 @@ describe('normalizeDays', () => {
     expect(normalizeDays([])).toEqual([]);
   });
 });
+
+describe('checkCandidateDays with a latest day', () => {
+  it('allows the latest day and refuses the day after', () => {
+    expect(checkCandidateDays(['2027-03-05'], null, '2027-03-05')).toBeNull();
+    expect(
+      checkCandidateDays(['2027-03-05', '2027-03-06'], null, '2027-03-05')
+    ).toBe('too_far');
+  });
+
+  it('checks the past before the future, and ignores a missing bound', () => {
+    expect(
+      checkCandidateDays(
+        ['2027-03-01', '2027-03-09'],
+        '2027-03-02',
+        '2027-03-08'
+      )
+    ).toBe('past');
+    expect(checkCandidateDays(['9999-12-31'], null)).toBeNull();
+    expect(checkCandidateDays(['9999-12-31'], null, null)).toBeNull();
+  });
+
+  it('reaches about five years ahead', () => {
+    expect(LIMITS.horizon).toBeGreaterThanOrEqual(5 * 365);
+    expect(addDays('2027-03-01', LIMITS.horizon) > '2032-02-28').toBe(true);
+  });
+});

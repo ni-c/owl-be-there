@@ -2,7 +2,7 @@
   "name": "owl-be-there",
   "version": "0.1.5",
   "private": true,
-  "description": "Find the day that works for everyone: mark whole days on a calendar, see when the group is free. No accounts.",
+  "description": "Find a day everyone can make. Mark your days on a calendar and see what works for the group. No accounts.",
   "license": "MIT",
   "author": "Willi Thiel",
   "repository": {
@@ -33,6 +33,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:tz": "node scripts/test-time-zones.ts",
+    "screenshot": "node scripts/make-screenshot.ts",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "scan:secrets": "docker run --rm -v \"$PWD\":/repo:ro aquasec/trivy:0.73.0 fs --scanners secret --exit-code 1 --skip-dirs '**/node_modules' --skip-dirs '**/dist' --skip-dirs coverage --skip-dirs playwright-report --skip-dirs test-results /repo",
     "ci:local": "npm run lint && npm run typecheck && npm audit --audit-level=high && npm run scan:secrets && npm run test:coverage && npm run test:tz && npm run build && npm run test:e2e"

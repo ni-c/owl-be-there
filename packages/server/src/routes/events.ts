@@ -7,6 +7,7 @@ import {
   compareISODate,
   CreateEventBody,
   isId,
+  isLanguage,
   LIMITS,
   makeId,
   nameKey,
@@ -28,6 +29,7 @@ import {
   countEvents,
   countParticipants,
   deleteEvent,
+  findParticipantByKey,
   getDays,
   getEvent,
   insertEvent,
@@ -37,7 +39,7 @@ import {
   type EventRow,
   type NewParticipant,
 } from '../db/repo.js';
-import { ApiError, notFound, parseBody } from '../http.js';
+import { ApiError, networkKey, notFound, parseBody } from '../http.js';
 
 type IdParams = { Params: { id: string } };
 
@@ -63,12 +65,18 @@ export function earliestDay(ctx: AppContext): ISODate {
   return addDays(todayUTC(new Date(ctx.clock.now())), -1);
 }
 
+/** The last day a new candidate day may be: about five years ahead. */
+export function latestDay(ctx: AppContext): ISODate {
+  return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon);
+}
+
 function checkDays(
   days: readonly ISODate[],
   earliest: ISODate | null,
+  latest: ISODate | null,
   duration: number
 ): void {
-  const problem = checkCandidateDays(days, earliest);
+  const problem = checkCandidateDays(days, earliest, latest);
   if (problem !== null) throw new ApiError(400, 'invalid_days', problem);
   if (candidateBlocks(days, duration).length === 0) {
     throw new ApiError(
@@ -77,6 +85,12 @@ function checkDays(
       `No ${duration} consecutive candidate days to choose from`
     );
   }
+}
+
+/** Whether two lists hold the same days, in any order. */
+function sameDays(a: readonly ISODate[], b: readonly ISODate[]): boolean {
+  const left = new Set(a);
+  return left.size === new Set(b).size && b.every((day) => left.has(day));
 }
 
 /** Roster names, without duplicates by name key, as new participants. */
@@ -111,20 +125,27 @@ export function published(ctx: AppContext, id: string): void {
 
 /**
  * Creation also has a ceiling for the whole instance per hour, on top of the
- * per-address limit — a botnet has many addresses. Kept in memory, like every
- * other limit.
+ * per-address limit — a botnet has many addresses. One network (an address or
+ * an IPv6 /48) may take only a tenth of it, so a single rented prefix cannot
+ * use it all up and lock everyone else out. Kept in memory, like every other
+ * limit; the map holds at most as many networks as the ceiling allows events.
  */
-class HourlyCeiling {
+export class HourlyCeiling {
   private windowStart = 0;
   private count = 0;
+  private readonly perNetwork = new Map<string, number>();
 
-  allow(now: number, max: number): boolean {
+  allow(now: number, max: number, network: string): boolean {
     if (now - this.windowStart >= 3_600_000) {
       this.windowStart = now;
       this.count = 0;
+      this.perNetwork.clear();
     }
-    if (this.count >= max) return false;
+    const share = Math.max(1, Math.floor(max / 10));
+    const used = this.perNetwork.get(network) ?? 0;
+    if (this.count >= max || used >= share) return false;
     this.count += 1;
+    this.perNetwork.set(network, used + 1);
     return true;
   }
 }
@@ -149,8 +170,14 @@ export function registerEventRoutes(
       }
       const body = parseBody(CreateEventBody, request.body);
       const days = normalizeDays(body.days);
-      checkDays(days, earliestDay(ctx), body.durationDays);
-      if (!ceiling.allow(ctx.clock.now(), 300 * config.rateLimitMultiplier)) {
+      checkDays(days, earliestDay(ctx), latestDay(ctx), body.durationDays);
+      if (
+        !ceiling.allow(
+          ctx.clock.now(),
+          300 * config.rateLimitMultiplier,
+          networkKey(request.ip)
+        )
+      ) {
         throw new ApiError(
           429,
           'rate_limited',
@@ -208,18 +235,25 @@ export function registerEventRoutes(
       const days = body.days ? normalizeDays(body.days) : current;
       const duration = body.durationDays ?? event.duration_days;
       if (body.days) {
-        // Days that have passed may stay; only new ones must lie ahead.
+        if (!sameDays(body.baseDays!, current)) {
+          throw new ApiError(
+            409,
+            'days_changed',
+            'The days changed since you started editing'
+          );
+        }
+        // Days that have passed may stay; only new ones must lie ahead, and
+        // not too far.
         const existing = new Set(current);
-        const earliest = earliestDay(ctx);
-        if (
-          days.some(
-            (day) => !existing.has(day) && compareISODate(day, earliest) < 0
-          )
-        ) {
+        const added = days.filter((day) => !existing.has(day));
+        if (added.some((day) => compareISODate(day, earliestDay(ctx)) < 0)) {
           throw new ApiError(400, 'invalid_days', 'past');
         }
+        if (added.some((day) => compareISODate(day, latestDay(ctx)) > 0)) {
+          throw new ApiError(400, 'invalid_days', 'too_far');
+        }
       }
-      checkDays(days, null, duration);
+      checkDays(days, null, null, duration);
       updateEvent(
         ctx.db,
         event.id,
@@ -245,6 +279,21 @@ export function registerEventRoutes(
       );
       published(ctx, event.id);
       return sendSnapshot(ctx, reply, event.id);
+    }
+  );
+
+  /**
+   * Whether the organiser key in the request is this event's. The client asks
+   * before it lets a key from a link replace the one it already holds, so a
+   * link with a made-up key cannot cost the organiser their access.
+   */
+  app.get<IdParams>(
+    '/api/events/:id/admin',
+    { config: limit(config, 30, '1 minute') },
+    async (request, reply) => {
+      const event = eventOr404(ctx, request.params.id);
+      requireAdmin(request, event);
+      return reply.code(204).send();
     }
   );
 
@@ -298,7 +347,10 @@ export function registerEventRoutes(
       const event = eventOr404(ctx, request.params.id);
       requireAdmin(request, event);
       const body = parseBody(RosterBody, request.body);
-      const entries = rosterEntries(body.names);
+      // Names already there are skipped, so only the new ones count.
+      const entries = rosterEntries(body.names).filter(
+        (entry) => !findParticipantByKey(ctx.db, event.id, entry.nameKey)
+      );
       if (
         countParticipants(ctx.db, event.id) + entries.length >
         LIMITS.participants
@@ -328,7 +380,8 @@ export function registerEventRoutes(
           uid: `${event.id}@owl-be-there`,
           title: event.title,
           description:
-            SERVER_TEXTS[event.language === 'de' ? 'de' : 'en'].calendarNote,
+            SERVER_TEXTS[isLanguage(event.language) ? event.language : 'en']
+              .calendarNote,
           location: event.location,
           start: event.final_start,
           end: event.final_end,

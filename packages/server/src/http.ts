@@ -67,6 +67,17 @@ export function clientKey(ip: string): string {
   return `${expandIPv6(ip).slice(0, 4).join(':')}::/64`;
 }
 
+/**
+ * A coarser key: an IPv4 address, or the /48 of an IPv6 address — what one
+ * site or one rented server is commonly handed. For limits that someone with a
+ * whole prefix of /64s must not be able to multiply.
+ */
+export function networkKey(ip: string): string {
+  const key = clientKey(ip);
+  if (!key.endsWith('::/64')) return key;
+  return `${key.split(':').slice(0, 3).join(':')}::/48`;
+}
+
 /** The eight groups of an IPv6 address, zero-padded, with `::` expanded. */
 export function expandIPv6(ip: string): string[] {
   const address = ip.split('%')[0]!.toLowerCase();

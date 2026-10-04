@@ -1,10 +1,19 @@
+<p align="center">
+  <img src="packages/client/public/favicon.svg" width="120" alt="The Owl Be There owl" />
+</p>
+
 # Owl Be There
 
-**Find the day that works for everyone.**
+**Find a day everyone can make.**
 
 Owl Be There helps a group pick a day — for a match, a tournament, a hike or a barbecue. The organiser picks the candidate days, everyone marks the days they can make it on a calendar, and the calendar turns into a heatmap that shows at a glance when the whole group is free.
 
 It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day polls without accounts) and [Crab Fit](https://github.com/GRA0007/crab.fit) (paint your availability, see the group's heatmap) — with whole days on a calendar instead of lists or time slots.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
+  <img src="docs/screenshot-light.png" alt="An example: ten people answered for a team dinner. On the left the days one of them can make, on the right the whole group as a heatmap, with the best day standing out." />
+</picture>
 
 ## Features
 
@@ -13,10 +22,12 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **The group at a glance:** the same calendar as a heatmap with a count on every day, the best days ranked, a minimum head count, and a sheet per day naming who can, who might, who cannot and who has not answered yet. Updates arrive live.
 - **Multi-day events:** looking for a whole weekend? Ask for two days in a row and get the best blocks.
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
-- **Sharing:** the system share sheet, a QR code, and a ready-made invitation text. Messengers show the event title in their link preview.
+- **Sharing:** the system share sheet with a ready-made invitation, the link to copy, and a QR code. Messengers show the event title in their link preview.
 - **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change — never before their last candidate day.
-- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, English and German.
+- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Dutch, English, French, German, Italian, Japanese, Portuguese and Spanish.
 - **Self-hostable:** one container, one SQLite file.
+
+The Japanese interface uses a locally hosted Noto Sans CJK JP font (© 2014–2021 Adobe). Its SIL Open Font License is included with the font files.
 
 ## Self-hosting
 
@@ -87,9 +98,11 @@ The application sets its own security headers (a strict Content Security Policy,
 ```sh
 docker compose exec owl node packages/server/dist/cli.js stats
 docker compose exec owl node packages/server/dist/cli.js delete <event id>
+docker compose exec owl node packages/server/dist/cli.js list 2027-03-01
+docker compose exec owl node packages/server/dist/cli.js purge 2027-03-01 --yes
 ```
 
-`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. Expired events are swept on start and every hour.
+`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people joined, and `purge` deletes those among them that nobody joined — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
 
 **Backups:** copy `owl.db` with SQLite's online backup (`sqlite3 data/owl.db ".backup backup.db"`) rather than the file itself, which may be mid-write. Keep `secret.key` too; without it, participants with a password must log in again. Keep backups only as long as the privacy page says.
 

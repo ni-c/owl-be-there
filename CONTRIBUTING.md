@@ -26,6 +26,7 @@ Always install with `npm ci`. A plain `npm install` on some machines drops the o
 | `npm run test:tz`       | The date-handling tests under six time zones, at a minute before and after midnight |
 | `npm run test:e2e`      | Playwright in Chromium and WebKit, desktop and mobile with touch                    |
 | `npm run ci:local`      | All of the above, plus `npm audit` and a secret scan                                |
+| `npm run screenshot`    | After a build: the README's pictures of the start page example, and `og.png`        |
 
 The end-to-end suite needs the browsers once: `npx playwright install chromium webkit`. On a Linux distribution Playwright does not support, WebKit will not start; run the suite in the official image instead, after `npm run build`:
 

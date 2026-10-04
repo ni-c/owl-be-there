@@ -17,11 +17,13 @@ export const LIMITS = {
   days: 186,
   /** Days from the first to the last candidate day, inclusive. */
   span: 366,
+  /** How far ahead of today a new candidate day may lie: about five years. */
+  horizon: 5 * 366,
   participants: 150,
   /** Names on a creator's list, added in one go. */
   roster: 150,
   durationDays: 14,
-  passwordMin: 4,
+  passwordMin: 6,
   passwordMax: 128,
 } as const;
 
