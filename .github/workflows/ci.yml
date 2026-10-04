@@ -11,7 +11,9 @@ on:
     - cron: '0 6 * * 1'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # The event is part of the key, so a push to main does not cancel the weekly
+  # scheduled run on the same ref.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

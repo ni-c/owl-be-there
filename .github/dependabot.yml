@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A release has to be out for a few days before it is proposed: a
+    # hijacked package is usually caught and pulled within that time, and
+    # patch and minor updates merge on their own once CI passes.
+    cooldown:
+      default-days: 3
     ignore:
       # typescript-eslint declares `typescript <6.1.0`. A TypeScript major is
       # a decision to make together with the linter, not a weekly bump.
@@ -53,6 +58,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
     ignore:
       - dependency-name: node
         update-types:
