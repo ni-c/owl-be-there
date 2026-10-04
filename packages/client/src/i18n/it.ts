@@ -13,6 +13,12 @@ export const it: Dictionary = {
   'home.feature.private.title': 'Nessun account',
   'home.feature.private.text':
     'Basta un nome. Niente email, cookie o tracciamento. Gli eventi vecchi vengono eliminati automaticamente.',
+  'home.example.title': 'Ecco come appare',
+  'home.example.text':
+    'Segna i tuoi giorni come Anna e guarda il calendario del gruppo cambiare.',
+  'home.example.eventTitle': 'Cena di squadra',
+  'home.example.hint': 'Provalo: non viene salvato nulla.',
+  'home.example.reset': 'Ricomincia',
   'home.myEvents': 'I tuoi eventi',
   'home.organiser': 'organizzatore',
   'home.forget': 'Rimuovi {title} da questo elenco',
@@ -199,7 +205,6 @@ export const it: Dictionary = {
   'share.copied': 'Copiato!',
   'share.native': 'Condividi…',
   'share.qr': 'Scansiona per aprire',
-  'share.invite': 'Testo dell’invito',
   'share.inviteText':
     '{emoji} {title} — quando puoi? Segna i tuoi giorni qui: {url}',
   'share.adminTitle': 'Il tuo link da organizzatore',

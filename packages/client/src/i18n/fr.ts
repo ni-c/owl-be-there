@@ -13,6 +13,12 @@ export const fr: Dictionary = {
   'home.feature.private.title': 'Pas de compte',
   'home.feature.private.text':
     'Ton prénom suffit. Pas d’adresse e-mail, de cookies ni de suivi. Les anciens événements sont supprimés automatiquement.',
+  'home.example.title': 'Voilà à quoi ça ressemble',
+  'home.example.text':
+    'Indique tes jours à la place d’Anna et regarde le calendrier du groupe changer.',
+  'home.example.eventTitle': 'Dîner d’équipe',
+  'home.example.hint': 'Essaie : rien n’est enregistré.',
+  'home.example.reset': 'Recommencer',
   'home.myEvents': 'Tes événements',
   'home.organiser': 'tu organises',
   'home.forget': 'Retirer {title} de cette liste',
@@ -202,7 +208,6 @@ export const fr: Dictionary = {
   'share.copied': 'Copié !',
   'share.native': 'Partager…',
   'share.qr': 'Scanner pour ouvrir',
-  'share.invite': 'Texte d’invitation',
   'share.inviteText':
     '{emoji} {title} — tu es libre quand ? Indique tes jours ici : {url}',
   'share.adminTitle': 'Ton lien d’organisation',

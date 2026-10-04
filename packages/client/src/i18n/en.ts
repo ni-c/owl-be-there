@@ -16,6 +16,12 @@ export const en = {
   'home.feature.private.title': 'No accounts',
   'home.feature.private.text':
     'A name is enough. No email, cookies or tracking. Old events are deleted automatically.',
+  'home.example.title': 'See how it looks',
+  'home.example.text':
+    'Paint your days as Anna and watch the group’s calendar change.',
+  'home.example.eventTitle': 'Team dinner',
+  'home.example.hint': 'Try it — nothing is saved.',
+  'home.example.reset': 'Start over',
   'home.myEvents': 'Your events',
   'home.organiser': 'organiser',
   'home.forget': 'Remove {title} from this list',
@@ -199,7 +205,6 @@ export const en = {
   'share.copied': 'Copied!',
   'share.native': 'Share…',
   'share.qr': 'Scan to open',
-  'share.invite': 'Invitation text',
   'share.inviteText':
     '{emoji} {title} — when can you make it? Add your days: {url}',
   'share.adminTitle': 'Your organiser link',

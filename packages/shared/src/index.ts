@@ -2,6 +2,7 @@ export * from './calendar.js';
 export * from './candidates.js';
 export * from './dates.js';
 export * from './emoji.js';
+export * from './example.js';
 export * from './grid.js';
 export * from './ids.js';
 export * from './limits.js';

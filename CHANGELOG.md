@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Six more interface languages: Spanish, French, Portuguese, Italian, Japanese and Dutch. Link previews and calendar files speak them too. Japanese text uses a bundled Noto Sans CJK JP font, so no request leaves for a font service.
+- The start page shows a live example below the two feature boxes: ten people planning a team dinner next month, in a browser window, built from the same parts as an event page. Visitors paint their days as Anna and watch the group's calendar follow; nothing is sent or stored. It follows the theme and the language. `npm run screenshot` takes the README's pictures of it, together with the link preview picture. The README opens with the owl.
 
 ### Changed
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New passwords need at least six characters instead of four. Passwords set before keep working.
 - Saving the candidate days sends the days the edit started from. If they changed elsewhere in the meantime, for example in a second tab, the server refuses the save instead of silently removing days, and the marks on them, that were added there.
 - New candidate days may lie at most about five years ahead.
+- The share dialog shows the link for everyone, the QR code and, for the organiser, the organiser link — in that order. The invitation text to copy is gone; the system share sheet still sends it along with the link.
 
 ### Security
 
@@ -37,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stopping the server waited for open live streams, so one open browser tab held a shutdown until the container was killed. The streams are now ended first.
+- Buttons, choice lists and the other clickable controls show the hand cursor again; Tailwind 4 had given them the arrow. A disabled button keeps the not-allowed cursor.
+- The browser tab showed an event's emoji twice — as its icon and at the start of the title — and after moving between pages without a reload, the icon of the first event opened stayed. The emoji is now the tab's icon only, follows the open event, and the start page shows the owl again.
 - Changing the duration of an event with a chosen date kept the old end date. The end now follows the duration while the block still fits.
 - Removing a candidate day broke saving for everyone who had marked it: their next save was refused until they reloaded the page.
 - A candidate day on 9999-12-31 got the event deleted at the next sweep.

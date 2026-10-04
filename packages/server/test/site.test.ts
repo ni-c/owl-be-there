@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon, escapeHtml, PageTemplate } from '../src/pages.js';
+import { emojiIcon } from '@owl/shared';
+import { escapeHtml, PageTemplate } from '../src/pages.js';
 import {
   createEvent,
   eventBody,
@@ -90,6 +91,18 @@ describe('pages', () => {
     expect(response.body).toContain('Add the days you can make it');
     // The head sits within the first kilobytes a preview crawler reads.
     expect(response.body.indexOf('og:title')).toBeLessThan(2048);
+  });
+
+  it('shows the emoji as the tab icon and keeps it out of the title', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: 'Kick-off' });
+    const body = (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body;
+    expect(body).toContain('<title>Kick-off · Owl Be There</title>');
+    // A link preview has no icon, so it keeps the emoji.
+    expect(body).toContain(
+      '<meta property="og:title" content="⚽ Kick-off" />'
+    );
+    expect(body).toContain(`<link rel="icon" href="${emojiIcon('⚽')}" />`);
   });
 
   it('counts answers and announces a chosen date in the preview, in the event language', async () => {

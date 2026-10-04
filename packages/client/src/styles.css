@@ -124,6 +124,22 @@
   --owl-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
 }
 
+/*
+ * Tailwind 4 gives buttons the arrow cursor; everything that does something on
+ * a click shows the hand again. A disabled button keeps its own cursor from
+ * the `disabled:` utility, which comes after this layer.
+ */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  select:not(:disabled),
+  summary,
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @theme inline {
   --font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
   --color-bg: var(--owl-bg);
@@ -332,10 +348,6 @@ html:lang(ja) body {
   box-shadow:
     0 0 0 2px var(--owl-surface),
     0 0 0 4px var(--owl-focus);
-}
-
-button.cal-cell:not(:disabled) {
-  cursor: pointer;
 }
 
 button.cal-cell:not(:disabled):active {

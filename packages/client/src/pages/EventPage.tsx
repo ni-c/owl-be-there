@@ -1,5 +1,6 @@
 import {
   EMOJIS,
+  emojiIcon,
   formatDay,
   formatDayRange,
   googleCalendarUrl,
@@ -8,6 +9,7 @@ import {
 } from '@owl/shared';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminPanel } from '../components/AdminPanel.tsx';
+import { EventViews } from '../components/EventViews.tsx';
 import { GroupView } from '../components/GroupView.tsx';
 import {
   CalendarIcon,
@@ -20,9 +22,10 @@ import {
 import { MyDays } from '../components/MyDays.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
-import { Button, Card, Notice } from '../components/ui.tsx';
+import { Button, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { api, calendarFileUrl } from '../lib/api.ts';
+import { setFavicon } from '../lib/favicon.ts';
 import { useEventStore } from '../hooks/useEventStore.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
@@ -60,19 +63,6 @@ function takeAdminTokenFromFragment(eventId: string): string | null {
     return null;
   }
   return candidate;
-}
-
-/** Wide enough for the two views side by side (56rem). */
-function useWide(): boolean {
-  const query = '(min-width: 56rem)';
-  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const list = window.matchMedia(query);
-    const onChange = () => setWide(list.matches);
-    list.addEventListener('change', onChange);
-    return () => list.removeEventListener('change', onChange);
-  }, []);
-  return wide;
 }
 
 export function EventPage({
@@ -120,7 +110,9 @@ export function EventPage({
   useEffect(() => {
     if (loaded) {
       rememberEvent(loaded, adminToken ? 'organiser' : 'participant');
-      document.title = `${EMOJIS[loaded.emoji]} ${loaded.title} · ${t('app.name')}`;
+      // The emoji is the tab's icon; in the title it would show twice.
+      document.title = `${loaded.title} · ${t('app.name')}`;
+      setFavicon(emojiIcon(EMOJIS[loaded.emoji]));
     }
   }, [loaded, adminToken, t]);
 
@@ -191,7 +183,6 @@ interface EventViewProps {
 function EventView(props: EventViewProps) {
   const { data, stale, store, adminToken, session, onSession } = props;
   const { t, tn, locale } = useI18n();
-  const wide = useWide();
   const [tab, setTab] = useState<'mine' | 'group'>('mine');
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
@@ -224,82 +215,13 @@ function EventView(props: EventViewProps) {
       {stale && <Notice>{t('event.stale')}</Notice>}
       <StatusBanner data={data} publicUrl={props.publicUrl} />
 
-      {wide ? (
-        <div className="grid grid-cols-2 items-start gap-5">
-          <Card>
-            <h2 className="mb-4 text-xl font-extrabold">
-              {t('event.tabMine')}
-            </h2>
-            {mine}
-          </Card>
-          <Card>
-            <h2 className="mb-4 text-xl font-extrabold">
-              {t('event.tabGroup')}{' '}
-              <span className="text-base font-bold text-muted">
-                · {tn('event.answers', answered)}
-              </span>
-            </h2>
-            {group}
-          </Card>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div
-            role="tablist"
-            aria-label={t('event.tabs')}
-            className="grid grid-cols-2 rounded-full border-2 border-line bg-sunken p-1"
-          >
-            {(['mine', 'group'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                id={`tab-${value}`}
-                aria-selected={tab === value}
-                aria-controls={`panel-${value}`}
-                tabIndex={tab === value ? 0 : -1}
-                onClick={() => setTab(value)}
-                onKeyDown={(keyEvent) => {
-                  if (
-                    keyEvent.key === 'ArrowRight' ||
-                    keyEvent.key === 'ArrowLeft'
-                  ) {
-                    keyEvent.preventDefault();
-                    const next = value === 'mine' ? 'group' : 'mine';
-                    setTab(next);
-                    document.getElementById(`tab-${next}`)?.focus();
-                  }
-                }}
-                className={`min-h-11 rounded-full font-extrabold transition ${tab === value ? 'bg-surface shadow-card' : 'text-muted'}`}
-              >
-                {value === 'mine' ? (
-                  t('event.tabMine')
-                ) : (
-                  <>
-                    {t('event.tabGroup')}
-                    <span
-                      aria-hidden="true"
-                      className="ml-1.5 inline-grid min-w-6 place-items-center rounded-full bg-line px-1.5 text-sm text-ink"
-                    >
-                      {answered}
-                    </span>
-                    <span className="sr-only">
-                      , {tn('event.answers', answered)}
-                    </span>
-                  </>
-                )}
-              </button>
-            ))}
-          </div>
-          <div
-            role="tabpanel"
-            id={`panel-${tab}`}
-            aria-labelledby={`tab-${tab}`}
-          >
-            <Card>{tab === 'mine' ? mine : group}</Card>
-          </div>
-        </div>
-      )}
+      <EventViews
+        mine={mine}
+        group={group}
+        answered={answered}
+        tab={tab}
+        onTab={setTab}
+      />
 
       {adminToken && (
         <AdminPanel

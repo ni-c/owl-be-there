@@ -1,10 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import {
   answer,
   createEvent,
   day,
   dayFromNow,
   groupCalendar,
+  isMobile,
   myCalendar,
   showView,
   snapshot,
@@ -48,6 +49,16 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
     page.getByRole('textbox', { name: 'Your organiser link' })
   ).toHaveValue(/#admin=/);
   await expect(page.getByRole('img', { name: link })).toBeVisible();
+  // The link for everyone, then the QR code, then the organiser's link — and
+  // no invitation text to copy; the system share sheet carries that.
+  await expect(page.getByLabel('Invitation text')).toHaveCount(0);
+  const top = async (locator: Locator) => (await locator.boundingBox())!.y;
+  const order = [
+    await top(page.getByRole('textbox', { name: 'Link for everyone' })),
+    await top(page.getByRole('img', { name: link })),
+    await top(page.getByRole('textbox', { name: 'Your organiser link' })),
+  ];
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Close', exact: true })
@@ -104,6 +115,132 @@ test('a link with a made-up organiser key does not replace the real one', async 
   expect(
     await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
   ).toContain(adminToken);
+});
+
+test('the tab shows the open event’s emoji once, and the owl elsewhere', async ({
+  page,
+  request,
+}) => {
+  const first = await createEvent(request, { title: 'Kick-off' });
+  const second = await createEvent(request, {
+    title: 'Chess night',
+    emoji: 'chess',
+  });
+  const icon = () => page.locator('link[rel="icon"]').getAttribute('href');
+  const decoded = async () => decodeURIComponent((await icon()) ?? '');
+
+  // Both end up in "your events" on this device.
+  await page.goto(`/e/${second.id}`);
+  await expect(page).toHaveTitle('Chess night · Owl Be There');
+  await page.goto(`/e/${first.id}`);
+  await expect(page).toHaveTitle('Kick-off · Owl Be There');
+  expect(await decoded()).toContain('⚽');
+
+  // From here on the app changes pages without reloading.
+  await page.getByRole('link', { name: 'Owl Be There' }).first().click();
+  await expect(
+    page.getByRole('heading', { name: 'Your events' })
+  ).toBeVisible();
+  await expect.poll(icon).toBe('/favicon.svg');
+
+  await page.getByRole('link', { name: /Chess night/ }).click();
+  await expect(page).toHaveTitle('Chess night · Owl Be There');
+  await expect.poll(decoded).toContain('♟');
+  expect(await decoded()).not.toContain('⚽');
+  await expect(page.locator('link[rel="icon"]')).toHaveCount(1);
+});
+
+test('the start page example can be tried, sends nothing, and starts over', async ({
+  page,
+}, testInfo) => {
+  const calls: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/events'))
+      calls.push(request.url());
+  });
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'See how it looks' })
+  ).toBeVisible();
+  const frame = page.locator('[data-browser-frame]');
+  await expect(frame.getByText('Team dinner · Owl Be There')).toBeVisible();
+  const mine = frame.getByRole('grid', { name: 'My days' });
+  const tab = (name: 'My days' | 'Everyone') =>
+    frame.getByRole('tab', { name: new RegExp(`^${name}`) });
+  const mobile = isMobile(testInfo);
+  if (mobile) await expect(tab('Everyone')).toBeVisible();
+  else await expect(frame.getByRole('tab')).toHaveCount(0);
+
+  // A Monday in the second week: Anna has said nothing about it yet.
+  const days = await mine
+    .locator('[data-day]')
+    .evaluateAll((cells) =>
+      cells.map((cell) => cell.getAttribute('data-day')!)
+    );
+  const monday = days.find(
+    (iso) => utcDateOf(iso).getUTCDay() === 1 && Number(iso.slice(8)) >= 8
+  )!;
+  const canOn = async () => {
+    if (mobile) await tab('Everyone').click();
+    const label =
+      (await day(
+        frame.getByRole('grid', { name: 'Everyone' }),
+        monday
+      ).getAttribute('aria-label')) ?? '';
+    if (mobile) await tab('My days').click();
+    return Number(/(\d+) can/.exec(label)![1]);
+  };
+  const before = await canOn();
+
+  await day(mine, monday).click();
+  await expect.poll(canOn).toBe(before + 1);
+  await frame.getByRole('button', { name: 'Start over' }).click();
+  await expect.poll(canOn).toBe(before);
+  await expect(
+    frame.getByRole('button', { name: 'Start over' })
+  ).toBeDisabled();
+  expect(calls).toEqual([]);
+});
+
+test('the start page example speaks the chosen language', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Language').selectOption('de');
+  await expect(
+    page
+      .locator('[data-browser-frame]')
+      .getByText('Team-Abendessen · Owl Be There')
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'So sieht es aus' })
+  ).toBeVisible();
+});
+
+test('everything clickable shows the hand, and a disabled button does not', async ({
+  page,
+  request,
+}) => {
+  const { id } = await createEvent(request, { roster: ['Anna'] });
+  const cursor = (locator: Locator) =>
+    locator.evaluate((element) => getComputedStyle(element).cursor);
+
+  await page.goto('/');
+  expect(
+    await cursor(page.getByRole('button', { name: 'Plan an event' }))
+  ).toBe('pointer');
+  expect(await cursor(page.getByLabel('Language'))).toBe('pointer');
+  expect(await cursor(page.getByRole('link').first())).toBe('pointer');
+
+  await page.goto(`/e/${id}`);
+  await showView(page, 'mine');
+  expect(await cursor(page.getByRole('button', { name: 'Anna' }))).toBe(
+    'pointer'
+  );
+  await page.getByRole('button', { name: 'Anna' }).click();
+  expect(await cursor(day(myCalendar(page), D(5)))).toBe('pointer');
+  // Nothing to undo yet: the button is disabled and says so.
+  const undo = page.getByRole('button', { name: 'Undo' });
+  await expect(undo).toBeDisabled();
+  expect(await cursor(undo)).toBe('not-allowed');
 });
 
 test('two people see each other live, and the day sheet names them', async ({

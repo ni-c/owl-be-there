@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   EMOJIS,
+  emojiIcon,
   formatDayRange,
   LOCALES,
   SERVER_TEXTS,
@@ -74,6 +75,8 @@ interface HeadOptions {
   publicUrl: string;
   path: string;
   title: string;
+  /** The title for link previews, where no favicon is shown; defaults to `title`. */
+  ogTitle?: string;
   description: string;
   imageAlt: string;
   noindex: boolean;
@@ -89,7 +92,7 @@ function head(options: HeadOptions): string {
     options.noindex ? '<meta name="robots" content="noindex, nofollow" />' : '',
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="Owl Be There" />`,
-    `<meta property="og:title" content="${e(options.title)}" />`,
+    `<meta property="og:title" content="${e(options.ogTitle ?? options.title)}" />`,
     `<meta property="og:description" content="${e(options.description)}" />`,
     `<meta property="og:url" content="${e(options.publicUrl + options.path)}" />`,
     `<meta property="og:image" content="${e(image)}" />`,
@@ -118,12 +121,6 @@ export function defaultHead(publicUrl: string, path: string): string {
   });
 }
 
-/** An emoji as a favicon: an SVG with one text element, as a data URL. */
-export function emojiIcon(emoji: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
 /**
  * The head of an event page. The title and fixed sentences only: whatever the
  * organiser wrote as a description stays inside the page, so a preview can
@@ -147,7 +144,9 @@ export function eventHead(publicUrl: string, data: EventSnapshotData): string {
   return head({
     publicUrl,
     path: `/e/${event.id}`,
-    title: `${emoji} ${event.title}`,
+    // The tab shows the emoji as its icon; in the title it would appear twice.
+    title: `${event.title} · ${texts.appName}`,
+    ogTitle: `${emoji} ${event.title}`,
     description,
     imageAlt: texts.previewImageAlt,
     noindex: true,

@@ -13,6 +13,12 @@ export const nl: Dictionary = {
   'home.feature.private.title': 'Geen accounts',
   'home.feature.private.text':
     'Een naam is genoeg. Geen e-mail, cookies of tracking. Oude evenementen worden vanzelf verwijderd.',
+  'home.example.title': 'Zo ziet het eruit',
+  'home.example.text':
+    'Vul als Anna je dagen in en zie de kalender van de groep veranderen.',
+  'home.example.eventTitle': 'Teamdiner',
+  'home.example.hint': 'Probeer het – er wordt niets opgeslagen.',
+  'home.example.reset': 'Opnieuw beginnen',
   'home.myEvents': 'Jouw evenementen',
   'home.organiser': 'organisator',
   'home.forget': 'Verwijder {title} uit deze lijst',
@@ -202,7 +208,6 @@ export const nl: Dictionary = {
   'share.copied': 'Gekopieerd!',
   'share.native': 'Delen…',
   'share.qr': 'Scan om te openen',
-  'share.invite': 'Uitnodigingstekst',
   'share.inviteText':
     '{emoji} {title} — wanneer kun je? Vul hier je dagen in: {url}',
   'share.adminTitle': 'Jouw link als organisator',

@@ -2,6 +2,7 @@ import { EMOJIS, type InstanceInfoData } from '@owl/shared';
 import { useRef, useState } from 'react';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
+import { ExampleDemo } from '../components/ExampleDemo.tsx';
 import { CloseIcon, LockIcon, StarIcon } from '../components/icons.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { Button, Card, Notice } from '../components/ui.tsx';
@@ -122,6 +123,22 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
           </Card>
         ))}
       </section>
+
+      {/* The real thing, with made-up people: next month's team dinner. Out of
+          the way while someone plans their own event. */}
+      {!creating && (
+        <section className="flex flex-col gap-4 rounded-3xl bg-sunken p-4 sm:p-8">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-extrabold">
+              {t('home.example.title')}
+            </h2>
+            <p className="leading-relaxed text-muted">
+              {t('home.example.text')}
+            </p>
+          </div>
+          <ExampleDemo />
+        </section>
+      )}
     </div>
   );
 }

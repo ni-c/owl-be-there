@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="packages/client/public/favicon.svg" width="120" alt="The Owl Be There owl" />
+</p>
+
 # Owl Be There
 
 **Find a day everyone can make.**
@@ -6,6 +10,11 @@ Owl Be There helps a group pick a day — for a match, a tournament, a hike or a
 
 It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day polls without accounts) and [Crab Fit](https://github.com/GRA0007/crab.fit) (paint your availability, see the group's heatmap) — with whole days on a calendar instead of lists or time slots.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
+  <img src="docs/screenshot-light.png" alt="An example: ten people answered for a team dinner. On the left the days one of them can make, on the right the whole group as a heatmap, with the best day standing out." />
+</picture>
+
 ## Features
 
 - **Mark days the way you think about them:** tap a day to switch it on or off, drag across the calendar to mark a whole block — say, every weekend in March — in one go. Start a drag on a marked day and it erases instead. Weekday and week headers toggle a whole column or row; the keyboard does everything too.
@@ -13,7 +22,7 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **The group at a glance:** the same calendar as a heatmap with a count on every day, the best days ranked, a minimum head count, and a sheet per day naming who can, who might, who cannot and who has not answered yet. Updates arrive live.
 - **Multi-day events:** looking for a whole weekend? Ask for two days in a row and get the best blocks.
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
-- **Sharing:** the system share sheet, a QR code, and a ready-made invitation text. Messengers show the event title in their link preview.
+- **Sharing:** the system share sheet with a ready-made invitation, the link to copy, and a QR code. Messengers show the event title in their link preview.
 - **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change — never before their last candidate day.
 - **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Dutch, English, French, German, Italian, Japanese, Portuguese and Spanish.
 - **Self-hostable:** one container, one SQLite file.

@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Owl } from './components/Owl.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
 import { api } from './lib/api.ts';
+import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
 import { navigate, parseRoute } from './lib/route.ts';
@@ -39,8 +40,10 @@ function Shell() {
   const { t } = useI18n();
 
   useEffect(() => {
-    if (route.page !== 'event')
+    if (route.page !== 'event') {
       document.title = `${t('app.name')} — ${t('app.tagline')}`;
+      setFavicon(OWL_ICON);
+    }
   }, [route.page, t]);
 
   let page: ReactNode;

@@ -46,7 +46,7 @@ interface AdminPanelProps {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <details className="group rounded-2xl border border-line bg-surface open:bg-surface">
-      <summary className="flex min-h-12 cursor-pointer items-center justify-between rounded-2xl px-4 font-extrabold select-none">
+      <summary className="flex min-h-12 items-center justify-between rounded-2xl px-4 font-extrabold select-none">
         {title}
         <span aria-hidden="true" className="transition group-open:rotate-180">
           ▾

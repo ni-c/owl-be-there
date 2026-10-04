@@ -13,6 +13,12 @@ export const pt: Dictionary = {
   'home.feature.private.title': 'Sem contas',
   'home.feature.private.text':
     'Basta o teu nome. Sem e-mail, cookies nem rastreio. Os eventos antigos são apagados automaticamente.',
+  'home.example.title': 'Assim fica',
+  'home.example.text':
+    'Marca os teus dias como a Anna e vê o calendário do grupo mudar.',
+  'home.example.eventTitle': 'Jantar de equipa',
+  'home.example.hint': 'Experimenta – nada é guardado.',
+  'home.example.reset': 'Recomeçar',
   'home.myEvents': 'Os teus eventos',
   'home.organiser': 'organizas',
   'home.forget': 'Remover {title} desta lista',
@@ -198,7 +204,6 @@ export const pt: Dictionary = {
   'share.copied': 'Copiado!',
   'share.native': 'Partilhar…',
   'share.qr': 'Digitaliza para abrir',
-  'share.invite': 'Texto do convite',
   'share.inviteText':
     '{emoji} {title} — quando podes? Marca os teus dias aqui: {url}',
   'share.adminTitle': 'O teu link de organização',

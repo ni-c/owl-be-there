@@ -2,18 +2,26 @@
  * Renders `packages/client/public/og.png`, the picture messengers show beside
  * an event link: 1200 × 630, the owl and the name. Run after changing either:
  *
- *     node scripts/make-og-image.ts
+ *     node scripts/make-og-image.ts [<output path>]
+ *
+ * `npm run screenshot` runs it too, after the example screenshots.
  *
  * Uses Playwright's Chromium, which the end-to-end suite installs anyway.
  */
 import { readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
 
 const owl = readFileSync(
   new URL('../packages/client/public/favicon.svg', import.meta.url),
   'utf8'
 );
-const out = new URL('../packages/client/public/og.png', import.meta.url);
+// A path as the first argument writes elsewhere; `make-screenshot.ts` passes
+// its output directory.
+const out = process.argv[2]
+  ? pathToFileURL(resolve(process.argv[2]))
+  : new URL('../packages/client/public/og.png', import.meta.url);
 
 const html = `<!doctype html><html><head><style>
   html, body { margin: 0; width: 1200px; height: 630px; }

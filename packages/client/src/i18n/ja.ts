@@ -13,6 +13,12 @@ export const ja: Dictionary = {
   'home.feature.private.title': 'アカウント不要',
   'home.feature.private.text':
     '名前だけでOK。メールもCookieも追跡もなし。古い予定は自動で削除されるよ。',
+  'home.example.title': 'こんな感じ',
+  'home.example.text':
+    'アンナになって都合のいい日を選ぶと、グループのカレンダーが変わります。',
+  'home.example.eventTitle': 'チームの食事会',
+  'home.example.hint': '試してみてね。何も保存されません。',
+  'home.example.reset': '最初から',
   'home.myEvents': '自分の予定',
   'home.organiser': '主催者',
   'home.forget': '{title}をこの一覧から削除',
@@ -193,7 +199,6 @@ export const ja: Dictionary = {
   'share.copied': 'コピーしました！',
   'share.native': '共有…',
   'share.qr': '読み取って開く',
-  'share.invite': '招待メッセージ',
   'share.inviteText':
     '{emoji} {title} — いつ空いてる？ 都合のいい日を入れてね：{url}',
   'share.adminTitle': '主催者用リンク',
