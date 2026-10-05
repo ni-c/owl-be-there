@@ -24,7 +24,7 @@ All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install`
 ## Layout
 
 - `packages/shared` — pure domain logic and zod schemas, used by both sides: dates, candidate days, the week grid, rectangle selection, toggles, ranking of days and blocks, retention, `.ics`, QR codes, limits.
-- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id`, the start page per language (`/de` …) with `hreflang`, `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`cli.ts`).
+- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id` and its picture `/e/:id/og.png` (`preview.ts`: the SVG comes from `shared/preview.ts`, resvg turns it into a PNG), the start page per language (`/de` …) with `hreflang`, `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`cli.ts`).
 - `packages/client` — React 19 + Vite + Tailwind 4. No router library and no state library: `lib/route.ts`, `useSyncExternalStore` stores, a `SaveQueue` for auto-save. `lib/` is unit-tested in Node; components are tested end to end.
 - `e2e/` — Playwright specs and the harness that starts a real server.
 
@@ -58,6 +58,9 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **Touch pointers are captured implicitly** by the element where they went down: `event.target` stays the start cell for the whole drag and `pointerenter` never fires on the others. The paint engine therefore finds the cell under the finger by geometry.
 - **`touch-action: none` belongs on the paintable day cells only.** The calendar always shows the whole range and can be taller than the screen; the week column, past days and the margins must still scroll the page on a phone (Crab Fit's most-reported mobile bug).
 - **Never size the calendar to `window.innerHeight`.** Mobile browsers change it while scrolling, as the address bar slides in and out; a layout that follows it jumps. Month paging did exactly that and was removed.
+- **No native modules in the server.** The Dockerfile installs the production dependencies once, on the build machine's architecture, and copies them into the amd64 and the arm64 image. That is why the preview pictures use `@resvg/resvg-wasm` and `wawoff2`, both WebAssembly.
+- **resvg ignores the weight axis of a variable font**: bold text came out regular. The preview uses the static `@fontsource/nunito` files (400 and 800), not the variable font the client uses.
+- **wawoff2 answers with a view into its own WebAssembly memory.** Unpacking the next, larger font grows that memory and detaches every earlier result ("Cannot perform %TypedArray%.prototype.set on a detached ArrayBuffer"). `preview.ts` copies each result out at once.
 - **`node:sqlite` is a release candidate in Node 26.** Keep it behind `db/sqlite.ts`.
 - **WebKit does not start on unsupported Linux distributions** (missing `libicu74` and friends). Run the WebKit projects in `mcr.microsoft.com/playwright:v<version>-noble` with a Node 26 on `PATH`; see CONTRIBUTING.
 - **A drag must end where the pointer was released.** Moves are applied once per animation frame; a quick flick can end before the next frame, so `pointerup` applies its own position before the stroke is committed.

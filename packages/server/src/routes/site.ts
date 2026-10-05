@@ -120,6 +120,32 @@ export async function registerSite(
       }
     );
 
+    // The link-preview picture of an event. Reads only, like the page; the
+    // renderer keeps each version once, so a crawler storm draws it once.
+    app.get<{ Params: { id: string } }>(
+      '/e/:id/og.png',
+      { config: limit(config, 120, '1 minute') },
+      async (request, reply) => {
+        const data = isId(request.params.id)
+          ? snapshot(ctx.db, request.params.id)
+          : null;
+        reply.header('x-robots-tag', 'noindex, nofollow');
+        if (!data || !ctx.preview)
+          return reply
+            .code(404)
+            .send({ error: 'not_found', message: 'No such event' });
+        const png = await ctx.preview.render(data);
+        return (
+          reply
+            .header('content-type', 'image/png')
+            // A short while: the address carries the version, but a crawler
+            // asking without it should not keep an old picture for long.
+            .header('cache-control', 'public, max-age=300')
+            .send(png)
+        );
+      }
+    );
+
     // Without `index: false`: that option decides which error a directory
     // produces, and with it `/` would answer 403 instead of reaching the
     // route above. The route above wins anyway, being more specific.

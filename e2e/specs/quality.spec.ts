@@ -140,4 +140,11 @@ test('an event page tells link previews its title, and the API is off limits to 
   const image = await request.get('/og.png');
   expect(image.headers()['content-type']).toBe('image/png');
   expect((await image.body()).length).toBeLessThan(600_000);
+  // The event's own picture: its calendar, drawn by the server.
+  const own = /<meta property="og:image" content="([^"]+)"/.exec(html)![1]!;
+  const url = new URL(own);
+  expect(url.pathname).toBe(`/e/${id}/og.png`);
+  const picture = await request.get(url.pathname + url.search);
+  expect(picture.headers()['content-type']).toBe('image/png');
+  expect((await picture.body()).length).toBeLessThan(300_000);
 });

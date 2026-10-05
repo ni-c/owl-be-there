@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
 import { emojiIcon } from '@owl/shared';
+import { snapshot } from '../src/db/repo.js';
 import { escapeHtml, PageTemplate } from '../src/pages.js';
+import { PreviewRenderer } from '../src/preview.js';
 import {
   createEvent,
   eventBody,
@@ -341,6 +343,121 @@ describe('pages', () => {
     const response = await t.app.inject({ method: 'GET', url: '/' });
     expect(response.statusCode).toBe(404);
     expect(response.json().error).toBe('not_found');
+    const { id } = await createEvent(t.app);
+    const picture = await t.app.inject({
+      method: 'GET',
+      url: `/e/${id}/og.png`,
+    });
+    expect(picture.statusCode).toBe(404);
+  });
+});
+
+describe('preview pictures', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+  it('draws a PNG of the event, kept out of search engines', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const response = await t.app.inject({
+      method: 'GET',
+      url: `/e/${id}/og.png`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('image/png');
+    expect(response.headers['cache-control']).toBe('public, max-age=300');
+    expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(response.rawPayload.subarray(0, 8)).toEqual(PNG);
+    // 1200 × 630, from the IHDR chunk.
+    expect(response.rawPayload.readUInt32BE(16)).toBe(1200);
+    expect(response.rawPayload.readUInt32BE(20)).toBe(630);
+  });
+
+  it('points the event head at the picture of this version, with its own alt text', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { language: 'de' });
+    const head = async () =>
+      (await t!.app.inject({ method: 'GET', url: `/e/${id}` })).body;
+    const before = await head();
+    const image = /<meta property="og:image" content="([^"]+)"/.exec(before)!;
+    expect(image[1]).toMatch(
+      new RegExp(`^https://owl\\.example\\.org/e/${id}/og\\.png\\?v=\\d+$`)
+    );
+    expect(before).toContain(
+      'content="Die möglichen Tage im Kalender, gefärbt danach, wie viele können"'
+    );
+    const max = await join(t.app, id, 'Max');
+    await mark(t.app, id, max, WEEKEND);
+    const after = /<meta property="og:image" content="([^"]+)"/.exec(
+      await head()
+    )!;
+    expect(after[1]).not.toBe(image[1]);
+    // The start page keeps the owl.
+    expect((await t.app.inject({ method: 'GET', url: '/' })).body).toContain(
+      '<meta property="og:image" content="https://owl.example.org/og.png" />'
+    );
+  });
+
+  it('draws a changed poll anew', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const get = async () =>
+      (await t!.app.inject({ method: 'GET', url: `/e/${id}/og.png` }))
+        .rawPayload;
+    const first = await get();
+    expect((await get()).equals(first)).toBe(true);
+    const max = await join(t.app, id, 'Max');
+    await mark(t.app, id, max, WEEKEND);
+    expect((await get()).equals(first)).toBe(false);
+  });
+
+  it('keeps each version once, dropping the least recently used', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const renderer = new PreviewRenderer(null, 'owl.example.org', 2);
+    const v1 = await renderer.render(data);
+    expect(await renderer.render(data)).toBe(v1);
+    const v2 = await renderer.render({
+      ...data,
+      event: { ...data.event, version: data.event.version + 1 },
+    });
+    expect(v2).not.toBe(v1);
+    // v1 used again, so v2 is the one a third version pushes out.
+    expect(await renderer.render(data)).toBe(v1);
+    await renderer.render({
+      ...data,
+      event: { ...data.event, version: data.event.version + 2 },
+    });
+    expect(await renderer.render(data)).toBe(v1);
+    expect(
+      await renderer.render({
+        ...data,
+        event: { ...data.event, version: data.event.version + 1 },
+      })
+    ).not.toBe(v2);
+  });
+
+  it('draws Japanese events, even without the Japanese font at hand', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, {
+      language: 'ja',
+      title: '忘年会',
+    });
+    const response = await t.app.inject({
+      method: 'GET',
+      url: `/e/${id}/og.png`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.rawPayload.subarray(0, 8)).toEqual(PNG);
+  });
+
+  it('answers an unknown or malformed event with a 404', async () => {
+    t = await testApp();
+    for (const url of ['/e/AAAAAAAAAAAA/og.png', '/e/nope/og.png']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.headers['content-type']).toContain('application/json');
+    }
   });
 });
 

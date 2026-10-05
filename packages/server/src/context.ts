@@ -2,6 +2,7 @@ import type { PasswordThrottle } from './auth/throttle.js';
 import type { Config } from './config.js';
 import type { Db } from './db/sqlite.js';
 import type { PageTemplate } from './pages.js';
+import type { PreviewRenderer } from './preview.js';
 import type { SseHub } from './sse.js';
 
 /** Where the time comes from — a test can stop it or move it. */
@@ -19,6 +20,8 @@ export interface AppContext {
   clock: Clock;
   hub: SseHub;
   template: PageTemplate | null;
+  /** Link-preview pictures of events; null without a client to serve. */
+  preview: PreviewRenderer | null;
   version: string;
   /** The security headers every response carries. */
   headers: Record<string, string>;

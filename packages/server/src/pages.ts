@@ -88,6 +88,8 @@ interface HeadOptions {
   /** The title for link previews, where no favicon is shown; defaults to `title`. */
   ogTitle?: string;
   description: string;
+  /** Absolute; the general picture of the owl when left out. */
+  image?: string;
   imageAlt: string;
   noindex: boolean;
   icon: string;
@@ -105,7 +107,7 @@ export function homePath(language: Language | null): string {
 
 function head(options: HeadOptions): string {
   const e = escapeHtml;
-  const image = `${options.publicUrl}/og.png`;
+  const image = options.image ?? `${options.publicUrl}/og.png`;
   return [
     `<title>${e(options.title)}</title>`,
     `<meta name="description" content="${e(options.description)}" />`,
@@ -222,7 +224,10 @@ export function eventHead(publicUrl: string, data: EventSnapshotData): string {
     title: `${event.title} · ${texts.appName}`,
     ogTitle: `${emoji} ${event.title}`,
     description,
-    imageAlt: texts.previewImageAlt,
+    // The version in the address: a changed poll is a new picture to caches
+    // that keep one per URL.
+    image: `${publicUrl}/e/${event.id}/og.png?v=${event.version}`,
+    imageAlt: texts.previewCalendarAlt,
     noindex: true,
     icon: emojiIcon(emoji),
   });

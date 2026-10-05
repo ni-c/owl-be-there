@@ -5,8 +5,10 @@
 #
 # The two build stages run on the build machine's own architecture
 # (`--platform=$BUILDPLATFORM`): what they produce is JavaScript, CSS and the
-# production dependencies — fastify, its two plugins and zod, all plain
-# JavaScript — so it runs unchanged on amd64 and arm64. Only the runtime stage
+# production dependencies — fastify, its two plugins and zod in plain
+# JavaScript; resvg and wawoff2, which draw the link-preview pictures, in
+# WebAssembly; and the Nunito font files — so it runs unchanged on amd64 and
+# arm64. Never add a native module: it would be built for one of the two. Only the runtime stage
 # is per architecture, and it compiles nothing; a multi-arch build therefore
 # needs no emulation except for one `apk upgrade`.
 
