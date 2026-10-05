@@ -365,7 +365,8 @@ describe('preview pictures', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toBe('image/png');
-    expect(response.headers['cache-control']).toBe('public, max-age=300');
+    // The picture shows the title and the heatmap: no shared cache keeps it.
+    expect(response.headers['cache-control']).toBe('private, max-age=300');
     expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
     expect(response.rawPayload.subarray(0, 8)).toEqual(PNG);
     // 1200 × 630, from the IHDR chunk.
@@ -477,7 +478,65 @@ describe('preview pictures', () => {
       const response = await t.app.inject({ method: 'GET', url });
       expect(response.statusCode, url).toBe(404);
       expect(response.headers['content-type']).toContain('application/json');
+      expect(response.headers['cache-control'], url).toBeUndefined();
     }
+  });
+
+  it('is gone with the event, from the picture and from the page', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app);
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(200);
+      expect(response.headers['cache-control'], url).toMatch(/^private,/);
+    }
+    await t.app.inject({
+      method: 'DELETE',
+      url: `/api/events/${id}`,
+      headers: { 'x-admin-token': adminToken },
+    });
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      for (let i = 0; i < 2; i += 1) {
+        const response = await t.app.inject({ method: 'GET', url });
+        expect(response.statusCode, url).toBe(404);
+        expect(response.headers['cache-control'] ?? '', url).not.toMatch(
+          /public/
+        );
+      }
+    }
+  });
+
+  it('count a HEAD request against the same limit as GET', async () => {
+    t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
+    const { id } = await createEvent(t.app);
+    const url = `/e/${id}/og.png`;
+    for (let i = 0; i < 120; i += 1) {
+      expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(200);
+    }
+    expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(429);
+    expect((await t.app.inject({ method: 'HEAD', url })).statusCode).toBe(429);
+    // The page has a limit of its own; this one is not used up.
+    expect(
+      (await t.app.inject({ method: 'HEAD', url: `/e/${id}` })).statusCode
+    ).toBe(200);
+  });
+
+  it('answers HEAD for the page and the picture like GET', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      const get = await t.app.inject({ method: 'GET', url });
+      const head = await t.app.inject({ method: 'HEAD', url });
+      expect(head.statusCode, url).toBe(200);
+      expect(head.headers['content-type'], url).toBe(
+        get.headers['content-type']
+      );
+    }
+    const unknown = await t.app.inject({
+      method: 'HEAD',
+      url: '/e/AAAAAAAAAAAA',
+    });
+    expect(unknown.statusCode).toBe(404);
   });
 });
 

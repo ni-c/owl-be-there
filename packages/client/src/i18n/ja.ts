@@ -229,6 +229,8 @@ export const ja: Dictionary = {
   'admin.addNamesHint': '1行に1人ずつ',
   'admin.fillIn': '代わりに回答',
   'admin.resetPassword': 'パスワードを削除',
+  'admin.resetPasswordConfirm':
+    '{name}さんのパスワードを削除する？削除すると、リンクを知っている人なら誰でもこの回答を変更できます。',
   'admin.remove': '削除',
   'admin.removeConfirm': '{name}さんとその回答を削除する？',
   'admin.delete': '予定を削除',

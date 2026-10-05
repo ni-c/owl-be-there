@@ -27,8 +27,8 @@ import { Db } from './db/sqlite.js';
  * that event only learns about it when it reconnects.
  *
  * `list` and `purge` are for a flood of new events: `list` shows the events
- * created since a day with how many people joined, and `purge` deletes those
- * among them that nobody joined. Without `--yes` it only says what it would
+ * created since a day with how many people answered, and `purge` deletes those
+ * among them that nobody answered. Without `--yes` it only says what it would
  * delete.
  */
 const USAGE =
@@ -85,13 +85,13 @@ function run(args: string[]): number {
             .filter((event) => event.participants === 0)
             .map((event) => event.id);
           console.log(
-            `Would delete ${ids.length} event(s) nobody joined; add --yes to do it.`
+            `Would delete ${ids.length} event(s) nobody answered; add --yes to do it.`
           );
           return 0;
         }
         const ids = purgeEmpty(db, argument);
         db.checkpoint();
-        console.log(`Deleted ${ids.length} event(s) nobody joined.`);
+        console.log(`Deleted ${ids.length} event(s) nobody answered.`);
         return 0;
       }
       default:

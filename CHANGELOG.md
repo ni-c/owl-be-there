@@ -17,12 +17,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/sitemap.xml` lists the start page in every language and the privacy page; `robots.txt` points to it under `PUBLIC_URL`. Event pages are never listed.
 - Who has answered on an event page sees a small invitation to plan their own event; organisers don't. The footer links to a new event on every page but the start page.
 - The start page answers three common questions: what it costs, whether an account is needed, and how it differs from Doodle.
+- `MAX_DB_BYTES` refuses new events once the database file reaches a size ceiling; `MAX_EVENTS` limits only their number.
 
 ### Changed
 
+- New link-preview pictures are drawn at a limited rate; when it is exceeded, the picture answers busy with `Retry-After`. `HEAD` requests to an event page or its picture count against the same limit as `GET`.
+- `compose.example.yaml` pins the current release, trusts only the proxy's gateway address instead of the whole network, and allows 512 MB of memory, which the preview renderer and the Japanese font need.
 - An event's description uses the full width of the page instead of breaking early.
 - Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
 - The note at the bottom of an event page says that the event is deleted automatically: "This event will be deleted automatically on … unless something changes by then."
+
+### Security
+
+- Events that nobody has answered expire 90 days after their last change, even when their candidate days lie further ahead, so empty events can no longer fill an instance for years. Names typed into the list by the organiser do not count as answers.
+- Rate limits and the cap on live-update connections are counted per IPv6 /48 (and per IPv4 address) on every route, so one rented prefix no longer multiplies them.
+- Wrong guesses at a protected name are counted before the password is checked, so guesses sent at the same moment can no longer all get past the wait. A name that is still waiting is no longer forgotten when many other names are guessed at.
+- Hashing new passwords has its own budget per network, and the server answers busy instead of queueing password work without bound.
+- A session revoked while a new password was being hashed can no longer change the entry, and a sign-in that raced a password change gets "changed" instead of a dead session.
+- Requests that stop arriving are closed after 30 seconds, so a stalled upload can no longer hold a connection or the shutdown.
+- At trace log level, a refused request no longer logs its raw bytes, which can carry the event link and keys.
+- The database and its side files are readable by their owner only, and the data directory is created as 0700.
+- Removing a person or rewriting an event's texts folds the write-ahead log at once, so the old text does not linger in the files.
+- Link previews and event pages are marked `private`, so shared caches do not keep them after an event is deleted.
+- The description sent to Google Calendar has its angle brackets replaced, so organiser text cannot become markup or links there.
+- Names in which one word mixes Latin letters with Cyrillic or Greek letters are refused.
+- The calendar file refuses control characters in its identifiers, and the tab icon escapes what it draws.
+- The organiser asks before removing someone's password, which opens that entry to everyone with the link.
+- The release workflow refuses a tag that GitHub does not report as signed and verified, scans the arm64 image as well as amd64, and logs in to the registry only after both scans. CI scans the whole git history for secrets, dependency review covers development dependencies too, and Dependabot waits three days before proposing GitHub Actions updates.
+- SECURITY.md names the deliberate trade-offs around protected names and sessions, and why the preview's WebAssembly dependencies are acceptable.
+
+### Fixed
+
+- Drawing link-preview pictures leaked WebAssembly memory with every new picture and could get the container killed.
+- An emoji in an event title no longer loads the Japanese font for the preview picture, which cost about 100 MB of memory.
+- Event pages, link previews and their pictures reuse the event's state as long as it is unchanged, instead of rebuilding every participant and mark per request.
+- The operator's `list` and `purge` commands count only people who marked days, so names typed into a list no longer keep an unanswered event from being purged.
+- Addresses a proxy reports with a port are rate limited like the address alone.
 
 ## [0.2.1] - 2026-10-05
 

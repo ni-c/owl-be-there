@@ -271,14 +271,30 @@ describe('listing and purging new events', () => {
     );
   const day = (iso: string) => utcDateOf(iso).getTime();
 
-  it('lists from the given day on, newest first, with how many joined', () => {
+  const person = (
+    db: Db,
+    id: string,
+    eventId: string,
+    source: 'roster' | 'self',
+    marksAt: number | null
+  ) =>
+    db.run(
+      `INSERT INTO participants (id, event_id, name, name_key, source, marks_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      id,
+      eventId,
+      id,
+      id,
+      source,
+      marksAt
+    );
+
+  it('lists from the given day on, newest first, with how many answered', () => {
     const db = fresh();
     event(db, 'old', day('2027-02-28'));
     event(db, 'start', day('2027-03-01'));
     event(db, 'late', day('2027-03-02') + 5000);
-    db.run(
-      "INSERT INTO participants (id, event_id, name, name_key, source, created_at) VALUES ('p', 'start', 'Max', 'max', 'self', 0)"
-    );
+    person(db, 'p', 'start', 'self', 1);
     const listed = listEvents(db, '2027-03-01');
     expect(listed.map((e) => e.id)).toEqual(['late', 'start']);
     expect(listed.map((e) => e.participants)).toEqual([0, 1]);
@@ -287,20 +303,57 @@ describe('listing and purging new events', () => {
     expect(listEvents(db, '2027-03-03')).toEqual([]);
   });
 
-  it('purges only the empty ones since the day', () => {
+  it('counts only people with marks, not names nobody has answered under', () => {
+    const db = fresh();
+    event(db, 'none', day('2027-03-01'));
+    event(db, 'roster', day('2027-03-01'));
+    event(db, 'rostered', day('2027-03-01'));
+    event(db, 'self', day('2027-03-01'));
+    event(db, 'joined', day('2027-03-01'));
+    person(db, 'a', 'roster', 'roster', null);
+    person(db, 'b', 'roster', 'roster', null);
+    person(db, 'c', 'rostered', 'roster', 1);
+    person(db, 'd', 'rostered', 'roster', null);
+    person(db, 'e', 'self', 'self', null);
+    person(db, 'f', 'joined', 'self', 1);
+    const counts = Object.fromEntries(
+      listEvents(db, null).map((e) => [e.id, e.participants])
+    );
+    expect(counts).toEqual({
+      none: 0,
+      roster: 0,
+      rostered: 1,
+      self: 0,
+      joined: 1,
+    });
+  });
+
+  it('purges only the ones nobody answered since the day', () => {
     const db = fresh();
     event(db, 'old', day('2027-02-28'));
     event(db, 'empty', day('2027-03-01'));
+    event(db, 'roster', day('2027-03-01') + 1000);
+    event(db, 'rostered', day('2027-03-01'));
     event(db, 'joined', day('2027-03-01'));
-    db.run(
-      "INSERT INTO participants (id, event_id, name, name_key, source, created_at) VALUES ('p', 'joined', 'Max', 'max', 'self', 0)"
-    );
-    expect(purgeEmpty(db, '2027-03-01')).toEqual(['empty']);
+    person(db, 'a', 'roster', 'roster', null);
+    person(db, 'b', 'rostered', 'roster', 1);
+    person(db, 'c', 'joined', 'self', 1);
+    person(db, 'd', 'old', 'roster', null);
+    expect(purgeEmpty(db, '2027-03-01').sort()).toEqual(['empty', 'roster']);
     expect(
       db
         .all<{ id: string }>('SELECT id FROM events ORDER BY id')
         .map((r) => r.id)
-    ).toEqual(['joined', 'old']);
+    ).toEqual(['joined', 'old', 'rostered']);
     expect(purgeEmpty(db, '2027-03-01')).toEqual([]);
+  });
+
+  it('purges nothing from an empty database or from after the last event', () => {
+    const db = fresh();
+    expect(purgeEmpty(db, '2027-03-01')).toEqual([]);
+    expect(listEvents(db, null)).toEqual([]);
+    event(db, 'empty', day('2027-03-01'));
+    expect(purgeEmpty(db, '2027-03-02')).toEqual([]);
+    expect(purgeEmpty(db, '2027-03-01')).toEqual(['empty']);
   });
 });

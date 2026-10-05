@@ -240,6 +240,8 @@ export const nl: Dictionary = {
   'admin.addNamesHint': 'Eén per regel',
   'admin.fillIn': 'Invullen',
   'admin.resetPassword': 'Wachtwoord verwijderen',
+  'admin.resetPasswordConfirm':
+    'Het wachtwoord van {name} verwijderen? Daarna kan iedereen met de link deze inzending wijzigen.',
   'admin.remove': 'Verwijderen',
   'admin.removeConfirm': '{name} en alle gekozen dagen verwijderen?',
   'admin.delete': 'Evenement verwijderen',

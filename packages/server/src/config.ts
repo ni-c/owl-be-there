@@ -24,8 +24,15 @@ export interface Config {
   trustProxy: string[] | false;
   /** Off is the emergency switch: existing events keep working. */
   creationEnabled: boolean;
-  /** A ceiling on stored events, so a flood cannot fill the disk. */
+  /** A ceiling on the number of stored events. */
   maxEvents: number;
+  /**
+   * A ceiling on the size of the database, so a flood of full events cannot
+   * fill the disk: past it no new event is taken. Null for none. Events are
+   * not equal — a full one (150 people on 186 days) takes about 2.8 MB — so
+   * the number of events alone does not bound the size.
+   */
+  maxDbBytes: number | null;
   /** Scales every rate limit; the end-to-end suite raises it, nothing else should. */
   rateLimitMultiplier: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
@@ -149,6 +156,7 @@ export function loadConfig(env: Env = process.env): Config {
     trustProxy,
     creationEnabled: boolean('CREATION_ENABLED', true),
     maxEvents: integer('MAX_EVENTS', 10_000, 1, 10_000_000),
+    maxDbBytes: optionalInteger('MAX_DB_BYTES', 1, 2 ** 50),
     rateLimitMultiplier: integer('RATE_LIMIT_MULTIPLIER', 1, 1, 100_000),
     logLevel,
     secret,

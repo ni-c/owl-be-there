@@ -350,4 +350,44 @@ describe('previewNeedsCjk', () => {
     expect(previewNeedsCjk(snapshot({ language: 'ja' }))).toBe(true);
     expect(previewNeedsCjk(snapshot({ title: '忘年会' }))).toBe(true);
   });
+
+  it('keeps emoji and symbols on the Latin font', () => {
+    for (const title of [
+      '',
+      '🎉',
+      '👍',
+      '☕',
+      '🦉 Party',
+      '\u2764\uFE0F',
+      '€ 5',
+    ]) {
+      expect(previewNeedsCjk(snapshot({ title }))).toBe(false);
+    }
+  });
+
+  it('asks for it at both ends of every range it covers', () => {
+    const edge = (code: number) =>
+      previewNeedsCjk(snapshot({ title: String.fromCodePoint(code) }));
+    for (const code of [
+      0x2e80, 0x3042, 0x9fff, 0xac00, 0xd7af, 0xf900, 0xfaff, 0xff21, 0xffef,
+      0x20bb7, 0x3ffff,
+    ]) {
+      expect(edge(code)).toBe(true);
+    }
+    for (const code of [
+      0x2e7f, 0xa000, 0xabff, 0xd7b0, 0xf8ff, 0xfb00, 0xfeff, 0xfff0, 0x1f389,
+      0x1faff, 0x40000,
+    ]) {
+      expect(edge(code)).toBe(false);
+    }
+  });
+
+  it('finds a CJK character among other text', () => {
+    expect(previewNeedsCjk(snapshot({ title: 'Party 🎉 忘年会' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ title: '안녕' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ title: '𠮷' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'ja', title: 'Party' }))).toBe(
+      true
+    );
+  });
 });

@@ -10,22 +10,29 @@ export interface RetentionInput {
   lastCandidateDay: ISODate;
   /** The last day of the chosen date, if there is one. */
   finalEnd: ISODate | null;
+  /** Whether anybody has marked days; names on the roster alone do not count. */
+  answered: boolean;
 }
 
 /**
  * The last day an event exists.
  *
- * Ninety days after the last change — and never before the event itself is
- * over: a poll set up in spring for a tournament in autumn must not vanish in
- * summer just because everybody has answered. The day after the last relevant
- * day is the earliest it may go, so a group can still look up the result on
- * the day itself.
+ * Ninety days after the last change — and, once somebody has answered, never
+ * before the event itself is over: a poll set up in spring for a tournament in
+ * autumn must not vanish in summer just because everybody has answered. The
+ * day after the last relevant day is the earliest it may go, so a group can
+ * still look up the result on the day itself.
+ *
+ * An event nobody has answered gets no such extension. Anyone can create one
+ * with days years ahead, and it would otherwise take up room for years.
  */
 export function expiresOn({
   lastWriteDay,
   lastCandidateDay,
   finalEnd,
+  answered,
 }: RetentionInput): ISODate {
+  if (!answered) return later(lastWriteDay, RETENTION_DAYS);
   const lastRelevant =
     finalEnd === null
       ? lastCandidateDay

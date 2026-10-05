@@ -5,6 +5,7 @@ import { isId, LANGUAGES, RETENTION_DAYS, type Language } from '@owl/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { limit, type AppContext } from '../context.js';
 import { snapshot } from '../db/repo.js';
+import { PreviewBusy } from '../preview.js';
 import {
   defaultHead,
   eventHead,
@@ -56,12 +57,13 @@ export async function registerSite(
     reply: FastifyReply,
     head: string,
     status = 200,
-    language: Language = 'en'
+    language: Language = 'en',
+    cacheControl = 'no-cache'
   ): FastifyReply =>
     reply
       .code(status)
       .header('content-type', 'text/html; charset=utf-8')
-      .header('cache-control', 'no-cache')
+      .header('cache-control', cacheControl)
       .send(template!.render(head, language));
 
   if (template && config.clientDir) {
@@ -95,37 +97,46 @@ export async function registerSite(
     app.get('/privacy', async (_request, reply) =>
       page(reply, defaultHead(config.publicUrl, '/privacy'))
     );
-    app.get<{ Params: { id: string } }>(
-      '/e/:id',
-      // The same limit as the API read: each request builds a whole snapshot.
-      { config: limit(config, 600, '1 minute') },
-      async (request, reply) => {
+    // GET and HEAD are one route, so they share one rate limit: Fastify's
+    // automatic HEAD route would count on its own.
+    app.route<{ Params: { id: string } }>({
+      method: ['GET', 'HEAD'],
+      url: '/e/:id',
+      // The same limit as the API read.
+      config: limit(config, 600, '1 minute'),
+      handler: async (request, reply) => {
         // Reads only: a crawler fetching a preview must not keep an event alive.
         const data = isId(request.params.id)
           ? snapshot(ctx.db, request.params.id)
           : null;
         reply.header('x-robots-tag', 'noindex, nofollow');
+        // The head carries the event's title: for the browser alone, not for
+        // a cache that others share.
         return data
           ? page(
               reply,
               eventHead(config.publicUrl, data),
               200,
-              data.event.language
+              data.event.language,
+              'private, no-cache'
             )
           : page(
               reply,
               defaultHead(config.publicUrl, request.url.split('?')[0]!),
               404
             );
-      }
-    );
+      },
+    });
 
     // The link-preview picture of an event. Reads only, like the page; the
-    // renderer keeps each version once, so a crawler storm draws it once.
-    app.get<{ Params: { id: string } }>(
-      '/e/:id/og.png',
-      { config: limit(config, 120, '1 minute') },
-      async (request, reply) => {
+    // renderer keeps each version once, so a crawler storm draws it once, and
+    // it draws only so many new pictures a second, so a stream of changes
+    // cannot keep the server busy.
+    app.route<{ Params: { id: string } }>({
+      method: ['GET', 'HEAD'],
+      url: '/e/:id/og.png',
+      config: limit(config, 120, '1 minute'),
+      handler: async (request, reply) => {
         const data = isId(request.params.id)
           ? snapshot(ctx.db, request.params.id)
           : null;
@@ -134,17 +145,28 @@ export async function registerSite(
           return reply
             .code(404)
             .send({ error: 'not_found', message: 'No such event' });
-        const png = await ctx.preview.render(data);
+        let png;
+        try {
+          png = await ctx.preview.render(data);
+        } catch (error) {
+          if (!(error instanceof PreviewBusy)) throw error;
+          return reply
+            .code(503)
+            .header('retry-after', String(error.retryAfter))
+            .send({ error: 'busy', message: error.message });
+        }
         return (
           reply
             .header('content-type', 'image/png')
             // A short while: the address carries the version, but a crawler
-            // asking without it should not keep an old picture for long.
-            .header('cache-control', 'public, max-age=300')
+            // asking without it should not keep an old picture for long. The
+            // picture shows the title and the heatmap, so no shared cache
+            // keeps it past the event's deletion.
+            .header('cache-control', 'private, max-age=300')
             .send(png)
         );
-      }
-    );
+      },
+    });
 
     // Without `index: false`: that option decides which error a directory
     // produces, and with it `/` would answer 403 instead of reaching the

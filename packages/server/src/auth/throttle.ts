@@ -6,10 +6,16 @@ export interface ThrottleLimits {
   /** The first wait; each further wrong password doubles it. */
   baseDelayMs: number;
   maxDelayMs: number;
-  /** Password checks one network may ask for in a window, across all names. */
+  /**
+   * Password checks one network may ask for in a window, across all names; the
+   * same number of passwords it may have hashed, counted apart.
+   */
   perNetwork: number;
   networkWindowMs: number;
-  /** Names and networks remembered at most; the oldest are forgotten first. */
+  /**
+   * Names and networks remembered at most; the oldest are forgotten first, but
+   * a name that is still waiting only when nothing else is left to forget.
+   */
   capacity: number;
 }
 
@@ -33,13 +39,22 @@ interface NetworkEntry {
   count: number;
 }
 
-/** A Map that forgets its least recently used entries beyond `capacity`. */
+/**
+ * A Map that forgets entries beyond `capacity`: the least recently used one
+ * that `expendable` allows, or the least recently used of all when it allows
+ * none. The entry just stored is never the one forgotten.
+ */
 class Lru<V> {
   private readonly map = new Map<string, V>();
   private readonly capacity: number;
+  private readonly expendable: (value: V) => boolean;
 
-  constructor(capacity: number) {
+  constructor(
+    capacity: number,
+    expendable: (value: V) => boolean = () => true
+  ) {
     this.capacity = capacity;
+    this.expendable = expendable;
   }
 
   get(key: string): V | undefined {
@@ -55,7 +70,17 @@ class Lru<V> {
     this.map.delete(key);
     this.map.set(key, value);
     while (this.map.size > this.capacity) {
-      this.map.delete(this.map.keys().next().value!);
+      let victim: string | undefined;
+      for (const [other, entry] of this.map) {
+        if (other === key) continue;
+        victim ??= other;
+        if (this.expendable(entry)) {
+          victim = other;
+          break;
+        }
+      }
+      // Nothing else to forget: only with a capacity of zero.
+      this.map.delete(victim ?? key);
     }
   }
 
@@ -76,8 +101,9 @@ class Lru<V> {
  * also counted per name: after a few, that name answers only after a wait,
  * which doubles with every further miss and ends with a right password. It is
  * a wait, not a lock: whoever owns the name gets in once it has passed. On top
- * of that, a whole network may only ask for so many password checks, which
- * also keeps scrypt from being used to tie up the server.
+ * of that, a whole network may only ask for so many password checks, and have
+ * so many new passwords hashed, which keeps scrypt from being used to tie up
+ * the server.
  *
  * Everything lives in memory and is keyed by event and name, or by network
  * prefix; nothing is written anywhere.
@@ -91,22 +117,43 @@ export class PasswordThrottle {
   constructor(clock: Clock, limits: ThrottleLimits = DEFAULT_THROTTLE_LIMITS) {
     this.clock = clock;
     this.limits = limits;
-    this.names = new Lru(limits.capacity);
+    // A name that still has to wait is the last thing to forget: flushing it
+    // would hand the guesser a fresh set of free tries.
+    this.names = new Lru(
+      limits.capacity,
+      (name) => name.blockedUntil <= this.clock.now()
+    );
     this.networks = new Lru(limits.capacity);
   }
 
   /**
    * Milliseconds until a password for this name may be checked from this
    * network, or 0 if it may now. Counts the attempt against the network.
+   *
+   * A name that is waiting makes every network wait, the owner's included:
+   * someone who keeps guessing keeps the owner out of new devices for as long
+   * as they keep going. That is deliberate — the wait is what makes guessing
+   * pointless — and sessions that already exist keep working.
    */
   attempt(eventId: string, nameKey: string, network: string): number {
     const now = this.clock.now();
     const name = this.names.get(nameId(eventId, nameKey));
     if (name && name.blockedUntil > now) return name.blockedUntil - now;
+    return this.charge(`check\u0000${network}`, now);
+  }
 
-    const entry = this.networks.get(network);
+  /**
+   * Milliseconds until this network may have another new password hashed, or 0
+   * if it may now. Counts the hash against the network's budget for hashing.
+   */
+  chargeHash(network: string): number {
+    return this.charge(`hash\u0000${network}`, this.clock.now());
+  }
+
+  private charge(key: string, now: number): number {
+    const entry = this.networks.get(key);
     if (!entry || now - entry.windowStart >= this.limits.networkWindowMs) {
-      this.networks.set(network, { windowStart: now, count: 1 });
+      this.networks.set(key, { windowStart: now, count: 1 });
       return 0;
     }
     if (entry.count >= this.limits.perNetwork) {
@@ -116,6 +163,11 @@ export class PasswordThrottle {
     return 0;
   }
 
+  /**
+   * Count a wrong password. A route calls this before it starts checking and
+   * `succeeded` when the password was right: the miss has to be on the books
+   * while scrypt runs, or every guess in flight passes the wait unseen.
+   */
   failed(eventId: string, nameKey: string): void {
     const now = this.clock.now();
     const id = nameId(eventId, nameKey);

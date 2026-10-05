@@ -50,8 +50,8 @@ The image must carry Node 26; if its Node is older, mount a Node 26 installation
 Maintainers only.
 
 1. Move the entries under `## [Unreleased]` in `CHANGELOG.md` to a new `## [x.y.z] - YYYY-MM-DD` section and add its link reference at the bottom.
-2. Set the version in the root `package.json` and in the three workspace manifests.
+2. Set the version in the root `package.json` and in the three workspace manifests, and move the image tag in `compose.example.yaml` to the same version (the release workflow refuses a tag that leaves it behind).
 3. Open a pull request, let CI pass, merge it.
 4. Tag the merge commit on `main` with a signed tag and push it: `git tag -s vx.y.z -m vx.y.z && git push origin vx.y.z`.
 
-The release workflow checks that the tag matches the version and that the CHANGELOG has a section for it, publishes the container image to `ghcr.io/ni-c/owl-be-there` and creates the GitHub release. Never move a tag that has been pushed.
+The release workflow checks that the tag matches the version, is a signed tag GitHub verifies (your GPG public key must be on your GitHub account), that `compose.example.yaml` names the version and that the CHANGELOG has a section for it, publishes the container image to `ghcr.io/ni-c/owl-be-there` and creates the GitHub release. Never move a tag that has been pushed.

@@ -336,3 +336,74 @@ describe('changing a participant', () => {
     expect((await getSnapshot(t.app, id)).participants).toEqual([]);
   });
 });
+
+describe('tokens revoked while a password is hashed', () => {
+  const patch = (
+    pid: string,
+    headers: Record<string, string>,
+    payload: Record<string, unknown>
+  ) =>
+    t.app.inject({
+      method: 'PATCH',
+      url: `/api/events/${id}/participants/${pid}`,
+      headers,
+      payload,
+    });
+
+  it('no longer write: of two changes with one token only one wins', async () => {
+    const max = await join(t.app, id, 'Max');
+    const headers = { 'x-participant-token': max.token };
+    const slow = patch(max.participantId, headers, { password: 'attacker-pw' });
+    const clearing = patch(max.participantId, headers, { password: null });
+    const [first, second] = await Promise.all([slow, clearing]);
+    expect(first.statusCode).toBe(403);
+    expect(second.statusCode).toBe(200);
+    expect(first.json().error).toBe('forbidden');
+    const view = (await getSnapshot(t.app, id)).participants.find(
+      (p: { id: string }) => p.id === max.participantId
+    );
+    expect(view.hasPassword).toBe(false);
+    // The token the winner was given is the one that works.
+    expect(
+      (await patch(max.participantId, headers, { note: 'x' })).statusCode
+    ).toBe(403);
+  });
+
+  it('do not stop the organiser, whose key is no token', async () => {
+    const max = await join(t.app, id, 'Max');
+    const slow = patch(
+      max.participantId,
+      { 'x-admin-token': adminToken },
+      { password: 'organiser-pw' }
+    );
+    const clearing = patch(
+      max.participantId,
+      { 'x-participant-token': max.token },
+      { password: null }
+    );
+    const [first, second] = await Promise.all([slow, clearing]);
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+  });
+
+  it('give a login whose password was reset meanwhile a 409, never a dead token', async () => {
+    await join(t.app, id, 'Ann', 'secret-1');
+    const pid = (await getSnapshot(t.app, id)).participants[0].id as string;
+    const [login, reset] = await Promise.all([
+      session({ name: 'Ann', password: 'secret-1' }),
+      patch(pid, { 'x-admin-token': adminToken }, { password: null }),
+    ]);
+    expect(reset.statusCode).toBe(200);
+    expect(login.statusCode).toBe(409);
+    expect(login.json().error).toBe('changed');
+    // Without the reset, the same login is fine.
+    expect((await session({ name: 'Ann' })).statusCode).toBe(200);
+  });
+
+  it('let a login through when nothing changed', async () => {
+    await join(t.app, id, 'Ann', 'secret-1');
+    const response = await session({ name: 'ann', password: 'secret-1' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().created).toBe(false);
+  });
+});

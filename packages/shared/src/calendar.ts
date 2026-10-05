@@ -22,6 +22,9 @@ export function escapeIcsText(text: string): string {
     .replace(/\r\n|\r|\n/g, '\\n');
 }
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F]/u;
+
 const encoder = new TextEncoder();
 
 /**
@@ -69,6 +72,14 @@ function stamp(now: Date): string {
  * wrong, and Outlook then shows the event one day short.
  */
 export function buildIcs(entry: CalendarEntry, now: Date): string {
+  // These two are written as they are, so a line break in one would start a
+  // new property in the file.
+  for (const value of [entry.uid, entry.url]) {
+    if (value !== null && CONTROL_CHARACTER.test(value))
+      throw new RangeError(
+        'A calendar uid or url must not hold control characters'
+      );
+  }
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -90,6 +101,15 @@ export function buildIcs(entry: CalendarEntry, now: Date): string {
   return lines.map(foldIcsLine).join('\r\n') + '\r\n';
 }
 
+/**
+ * Angle brackets become single angle quotation marks: Google reads the
+ * `details` of a template link as limited HTML, and what the organiser typed
+ * must stay plain text.
+ */
+function plainDetails(text: string): string {
+  return text.replaceAll('<', '\u2039').replaceAll('>', '\u203A');
+}
+
 /** A link that opens Google Calendar with the event filled in. */
 export function googleCalendarUrl(entry: Omit<CalendarEntry, 'uid'>): string {
   const params = new URLSearchParams({
@@ -98,7 +118,12 @@ export function googleCalendarUrl(entry: Omit<CalendarEntry, 'uid'>): string {
     // Exclusive end, as in the file.
     dates: `${basicDate(entry.start)}/${basicDate(addDays(entry.end, 1))}`,
   });
-  const details = [entry.description, entry.url].filter(Boolean).join('\n\n');
+  const details = [
+    entry.description && plainDetails(entry.description),
+    entry.url,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
   if (details) params.set('details', details);
   if (entry.location) params.set('location', entry.location);
   return `https://calendar.google.com/calendar/render?${params.toString()}`;

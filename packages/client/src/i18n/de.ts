@@ -239,6 +239,8 @@ export const de: Dictionary = {
   'admin.addNamesHint': 'Einer pro Zeile',
   'admin.fillIn': 'Eintragen',
   'admin.resetPassword': 'Passwort entfernen',
+  'admin.resetPasswordConfirm':
+    'Passwort von {name} entfernen? Danach kann jede Person mit dem Link diesen Eintrag ändern.',
   'admin.remove': 'Entfernen',
   'admin.removeConfirm': '{name} und alle Tage dieser Person entfernen?',
   'admin.delete': 'Event löschen',

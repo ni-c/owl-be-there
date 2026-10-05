@@ -412,3 +412,208 @@ describe('the hourly ceiling on new events', () => {
     expect(ceiling.allow(0, 5, 'a')).toBe(false);
   });
 });
+
+describe('guesses sent all at once', () => {
+  // One /48 each, so that only the brake on the name can stop them.
+  const guessFrom = (id: string, n: number, password = 'guess') =>
+    t.app.inject({
+      method: 'POST',
+      url: `/api/events/${id}/session`,
+      payload: { name: 'Alice', password },
+      remoteAddress: `2001:db8:${n.toString(16)}::1`,
+    });
+  const outcomes = (responses: { json(): { error?: string } }[]) =>
+    responses.reduce<Record<string, number>>((count, response) => {
+      const error = response.json().error ?? 'ok';
+      count[error] = (count[error] ?? 0) + 1;
+      return count;
+    }, {});
+
+  it('get as many tries as sequential ones do, not one per request in flight', async () => {
+    const { id } = await createEvent(t.app);
+    await join(t.app, id, 'Alice', 'secret-1');
+    const responses = await Promise.all(
+      Array.from({ length: 30 }, (_, n) => guessFrom(id, n + 1))
+    );
+    expect(outcomes(responses)).toEqual({ wrong_password: 5, slow_down: 25 });
+    // The wait ends, and the right password gets in.
+    t.clock.time += 30_000;
+    expect((await guessFrom(id, 99, 'secret-1')).statusCode).toBe(200);
+  });
+
+  it('let a right password in alongside wrong ones, and clear the count', async () => {
+    const { id } = await createEvent(t.app);
+    await join(t.app, id, 'Alice', 'secret-1');
+    const responses = await Promise.all([
+      guessFrom(id, 1),
+      guessFrom(id, 2, 'secret-1'),
+      guessFrom(id, 3),
+    ]);
+    expect(responses.map((r) => r.statusCode)).toEqual([401, 200, 401]);
+    // Four sequential misses are still within the free tries.
+    for (let n = 0; n < 4; n += 1) await guessFrom(id, 10 + n);
+    expect((await guessFrom(id, 20, 'secret-1')).statusCode).toBe(200);
+  });
+
+  it('still let five misses followed by the right password in, one after the other', async () => {
+    const { id } = await createEvent(t.app);
+    await join(t.app, id, 'Alice', 'secret-1');
+    for (let n = 0; n < 4; n += 1) {
+      expect((await guessFrom(id, n + 1)).json().error).toBe('wrong_password');
+    }
+    expect((await guessFrom(id, 5, 'secret-1')).statusCode).toBe(200);
+    // And the count started afresh.
+    for (let n = 0; n < 4; n += 1) await guessFrom(id, n + 6);
+    expect((await guessFrom(id, 10, 'secret-1')).statusCode).toBe(200);
+  });
+});
+
+describe('hashing passwords', () => {
+  const patchPassword = (
+    id: string,
+    pid: string,
+    adminToken: string,
+    password: unknown,
+    remoteAddress = '203.0.113.1'
+  ) =>
+    t.app.inject({
+      method: 'PATCH',
+      url: `/api/events/${id}/participants/${pid}`,
+      headers: admin(adminToken),
+      payload: { password },
+      remoteAddress,
+    });
+
+  it('is limited per network, and only for passwords that are hashed', async () => {
+    await t.app.close();
+    t = await testApp({
+      env: { RATE_LIMIT_MULTIPLIER: '1' },
+      throttleLimits: { perNetwork: 2 },
+    });
+    const { id, adminToken } = await createEvent(t.app);
+    const max = await join(t.app, id, 'Max');
+    // Clearing a password, and a password that is too short, hash nothing.
+    for (let i = 0; i < 5; i += 1) {
+      expect(
+        (await patchPassword(id, max.participantId, adminToken, null))
+          .statusCode
+      ).toBe(200);
+      expect(
+        (await patchPassword(id, max.participantId, adminToken, 'abc'))
+          .statusCode
+      ).toBe(400);
+    }
+    for (let i = 0; i < 2; i += 1) {
+      expect(
+        (await patchPassword(id, max.participantId, adminToken, `abcdef${i}`))
+          .statusCode
+      ).toBe(200);
+    }
+    const refused = await patchPassword(
+      id,
+      max.participantId,
+      adminToken,
+      'abcdef9'
+    );
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json().error).toBe('slow_down');
+    // Another network, and a person's first password at login, are counted on
+    // their own; the window ends.
+    expect(
+      (
+        await patchPassword(
+          id,
+          max.participantId,
+          adminToken,
+          'abcdef9',
+          '203.0.113.2'
+        )
+      ).statusCode
+    ).toBe(200);
+    expect(
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: `/api/events/${id}/session`,
+          payload: { name: 'Ann', password: 'abcdef' },
+          remoteAddress: '203.0.113.1',
+        })
+      ).statusCode
+    ).toBe(429);
+    t.clock.time += 5 * 60_000;
+    expect(
+      (await patchPassword(id, max.participantId, adminToken, 'abcdef8'))
+        .statusCode
+    ).toBe(200);
+  });
+
+  it('is shared by every /64 of one /48', async () => {
+    await t.app.close();
+    t = await testApp({
+      env: { RATE_LIMIT_MULTIPLIER: '1' },
+      throttleLimits: { perNetwork: 2 },
+    });
+    const { id, adminToken } = await createEvent(t.app);
+    const max = await join(t.app, id, 'Max');
+    const statuses: number[] = [];
+    for (const net of [1, 2, 3, 4]) {
+      const response = await patchPassword(
+        id,
+        max.participantId,
+        adminToken,
+        `abcdef${net}`,
+        `2001:db8:5:${net}::1`
+      );
+      statuses.push(response.statusCode);
+    }
+    expect(statuses).toEqual([200, 200, 429, 429]);
+  });
+
+  it('is turned away with 503 when the server cannot take more, and recovers', async () => {
+    const { id, adminToken } = await createEvent(t.app);
+    const max = await join(t.app, id, 'Max');
+    const responses = await Promise.all(
+      Array.from({ length: 100 }, (_, i) =>
+        patchPassword(
+          id,
+          max.participantId,
+          adminToken,
+          `abcdef${i}`,
+          `10.0.${i >> 8}.${i & 255}`
+        )
+      )
+    );
+    const codes = responses.map((response) => response.statusCode);
+    expect(codes.every((code) => code === 200 || code === 503)).toBe(true);
+    expect(codes).toContain(200);
+    expect(codes).toContain(503);
+    expect(responses.find((r) => r.statusCode === 503)!.json().error).toBe(
+      'busy'
+    );
+    // Afterwards a single request and a login work as ever.
+    expect(
+      (await patchPassword(id, max.participantId, adminToken, 'abcdefx'))
+        .statusCode
+    ).toBe(200);
+    expect((await join(t.app, id, 'Max', 'abcdefx')).created).toBe(false);
+  });
+});
+
+describe('an address with a port in the forwarded header', () => {
+  it('is limited like the address alone, whatever the port', async () => {
+    await t.app.close();
+    t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
+    const { id } = await createEvent(t.app);
+    const statuses: number[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      const response = await t.app.inject({
+        method: 'POST',
+        url: `/api/events/${id}/session`,
+        payload: { name: `P${i}` },
+        headers: { 'x-forwarded-for': `203.0.113.77:${50_000 + i}` },
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses).toEqual([...Array<number>(10).fill(200), 429, 429]);
+  });
+});

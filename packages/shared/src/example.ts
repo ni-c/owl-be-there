@@ -143,6 +143,8 @@ export function exampleSnapshot(options: {
         lastWriteDay: options.today,
         lastCandidateDay: last,
         finalEnd: null,
+        // The sample people have answered.
+        answered: true,
       }),
       version: 1,
       days,

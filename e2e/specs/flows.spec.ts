@@ -340,6 +340,32 @@ test('a protected name needs its password on another device', async ({
   await expect(laptop.getByText('Hi Maxi!')).toBeVisible();
 });
 
+test('the organiser removes a password only after confirming it', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  const session = await request.post(`/api/events/${id}/session`, {
+    data: { name: 'Maxi', password: 'secret-1' },
+  });
+  expect(session.status()).toBe(200);
+  const protectedEntry = async () =>
+    (await snapshot(request, id)).participants[0].hasPassword;
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.getByText('People', { exact: true }).click();
+  await page.getByRole('button', { name: 'Remove password' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Anyone with the event link');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+  expect(await protectedEntry()).toBe(true);
+
+  await page.getByRole('button', { name: 'Remove password' }).click();
+  await dialog.getByRole('button', { name: 'Remove password' }).click();
+  await expect.poll(protectedEntry).toBe(false);
+});
+
 test('the organiser chooses the best day; everyone gets a calendar file', async ({
   page,
   request,

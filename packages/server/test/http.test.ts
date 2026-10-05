@@ -30,8 +30,27 @@ describe('clientKey', () => {
     expect(clientKey('fe80::1%eth0')).toBe('fe80:0000:0000:0000::/64');
   });
 
-  it('passes through anything that is not an address', () => {
-    expect(clientKey('unknown')).toBe('unknown');
+  it('takes the address out of one that carries a port', () => {
+    expect(clientKey('203.0.113.77:51234')).toBe('203.0.113.77');
+    expect(clientKey('203.0.113.77:1')).toBe('203.0.113.77');
+    expect(clientKey('[2001:db8::1]:443')).toBe(clientKey('2001:db8::1'));
+    expect(clientKey('[2001:db8::1]')).toBe(clientKey('2001:db8::1'));
+    expect(clientKey('[::ffff:203.0.113.7]:80')).toBe('203.0.113.7');
+  });
+
+  it('puts everything that is no address into one shared bucket', () => {
+    for (const garbage of [
+      'unknown',
+      '',
+      'garbage',
+      '203.0.113.77:',
+      '203.0.113.77:123456',
+      '203.0.113.256',
+      '[nonsense]:80',
+      '[2001:db8::1',
+    ]) {
+      expect(clientKey(garbage)).toBe('unknown');
+    }
   });
 });
 
@@ -48,8 +67,13 @@ describe('networkKey', () => {
     expect(networkKey('2001:db8:2::1')).not.toBe(a);
   });
 
-  it('passes through anything that is not an address', () => {
+  it('treats an address with a port like the address, and garbage as one key', () => {
+    expect(networkKey('203.0.113.77:51234')).toBe('203.0.113.77');
+    expect(networkKey('[2001:db8:1:2::1]:443')).toBe(
+      networkKey('2001:db8:1:2::1')
+    );
     expect(networkKey('unknown')).toBe('unknown');
+    expect(networkKey('')).toBe('unknown');
   });
 });
 

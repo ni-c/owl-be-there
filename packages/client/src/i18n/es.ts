@@ -236,6 +236,8 @@ export const es: Dictionary = {
   'admin.addNamesHint': 'Uno por línea',
   'admin.fillIn': 'Responder',
   'admin.resetPassword': 'Quitar contraseña',
+  'admin.resetPasswordConfirm':
+    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta entrada.',
   'admin.remove': 'Quitar',
   'admin.removeConfirm': '¿Quitar a {name} y todos sus días?',
   'admin.delete': 'Borrar evento',

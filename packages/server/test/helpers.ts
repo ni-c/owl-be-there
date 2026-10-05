@@ -5,6 +5,7 @@ import { loadConfig, type Config } from '../src/config.js';
 import type { Clock } from '../src/context.js';
 import { migrate } from '../src/db/migrations.js';
 import { Db } from '../src/db/sqlite.js';
+import type { ThrottleLimits } from '../src/auth/throttle.js';
 import type { StreamLimits } from '../src/sse.js';
 
 export const CLIENT_DIR = fileURLToPath(
@@ -34,6 +35,7 @@ export interface TestAppOptions {
   env?: Record<string, string>;
   site?: boolean;
   streamLimits?: StreamLimits;
+  throttleLimits?: Partial<ThrottleLimits>;
 }
 
 export async function testApp(options: TestAppOptions = {}): Promise<TestApp> {
@@ -55,6 +57,7 @@ export async function testApp(options: TestAppOptions = {}): Promise<TestApp> {
     clock,
     logStream: { write: (line: string) => void logs.push(line) },
     ...(options.streamLimits && { streamLimits: options.streamLimits }),
+    ...(options.throttleLimits && { throttleLimits: options.throttleLimits }),
     heartbeatMs: 60_000,
   });
   return { app, db, clock, config, logs };

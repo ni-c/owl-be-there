@@ -31,7 +31,7 @@ All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install`
 ## Rules not up for discussion
 
 - **Days are strings.** ESLint bans `new Date(string)` and `Date.parse`. Format days with the helpers in `shared/dates.ts`, which go through `Date.UTC` and `timeZone: 'UTC'`.
-- **Nothing the organiser writes becomes a link.** Descriptions are plain text; link previews use fixed text plus the title. Phishing is the abuse public poll tools attract.
+- **Nothing the organiser writes becomes a link.** Descriptions are plain text; link previews show the title, the state of the poll and the candidate days, never names or the description. Phishing is the abuse public poll tools attract.
 - **No IP address is stored or logged by the application.** Rate limits live in memory. Request logging is off.
 - **Secrets travel in the URL fragment** (`#admin=…`), never in a path or query, and the client strips the fragment after reading it.
 - **`PUBLIC_URL` is the only source of absolute URLs.** The domain will change; nothing may hard-code it.
@@ -67,7 +67,12 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **Playwright starts the `webServer` before `globalSetup`.** Anything the server reads at startup — the e2e data directory — has to be prepared in the `webServer` command itself; a reset in `globalSetup` comes too late and the server opens the previous run's database.
 - **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets `ctx.headers` itself. Hang up on a stream through the hub (`hangUp`), which forgets it before ending it — a write to an ended response is an uncaught error. The hub closes in `preClose`: the server waits for open connections before `onClose`, and a live stream never ends on its own.
 - **`events.version` moves on every write, marks included.** It is no concurrency token for the organiser's edits; the day list carries `baseDays` instead.
-- **Anything async in a route happens before `db.tx`** (scrypt hashing above all), so what was checked before the `await` is checked again inside the transaction.
+- **Anything async in a route happens before `db.tx`** (scrypt hashing above all), so what was checked before the `await` is checked again inside the transaction — the participant's `token_gen` and password hash included.
+- **`snapshot()` returns a cached object** shared by every caller of that event version. Never mutate it, and never cache inside a transaction (a rollback would reuse the version number for other data).
+- **resvg-wasm objects must be freed.** `Resvg` and the rendered image live in WebAssembly memory that V8 does not see; without `free()` every new picture leaks about 3 MB.
+- **Node ignores `requestTimeout` while `headersTimeout` is longer**, so both are set together.
+- **Every rate limit is keyed per network** (`networkKey`: the IPv6 /48 or the IPv4 address), the live-stream cap included; a /64 is what one customer gets, a /48 what one attacker rents.
+- **Wrong passwords are counted before the check**, not after it: a miss recorded only after the `await` let parallel guesses all pass the wait.
 
 ## Working agreements
 

@@ -241,6 +241,8 @@ export const fr: Dictionary = {
   'admin.addNamesHint': 'Un par ligne',
   'admin.fillIn': 'Répondre',
   'admin.resetPassword': 'Retirer le mot de passe',
+  'admin.resetPasswordConfirm':
+    'Retirer le mot de passe de {name} ? Toute personne ayant le lien pourra alors modifier cette entrée.',
   'admin.remove': 'Retirer',
   'admin.removeConfirm': 'Retirer {name} et tous ses jours ?',
   'admin.delete': 'Supprimer l’événement',

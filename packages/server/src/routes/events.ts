@@ -184,7 +184,10 @@ export function registerEventRoutes(
           'Too many new events right now'
         );
       }
-      if (countEvents(ctx.db) >= config.maxEvents) {
+      if (
+        countEvents(ctx.db) >= config.maxEvents ||
+        (config.maxDbBytes !== null && ctx.db.sizeBytes() >= config.maxDbBytes)
+      ) {
         throw new ApiError(503, 'capacity', 'This instance is full');
       }
       const id = makeId(randomInt);

@@ -24,7 +24,8 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  mkdirSync(config.dataDir, { recursive: true });
+  // The database and the secret are for this process alone.
+  mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const db = new Db(join(config.dataDir, 'owl.db'));
   migrate(db);
   const secret = loadSecret(config.dataDir, config.secret);

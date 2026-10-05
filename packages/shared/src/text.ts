@@ -75,3 +75,18 @@ export function nameKey(name: string): string {
     .replace(KEY_INVISIBLE, '')
     .trim();
 }
+
+/**
+ * Whether one word mixes Latin letters with Cyrillic or Greek ones: a Cyrillic
+ * "а" in "Max" looks the same on screen and is another letter, so the name
+ * would be a second "Max" beside the first. Whole words in one script stay
+ * fine, and so do names in two scripts as long as no single word is — the
+ * all-Cyrillic lookalike of a Latin name is left alone.
+ */
+export function mixesScripts(name: string): boolean {
+  return (name.normalize('NFKC').match(/[\p{L}\p{M}]+/gu) ?? []).some(
+    (word) =>
+      /\p{Script=Latin}/u.test(word) &&
+      /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(word)
+  );
+}

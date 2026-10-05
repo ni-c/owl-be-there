@@ -8,7 +8,9 @@
 # production dependencies — fastify, its two plugins and zod in plain
 # JavaScript; resvg and wawoff2, which draw the link-preview pictures, in
 # WebAssembly; and the Nunito font files — so it runs unchanged on amd64 and
-# arm64. Never add a native module: it would be built for one of the two. Only the runtime stage
+# arm64. Never add a native module: it would be built for one of the two. Neither
+# WebAssembly module may be fed anything but the server's own SVG and the bundled
+# fonts (wawoff2 is unmaintained, resvg-wasm embeds old crates). Only the runtime stage
 # is per architecture, and it compiles nothing; a multi-arch build therefore
 # needs no emulation except for one `apk upgrade`.
 

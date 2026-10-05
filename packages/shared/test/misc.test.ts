@@ -4,6 +4,7 @@ import {
   CreateEventBody,
   DEFAULT_EMOJI,
   EMOJI_KEYS,
+  emojiIcon,
   EMOJIS,
   expiresOn,
   formatDayRange,
@@ -66,6 +67,7 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '9999-12-31',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
     expect(
@@ -73,6 +75,7 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '9999-12-01',
         lastCandidateDay: '9999-12-02',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
     // The day before the end still works as always.
@@ -81,8 +84,88 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '9999-12-30',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
+  });
+});
+
+describe('retention of an event nobody answered', () => {
+  const unanswered = { finalEnd: null, answered: false } as const;
+
+  it('goes ninety days after the last change, whatever its candidate days', () => {
+    // The first and the last day a candidate day may take, and a year between.
+    for (const lastCandidateDay of ['2026-12-31', '2027-06-01', '2032-03-01']) {
+      expect(
+        expiresOn({
+          lastWriteDay: '2027-03-01',
+          lastCandidateDay,
+          ...unanswered,
+        })
+      ).toBe('2027-05-30');
+    }
+  });
+
+  it('ignores a chosen date as well', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-03-01',
+        lastCandidateDay: '2027-09-01',
+        finalEnd: '2027-09-02',
+        answered: false,
+      })
+    ).toBe('2027-05-30');
+  });
+
+  it('keeps the old rule once somebody has answered, and goes back without', () => {
+    const input = {
+      lastWriteDay: '2027-03-01',
+      lastCandidateDay: '2032-03-01',
+      finalEnd: null,
+    } as const;
+    expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
+    expect(expiresOn({ ...input, answered: true })).toBe('2032-03-02');
+    expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
+  });
+
+  it('does not outlast an answered event with a short horizon', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-03-01',
+        lastCandidateDay: '2027-03-02',
+        finalEnd: null,
+        answered: true,
+      })
+    ).toBe('2027-05-30');
+  });
+
+  it('stops at 9999-12-31 as well', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-12-31',
+        lastCandidateDay: '9999-12-31',
+        ...unanswered,
+      })
+    ).toBe('9999-12-31');
+  });
+});
+
+describe('the emoji icon', () => {
+  it('draws every emoji on the list as it is', () => {
+    for (const key of EMOJI_KEYS) {
+      const svg = decodeURIComponent(
+        emojiIcon(EMOJIS[key]).replace('data:image/svg+xml,', '')
+      );
+      expect(svg).toContain(`>${EMOJIS[key]}</text>`);
+    }
+  });
+
+  it('escapes markup instead of writing it into the picture', () => {
+    const icon = emojiIcon('</text><image href="x"/>');
+    const svg = decodeURIComponent(icon.replace('data:image/svg+xml,', ''));
+    expect(svg).not.toContain('<image');
+    expect(svg).toContain('&lt;/text&gt;&lt;image href="x"/&gt;');
+    expect(decodeURIComponent(emojiIcon('&'))).toContain('&amp;');
   });
 });
 
@@ -91,6 +174,47 @@ describe('names', () => {
     expect(SessionBody.safeParse({ name: '\u200C' }).success).toBe(false);
     expect(SessionBody.safeParse({ name: '\u3164' }).success).toBe(false);
     expect(SessionBody.safeParse({ name: 'Max' }).success).toBe(true);
+  });
+
+  it('refuses a word that mixes Latin letters with Cyrillic or Greek ones', () => {
+    const ok = (name: string) => SessionBody.safeParse({ name }).success;
+    expect(ok('M\u0430x')).toBe(false); // Cyrillic a
+    expect(ok('M\u03B1x')).toBe(false); // Greek alpha
+    expect(ok('Ma\u0445')).toBe(false); // Cyrillic ha at the end
+    expect(ok('\u041CAX')).toBe(false); // Cyrillic Em at the start
+    expect(ok('Max M\u0430x')).toBe(false); // one bad word is enough
+    expect(ok('Max')).toBe(true);
+    expect(ok('\u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(
+      ok('\u0391\u03BB\u03AD\u03BE\u03B1\u03BD\u03B4\u03C1\u03BF\u03C2')
+    ).toBe(true);
+    // Different words in different scripts, and digits or emoji next to them.
+    expect(ok('Olga \u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(ok('Max-\u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(ok('\u041E\u043B\u044C\u0433\u0430 2')).toBe(true);
+    expect(ok('Max 🦉')).toBe(true);
+    // The roster and the rename take the same rule.
+    expect(
+      CreateEventBody.safeParse({
+        title: 'x',
+        emoji: 'owl',
+        language: 'en',
+        durationDays: 1,
+        days: ['2027-03-05'],
+        roster: ['M\u0430x'],
+      }).success
+    ).toBe(false);
+    expect(UpdateParticipantBody.safeParse({ name: 'M\u03B1x' }).success).toBe(
+      false
+    );
+  });
+
+  it('applies the rule at the length limit', () => {
+    const limit = LIMITS.name;
+    const ok = (name: string) => SessionBody.safeParse({ name }).success;
+    expect(ok('a'.repeat(limit))).toBe(true);
+    expect(ok('a'.repeat(limit - 1) + '\u0430')).toBe(false);
+    expect(ok('a'.repeat(limit + 1))).toBe(false);
   });
 });
 
@@ -117,6 +241,7 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-01-10',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('2027-04-01');
     expect(RETENTION_DAYS).toBe(90);
@@ -128,6 +253,7 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-09-30',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('2027-10-01');
     expect(
@@ -135,6 +261,7 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-06-01',
         finalEnd: '2027-09-30',
+        answered: true,
       })
     ).toBe('2027-10-01');
   });

@@ -1,6 +1,9 @@
-import { get } from 'node:http';
+import { EventEmitter } from 'node:events';
+import { get, type ServerResponse } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { addDays, LIMITS } from '@owl/shared';
 import { getEvent } from '../src/db/repo.js';
+import { networkKey } from '../src/http.js';
 import {
   createEvent,
   join,
@@ -139,6 +142,50 @@ describe('the sweep', () => {
   });
 });
 
+describe('how long an event lives', () => {
+  // The latest day a new candidate day may take, from 2027-03-01.
+  const farDay = addDays('2027-03-01', LIMITS.horizon);
+
+  it('is ninety days for an event nobody answered, however late its days', async () => {
+    const { id } = await createEvent(t.app, {
+      days: [farDay],
+      roster: ['Ana'],
+    });
+    expect(getEvent(t.db, id)!.expires_on).toBe('2027-05-30');
+    const early = await createEvent(t.app, { days: ['2027-02-28'] });
+    expect(getEvent(t.db, early.id)!.expires_on).toBe('2027-05-30');
+    // A name joined under, without marks, does not extend it either.
+    await join(t.app, id, 'Max');
+    expect(getEvent(t.db, id)!.expires_on).toBe('2027-05-30');
+  });
+
+  it('follows the last day once somebody has marks, and falls back without them', async () => {
+    const { id } = await createEvent(t.app, { days: [farDay] });
+    const max = await join(t.app, id, 'Max');
+    expect((await mark(t.app, id, max, [farDay])).statusCode).toBe(200);
+    expect(getEvent(t.db, id)!.expires_on).toBe(addDays(farDay, 1));
+    // Marks that say "no" to every day are an answer too.
+    expect((await mark(t.app, id, max, [], [], 1)).statusCode).toBe(200);
+    expect(getEvent(t.db, id)!.expires_on).toBe(addDays(farDay, 1));
+    // The only person with marks goes: the event is unanswered again.
+    t.clock.advanceDays(10);
+    const removed = await t.app.inject({
+      method: 'DELETE',
+      url: `/api/events/${id}/participants/${max.participantId}`,
+      headers: { 'x-participant-token': max.token },
+    });
+    expect(removed.statusCode).toBe(204);
+    expect(getEvent(t.db, id)!.expires_on).toBe('2027-06-09');
+  });
+
+  it('keeps the old rule for an answered event whose days are near', async () => {
+    const { id } = await createEvent(t.app);
+    const max = await join(t.app, id, 'Max');
+    await mark(t.app, id, max, ['2027-03-06']);
+    expect(getEvent(t.db, id)!.expires_on).toBe('2027-05-30');
+  });
+});
+
 describe('shutting down', () => {
   it('ends the open streams instead of waiting for them', async () => {
     const { id } = await createEvent(t.app);
@@ -160,4 +207,71 @@ describe('shutting down', () => {
     expect(closed).toBe(true);
     expect(t.app.hub.size).toBe(0);
   }, 3000);
+});
+
+describe('stream slots per network', () => {
+  // A stream that is open as far as the hub knows, from the given address.
+  const holdFrom = (id: string, ip: string): void => {
+    const response = Object.assign(new EventEmitter(), {
+      write: () => true,
+      end: () => true,
+      destroyed: false,
+      writableEnded: false,
+    }) as unknown as ServerResponse;
+    t.app.hub.add(id, networkKey(ip), response, 1);
+  };
+  const streamFrom = (id: string, remoteAddress: string) =>
+    t.app.inject({
+      method: 'GET',
+      url: `/api/events/${id}/stream`,
+      remoteAddress,
+    });
+
+  it('are shared by every /64 of one /48, not by an IPv4 address or another /48', async () => {
+    const { id } = await createEvent(t.app);
+    holdFrom(id, '2001:db8:1:1::1');
+    holdFrom(id, '2001:db8:1:2::1');
+    // A third /64 of the same /48 finds both slots taken.
+    const refused = await streamFrom(id, '2001:db8:1:ffff::1');
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json().error).toBe('too_many_streams');
+    // Another /48 and an IPv4 address are other clients. Their streams stay
+    // open, so shut the hub to let the answers finish.
+    // (A second event keeps the limit per event out of it.)
+    const { id: other } = await createEvent(t.app);
+    const others = [
+      streamFrom(id, '2001:db8:2::1'),
+      streamFrom(other, '203.0.113.7'),
+    ];
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(t.app.hub.size).toBe(4);
+    t.app.hub.close();
+    expect((await Promise.all(others)).map((r) => r.statusCode)).toEqual([
+      200, 200,
+    ]);
+  });
+
+  it('are freed when the streams of the network close', async () => {
+    const { id } = await createEvent(t.app);
+    const key = networkKey('2001:db8:1:1::1');
+    const ends: (() => void)[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      const response = Object.assign(new EventEmitter(), {
+        write: () => true,
+        end: () => true,
+        destroyed: false,
+        writableEnded: false,
+      });
+      ends.push(() => response.emit('close'));
+      t.app.hub.add(id, key, response as unknown as ServerResponse, 1);
+    }
+    expect((await streamFrom(id, '2001:db8:1:9::1')).statusCode).toBe(429);
+    for (const end of ends) end();
+    expect(t.app.hub.size).toBe(0);
+    const again = streamFrom(id, '2001:db8:1:9::1');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(t.app.hub.size).toBe(1);
+    t.app.hub.close();
+    expect((await again).statusCode).toBe(200);
+  });
 });

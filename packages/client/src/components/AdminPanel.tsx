@@ -416,6 +416,12 @@ function People(
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
     null
   );
+  // Removing a password opens the entry to everyone with the event link and
+  // ends the person's sessions, so it asks first like removing the person.
+  const [unlocking, setUnlocking] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const credentials = { admin: adminToken };
   return (
     <div className="flex flex-col gap-4">
@@ -441,15 +447,7 @@ function People(
                     size="sm"
                     variant="ghost"
                     onClick={() =>
-                      run(
-                        async () =>
-                          void (await api.updateParticipant(
-                            data.event.id,
-                            person.id,
-                            { password: null },
-                            credentials
-                          ))
-                      )
+                      setUnlocking({ id: person.id, name: person.name })
                     }
                   >
                     {t('admin.resetPassword')}
@@ -521,6 +519,41 @@ function People(
               }}
             >
               {t('admin.remove')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+      <Dialog
+        open={unlocking !== null}
+        onClose={() => setUnlocking(null)}
+        title={t('admin.resetPassword')}
+      >
+        <div className="flex flex-col gap-4">
+          <p>
+            {t('admin.resetPasswordConfirm', { name: unlocking?.name ?? '' })}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setUnlocking(null)}>
+              {t('mine.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const target = unlocking;
+                setUnlocking(null);
+                if (target)
+                  void run(
+                    async () =>
+                      void (await api.updateParticipant(
+                        data.event.id,
+                        target.id,
+                        { password: null },
+                        credentials
+                      ))
+                  );
+              }}
+            >
+              {t('admin.resetPassword')}
             </Button>
           </div>
         </div>

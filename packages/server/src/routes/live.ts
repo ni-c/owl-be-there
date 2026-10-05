@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { limit, type AppContext } from '../context.js';
-import { ApiError, clientKey } from '../http.js';
+import { ApiError, networkKey } from '../http.js';
 import { eventOr404 } from './events.js';
 
 /**
@@ -19,7 +19,7 @@ export function registerLiveRoutes(
     { config: limit(ctx.config, 60, '1 minute') },
     async (request, reply) => {
       const event = eventOr404(ctx, request.params.id);
-      const key = clientKey(request.ip);
+      const key = networkKey(request.ip);
       if (!ctx.hub.hasRoom(event.id, key)) {
         throw new ApiError(
           429,

@@ -128,6 +128,9 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          # Build tooling (vite, tailwindcss, the test runners) is part of what
+          # a pull request can make vulnerable, not only the runtime tree.
+          fail-on-scopes: runtime, development
 
   audit:
     runs-on: ubuntu-latest
@@ -170,6 +173,7 @@ jobs:
           # removed again is still a secret.
           fetch-depth: 0
           persist-credentials: false
+      # The files as they are now.
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           # Pinned: the action's default version was withdrawn upstream once.
@@ -178,6 +182,14 @@ jobs:
           scan-ref: .
           scanners: secret
           exit-code: '1'
+      # Every commit on every branch. Trivy only reads the checked-out files;
+      # gitleaks walks the history, so a token that was committed and deleted
+      # again is found. Pinned by digest.
+      - name: Scan the history for secrets
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo:ro \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --redact --no-banner --log-opts=--all /repo
 
   # Builds the image for both architectures and scans it. A finding is reported
   # as a code scanning alert (which closes itself once a later scan no longer

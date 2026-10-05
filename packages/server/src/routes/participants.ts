@@ -10,7 +10,11 @@ import {
 } from '@owl/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { isAdmin, isParticipant } from '../auth/access.js';
-import { hashPassword, verifyPassword } from '../auth/passwords.js';
+import {
+  assertPasswordCapacity,
+  hashPassword,
+  verifyPassword,
+} from '../auth/passwords.js';
 import { signParticipantToken } from '../auth/tokens.js';
 import { limit, type AppContext } from '../context.js';
 import {
@@ -100,6 +104,20 @@ export function registerParticipantRoutes(
     }
   };
 
+  /** Hash a new password, within this network's budget for hashing. */
+  const hashFor = async (password: string, ip: string): Promise<string> => {
+    assertPasswordCapacity();
+    const wait = ctx.throttle.chargeHash(networkKey(ip));
+    if (wait > 0) {
+      throw new ApiError(
+        429,
+        'slow_down',
+        `Too many passwords set; wait ${Math.ceil(wait / 1000)} seconds`
+      );
+    }
+    return hashPassword(password);
+  };
+
   const checkRoom = (eventId: string): void => {
     if (countParticipants(ctx.db, eventId) >= LIMITS.participants) {
       throw new ApiError(
@@ -134,9 +152,13 @@ export function registerParticipantRoutes(
             'This name is protected'
           );
         }
+        assertPasswordCapacity();
         brake(event.id, key, request.ip);
+        // The miss is counted before the check and cleared by a right password:
+        // guesses sent together must not all pass the wait that only the first
+        // misses would have started.
+        ctx.throttle.failed(event.id, key);
         if (!(await verifyPassword(body.password, existing.password_hash))) {
-          ctx.throttle.failed(event.id, key);
           throw new ApiError(
             401,
             'wrong_password',
@@ -144,6 +166,20 @@ export function registerParticipantRoutes(
           );
         }
         ctx.throttle.succeeded(event.id, key);
+        // The password may have been changed or reset while it was checked; a
+        // token for the row as it was then would already be dead.
+        const current = getParticipant(ctx.db, event.id, existing.id);
+        if (
+          !current ||
+          current.password_hash !== existing.password_hash ||
+          current.token_gen !== existing.token_gen
+        ) {
+          throw new ApiError(
+            409,
+            'changed',
+            'This entry was changed just now; try again'
+          );
+        }
         return {
           participantId: existing.id,
           token: token(event, existing),
@@ -169,7 +205,9 @@ export function registerParticipantRoutes(
       // asynchronous may happen inside one. So everything checked above is
       // checked again inside it — another request may have come between.
       const passwordHash =
-        body.password === undefined ? null : await hashPassword(body.password);
+        body.password === undefined
+          ? null
+          : await hashFor(body.password, request.ip);
       const result = ctx.db.tx(() => {
         const now = getEvent(ctx.db, event.id);
         if (!now) throw notFound();
@@ -296,7 +334,7 @@ export function registerParticipantRoutes(
           ? undefined
           : body.password === null
             ? null
-            : await hashPassword(body.password);
+            : await hashFor(body.password, request.ip);
       const updated = ctx.db.tx(() => {
         // Checked again after the hash: the poll may have closed, the person
         // been removed or the name taken while scrypt ran.
@@ -305,7 +343,11 @@ export function registerParticipantRoutes(
         if (actor === 'self' && statusOf(now) !== 'open') {
           throw new ApiError(409, 'closed', 'The poll is closed');
         }
-        participantOr404(ctx, now, participant.id);
+        const current = participantOr404(ctx, now, participant.id);
+        // A token revoked while the password was hashed must not still write.
+        if (actor === 'self' && current.token_gen !== participant.token_gen) {
+          throw new ApiError(403, 'forbidden', 'Not your entry');
+        }
         if (name) {
           const other = findParticipantByKey(ctx.db, event.id, name.nameKey);
           if (other && other.id !== participant.id) {

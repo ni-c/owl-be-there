@@ -3,7 +3,7 @@ import { isValidISODate } from './dates.js';
 import { EMOJI_KEYS } from './emoji.js';
 import { ID_PATTERN } from './ids.js';
 import { LIMITS } from './limits.js';
-import { cleanLine, cleanText, nameKey } from './text.js';
+import { cleanLine, cleanText, mixesScripts, nameKey } from './text.js';
 import { LANGUAGES } from './texts.js';
 
 /*
@@ -44,10 +44,12 @@ export const IsoDay = z
 
 export const Id = z.string().regex(ID_PATTERN, 'Not a valid id');
 
-export const Name = requiredLine(LIMITS.name).refine(
-  (name) => nameKey(name) !== '',
-  'A name needs a visible character'
-);
+export const Name = requiredLine(LIMITS.name)
+  .refine((name) => nameKey(name) !== '', 'A name needs a visible character')
+  .refine(
+    (name) => !mixesScripts(name),
+    'A word must not mix Latin letters with Cyrillic or Greek ones'
+  );
 
 /** A password being set. Logging in accepts any length up to the maximum. */
 export const NewPassword = z

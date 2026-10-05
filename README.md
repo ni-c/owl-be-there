@@ -22,8 +22,8 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **The group at a glance:** the same calendar as a heatmap with a count on every day, the best days ranked, a minimum head count, and a sheet per day naming who can, who might, who cannot and who has not answered yet. Updates arrive live.
 - **Multi-day events:** looking for a whole weekend? Ask for two days in a row and get the best blocks.
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
-- **Sharing:** the system share sheet with a ready-made invitation, the link to copy, and a QR code. Messengers show the event title in their link preview.
-- **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change — never before their last candidate day.
+- **Sharing:** the system share sheet with a ready-made invitation, the link to copy, and a QR code. Messengers show a link preview with the title, the state of the poll and the candidate days as a small calendar coloured like the heatmap — never names, never the description.
+- **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change; an event nobody answered goes even if its days lie later, an answered one never before its last candidate day.
 - **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Dutch, English, French, German, Italian, Japanese, Portuguese and Spanish.
 - **Self-hostable:** one container, one SQLite file.
 
@@ -42,10 +42,11 @@ The image is published for amd64 and arm64 as `ghcr.io/ni-c/owl-be-there`. It ru
 | Variable                | Default                 | Meaning                                                                                                                                                                            |
 | ----------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PUBLIC_URL`            | `http://localhost:8080` | The public origin, without a path. The only source of absolute URLs (link previews, calendar files) — moving to another domain means changing this and nothing else.               |
-| `TRUST_PROXY`           | `127.0.0.1,::1`         | Addresses or CIDR ranges whose `X-Forwarded-For` is believed. Behind Docker's port publishing that is the compose network's gateway, so trust that network. `false` trusts nobody. |
+| `TRUST_PROXY`           | `127.0.0.1,::1`         | Addresses or CIDR ranges whose `X-Forwarded-For` is believed. Behind Docker's port publishing that is the compose network's gateway, so trust that address. `false` trusts nobody. |
 | `PORT` / `HOST`         | `8080` / `0.0.0.0`      | Where the server listens inside the container.                                                                                                                                     |
 | `CREATION_ENABLED`      | `true`                  | `false` stops new events from being created; existing ones keep working. The emergency switch against abuse.                                                                       |
 | `MAX_EVENTS`            | `10000`                 | No new events beyond this many.                                                                                                                                                    |
+| `MAX_DB_BYTES`          | unset                   | No new events once the database file reaches this many bytes. A full event takes about 3 MB.                                                                                       |
 | `OWL_SECRET`            | generated               | At least 32 characters. Normally left unset: the server creates `/data/secret.key` on first start.                                                                                 |
 | `OPERATOR_NAME`         | —                       | Shown on the privacy page as the operator.                                                                                                                                         |
 | `OPERATOR_CONTACT`      | —                       | A contact address for the privacy page, also for abuse reports.                                                                                                                    |
@@ -102,7 +103,7 @@ docker compose exec owl node packages/server/dist/cli.js list 2027-03-01
 docker compose exec owl node packages/server/dist/cli.js purge 2027-03-01 --yes
 ```
 
-`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people joined, and `purge` deletes those among them that nobody joined — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
+`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people answered (marked days), and `purge` deletes those among them that nobody answered — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
 
 **Backups:** copy `owl.db` with SQLite's online backup (`sqlite3 data/owl.db ".backup backup.db"`) rather than the file itself, which may be mid-write. Keep `secret.key` too; without it, participants with a password must log in again. Keep backups only as long as the privacy page says.
 

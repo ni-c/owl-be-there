@@ -22,6 +22,7 @@ describe('loadConfig', () => {
     expect(config.creationEnabled).toBe(true);
     expect(config.rateLimitMultiplier).toBe(1);
     expect(config.logRetentionDays).toBeNull();
+    expect(config.maxDbBytes).toBeNull();
   });
 
   it('treats blank values as unset', () => {
@@ -92,6 +93,17 @@ describe('loadConfig', () => {
     expect(config.logRetentionDays).toBe(7);
     expect(config.backupRetentionDays).toBe(0);
     expect(problemsOf({ LOG_RETENTION_DAYS: '-1' })).toHaveLength(1);
+  });
+
+  it('takes a ceiling on the database size, and refuses a nonsensical one', () => {
+    expect(loadConfig({ MAX_DB_BYTES: '1073741824' }).maxDbBytes).toBe(
+      1_073_741_824
+    );
+    expect(loadConfig({ MAX_DB_BYTES: '1' }).maxDbBytes).toBe(1);
+    expect(loadConfig({ MAX_DB_BYTES: ' ' }).maxDbBytes).toBeNull();
+    for (const bad of ['0', '-5', '1.5', '10GB', String(2 ** 51)]) {
+      expect(problemsOf({ MAX_DB_BYTES: bad }), bad).toHaveLength(1);
+    }
   });
 
   it('accepts addresses, subnets and the named ranges as trusted proxies', () => {

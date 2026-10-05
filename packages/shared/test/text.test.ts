@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanLine, cleanText, nameKey } from '../src/index.js';
+import { cleanLine, cleanText, mixesScripts, nameKey } from '../src/index.js';
 
 describe('cleanLine', () => {
   it('trims and collapses whitespace', () => {
@@ -83,5 +83,35 @@ describe('invisible characters', () => {
     expect(nameKey('\u200C')).toBe('');
     expect(nameKey('\u3164\u2800')).toBe('');
     expect(nameKey('')).toBe('');
+  });
+});
+
+describe('mixesScripts', () => {
+  it('finds a Cyrillic or Greek letter inside a Latin word', () => {
+    expect(mixesScripts('M\u0430x')).toBe(true);
+    expect(mixesScripts('M\u03B1x')).toBe(true);
+    expect(mixesScripts('\u0430Max')).toBe(true);
+    expect(mixesScripts('Max \u041E\u043B\u044C\u0433\u0430 Ma\u0445')).toBe(
+      true
+    );
+  });
+
+  it('leaves single-script words and mixed names alone', () => {
+    expect(mixesScripts('')).toBe(false);
+    expect(mixesScripts('Max')).toBe(false);
+    expect(mixesScripts('\u041E\u043B\u044C\u0433\u0430')).toBe(false);
+    expect(mixesScripts('Olga \u041E\u043B\u044C\u0433\u0430')).toBe(false);
+    expect(mixesScripts("O'Neil \u0391\u03BB\u03AD\u03BE\u03B7\u03C2")).toBe(
+      false
+    );
+    expect(mixesScripts('42 🦉 \u3042\u3044')).toBe(false);
+    expect(mixesScripts('Jos\u00E9')).toBe(false);
+  });
+
+  it('judges a name the way its key is built', () => {
+    // A full-width Latin letter next to a Cyrillic one is still a mix.
+    expect(mixesScripts('\uFF2D\u0430x')).toBe(true);
+    // A decomposed accent is part of its word, not a break.
+    expect(mixesScripts('Jose\u0301')).toBe(false);
   });
 });

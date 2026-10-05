@@ -235,6 +235,8 @@ export const en = {
   'admin.addNamesHint': 'One per line',
   'admin.fillIn': 'Fill in',
   'admin.resetPassword': 'Remove password',
+  'admin.resetPasswordConfirm':
+    'Remove the password of {name}? Anyone with the event link can then change this entry.',
   'admin.remove': 'Remove',
   'admin.removeConfirm': 'Remove {name} and their days?',
   'admin.delete': 'Delete event',

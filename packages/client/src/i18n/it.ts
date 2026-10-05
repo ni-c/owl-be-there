@@ -238,6 +238,8 @@ export const it: Dictionary = {
   'admin.addNamesHint': 'Uno per riga',
   'admin.fillIn': 'Rispondi',
   'admin.resetPassword': 'Rimuovi la password',
+  'admin.resetPasswordConfirm':
+    'Rimuovere la password di {name}? Poi chiunque abbia il link potrà modificare questa voce.',
   'admin.remove': 'Rimuovi',
   'admin.removeConfirm': 'Rimuovere {name} e tutti i suoi giorni?',
   'admin.delete': 'Elimina evento',

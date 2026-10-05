@@ -16,9 +16,9 @@ import type { Config } from './config.js';
 import { systemClock, type AppContext, type Clock } from './context.js';
 import { sweepExpired } from './db/repo.js';
 import type { Db } from './db/sqlite.js';
-import { ApiError, clientKey, ValidationError } from './http.js';
+import { ApiError, networkKey, ValidationError } from './http.js';
 import { PageTemplate } from './pages.js';
-import { PreviewRenderer } from './preview.js';
+import { PreviewRenderer, type RenderBudget } from './preview.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerLiveRoutes } from './routes/live.js';
 import { registerParticipantRoutes } from './routes/participants.js';
@@ -38,6 +38,10 @@ export interface BuildAppOptions {
   logStream?: { write(line: string): void };
   streamLimits?: StreamLimits;
   heartbeatMs?: number;
+  /** How long a request may take to arrive in full; tests shorten it. */
+  requestTimeoutMs?: number;
+  /** The ceiling on new link-preview pictures; tests tighten or lift it. */
+  previewBudget?: RenderBudget | null;
   throttleLimits?: Partial<ThrottleLimits>;
 }
 
@@ -47,6 +51,29 @@ declare module 'fastify' {
     sweep(): number;
     hub: SseHub;
   }
+}
+
+/** How long a request may take to arrive in full, headers and body. */
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * An error as the log shows it: what pino's own serializer shows, but without
+ * `rawPacket`. A request the parser refuses is logged at `trace` with the
+ * bytes it received — the event link and the tokens in its headers.
+ */
+export function serializeError(error: Error): {
+  [key: string]: unknown;
+  type: string;
+  message: string;
+  stack: string;
+} {
+  const { rawPacket: _raw, ...rest } = error as Error & { rawPacket?: unknown };
+  return {
+    ...rest,
+    type: error.constructor.name,
+    message: error.message,
+    stack: error.stack ?? '',
+  };
 }
 
 /** The server's own version, from its manifest. */
@@ -106,6 +133,7 @@ export async function buildApp(
 ): Promise<FastifyInstance> {
   const { config, db, secret } = options;
   const clock = options.clock ?? systemClock;
+  const requestTimeout = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
 
   const app = Fastify({
     // Request logging is off: a request log is a list of IP addresses with
@@ -116,11 +144,23 @@ export async function buildApp(
         ? false
         : {
             level: config.logLevel,
+            serializers: { err: serializeError },
             ...(options.logStream && { stream: options.logStream }),
           },
     logController: new LogController({ disableRequestLogging: true }),
     trustProxy: config.trustProxy === false ? false : config.trustProxy,
     bodyLimit: 32 * 1024,
+    // A body that stops arriving must not hold its connection, and with it
+    // the shutdown, forever. A live stream is a response, not a request: it
+    // is not timed. `connectionTimeout` stays off for the same reason.
+    requestTimeout,
+    http: {
+      // Node ignores the request timeout while the headers timeout, a minute
+      // by default, is the longer of the two.
+      headersTimeout: requestTimeout,
+      // Node looks for overdue requests this often, 30 seconds by default.
+      connectionsCheckingInterval: Math.max(10, requestTimeout / 4),
+    },
   });
 
   // JSON only. Without the plain-text parser, any other body is a 415 — and a
@@ -144,7 +184,14 @@ export async function buildApp(
     hub,
     template,
     preview: template
-      ? new PreviewRenderer(config.clientDir, new URL(config.publicUrl).host)
+      ? new PreviewRenderer(
+          config.clientDir,
+          new URL(config.publicUrl).host,
+          undefined,
+          options.previewBudget === undefined
+            ? {}
+            : { budget: options.previewBudget }
+        )
       : null,
     version: readVersion(),
     headers: securityHeaders(csp, https),
@@ -164,8 +211,10 @@ export async function buildApp(
 
   await app.register(rateLimit, {
     global: false,
-    // An address or an IPv6 /64, in memory only.
-    keyGenerator: (request) => clientKey(request.ip),
+    // An address or an IPv6 /48, in memory only. A /64 is what one household
+    // is handed, but whoever rents a /48 holds 65,536 of them and would get
+    // every limit that many times over.
+    keyGenerator: (request) => networkKey(request.ip),
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: 'rate_limited',
@@ -223,7 +272,7 @@ export async function buildApp(
     const ids = sweepExpired(db, todayUTC(new Date(clock.now())));
     for (const id of ids) hub.deleted(id);
     if (ids.length > 0) {
-      db.checkpoint();
+      if (!db.checkpoint()) app.log.warn('checkpoint after sweep incomplete');
       app.log.info({ deleted: ids.length }, 'expired events deleted');
     }
     return ids.length;

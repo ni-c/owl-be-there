@@ -348,10 +348,26 @@ export function textWidth(text: string, fontSize: number): number {
   return [...text].reduce((sum, char) => sum + charWidth(char), 0) * fontSize;
 }
 
+/**
+ * Whether a code point is one the CJK font draws: ideographs and the scripts
+ * around them, Hangul, compatibility ideographs, the full-width forms and the
+ * supplementary ideograph planes. Emoji and symbols are not — that font has no
+ * glyph for them, and loading it for one costs over a hundred megabytes.
+ */
+function isCjk(code: number): boolean {
+  return (
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef) ||
+    (code >= 0x20000 && code <= 0x3ffff)
+  );
+}
+
 /** Whether the title or the language needs the CJK font. */
 export function previewNeedsCjk(data: EventSnapshotData): boolean {
   return (
     data.event.language === 'ja' ||
-    [...data.event.title].some((char) => char.codePointAt(0)! >= 0x2e80)
+    [...data.event.title].some((char) => isCjk(char.codePointAt(0)!))
   );
 }
