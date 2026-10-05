@@ -18,6 +18,7 @@ import { sweepExpired } from './db/repo.js';
 import type { Db } from './db/sqlite.js';
 import { ApiError, clientKey, ValidationError } from './http.js';
 import { PageTemplate } from './pages.js';
+import { PreviewRenderer } from './preview.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerLiveRoutes } from './routes/live.js';
 import { registerParticipantRoutes } from './routes/participants.js';
@@ -142,6 +143,9 @@ export async function buildApp(
     clock,
     hub,
     template,
+    preview: template
+      ? new PreviewRenderer(config.clientDir, new URL(config.publicUrl).host)
+      : null,
     version: readVersion(),
     headers: securityHeaders(csp, https),
     throttle: new PasswordThrottle(clock, {

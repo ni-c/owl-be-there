@@ -6,6 +6,7 @@ export * from './example.js';
 export * from './grid.js';
 export * from './ids.js';
 export * from './limits.js';
+export * from './preview.js';
 export * from './qr.js';
 export * from './ranking.js';
 export * from './retention.js';

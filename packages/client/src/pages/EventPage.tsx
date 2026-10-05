@@ -336,7 +336,7 @@ function EventHeader({
       )}
       {event.description && (
         // Plain text on purpose: nothing an organiser writes becomes a link.
-        <p className="max-w-3xl leading-relaxed whitespace-pre-line text-muted">
+        <p className="leading-relaxed whitespace-pre-line text-muted">
           {event.description}
         </p>
       )}
