@@ -316,6 +316,21 @@ export const en = {
   'privacy.source':
     'Owl Be There is open source. You can read the code or run it yourself.',
 
+  'imprint.title': 'Imprint',
+  'imprint.provider.title':
+    'Provider identification under § 5 DDG and § 18(1) MStV',
+  'imprint.contact.title': 'Contact',
+  'imprint.contact.label': 'Email:',
+  'imprint.about.title': 'About Owl Be There',
+  'imprint.about.text':
+    'Owl Be There is a private, non-commercial project and is free to use. There is no advertising and there are no paid contents.',
+  'imprint.dispute.title': 'Consumer dispute resolution',
+  'imprint.dispute.text':
+    'There is no obligation and no willingness to take part in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG).',
+  'imprint.liability.title': 'Liability for content and links',
+  'imprint.liability.text':
+    'The content of this application was created with care. The respective provider is responsible for linked external sites; no legal violations were apparent when the links were set. The people who organise and take part in polls are themselves responsible for what they enter.',
+
   'notFound.title': 'We can’t find this page.',
   'notFound.home': 'Go to the start page',
 

@@ -153,9 +153,13 @@ export function defaultHead(
 
 /**
  * The sitemap: the start page in every language, each naming the others, and
- * the privacy page. Event pages are private and never listed.
+ * the privacy page, and the legal notice when the instance has one. Event
+ * pages are private and never listed.
  */
-export function sitemap(publicUrl: string): string {
+export function sitemap(
+  publicUrl: string,
+  options: { imprint?: boolean } = {}
+): string {
   const e = escapeMarkup;
   const alternates = [
     ...LANGUAGES.map(
@@ -173,6 +177,9 @@ export function sitemap(publicUrl: string): string {
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
     ...home,
     `  <url>\n    <loc>${e(publicUrl)}/privacy</loc>\n  </url>`,
+    ...(options.imprint
+      ? [`  <url>\n    <loc>${e(publicUrl)}/imprint</loc>\n  </url>`]
+      : []),
     '</urlset>',
     '',
   ].join('\n');

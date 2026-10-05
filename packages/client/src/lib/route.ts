@@ -1,7 +1,7 @@
 import { isId, isLanguage, type Language } from '@owl/shared';
 
 /**
- * Four pages need no router library: the path, a way to change it, and a
+ * Five pages need no router library: the path, a way to change it, and a
  * subscription to the browser's back and forward buttons.
  */
 export type Route =
@@ -9,11 +9,14 @@ export type Route =
   | { page: 'home'; language?: Language }
   | { page: 'event'; id: string }
   | { page: 'privacy' }
+  | { page: 'imprint' }
   | { page: 'not-found' };
 
 export function parseRoute(pathname: string): Route {
   if (pathname === '/' || pathname === '') return { page: 'home' };
-  if (pathname === '/privacy') return { page: 'privacy' };
+  // The server answers these with and without a trailing slash; so does the app.
+  if (/^\/privacy\/?$/.test(pathname)) return { page: 'privacy' };
+  if (/^\/imprint\/?$/.test(pathname)) return { page: 'imprint' };
   const home = /^\/([a-z]{2})\/?$/.exec(pathname);
   if (home && isLanguage(home[1]!)) return { page: 'home', language: home[1] };
   const event = /^\/e\/([^/]+)\/?$/.exec(pathname);

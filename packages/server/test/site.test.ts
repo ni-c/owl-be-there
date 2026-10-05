@@ -28,6 +28,13 @@ afterEach(async () => {
   t = undefined;
 });
 
+/** Everything the built-in legal notice needs; all of it fictional. */
+const IMPRINT_ENV = {
+  OPERATOR_NAME: 'Example Org',
+  OPERATOR_ADDRESS: 'Musterstraße 1, 12345 Musterstadt, Germany',
+  OPERATOR_CONTACT: 'privacy@example.org',
+};
+
 const hashOf = (script: string): string =>
   `'sha256-${createHash('sha256').update(script).digest('base64')}'`;
 
@@ -78,6 +85,60 @@ describe('pages', () => {
       );
       expect(response.body).not.toContain('<!--owl:head-->');
     }
+  });
+
+  it('serves /imprint with the default head, with and without a slash, once the notice is configured', async () => {
+    t = await testApp({ env: IMPRINT_ENV });
+    for (const [url, path] of [
+      ['/imprint', '/imprint'],
+      ['/imprint/', '/imprint'],
+    ] as const) {
+      for (const method of ['GET', 'HEAD'] as const) {
+        const response = await t.app.inject({ method, url });
+        expect(response.statusCode, `${method} ${url}`).toBe(200);
+        expect(response.headers['content-type']).toBe(
+          'text/html; charset=utf-8'
+        );
+        if (method === 'GET') {
+          expect(response.body).toContain(
+            `<meta property="og:url" content="https://owl.example.org${path}" />`
+          );
+          expect(response.body).not.toContain('noindex');
+          expect(response.body).not.toContain('<!--owl:head-->');
+        }
+      }
+    }
+  });
+
+  it('knows no /imprint unless name, address and contact are all set', async () => {
+    const partial: Record<string, string>[] = [
+      {},
+      { OPERATOR_NAME: 'Example Org' },
+      { OPERATOR_NAME: 'Example Org', OPERATOR_ADDRESS: 'Musterstraße 1' },
+      { OPERATOR_NAME: 'Example Org', OPERATOR_CONTACT: 'privacy@example.org' },
+      {
+        OPERATOR_ADDRESS: 'Musterstraße 1',
+        OPERATOR_CONTACT: 'privacy@example.org',
+      },
+      // An external notice does not create the built-in page.
+      { IMPRINT_URL: 'https://example.org/imprint' },
+    ];
+    for (const env of partial) {
+      t = await testApp({ env });
+      for (const url of ['/imprint', '/imprint/']) {
+        const response = await t.app.inject({ method: 'GET', url });
+        expect(response.statusCode, `${url} with ${JSON.stringify(env)}`).toBe(
+          404
+        );
+      }
+      const sitemap = await t.app.inject({
+        method: 'GET',
+        url: '/sitemap.xml',
+      });
+      expect(sitemap.body).not.toContain('/imprint');
+      await t.app.close();
+    }
+    t = undefined;
   });
 
   it('puts the event title in the head, escaped, and never the description', async () => {
@@ -344,10 +405,23 @@ describe('pages', () => {
       ),
       'https://owl.example.org/privacy',
     ]);
+    expect(response.body).not.toContain('/imprint');
     expect(response.body).not.toContain(id);
     expect(response.body).not.toContain('/e/');
     // Each start page names all nine versions.
     expect(response.body.match(/hreflang=/g)).toHaveLength(9 * 9);
+  });
+
+  it('lists /imprint in the sitemap, after the privacy page, when it is configured', async () => {
+    t = await testApp({ env: IMPRINT_ENV });
+    const response = await t.app.inject({ method: 'GET', url: '/sitemap.xml' });
+    const locs = [...response.body.matchAll(/<loc>([^<]*)<\/loc>/g)].map(
+      (match) => match[1]
+    );
+    expect(locs.slice(-2)).toEqual([
+      'https://owl.example.org/privacy',
+      'https://owl.example.org/imprint',
+    ]);
   });
 
   it('answers an unknown event or path with the app and a 404', async () => {
@@ -732,6 +806,7 @@ describe('requests', () => {
     t = await testApp({
       env: {
         OPERATOR_NAME: 'Example Org',
+        OPERATOR_ADDRESS: 'Musterstraße 1\n12345 Musterstadt',
         LOG_RETENTION_DAYS: '7',
         IMPRINT_URL: 'https://example.org/imprint',
       },
@@ -743,6 +818,8 @@ describe('requests', () => {
       logRetentionDays: 7,
       backupRetentionDays: null,
       operatorName: 'Example Org',
+      operatorAddress: 'Musterstraße 1, 12345 Musterstadt',
+      operatorContact: null,
       imprintUrl: 'https://example.org/imprint',
       publicUrl: 'https://owl.example.org',
     });

@@ -5,6 +5,7 @@ export * from './emoji.js';
 export * from './example.js';
 export * from './grid.js';
 export * from './headers.js';
+export * from './imprint.js';
 export * from './ids.js';
 export * from './limits.js';
 export * from './preview.js';

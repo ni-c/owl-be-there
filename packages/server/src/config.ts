@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
+import { parseAddress } from '@owl/shared';
 
 /**
  * Everything the process reads from its environment, parsed once at start-up.
@@ -40,7 +41,13 @@ export interface Config {
   secret: string | null;
   /** Shown on the privacy page, so a reader knows who runs this instance. */
   operatorName: string | null;
+  /**
+   * The operator's postal address for the legal notice, in its stored form:
+   * one line, the parts joined by ", ".
+   */
+  operatorAddress: string | null;
   operatorContact: string | null;
+  /** A legal notice elsewhere; it replaces the built-in page's link. */
   imprintUrl: string | null;
   /** What the operator's reverse proxy and backups keep; null when not stated. */
   logRetentionDays: number | null;
@@ -140,6 +147,14 @@ export function loadConfig(env: Env = process.env): Config {
     problems.push('IMPRINT_URL must be an http(s) URL');
   }
 
+  let operatorAddress: string | null = null;
+  const addressRaw = read(env, 'OPERATOR_ADDRESS');
+  if (addressRaw !== null) {
+    const parsed = parseAddress(addressRaw);
+    if (parsed.ok) operatorAddress = parsed.value;
+    else problems.push(`OPERATOR_ADDRESS ${parsed.reason}`);
+  }
+
   const trustProxy = parseTrustProxy(read(env, 'TRUST_PROXY'), problems);
 
   const config: Config = {
@@ -156,6 +171,7 @@ export function loadConfig(env: Env = process.env): Config {
     logLevel,
     secret,
     operatorName: read(env, 'OPERATOR_NAME'),
+    operatorAddress,
     operatorContact: read(env, 'OPERATOR_CONTACT'),
     imprintUrl,
     logRetentionDays: optionalInteger('LOG_RETENTION_DAYS', 0, 3650),

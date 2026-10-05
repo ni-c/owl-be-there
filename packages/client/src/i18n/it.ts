@@ -320,6 +320,21 @@ export const it: Dictionary = {
   'privacy.source':
     'Owl Be There è open source. Puoi leggere il codice o ospitare una tua istanza.',
 
+  'imprint.title': 'Note legali',
+  'imprint.provider.title':
+    'Identificazione del fornitore ai sensi del § 5 DDG e del § 18 Abs. 1 MStV',
+  'imprint.contact.title': 'Contatto',
+  'imprint.contact.label': 'E-mail:',
+  'imprint.about.title': 'Su Owl Be There',
+  'imprint.about.text':
+    'Owl Be There è un progetto privato, senza scopo commerciale, e si può usare gratuitamente. Non ci sono pubblicità né contenuti a pagamento.',
+  'imprint.dispute.title': 'Risoluzione delle controversie dei consumatori',
+  'imprint.dispute.text':
+    'Non sussiste alcun obbligo né alcuna disponibilità a partecipare a una procedura di risoluzione delle controversie dinanzi a un organismo di conciliazione dei consumatori (§ 36 VSBG).',
+  'imprint.liability.title': 'Responsabilità per contenuti e link',
+  'imprint.liability.text':
+    'I contenuti di questa applicazione sono stati realizzati con cura. Dei siti esterni collegati risponde il rispettivo gestore; al momento del collegamento non erano riconoscibili violazioni di legge. Di ciò che organizzatori e partecipanti inseriscono nei sondaggi rispondono loro stessi.',
+
   'notFound.title': 'Non troviamo questa pagina.',
   'notFound.home': 'Vai alla pagina iniziale',
 

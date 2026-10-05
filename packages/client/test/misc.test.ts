@@ -167,7 +167,7 @@ describe('weekdayName', () => {
 });
 
 describe('routes', () => {
-  it('knows the four pages', () => {
+  it('knows the five pages', () => {
     expect(parseRoute('/')).toEqual({ page: 'home' });
     expect(parseRoute('')).toEqual({ page: 'home' });
     expect(parseRoute('/privacy')).toEqual({ page: 'privacy' });

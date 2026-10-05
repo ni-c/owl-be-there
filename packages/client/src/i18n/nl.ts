@@ -322,6 +322,21 @@ export const nl: Dictionary = {
   'privacy.source':
     'Owl Be There is open source. Je kunt de code bekijken of zelf een versie hosten.',
 
+  'imprint.title': 'Juridische informatie',
+  'imprint.provider.title':
+    'Aanbiederidentificatie volgens § 5 DDG en § 18 Abs. 1 MStV',
+  'imprint.contact.title': 'Contact',
+  'imprint.contact.label': 'E-mail:',
+  'imprint.about.title': 'Over Owl Be There',
+  'imprint.about.text':
+    'Owl Be There is een privé-project zonder winstoogmerk en is gratis te gebruiken. Er is geen reclame en er zijn geen betaalde content.',
+  'imprint.dispute.title': 'Beslechting van consumentengeschillen',
+  'imprint.dispute.text':
+    'Er is geen verplichting en geen bereidheid om deel te nemen aan een geschillenbeslechtingsprocedure voor een consumentenarbitrage-instantie (§ 36 VSBG).',
+  'imprint.liability.title': 'Aansprakelijkheid voor inhoud en links',
+  'imprint.liability.text':
+    'De inhoud van deze applicatie is zorgvuldig samengesteld. Voor gelinkte externe sites is de betreffende aanbieder verantwoordelijk; op het moment van linken waren er geen overtredingen van de wet te herkennen. Voor wat organisatoren en deelnemers in polls invullen, zijn zij zelf verantwoordelijk.',
+
   'notFound.title': 'We kunnen deze pagina niet vinden.',
   'notFound.home': 'Naar de startpagina',
 

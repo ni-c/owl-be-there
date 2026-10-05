@@ -452,6 +452,58 @@ test('the privacy page names the operator and the log retention', async ({
   ).toBeVisible();
 });
 
+test('the footer links the legal notice between privacy and the source, and the page names the operator', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const links = page.getByRole('contentinfo').getByRole('navigation');
+  await expect(links.getByRole('link')).toHaveText([
+    'Privacy',
+    'Imprint',
+    'Open source by Willi Thiel',
+  ]);
+  await links.getByRole('link', { name: 'Imprint' }).click();
+  await expect(page).toHaveURL(/\/imprint$/);
+  await expect(page.getByRole('heading', { name: 'Imprint' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Provider identification under § 5 DDG and § 18(1) MStV',
+    })
+  ).toBeVisible();
+  const provider = page.locator('p').filter({
+    hasText: 'Example Organisation',
+  });
+  await expect(provider.locator('span')).toHaveText([
+    'Musterstraße 1',
+    '12345 Musterstadt',
+    'Germany',
+  ]);
+  await expect(provider).toContainText('Example Organisation');
+  await expect(page.getByText('Email:')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'privacy@example.org' })
+  ).toHaveAttribute('href', 'mailto:privacy@example.org');
+  await expect(
+    page.getByRole('heading', { name: 'About Owl Be There' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Consumer dispute resolution' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Liability for content and links' })
+  ).toBeVisible();
+
+  // The address with a slash is the same page; German keeps the statute names.
+  await page.goto('/imprint/');
+  await page.getByLabel('Language').selectOption('de');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Anbieterkennzeichnung nach § 5 DDG und § 18 Abs. 1 MStV',
+    })
+  ).toBeVisible();
+  await expect(page.getByText('Kontakt', { exact: true })).toBeVisible();
+});
+
 test('German is a click away and remembered', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Language').selectOption('de');

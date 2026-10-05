@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A built-in legal notice at `/imprint`, linked in the footer between "Privacy" and the source link, in all eight languages: provider identification under § 5 DDG and § 18(1) MStV, contact, and short statements on the project, consumer dispute resolution and liability. It appears when `OPERATOR_NAME`, the new `OPERATOR_ADDRESS` (one line with comma-separated parts, or one part per line) and `OPERATOR_CONTACT` are set, and is listed in `sitemap.xml`; `/api/instance` reports `operatorAddress`. `IMPRINT_URL` still wins as an external link.
 - Link previews of an event show its own picture: the title, the state of the poll, and the candidate days as a small calendar coloured like the heatmap, with the chosen date outlined. A poll longer than six weeks shows the six weeks around its best day (or the chosen date), names its whole period above and the days left out below. No names and never the description. The server draws it (`/e/:id/og.png`) with resvg in WebAssembly and keeps each version once; the address carries the version, so a changed poll is a new picture. Messengers fetch it when the link is sent, so every new message shows the poll as it is then.
 - The start page has an address per language (`/de`, `/fr` …) that search engines read in that language: `<html lang>`, title and description come from the server, and every version names the others with `hreflang`. Plain `/` stays the default and picks the browser's language. Arriving on one of these addresses chooses its language; picking another in the footer moves to its address.
 - `/sitemap.xml` lists the start page in every language and the privacy page; `robots.txt` points to it under `PUBLIC_URL`. Event pages are never listed.
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An event's description uses the full width of the page instead of breaking early.
 - Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
 - The note at the bottom of an event page says that the event is deleted automatically: "This event will be deleted automatically on … unless something changes by then."
+- The organiser's "Close poll" button sits at the bottom of the organiser tools, beside "Delete event", which is framed like it.
 - The footer names the author: "Open source by Willi Thiel", in every language.
 - Link-preview pictures may be embedded by other sites (`Cross-Origin-Resource-Policy: cross-origin`); everything else stays `same-origin`.
 - New candidate days may lie one day further ahead, so people east of UTC can pick the last allowed day.

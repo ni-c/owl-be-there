@@ -1,7 +1,13 @@
 import { existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import fastifyStatic from '@fastify/static';
-import { isId, LANGUAGES, RETENTION_DAYS, type Language } from '@owl/shared';
+import {
+  hasImprint,
+  isId,
+  LANGUAGES,
+  RETENTION_DAYS,
+  type Language,
+} from '@owl/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { limit, type AppContext } from '../context.js';
 import { snapshot } from '../db/repo.js';
@@ -29,6 +35,7 @@ export function registerInstanceRoutes(
       logRetentionDays: config.logRetentionDays,
       backupRetentionDays: config.backupRetentionDays,
       operatorName: config.operatorName,
+      operatorAddress: config.operatorAddress,
       operatorContact: config.operatorContact,
       imprintUrl: config.imprintUrl,
       publicUrl: config.publicUrl,
@@ -63,6 +70,9 @@ export async function registerSite(
   ctx: AppContext
 ): Promise<void> {
   const { template, config } = ctx;
+  // The legal notice page exists only where the operator stated what it needs;
+  // elsewhere `/imprint` is an unknown path, as the client also decides.
+  const imprint = hasImprint(config);
   const page = (
     reply: FastifyReply,
     head: string,
@@ -104,12 +114,19 @@ export async function registerSite(
       reply
         .header('content-type', 'application/xml; charset=utf-8')
         .header('cache-control', 'no-cache')
-        .send(sitemap(config.publicUrl))
+        .send(sitemap(config.publicUrl, { imprint }))
     );
     for (const url of withSlash('/privacy')) {
       app.get(url, async (_request, reply) =>
         page(reply, defaultHead(config.publicUrl, '/privacy'))
       );
+    }
+    if (imprint) {
+      for (const url of withSlash('/imprint')) {
+        app.get(url, async (_request, reply) =>
+          page(reply, defaultHead(config.publicUrl, '/imprint'))
+        );
+      }
     }
     // GET and HEAD are one route, so they share one rate limit: Fastify's
     // automatic HEAD route would count on its own. The address with a slash is

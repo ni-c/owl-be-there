@@ -206,6 +206,7 @@ export const InstanceInfo = z.object({
   logRetentionDays: z.int().nullable(),
   backupRetentionDays: z.int().nullable(),
   operatorName: z.string().nullable(),
+  operatorAddress: z.string().nullable(),
   operatorContact: z.string().nullable(),
   imprintUrl: z.string().nullable(),
   /** The canonical origin; links to share are built on it, whatever domain served the page. */

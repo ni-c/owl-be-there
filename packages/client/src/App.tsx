@@ -17,10 +17,12 @@ import {
 import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
+import { imprintLink } from './lib/imprint.ts';
 import { navigate, parseRoute, type Route } from './lib/route.ts';
 import { EventPage } from './pages/EventPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
+import { ImprintPage } from './pages/ImprintPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
 
 export function App() {
@@ -87,6 +89,9 @@ function Shell() {
       break;
     case 'privacy':
       page = <PrivacyPage instance={instanceState} />;
+      break;
+    case 'imprint':
+      page = <ImprintPage instance={instanceState} />;
       break;
     default:
       page = <NotFoundPage />;
@@ -158,6 +163,7 @@ function Footer({
   route: Route;
 }) {
   const { t, language, setLanguage } = useI18n();
+  const imprint = imprintLink(instance);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const choose = (next: ThemeChoice) => {
     setTheme(next);
@@ -213,9 +219,17 @@ function Footer({
           <Link href="/privacy" className="underline-offset-4 hover:underline">
             {t('footer.privacy')}
           </Link>
-          {instance?.imprintUrl && (
+          {imprint?.kind === 'internal' && (
+            <Link
+              href={imprint.href}
+              className="underline-offset-4 hover:underline"
+            >
+              {t('footer.imprint')}
+            </Link>
+          )}
+          {imprint?.kind === 'external' && (
             <a
-              href={instance.imprintUrl}
+              href={imprint.href}
               rel="noopener noreferrer"
               className="underline-offset-4 hover:underline"
             >

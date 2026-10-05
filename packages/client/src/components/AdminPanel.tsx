@@ -160,37 +160,9 @@ export function AdminPanel(props: AdminPanelProps) {
   return (
     <Card className="flex flex-col gap-3">
       <h2 className="text-xl font-extrabold">{t('admin.title')}</h2>
-      <div className="flex flex-wrap gap-2">
-        {event.status === 'open' ? (
-          <Button
-            disabled={busy}
-            onClick={() =>
-              void run('status', () =>
-                api.setStatus(event.id, { status: 'closed' }, adminToken)
-              )
-            }
-          >
-            <LockIcon size={18} /> {t('admin.close')}
-          </Button>
-        ) : (
-          <Button
-            disabled={busy}
-            onClick={() =>
-              void run('status', () =>
-                api.setStatus(event.id, { status: 'open' }, adminToken)
-              )
-            }
-          >
-            {event.status === 'finalized'
-              ? t('admin.unchoose')
-              : t('admin.reopen')}
-          </Button>
-        )}
-      </div>
       {event.status !== 'finalized' && (
         <p className="text-sm text-muted">{t('admin.chooseHint')}</p>
       )}
-      {noticeAt('status')}
 
       <Section title={t('admin.edit')}>
         <DetailsForm
@@ -236,15 +208,37 @@ export function AdminPanel(props: AdminPanelProps) {
         {noticeAt('people')}
       </Section>
 
-      <div>
-        <Button
-          variant="ghost"
-          className="text-danger"
-          onClick={() => setConfirmDelete(true)}
-        >
+      <div className="flex flex-wrap gap-2">
+        {event.status === 'open' ? (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void run('status', () =>
+                api.setStatus(event.id, { status: 'closed' }, adminToken)
+              )
+            }
+          >
+            <LockIcon size={18} /> {t('admin.close')}
+          </Button>
+        ) : (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void run('status', () =>
+                api.setStatus(event.id, { status: 'open' }, adminToken)
+              )
+            }
+          >
+            {event.status === 'finalized'
+              ? t('admin.unchoose')
+              : t('admin.reopen')}
+          </Button>
+        )}
+        <Button variant="dangerOutline" onClick={() => setConfirmDelete(true)}>
           <TrashIcon size={18} /> {t('admin.delete')}
         </Button>
       </div>
+      {noticeAt('status')}
       {noticeAt('delete')}
       <Dialog
         open={confirmDelete}

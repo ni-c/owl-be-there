@@ -308,6 +308,21 @@ export const ja: Dictionary = {
   'privacy.source':
     'Owl Be Thereはオープンソースです。コードを読んだり、自分で設置したりできます。',
 
+  'imprint.title': '法的表示',
+  'imprint.provider.title':
+    'DDG第5条およびMStV第18条第1項に基づく事業者表示（Anbieterkennzeichnung）',
+  'imprint.contact.title': '連絡先',
+  'imprint.contact.label': 'メール：',
+  'imprint.about.title': 'Owl Be There について',
+  'imprint.about.text':
+    'Owl Be There は営利を目的としない個人のプロジェクトで、無料で利用できます。広告も有料コンテンツもありません。',
+  'imprint.dispute.title': '消費者紛争解決',
+  'imprint.dispute.text':
+    '消費者仲裁機関による紛争解決手続（VSBG第36条）に参加する義務はなく、参加する意思もありません。',
+  'imprint.liability.title': 'コンテンツとリンクに関する責任',
+  'imprint.liability.text':
+    'このアプリの内容は注意を払って作成しています。リンク先の外部サイトについては、それぞれの提供者が責任を負います。リンクを設置した時点では、法令違反は認められませんでした。アンケートに主催者や参加者が入力した内容については、入力した本人が責任を負います。',
+
   'notFound.title': 'このページが見つかりません。',
   'notFound.home': 'ホームに戻る',
 

@@ -65,6 +65,58 @@ describe('loadConfig', () => {
     expect(problems).toHaveLength(6);
   });
 
+  it('leaves the operator address unset when it is missing or blank', () => {
+    expect(loadConfig({}).operatorAddress).toBeNull();
+    expect(loadConfig({ OPERATOR_ADDRESS: '' }).operatorAddress).toBeNull();
+    expect(
+      loadConfig({ OPERATOR_ADDRESS: '  \n ' }).operatorAddress
+    ).toBeNull();
+    // Only separators: nothing to show.
+    expect(
+      loadConfig({ OPERATOR_ADDRESS: ' , ,\n,' }).operatorAddress
+    ).toBeNull();
+  });
+
+  it('keeps a one-line address and stores line breaks as commas', () => {
+    const line = 'Musterstraße 1, 12345 Musterstadt, Germany';
+    expect(loadConfig({ OPERATOR_ADDRESS: line }).operatorAddress).toBe(line);
+    expect(
+      loadConfig({
+        OPERATOR_ADDRESS: 'Musterstraße 1\r\n12345 Musterstadt\n\nGermany\n',
+      }).operatorAddress
+    ).toBe(line);
+    expect(
+      loadConfig({ OPERATOR_ADDRESS: ' Musterstraße 1 ,, 12345 Musterstadt ' })
+        .operatorAddress
+    ).toBe('Musterstraße 1, 12345 Musterstadt');
+  });
+
+  it('refuses an address with control or invisible characters, too many parts or too long', () => {
+    for (const value of [
+      'Musterstraße 1\t12345',
+      'Musterstraße 1\u0000, 12345',
+      'Musterstraße 1\u001b[31m',
+      'Musterstraße\u202e 1',
+      'Musterstraße\u200b 1',
+    ]) {
+      expect(problemsOf({ OPERATOR_ADDRESS: value }), value).toEqual([
+        'OPERATOR_ADDRESS must not contain control or invisible characters',
+      ]);
+    }
+    expect(
+      problemsOf({ OPERATOR_ADDRESS: 'a, b, c, d, e, f, g, h, i' })
+    ).toEqual(['OPERATOR_ADDRESS must have at most 8 parts']);
+    expect(
+      loadConfig({ OPERATOR_ADDRESS: 'a, b, c, d, e, f, g, h' }).operatorAddress
+    ).toBe('a, b, c, d, e, f, g, h');
+    expect(problemsOf({ OPERATOR_ADDRESS: 'x'.repeat(301) })).toEqual([
+      'OPERATOR_ADDRESS must be at most 300 characters long',
+    ]);
+    expect(
+      loadConfig({ OPERATOR_ADDRESS: 'x'.repeat(300) }).operatorAddress
+    ).toHaveLength(300);
+  });
+
   it('reads booleans in the usual spellings', () => {
     expect(loadConfig({ CREATION_ENABLED: 'off' }).creationEnabled).toBe(false);
     expect(loadConfig({ CREATION_ENABLED: 'YES' }).creationEnabled).toBe(true);

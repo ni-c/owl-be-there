@@ -15,8 +15,12 @@ services:
       # exactly that address and nothing else, so no other container on the
       # network can choose its own client address.
       TRUST_PROXY: 172.31.255.1
-      # 2. Shown on the privacy page. All optional.
+      # 2. Shown on the privacy page and the legal notice. All optional; the
+      # legal notice (/imprint, linked in the footer) appears once name,
+      # address and contact are all set. The address is one line, its parts
+      # separated by commas. IMPRINT_URL links to a notice elsewhere instead.
       OPERATOR_NAME: Example Organisation
+      OPERATOR_ADDRESS: Musterstraße 1, 12345 Musterstadt, Germany
       OPERATOR_CONTACT: privacy@example.org
       LOG_RETENTION_DAYS: '7'
       BACKUP_RETENTION_DAYS: '7'

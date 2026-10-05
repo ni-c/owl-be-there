@@ -12,7 +12,7 @@ import { useI18n } from '../i18n/index.tsx';
 import { rovingKeyDown } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
 
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
@@ -22,6 +22,10 @@ const VARIANTS: Record<Variant, string> = {
   // class (a red delete button) is not left to lose a tie between utilities.
   ghost: 'hover:bg-sunken',
   danger: 'bg-danger text-danger-ink hover:opacity-90',
+  // A destructive action that only opens a confirmation: framed like a
+  // secondary button, in red.
+  dangerOutline:
+    'bg-surface text-danger border-2 border-line hover:border-danger',
 };
 
 export function Button({

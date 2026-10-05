@@ -86,6 +86,8 @@ for (const scheme of ['light', 'dark'] as const) {
 
     await page.goto('/privacy');
     await expectAccessible(page, 'privacy');
+    await page.goto('/imprint');
+    await expectAccessible(page, 'imprint');
     await context.close();
   });
 }
