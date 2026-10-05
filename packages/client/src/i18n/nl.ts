@@ -13,11 +13,12 @@ export const nl: Dictionary = {
   'home.feature.private.title': 'Geen accounts',
   'home.feature.private.text':
     'Een naam is genoeg. Geen e-mail, cookies of tracking. Oude evenementen worden vanzelf verwijderd.',
-  'home.example.title': 'Zo ziet het eruit',
+  'home.example.title': 'Probeer het',
   'home.example.text':
     'Vul als Anna je dagen in en zie de kalender van de groep veranderen.',
   'home.example.eventTitle': 'Teamdiner',
-  'home.example.hint': 'Probeer het – er wordt niets opgeslagen.',
+  'home.example.hint':
+    'Een verzonnen evenement om uit te proberen – er wordt niets opgeslagen.',
   'home.example.reset': 'Opnieuw beginnen',
   'home.myEvents': 'Jouw evenementen',
   'home.organiser': 'organisator',
@@ -96,7 +97,7 @@ export const nl: Dictionary = {
   'event.share': 'Delen',
   'event.tabs': 'Weergaven',
   'event.tabMine': 'Mijn dagen',
-  'event.tabGroup': 'Iedereen',
+  'event.tabGroup': 'Groep',
   'event.answers_one': '{count} antwoord',
   'event.answers_other': '{count} antwoorden',
   'event.closed': 'Je kunt niet meer antwoorden.',
@@ -180,7 +181,6 @@ export const nl: Dictionary = {
   'group.legend': 'Meer mensen kunnen',
   'group.legendFew': 'weinig',
   'group.legendAll': 'iedereen',
-  'group.maybeHalf': '‘Misschien’ telt als een half.',
   'group.best': 'Beste dagen',
   'group.count': '{yes} van {total} kunnen',
   'group.maybeCount': '+{count} misschien',

@@ -200,10 +200,20 @@ html:lang(ja) body {
     system-ui, sans-serif;
 }
 
+/*
+ * The ring takes the shape of what it surrounds. Its rounding for elements
+ * without one of their own (links, plain text) sits in the base layer, so a
+ * `rounded-*` utility wins and a pill-shaped select stays a pill on focus.
+ */
 :focus-visible {
   outline: 3px solid var(--owl-focus);
   outline-offset: 2px;
-  border-radius: 0.5rem;
+}
+
+@layer base {
+  :focus-visible {
+    border-radius: 0.5rem;
+  }
 }
 
 /* Hatching: the second channel for "maybe", so it never relies on colour. */

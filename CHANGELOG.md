@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The group view is called "Group" again instead of "Everyone", in every language. The number of answers stands beside it on its own, so the name no longer reads like the name of a group.
+- The live example on the start page is headed "Try it out" instead of "See how it looks", in every language, and its hint says the event is made up: "A made-up event to try out — nothing is saved."
+
+### Fixed
+
+- Select boxes draw their own arrow, set in from the rounded edge instead of right against it.
+- Select boxes, text fields and round buttons keep their shape when focused. The focus ring's fallback rounding no longer overrides an element's own.
+
+### Removed
+
+- The note "Maybe counts as half." below the heatmap legend. It meant only the colour of a day, but read like a statement about the counts, which never halve a maybe. The colour still weighs a maybe as half a yes.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

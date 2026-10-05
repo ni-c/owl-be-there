@@ -13,11 +13,12 @@ export const it: Dictionary = {
   'home.feature.private.title': 'Nessun account',
   'home.feature.private.text':
     'Basta un nome. Niente email, cookie o tracciamento. Gli eventi vecchi vengono eliminati automaticamente.',
-  'home.example.title': 'Ecco come appare',
+  'home.example.title': 'Provalo',
   'home.example.text':
     'Segna i tuoi giorni come Anna e guarda il calendario del gruppo cambiare.',
   'home.example.eventTitle': 'Cena di squadra',
-  'home.example.hint': 'Provalo: non viene salvato nulla.',
+  'home.example.hint':
+    'Un evento inventato per provare: non viene salvato nulla.',
   'home.example.reset': 'Ricomincia',
   'home.myEvents': 'I tuoi eventi',
   'home.organiser': 'organizzatore',
@@ -95,7 +96,7 @@ export const it: Dictionary = {
   'event.share': 'Condividi',
   'event.tabs': 'Viste',
   'event.tabMine': 'I miei giorni',
-  'event.tabGroup': 'Tutti',
+  'event.tabGroup': 'Gruppo',
   'event.answers_one': '{count} risposta',
   'event.answers_other': '{count} risposte',
   'event.closed': 'Le risposte sono chiuse.',
@@ -177,7 +178,6 @@ export const it: Dictionary = {
   'group.legend': 'Più persone possono',
   'group.legendFew': 'poche',
   'group.legendAll': 'tutte',
-  'group.maybeHalf': 'Un «forse» conta la metà.',
   'group.best': 'Giorni migliori',
   'group.count': 'Disponibili: {yes} su {total}',
   'group.maybeCount': '+{count} forse',

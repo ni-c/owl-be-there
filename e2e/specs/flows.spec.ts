@@ -159,16 +159,14 @@ test('the start page example can be tried, sends nothing, and starts over', asyn
       calls.push(request.url());
   });
   await page.goto('/');
-  await expect(
-    page.getByRole('heading', { name: 'See how it looks' })
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Try it out' })).toBeVisible();
   const frame = page.locator('[data-browser-frame]');
   await expect(frame.getByText('Team dinner · Owl Be There')).toBeVisible();
   const mine = frame.getByRole('grid', { name: 'My days' });
-  const tab = (name: 'My days' | 'Everyone') =>
+  const tab = (name: 'My days' | 'Group') =>
     frame.getByRole('tab', { name: new RegExp(`^${name}`) });
   const mobile = isMobile(testInfo);
-  if (mobile) await expect(tab('Everyone')).toBeVisible();
+  if (mobile) await expect(tab('Group')).toBeVisible();
   else await expect(frame.getByRole('tab')).toHaveCount(0);
 
   // A Monday in the second week: Anna has said nothing about it yet.
@@ -181,10 +179,10 @@ test('the start page example can be tried, sends nothing, and starts over', asyn
     (iso) => utcDateOf(iso).getUTCDay() === 1 && Number(iso.slice(8)) >= 8
   )!;
   const canOn = async () => {
-    if (mobile) await tab('Everyone').click();
+    if (mobile) await tab('Group').click();
     const label =
       (await day(
-        frame.getByRole('grid', { name: 'Everyone' }),
+        frame.getByRole('grid', { name: 'Group' }),
         monday
       ).getAttribute('aria-label')) ?? '';
     if (mobile) await tab('My days').click();
@@ -211,7 +209,7 @@ test('the start page example speaks the chosen language', async ({ page }) => {
       .getByText('Team-Abendessen · Owl Be There')
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'So sieht es aus' })
+    page.getByRole('heading', { name: 'Probier es aus' })
   ).toBeVisible();
 });
 
@@ -241,6 +239,41 @@ test('everything clickable shows the hand, and a disabled button does not', asyn
   const undo = page.getByRole('button', { name: 'Undo' });
   await expect(undo).toBeDisabled();
   expect(await cursor(undo)).toBe('not-allowed');
+});
+
+test('a select keeps its shape on focus and draws its own arrow', async ({
+  page,
+}) => {
+  const style = (locator: Locator) =>
+    locator.evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return {
+        focusVisible: element.matches(':focus-visible'),
+        radius: computed.borderTopLeftRadius,
+        appearance: computed.appearance,
+      };
+    });
+
+  await page.goto('/');
+  for (const name of ['Language', 'Theme']) {
+    const select = page.getByLabel(name);
+    const before = await style(select);
+    expect(before.appearance).toBe('none');
+    await select.focus();
+    const after = await style(select);
+    expect(after.focusVisible).toBe(true);
+    expect(after.radius).toBe(before.radius);
+    expect(after.radius).not.toBe('8px');
+  }
+
+  // Something without a rounding of its own still gets a rounded ring.
+  const privacy = page.getByRole('link', { name: 'Privacy' });
+  await page.keyboard.press('Tab');
+  await privacy.focus();
+  expect(await style(privacy)).toMatchObject({
+    focusVisible: true,
+    radius: '8px',
+  });
 });
 
 test('two people see each other live, and the day sheet names them', async ({

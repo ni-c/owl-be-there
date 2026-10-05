@@ -18,7 +18,7 @@ function useWide(): boolean {
 }
 
 /**
- * "My days" and "Everyone": side by side where there is room, as two tabs on
+ * "My days" and "Group": side by side where there is room, as two tabs on
  * a phone. Used by the event page and by the example on the start page, which
  * sits under a heading of its own and so starts a level lower.
  */

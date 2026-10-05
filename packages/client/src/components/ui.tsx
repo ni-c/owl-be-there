@@ -5,10 +5,11 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import { CloseIcon } from './icons.tsx';
+import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -120,6 +121,25 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
       {...props}
       className={`${inputClass} min-h-24 ${props.className ?? ''}`}
     />
+  );
+}
+
+/**
+ * A native select with its own arrow: the browser's arrow cannot be moved and
+ * sat right against the rounded edge. The select keeps the keyboard, the
+ * option list and the screen reader semantics of the platform.
+ */
+export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="relative grid">
+      <select
+        {...props}
+        className={`appearance-none pr-9 ${props.className ?? ''}`}
+      />
+      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted">
+        <ChevronDownIcon size={16} />
+      </span>
+    </span>
   );
 }
 

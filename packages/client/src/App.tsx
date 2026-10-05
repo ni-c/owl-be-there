@@ -6,6 +6,7 @@ import {
 } from '@owl/shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Owl } from './components/Owl.tsx';
+import { Select } from './components/ui.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
 import { api } from './lib/api.ts';
 import { OWL_ICON, setFavicon } from './lib/favicon.ts';
@@ -133,14 +134,14 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
     writeTheme(next);
   };
   const selectClass =
-    'min-h-10 rounded-full border-2 border-line bg-surface px-3 font-bold text-ink focus:border-focus focus:outline-none';
+    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus focus:outline-none';
   return (
     <footer className="border-t border-line bg-sunken/60">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2">
             <span className="font-bold">{t('footer.language')}</span>
-            <select
+            <Select
               className={selectClass}
               value={language}
               onChange={(event) => {
@@ -153,11 +154,11 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
                   {LANGUAGE_NAMES[code]}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-2">
             <span className="font-bold">{t('footer.theme')}</span>
-            <select
+            <Select
               className={selectClass}
               value={theme}
               onChange={(event) => choose(event.target.value as ThemeChoice)}
@@ -165,7 +166,7 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
               <option value="system">{t('theme.system')}</option>
               <option value="light">{t('theme.light')}</option>
               <option value="dark">{t('theme.dark')}</option>
-            </select>
+            </Select>
           </label>
         </div>
         <nav className="flex flex-wrap items-center gap-4 font-bold">

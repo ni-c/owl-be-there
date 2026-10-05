@@ -13,11 +13,12 @@ export const fr: Dictionary = {
   'home.feature.private.title': 'Pas de compte',
   'home.feature.private.text':
     'Ton prénom suffit. Pas d’adresse e-mail, de cookies ni de suivi. Les anciens événements sont supprimés automatiquement.',
-  'home.example.title': 'Voilà à quoi ça ressemble',
+  'home.example.title': 'Essaie',
   'home.example.text':
     'Indique tes jours à la place d’Anna et regarde le calendrier du groupe changer.',
   'home.example.eventTitle': 'Dîner d’équipe',
-  'home.example.hint': 'Essaie : rien n’est enregistré.',
+  'home.example.hint':
+    'Un événement fictif pour essayer : rien n’est enregistré.',
   'home.example.reset': 'Recommencer',
   'home.myEvents': 'Tes événements',
   'home.organiser': 'tu organises',
@@ -97,7 +98,7 @@ export const fr: Dictionary = {
   'event.share': 'Partager',
   'event.tabs': 'Vues',
   'event.tabMine': 'Mes jours',
-  'event.tabGroup': 'Tout le monde',
+  'event.tabGroup': 'Groupe',
   'event.answers_one': '{count} réponse',
   'event.answers_other': '{count} réponses',
   'event.closed': 'Le sondage est fermé.',
@@ -180,7 +181,6 @@ export const fr: Dictionary = {
   'group.legend': 'Plus de personnes disponibles',
   'group.legendFew': 'peu',
   'group.legendAll': 'tout le monde',
-  'group.maybeHalf': 'Un « peut-être » compte pour moitié.',
   'group.best': 'Meilleurs jours',
   'group.count': 'Disponibles : {yes} sur {total}',
   'group.maybeCount': '+{count} peut-être',

@@ -33,6 +33,11 @@ export const CheckIcon = ({ size }: P) => (
     <path d="M5 12.5 10 17.5 19 7" />
   </Icon>
 );
+export const ChevronDownIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <path d="m6 9 6 6 6-6" />
+  </Icon>
+);
 export const ShareIcon = ({ size }: P) => (
   <Icon size={size}>
     <path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />

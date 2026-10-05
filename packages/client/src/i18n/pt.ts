@@ -13,11 +13,12 @@ export const pt: Dictionary = {
   'home.feature.private.title': 'Sem contas',
   'home.feature.private.text':
     'Basta o teu nome. Sem e-mail, cookies nem rastreio. Os eventos antigos são apagados automaticamente.',
-  'home.example.title': 'Assim fica',
+  'home.example.title': 'Experimenta',
   'home.example.text':
     'Marca os teus dias como a Anna e vê o calendário do grupo mudar.',
   'home.example.eventTitle': 'Jantar de equipa',
-  'home.example.hint': 'Experimenta – nada é guardado.',
+  'home.example.hint':
+    'Um evento inventado para experimentar – nada é guardado.',
   'home.example.reset': 'Recomeçar',
   'home.myEvents': 'Os teus eventos',
   'home.organiser': 'organizas',
@@ -95,7 +96,7 @@ export const pt: Dictionary = {
   'event.share': 'Partilhar',
   'event.tabs': 'Vistas',
   'event.tabMine': 'Os meus dias',
-  'event.tabGroup': 'Todos',
+  'event.tabGroup': 'Grupo',
   'event.answers_one': '{count} resposta',
   'event.answers_other': '{count} respostas',
   'event.closed': 'A votação está encerrada.',
@@ -176,7 +177,6 @@ export const pt: Dictionary = {
   'group.legend': 'Mais pessoas podem',
   'group.legendFew': 'poucas',
   'group.legendAll': 'todas',
-  'group.maybeHalf': 'Um «talvez» conta como meio.',
   'group.best': 'Melhores dias',
   'group.count': 'Disponíveis: {yes} de {total}',
   'group.maybeCount': '+{count} talvez',

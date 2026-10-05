@@ -52,7 +52,7 @@ async function waitForServer(): Promise<void> {
 async function shoot(page: Page, theme: 'light' | 'dark'): Promise<void> {
   await page.goto(base);
   const frame = page.locator('[data-browser-frame]');
-  await frame.getByRole('grid', { name: 'Everyone' }).waitFor();
+  await frame.getByRole('grid', { name: 'Group' }).waitFor();
   // Nothing hovered or focused in the picture.
   await page.mouse.move(0, 0);
   // Everything around the window hidden and see-through, so nothing reaches
