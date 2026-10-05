@@ -12,7 +12,7 @@ import { api } from './lib/api.ts';
 import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
-import { navigate, parseRoute } from './lib/route.ts';
+import { navigate, parseRoute, type Route } from './lib/route.ts';
 import { EventPage } from './pages/EventPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
@@ -38,7 +38,13 @@ function useInstance(): InstanceInfoData | null {
 function Shell() {
   const route = parseRoute(usePathname());
   const instance = useInstance();
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
+
+  // `/fr` reached by the back button or a link: the page follows the address.
+  const pathLanguage = route.page === 'home' ? route.language : undefined;
+  useEffect(() => {
+    if (pathLanguage && pathLanguage !== language) setLanguage(pathLanguage);
+  }, [pathLanguage, language, setLanguage]);
 
   useEffect(() => {
     if (route.page !== 'event') {
@@ -74,7 +80,7 @@ function Shell() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-12 sm:px-6">
         {page}
       </main>
-      <Footer instance={instance} />
+      <Footer instance={instance} route={route} />
     </div>
   );
 }
@@ -126,7 +132,13 @@ function Header() {
   );
 }
 
-function Footer({ instance }: { instance: InstanceInfoData | null }) {
+function Footer({
+  instance,
+  route,
+}: {
+  instance: InstanceInfoData | null;
+  route: Route;
+}) {
   const { t, language, setLanguage } = useI18n();
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const choose = (next: ThemeChoice) => {
@@ -145,8 +157,13 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
               className={selectClass}
               value={language}
               onChange={(event) => {
-                if (isLanguage(event.target.value))
-                  setLanguage(event.target.value);
+                const next = event.target.value;
+                if (!isLanguage(next)) return;
+                setLanguage(next);
+                // On `/de`, choosing French moves to `/fr` rather than
+                // leaving a German address with a French page.
+                if (route.page === 'home' && route.language)
+                  navigate(`/${next}`, { replace: true, keepScroll: true });
               }}
             >
               {languagesByName().map((code) => (
@@ -170,6 +187,11 @@ function Footer({ instance }: { instance: InstanceInfoData | null }) {
           </label>
         </div>
         <nav className="flex flex-wrap items-center gap-4 font-bold">
+          {route.page !== 'home' && (
+            <Link href="/" className="underline-offset-4 hover:underline">
+              {t('home.cta')}
+            </Link>
+          )}
           <Link href="/privacy" className="underline-offset-4 hover:underline">
             {t('footer.privacy')}
           </Link>

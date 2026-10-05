@@ -19,6 +19,18 @@ export const ja: Dictionary = {
   'home.example.eventTitle': 'チームの食事会',
   'home.example.hint': '試すための架空のイベントだよ。何も保存されません。',
   'home.example.reset': '最初から',
+  'home.faq.title': 'よくある質問',
+  'home.faq.free.q': 'お金はかかる？',
+  'home.faq.free.a':
+    '無料だよ。Owl Be There はオープンソースで、自分のサーバーでも動かせます。',
+  'home.faq.account.q': 'アカウントは必要？',
+  'home.faq.account.a':
+    'いらないよ。名前を選ぶだけ。主催者はイベントを管理するための専用リンクをもらえます。',
+  'home.faq.doodle.q': 'Doodle との違いは？',
+  'home.faq.doodle.a':
+    'Owl Be There は日にち単位の日程調整向け。みんなが行ける日に印をつけるだけで、どの日がいちばん良いかヒートマップでひと目でわかります。アカウントもトラッキングもなく、古いイベントは自動で削除されます。',
+  'event.planOwn.title': '自分でも何か計画する？',
+  'event.planOwn.text': '1分で自分のイベントを作れるよ。アカウントは不要。',
   'home.myEvents': '自分の予定',
   'home.organiser': '主催者',
   'home.forget': '{title}をこの一覧から削除',

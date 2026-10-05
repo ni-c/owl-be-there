@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The start page has an address per language (`/de`, `/fr` …) that search engines read in that language: `<html lang>`, title and description come from the server, and every version names the others with `hreflang`. Plain `/` stays the default and picks the browser's language. Arriving on one of these addresses chooses its language; picking another in the footer moves to its address.
+- `/sitemap.xml` lists the start page in every language and the privacy page; `robots.txt` points to it under `PUBLIC_URL`. Event pages are never listed.
+- Who has answered on an event page sees a small invitation to plan their own event; organisers don't. The footer links to a new event on every page but the start page.
+- The start page answers three common questions: what it costs, whether an account is needed, and how it differs from Doodle.
+
+### Changed
+
+- Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
+
 ## [0.2.1] - 2026-10-05
 
 ### Changed

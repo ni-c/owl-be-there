@@ -1,11 +1,17 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import fastifyStatic from '@fastify/static';
-import { isId, RETENTION_DAYS } from '@owl/shared';
+import { isId, LANGUAGES, RETENTION_DAYS, type Language } from '@owl/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { limit, type AppContext } from '../context.js';
 import { snapshot } from '../db/repo.js';
-import { defaultHead, eventHead } from '../pages.js';
+import {
+  defaultHead,
+  eventHead,
+  homePath,
+  robotsTxt,
+  sitemap,
+} from '../pages.js';
 
 /** `/api/instance` and `/api/health`: what the client and a monitor ask. */
 export function registerInstanceRoutes(
@@ -49,17 +55,42 @@ export async function registerSite(
   const page = (
     reply: FastifyReply,
     head: string,
-    status = 200
+    status = 200,
+    language: Language = 'en'
   ): FastifyReply =>
     reply
       .code(status)
       .header('content-type', 'text/html; charset=utf-8')
       .header('cache-control', 'no-cache')
-      .send(template!.render(head));
+      .send(template!.render(head, language));
 
   if (template && config.clientDir) {
     app.get('/', async (_request, reply) =>
-      page(reply, defaultHead(config.publicUrl, '/'))
+      page(reply, defaultHead(config.publicUrl, '/', { alternates: true }))
+    );
+    // The start page once per language, so search engines find each one.
+    for (const language of LANGUAGES) {
+      const path = homePath(language);
+      app.get(path, async (_request, reply) =>
+        page(
+          reply,
+          defaultHead(config.publicUrl, path, { language, alternates: true }),
+          200,
+          language
+        )
+      );
+    }
+    app.get('/robots.txt', async (_request, reply) =>
+      reply
+        .header('content-type', 'text/plain; charset=utf-8')
+        .header('cache-control', 'no-cache')
+        .send(robotsTxt(config.publicUrl))
+    );
+    app.get('/sitemap.xml', async (_request, reply) =>
+      reply
+        .header('content-type', 'application/xml; charset=utf-8')
+        .header('cache-control', 'no-cache')
+        .send(sitemap(config.publicUrl))
     );
     app.get('/privacy', async (_request, reply) =>
       page(reply, defaultHead(config.publicUrl, '/privacy'))
@@ -75,7 +106,12 @@ export async function registerSite(
           : null;
         reply.header('x-robots-tag', 'noindex, nofollow');
         return data
-          ? page(reply, eventHead(config.publicUrl, data))
+          ? page(
+              reply,
+              eventHead(config.publicUrl, data),
+              200,
+              data.event.language
+            )
           : page(
               reply,
               defaultHead(config.publicUrl, request.url.split('?')[0]!),

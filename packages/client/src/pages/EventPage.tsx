@@ -22,7 +22,8 @@ import {
 import { MyDays } from '../components/MyDays.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
-import { Button, Notice } from '../components/ui.tsx';
+import { Link } from '../App.tsx';
+import { Button, Card, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { api, calendarFileUrl } from '../lib/api.ts';
 import { setFavicon } from '../lib/favicon.ts';
@@ -189,6 +190,11 @@ function EventView(props: EventViewProps) {
   const today = todayLocal();
   const { event } = data;
   const answered = data.participants.filter((p) => p.answered).length;
+  // Once someone has answered, a quiet word that they can plan their own.
+  const me = session
+    ? data.participants.find((p) => p.id === session.participantId)
+    : undefined;
+  const invitePlanning = !adminToken && me?.answered === true;
 
   const shared = {
     data,
@@ -237,6 +243,21 @@ function EventView(props: EventViewProps) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+      )}
+
+      {invitePlanning && (
+        <Card className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <p className="font-extrabold">{t('event.planOwn.title')}</p>
+            <p className="text-sm text-muted">{t('event.planOwn.text')}</p>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center rounded-full bg-brand px-4 font-bold text-brand-ink shadow-card hover:bg-brand-hover"
+          >
+            {t('home.cta')}
+          </Link>
+        </Card>
       )}
 
       <p className="text-center text-sm text-muted">

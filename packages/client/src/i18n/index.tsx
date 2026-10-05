@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { readLanguage, writeLanguage } from '../lib/prefs.ts';
+import { parseRoute } from '../lib/route.ts';
 import { de } from './de.ts';
 import { en, type Dictionary, type TranslationKey } from './en.ts';
 import { es } from './es.ts';
@@ -43,13 +44,16 @@ export function interpolate(text: string, params: Params = {}): string {
 }
 
 /**
- * The language to start in: what was chosen before, else the first of the
- * browser's languages that the app speaks, else English.
+ * The language to start in: the one in the address (`/de`), else what was
+ * chosen before, else the first of the browser's languages that the app
+ * speaks, else English.
  */
 export function detectLanguage(
   stored: Language | null,
-  browser: readonly string[]
+  browser: readonly string[],
+  fromPath: Language | null = null
 ): Language {
+  if (fromPath) return fromPath;
   if (stored) return stored;
   for (const tag of browser) {
     const base = tag.toLowerCase().split('-')[0]!;
@@ -86,9 +90,17 @@ export interface I18n {
 const I18nContext = createContext<I18n | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() =>
-    detectLanguage(readLanguage(), navigator.languages ?? [navigator.language])
-  );
+  const [language, setLanguageState] = useState<Language>(() => {
+    const route = parseRoute(window.location.pathname);
+    const fromPath = route.page === 'home' ? (route.language ?? null) : null;
+    // Arriving on `/fr` is a choice of French; the event pages keep it.
+    if (fromPath) writeLanguage(fromPath);
+    return detectLanguage(
+      readLanguage(),
+      navigator.languages ?? [navigator.language],
+      fromPath
+    );
+  });
   const setLanguage = useCallback((next: Language) => {
     writeLanguage(next);
     setLanguageState(next);

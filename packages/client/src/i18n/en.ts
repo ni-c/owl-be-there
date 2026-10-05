@@ -22,6 +22,18 @@ export const en = {
   'home.example.eventTitle': 'Team dinner',
   'home.example.hint': 'A made-up event to try out — nothing is saved.',
   'home.example.reset': 'Start over',
+  'home.faq.title': 'Questions',
+  'home.faq.free.q': 'Does it cost anything?',
+  'home.faq.free.a':
+    'No. Owl Be There is free and open source, and anyone can run it on their own server.',
+  'home.faq.account.q': 'Do I need an account?',
+  'home.faq.account.a':
+    'No. Everyone just picks a name. Whoever plans the event gets a private link to manage it.',
+  'home.faq.doodle.q': 'How is it different from Doodle?',
+  'home.faq.doodle.a':
+    'Owl Be There is made for whole days: everyone marks the days they can make it, and the heatmap shows at a glance which day works best. There are no accounts and no tracking, and old events are deleted automatically.',
+  'event.planOwn.title': 'Planning something yourself?',
+  'event.planOwn.text': 'Start your own event in a minute, no account needed.',
   'home.myEvents': 'Your events',
   'home.organiser': 'organiser',
   'home.forget': 'Remove {title} from this list',

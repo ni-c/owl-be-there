@@ -20,6 +20,18 @@ export const fr: Dictionary = {
   'home.example.hint':
     'Un événement fictif pour essayer : rien n’est enregistré.',
   'home.example.reset': 'Recommencer',
+  'home.faq.title': 'Questions',
+  'home.faq.free.q': 'Est-ce payant ?',
+  'home.faq.free.a':
+    'Non. Owl Be There est gratuit et open source, et chacun peut l’installer sur son propre serveur.',
+  'home.faq.account.q': 'Faut-il un compte ?',
+  'home.faq.account.a':
+    'Non. Chacun choisit simplement un nom. La personne qui organise reçoit un lien privé pour gérer l’événement.',
+  'home.faq.doodle.q': 'Quelle différence avec Doodle ?',
+  'home.faq.doodle.a':
+    'Owl Be There est fait pour des journées entières : chacun marque les jours où il est libre, et la carte de chaleur montre d’un coup d’œil le meilleur jour. Pas de compte, pas de pistage, et les anciens événements sont supprimés automatiquement.',
+  'event.planOwn.title': 'Tu organises quelque chose ?',
+  'event.planOwn.text': 'Crée ton propre événement en une minute, sans compte.',
   'home.myEvents': 'Tes événements',
   'home.organiser': 'tu organises',
   'home.forget': 'Retirer {title} de cette liste',

@@ -20,6 +20,18 @@ export const it: Dictionary = {
   'home.example.hint':
     'Un evento inventato per provare: non viene salvato nulla.',
   'home.example.reset': 'Ricomincia',
+  'home.faq.title': 'Domande',
+  'home.faq.free.q': 'Costa qualcosa?',
+  'home.faq.free.a':
+    'No. Owl Be There è gratuito e open source, e chiunque può installarlo sul proprio server.',
+  'home.faq.account.q': 'Serve un account?',
+  'home.faq.account.a':
+    'No. Ognuno sceglie solo un nome. Chi organizza riceve un link privato per gestire l’evento.',
+  'home.faq.doodle.q': 'In cosa è diverso da Doodle?',
+  'home.faq.doodle.a':
+    'Owl Be There è pensato per giorni interi: ognuno segna i giorni in cui c’è e la heatmap mostra a colpo d’occhio il giorno migliore. Niente account, niente tracciamento, e gli eventi vecchi vengono cancellati da soli.',
+  'event.planOwn.title': 'Organizzi qualcosa anche tu?',
+  'event.planOwn.text': 'Crea il tuo evento in un minuto, senza account.',
   'home.myEvents': 'I tuoi eventi',
   'home.organiser': 'organizzatore',
   'home.forget': 'Rimuovi {title} da questo elenco',

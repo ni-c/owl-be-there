@@ -20,6 +20,19 @@ export const nl: Dictionary = {
   'home.example.hint':
     'Een verzonnen evenement om uit te proberen – er wordt niets opgeslagen.',
   'home.example.reset': 'Opnieuw beginnen',
+  'home.faq.title': 'Vragen',
+  'home.faq.free.q': 'Kost het iets?',
+  'home.faq.free.a':
+    'Nee. Owl Be There is gratis en open source, en iedereen kan het op een eigen server draaien.',
+  'home.faq.account.q': 'Heb ik een account nodig?',
+  'home.faq.account.a':
+    'Nee. Iedereen kiest gewoon een naam. Wie het evenement plant, krijgt een privélink om het te beheren.',
+  'home.faq.doodle.q': 'Wat is het verschil met Doodle?',
+  'home.faq.doodle.a':
+    'Owl Be There is gemaakt voor hele dagen: iedereen markeert de dagen waarop hij kan, en de heatmap laat in één oogopslag zien welke dag het beste past. Geen accounts, geen tracking, en oude evenementen worden vanzelf verwijderd.',
+  'event.planOwn.title': 'Zelf iets plannen?',
+  'event.planOwn.text':
+    'Maak in een minuut je eigen evenement, zonder account.',
   'home.myEvents': 'Jouw evenementen',
   'home.organiser': 'organisator',
   'home.forget': 'Verwijder {title} uit deze lijst',

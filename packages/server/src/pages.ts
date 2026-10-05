@@ -3,9 +3,11 @@ import {
   EMOJIS,
   emojiIcon,
   formatDayRange,
+  LANGUAGES,
   LOCALES,
   SERVER_TEXTS,
   type EventSnapshotData,
+  type Language,
 } from '@owl/shared';
 
 /**
@@ -37,8 +39,16 @@ export class PageTemplate {
     this.scriptHashes = inlineScriptHashes(html);
   }
 
-  render(head: string): string {
-    return `${this.before}${head}${this.after}`;
+  /**
+   * The page with this head. `language` goes into `<html lang>`, so a search
+   * engine reading `/de` sees a German page before any script runs.
+   */
+  render(head: string, language: Language = 'en'): string {
+    const before = this.before.replace(
+      /<html lang="[^"]*"/,
+      `<html lang="${language}"`
+    );
+    return `${before}${head}${this.after}`;
   }
 }
 
@@ -81,6 +91,16 @@ interface HeadOptions {
   imageAlt: string;
   noindex: boolean;
   icon: string;
+  /** Announce the start page in every language, for search engines. */
+  alternates?: boolean;
+}
+
+/**
+ * The start page in one language: `/de`, `/fr` and so on. Plain `/` picks the
+ * visitor's language in the browser and is the `x-default`.
+ */
+export function homePath(language: Language | null): string {
+  return language === null ? '/' : `/${language}`;
 }
 
 function head(options: HeadOptions): string {
@@ -101,24 +121,78 @@ function head(options: HeadOptions): string {
     `<meta property="og:image:alt" content="${e(options.imageAlt)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<link rel="icon" href="${e(options.icon)}" />`,
+    ...(options.alternates
+      ? [
+          `<link rel="canonical" href="${e(options.publicUrl + options.path)}" />`,
+          ...LANGUAGES.map(
+            (language) =>
+              `<link rel="alternate" hreflang="${language}" href="${e(options.publicUrl + homePath(language))}" />`
+          ),
+          `<link rel="alternate" hreflang="x-default" href="${e(options.publicUrl + homePath(null))}" />`,
+        ]
+      : []),
   ]
     .filter(Boolean)
     .join('\n    ');
 }
 
-/** The head for every page that is not an event. */
-export function defaultHead(publicUrl: string, path: string): string {
-  const texts = SERVER_TEXTS.en;
+/** The head for every page that is not an event, in English unless told. */
+export function defaultHead(
+  publicUrl: string,
+  path: string,
+  options: { language?: Language; alternates?: boolean } = {}
+): string {
+  const texts = SERVER_TEXTS[options.language ?? 'en'];
   return head({
     publicUrl,
     path,
     title: `${texts.appName} — ${texts.tagline}`,
-    description:
-      'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.',
+    description: texts.description,
     imageAlt: texts.previewImageAlt,
     noindex: false,
     icon: '/favicon.svg',
+    alternates: options.alternates ?? false,
   });
+}
+
+/**
+ * The sitemap: the start page in every language, each naming the others, and
+ * the privacy page. Event pages are private and never listed.
+ */
+export function sitemap(publicUrl: string): string {
+  const e = escapeHtml;
+  const alternates = [
+    ...LANGUAGES.map(
+      (language) =>
+        `    <xhtml:link rel="alternate" hreflang="${language}" href="${e(publicUrl + homePath(language))}" />`
+    ),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${e(publicUrl + homePath(null))}" />`,
+  ].join('\n');
+  const home = [null, ...LANGUAGES].map(
+    (language) =>
+      `  <url>\n    <loc>${e(publicUrl + homePath(language))}</loc>\n${alternates}\n  </url>`
+  );
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    ...home,
+    `  <url>\n    <loc>${e(publicUrl)}/privacy</loc>\n  </url>`,
+    '</urlset>',
+    '',
+  ].join('\n');
+}
+
+/** `robots.txt`, pointing at the sitemap under the public address. */
+export function robotsTxt(publicUrl: string): string {
+  return [
+    '# Event pages say `noindex` themselves, and crawlers that build link previews',
+    '# must be able to read them. Only the API is off limits.',
+    'User-agent: *',
+    'Disallow: /api/',
+    '',
+    `Sitemap: ${publicUrl}/sitemap.xml`,
+    '',
+  ].join('\n');
 }
 
 /**

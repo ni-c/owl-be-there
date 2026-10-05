@@ -24,7 +24,7 @@ All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install`
 ## Layout
 
 - `packages/shared` — pure domain logic and zod schemas, used by both sides: dates, candidate days, the week grid, rectangle selection, toggles, ranking of days and blocks, retention, `.ics`, QR codes, limits.
-- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id`, the retention sweep and the operator CLI (`cli.ts`).
+- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id`, the start page per language (`/de` …) with `hreflang`, `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`cli.ts`).
 - `packages/client` — React 19 + Vite + Tailwind 4. No router library and no state library: `lib/route.ts`, `useSyncExternalStore` stores, a `SaveQueue` for auto-save. `lib/` is unit-tested in Node; components are tested end to end.
 - `e2e/` — Playwright specs and the harness that starts a real server.
 
