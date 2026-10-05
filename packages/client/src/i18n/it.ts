@@ -104,7 +104,8 @@ export const it: Dictionary = {
   'event.duration_other': '{count} giorni consecutivi',
   'event.minCount_one': 'serve {count} persona',
   'event.minCount_other': 'servono {count} persone',
-  'event.expires': 'Sarà eliminato il {date} se non cambia nulla.',
+  'event.expires':
+    'L’evento sarà eliminato automaticamente il {date} se nel frattempo non cambia nulla.',
   'event.share': 'Condividi',
   'event.tabs': 'Viste',
   'event.tabMine': 'I miei giorni',

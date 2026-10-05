@@ -106,7 +106,8 @@ export const fr: Dictionary = {
   'event.duration_other': '{count} jours d’affilée',
   'event.minCount_one': 'nécessite {count} personne',
   'event.minCount_other': 'nécessite {count} personnes',
-  'event.expires': 'Sera supprimé le {date} si rien ne change d’ici là.',
+  'event.expires':
+    'L’événement sera supprimé automatiquement le {date} si rien ne change d’ici là.',
   'event.share': 'Partager',
   'event.tabs': 'Vues',
   'event.tabMine': 'Mes jours',

@@ -99,7 +99,7 @@ export const ja: Dictionary = {
   'event.duration_other': '連続{count}日',
   'event.minCount_one': '必要人数：{count}人',
   'event.minCount_other': '必要人数：{count}人',
-  'event.expires': '変更がなければ{date}に削除されるよ。',
+  'event.expires': '変更がなければ、このイベントは{date}に自動で削除されるよ。',
   'event.share': '共有',
   'event.tabs': '表示',
   'event.tabMine': '自分の都合',

@@ -106,7 +106,7 @@ export const nl: Dictionary = {
   'event.minCount_one': '{count} persoon nodig',
   'event.minCount_other': '{count} mensen nodig',
   'event.expires':
-    'Dit evenement wordt op {date} verwijderd als er niets verandert.',
+    'Dit evenement wordt op {date} automatisch verwijderd als er tot dan niets verandert.',
   'event.share': 'Delen',
   'event.tabs': 'Weergaven',
   'event.tabMine': 'Mijn dagen',

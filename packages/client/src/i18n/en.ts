@@ -105,7 +105,7 @@ export const en = {
   'event.minCount_one': 'needs {count} person',
   'event.minCount_other': 'needs {count} people',
   'event.expires':
-    'This event will be deleted on {date} unless something changes.',
+    'This event will be deleted automatically on {date} unless something changes by then.',
   'event.share': 'Share',
   'event.tabs': 'Views',
   'event.tabMine': 'My days',

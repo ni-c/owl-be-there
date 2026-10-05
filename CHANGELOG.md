@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
+- The note at the bottom of an event page says that the event is deleted automatically: "This event will be deleted automatically on … unless something changes by then."
 
 ## [0.2.1] - 2026-10-05
 
