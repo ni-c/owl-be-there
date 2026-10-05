@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
 import { emojiIcon } from '@owl/shared';
@@ -449,6 +450,25 @@ describe('preview pictures', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.rawPayload.subarray(0, 8)).toEqual(PNG);
+  });
+
+  it('embeds the owl and the Japanese font when the client has them', async () => {
+    t = await testApp();
+    // The client's public folder: favicon.svg and fonts/noto-sans-cjk-jp-*.
+    const client = joinPath(import.meta.dirname, '../../client/public');
+    const latin = snapshot(t.db, (await createEvent(t.app)).id)!;
+    const japanese = snapshot(
+      t.db,
+      (await createEvent(t.app, { language: 'ja', title: '忘年会' })).id
+    )!;
+    const bare = new PreviewRenderer(null, 'owl.example.org');
+    const full = new PreviewRenderer(client, 'owl.example.org');
+    for (const data of [latin, japanese]) {
+      const without = await bare.render(data);
+      const withAssets = await full.render(data);
+      expect(withAssets.subarray(0, 8)).toEqual(PNG);
+      expect(withAssets.equals(without), data.event.language).toBe(false);
+    }
   });
 
   it('answers an unknown or malformed event with a 404', async () => {

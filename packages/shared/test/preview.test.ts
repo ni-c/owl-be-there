@@ -223,6 +223,15 @@ describe('wrapText', () => {
       expect(textWidth(line, 30)).toBeLessThanOrEqual(300);
   });
 
+  it('shortens a full last line to make room for the ellipsis', () => {
+    const lines = wrapText('A'.repeat(100), 300, 30, 2);
+    expect(lines).toHaveLength(2);
+    expect(lines[1]!.endsWith('…')).toBe(true);
+    // Without the cut, the ellipsis would stick out of the line.
+    expect(lines[1]!.length - 1).toBeLessThan(lines[0]!.length);
+    expect(textWidth(lines[1]!, 30)).toBeLessThanOrEqual(300);
+  });
+
   it('collapses white space and gives nothing for an empty text', () => {
     expect(wrapText('  a \n\t b  ', 500, 30, 2)).toEqual(['a b']);
     expect(wrapText('', 500, 30, 2)).toEqual([]);

@@ -186,6 +186,13 @@ describe('routes', () => {
     expect(window.scrollTo).toHaveBeenCalledTimes(2);
   });
 
+  it('changes only the address when told to keep the scroll position', () => {
+    const { window } = installBrowser();
+    navigate('/de', { replace: true, keepScroll: true });
+    expect(window.location.pathname).toBe('/de');
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
   it('tells subscribers about navigation and the back button until they leave', () => {
     const { window } = installBrowser();
     let calls = 0;

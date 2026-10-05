@@ -272,16 +272,16 @@ export function previewSvg(
     );
   }
   const headY = top + 84;
-  const rowStart = weeks[0]?.[0]?.day;
-  if (rowStart)
-    for (let index = 0; index < 7; index += 1) {
-      const name = formatDay(addDays(rowStart, index), locale, {
-        weekday: 'narrow',
-      });
-      parts.push(
-        `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(name)}</text>`
-      );
-    }
+  // An event has at least one candidate day, so there is a first week.
+  const rowStart = weeks[0]![0]!.day;
+  for (let index = 0; index < 7; index += 1) {
+    const name = formatDay(addDays(rowStart, index), locale, {
+      weekday: 'narrow',
+    });
+    parts.push(
+      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(name)}</text>`
+    );
+  }
   weeks.forEach((row, rowIndex) => {
     const cy = headY + 20 + rowIndex * (cell + gap);
     row.forEach((c, index) => {
