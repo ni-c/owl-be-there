@@ -82,6 +82,9 @@ export const SERVER_TEXTS = {
   de: {
     appName: 'Owl Be There',
     tagline: 'Findet einen Tag, an dem alle können.',
+    /** The start page's description for search results and link previews. */
+    description:
+      'Wann können alle? Trag deine Tage im Kalender ein und finde es heraus. Ohne Anmeldung und ohne Tracking.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Trag ein, wann du kannst. Ohne Anmeldung.'
@@ -93,6 +96,8 @@ export const SERVER_TEXTS = {
   en: {
     appName: 'Owl Be There',
     tagline: 'Find a day everyone can make.',
+    description:
+      'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Add the days you can make it. No sign-up needed.'
@@ -104,6 +109,8 @@ export const SERVER_TEXTS = {
   es: {
     appName: 'Owl Be There',
     tagline: 'Encontrad un día que os venga bien a todos.',
+    description:
+      '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni rastreo.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marca los días que te vienen bien. Sin registro.'
@@ -115,6 +122,8 @@ export const SERVER_TEXTS = {
   fr: {
     appName: 'Owl Be There',
     tagline: 'Trouvez une date qui convient à tout le monde.',
+    description:
+      'Quand tout le monde est-il libre ? Indique tes jours sur le calendrier et découvre-le. Sans inscription ni pistage.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Indique les jours où tu es libre. Sans inscription.'
@@ -126,6 +135,8 @@ export const SERVER_TEXTS = {
   it: {
     appName: 'Owl Be There',
     tagline: 'Trova un giorno che vada bene a tutti.',
+    description:
+      'Quando ci sono tutti? Segna i tuoi giorni sul calendario e scoprilo. Senza registrazione né tracciamento.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Segna i giorni in cui ci sei. Senza registrazione.'
@@ -137,6 +148,8 @@ export const SERVER_TEXTS = {
   ja: {
     appName: 'Owl Be There',
     tagline: 'みんなが集まれる日を見つけよう。',
+    description:
+      'みんなが集まれるのはいつ？カレンダーで行ける日を選ぶだけ。登録もトラッキングもなし。',
     previewOpen: (answers: number): string =>
       answers === 0
         ? '行ける日を選んでね。登録は不要。'
@@ -148,6 +161,8 @@ export const SERVER_TEXTS = {
   nl: {
     appName: 'Owl Be There',
     tagline: 'Vind een dag waarop iedereen kan.',
+    description:
+      'Wanneer kan iedereen? Vul je dagen in op de kalender en ontdek het. Zonder aanmelden of tracking.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Vul in wanneer je kunt. Aanmelden hoeft niet.'
@@ -159,6 +174,8 @@ export const SERVER_TEXTS = {
   pt: {
     appName: 'Owl Be There',
     tagline: 'Encontrem um dia em que todos possam.',
+    description:
+      'Quando é que todos podem? Marca os teus dias no calendário e descobre. Sem registo nem rastreio.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marca os dias em que podes. Sem registo.'

@@ -216,6 +216,99 @@ describe('pages', () => {
     expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
   });
 
+  it('serves the start page in every language, in that language', async () => {
+    t = await testApp();
+    const german = await t.app.inject({ method: 'GET', url: '/de' });
+    expect(german.statusCode).toBe(200);
+    expect(german.body).toContain('<html lang="de">');
+    expect(german.body).toContain(
+      '<title>Owl Be There — Findet einen Tag, an dem alle können.</title>'
+    );
+    expect(german.body).toContain('Ohne Anmeldung und ohne Tracking.');
+    expect(german.body).toContain(
+      '<link rel="canonical" href="https://owl.example.org/de" />'
+    );
+    const japanese = await t.app.inject({ method: 'GET', url: '/ja' });
+    expect(japanese.body).toContain('<html lang="ja">');
+    expect(japanese.body).toContain('みんなが集まれる日を見つけよう。');
+  });
+
+  it('names every language version of the start page, and / as the default', async () => {
+    t = await testApp();
+    for (const url of ['/', '/en', '/fr']) {
+      const { body } = await t.app.inject({ method: 'GET', url });
+      for (const language of ['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'])
+        expect(body, url).toContain(
+          `<link rel="alternate" hreflang="${language}" href="https://owl.example.org/${language}" />`
+        );
+      expect(body, url).toContain(
+        '<link rel="alternate" hreflang="x-default" href="https://owl.example.org/" />'
+      );
+    }
+    const home = await t.app.inject({ method: 'GET', url: '/' });
+    expect(home.body).toContain('<html lang="en">');
+    expect(home.body).toContain(
+      '<link rel="canonical" href="https://owl.example.org/" />'
+    );
+    // Only the start page has language versions.
+    const privacy = await t.app.inject({ method: 'GET', url: '/privacy' });
+    expect(privacy.body).not.toContain('hreflang');
+  });
+
+  it('serves event pages in the language of the event', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { language: 'nl' });
+    const { body } = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+    expect(body).toContain('<html lang="nl">');
+    expect(body).not.toContain('hreflang');
+    expect(body).not.toContain('rel="canonical"');
+  });
+
+  it('answers a language it does not speak, or a capitalised one, with a 404', async () => {
+    t = await testApp();
+    for (const url of ['/xx', '/no', '/DE', '/de/privacy']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.body, url).toContain('<html lang="en">');
+    }
+  });
+
+  it('points robots at the sitemap under the public address', async () => {
+    t = await testApp();
+    const robots = await t.app.inject({ method: 'GET', url: '/robots.txt' });
+    expect(robots.statusCode).toBe(200);
+    expect(robots.headers['content-type']).toBe('text/plain; charset=utf-8');
+    expect(robots.headers['cache-control']).toBe('no-cache');
+    expect(robots.body).toContain('Disallow: /api/');
+    expect(robots.body).toContain(
+      'Sitemap: https://owl.example.org/sitemap.xml'
+    );
+  });
+
+  it('lists the start page in every language and the privacy page, never an event', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const response = await t.app.inject({ method: 'GET', url: '/sitemap.xml' });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe(
+      'application/xml; charset=utf-8'
+    );
+    const locs = [...response.body.matchAll(/<loc>([^<]*)<\/loc>/g)].map(
+      (match) => match[1]
+    );
+    expect(locs).toEqual([
+      'https://owl.example.org/',
+      ...['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'].map(
+        (language) => `https://owl.example.org/${language}`
+      ),
+      'https://owl.example.org/privacy',
+    ]);
+    expect(response.body).not.toContain(id);
+    expect(response.body).not.toContain('/e/');
+    // Each start page names all nine versions.
+    expect(response.body.match(/hreflang=/g)).toHaveLength(9 * 9);
+  });
+
   it('answers an unknown event or path with the app and a 404', async () => {
     t = await testApp();
     for (const url of ['/e/AAAAAAAAAAAA', '/e/nope', '/somewhere']) {
@@ -237,10 +330,6 @@ describe('pages', () => {
 
   it('serves static files, with hashed assets cached for good', async () => {
     t = await testApp();
-    const robots = await t.app.inject({ method: 'GET', url: '/robots.txt' });
-    expect(robots.statusCode).toBe(200);
-    expect(robots.headers['content-type']).toContain('text/plain');
-    expect(robots.headers['cache-control']).toBe('no-cache');
     const asset = await t.app.inject({ method: 'GET', url: '/assets/app.js' });
     expect(asset.headers['cache-control']).toBe(
       'public, max-age=31536000, immutable'

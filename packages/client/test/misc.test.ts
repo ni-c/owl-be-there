@@ -81,6 +81,13 @@ describe('i18n', () => {
     );
   });
 
+  it('starts in the language of the address before anything else', () => {
+    expect(detectLanguage('de', ['en-US'], 'fr')).toBe('fr');
+    expect(detectLanguage(null, ['es-ES'], 'ja')).toBe('ja');
+    expect(detectLanguage(null, [], 'nl')).toBe('nl');
+    expect(detectLanguage('de', ['en-US'], null)).toBe('de');
+  });
+
   it('starts in the stored language, else the browser’s, else English', () => {
     expect(detectLanguage('de', ['en-US'])).toBe('de');
     expect(detectLanguage('es', ['en-US'])).toBe('es');
@@ -147,12 +154,24 @@ describe('routes', () => {
     });
   });
 
+  it('reads the start page in a language from its address', () => {
+    expect(parseRoute('/de')).toEqual({ page: 'home', language: 'de' });
+    expect(parseRoute('/ja/')).toEqual({ page: 'home', language: 'ja' });
+    for (const language of ['en', 'es', 'fr', 'it', 'nl', 'pt'] as const)
+      expect(parseRoute(`/${language}`)).toEqual({ page: 'home', language });
+  });
+
   it('refuses malformed event ids and unknown paths', () => {
     for (const path of [
       '/e/short',
       '/e/0OIl00000000',
       '/e/7gT4kPq2Wx9Z/x',
       '/nope',
+      '/xx',
+      '/no',
+      '/DE',
+      '/de/privacy',
+      '/deu',
     ]) {
       expect(parseRoute(path), path).toEqual({ page: 'not-found' });
     }

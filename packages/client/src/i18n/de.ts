@@ -20,6 +20,19 @@ export const de: Dictionary = {
   'home.example.hint':
     'Ein ausgedachtes Event zum Ausprobieren – nichts wird gespeichert.',
   'home.example.reset': 'Von vorn',
+  'home.faq.title': 'Fragen',
+  'home.faq.free.q': 'Kostet das etwas?',
+  'home.faq.free.a':
+    'Nein. Owl Be There ist kostenlos und Open Source, und jeder kann es auf einem eigenen Server betreiben.',
+  'home.faq.account.q': 'Brauche ich ein Konto?',
+  'home.faq.account.a':
+    'Nein. Alle wählen einfach einen Namen. Wer das Event plant, bekommt einen privaten Link zum Verwalten.',
+  'home.faq.doodle.q': 'Was ist anders als bei Doodle?',
+  'home.faq.doodle.a':
+    'Owl Be There ist für ganze Tage gemacht: Alle markieren die Tage, an denen sie können, und die Heatmap zeigt auf einen Blick, welcher Tag am besten passt. Es gibt keine Konten und kein Tracking, und alte Events werden automatisch gelöscht.',
+  'event.planOwn.title': 'Selbst etwas planen?',
+  'event.planOwn.text':
+    'Leg in einer Minute dein eigenes Event an, ganz ohne Konto.',
   'home.myEvents': 'Deine Events',
   'home.organiser': 'Organisation',
   'home.forget': '{title} aus dieser Liste entfernen',
@@ -92,7 +105,7 @@ export const de: Dictionary = {
   'event.minCount_one': 'braucht {count} Person',
   'event.minCount_other': 'braucht {count} Personen',
   'event.expires':
-    'Wird am {date} gelöscht, wenn sich bis dahin nichts ändert.',
+    'Das Event wird am {date} automatisch gelöscht, wenn sich bis dahin nichts ändert.',
   'event.share': 'Teilen',
   'event.tabs': 'Ansichten',
   'event.tabMine': 'Meine Tage',

@@ -139,6 +139,22 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
           <ExampleDemo />
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-2xl font-extrabold">{t('home.faq.title')}</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(['free', 'account', 'doodle'] as const).map((topic) => (
+            <Card key={topic} className="flex flex-col gap-2">
+              <h3 className="text-lg font-extrabold">
+                {t(`home.faq.${topic}.q`)}
+              </h3>
+              <p className="leading-relaxed text-muted">
+                {t(`home.faq.${topic}.a`)}
+              </p>
+            </Card>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

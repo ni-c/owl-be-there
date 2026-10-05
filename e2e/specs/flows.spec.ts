@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   answer,
   createEvent,
@@ -7,6 +7,7 @@ import {
   groupCalendar,
   isMobile,
   myCalendar,
+  saved,
   showView,
   snapshot,
   utcDateOf,
@@ -436,6 +437,84 @@ test('German is a click away and remembered', async ({ page }) => {
     page.getByRole('button', { name: 'Event planen' })
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('de');
+});
+
+test('the start page has an address per language, and choosing another follows it', async ({
+  page,
+}) => {
+  await page.goto('/fr');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Trouvez une date qui convient à tout le monde.',
+    })
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
+
+  await page.getByLabel('Langue').selectOption('de');
+  await expect(page).toHaveURL(/\/de$/);
+  await expect(
+    page.getByRole('heading', { name: 'Findet einen Tag, an dem alle können.' })
+  ).toBeVisible();
+
+  // The address was a choice: the plain start page keeps it.
+  await page.goto('/');
+  await expect(
+    page.getByRole('button', { name: 'Event planen' })
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('the start page answers the common questions', async ({ page }) => {
+  await page.goto('/en');
+  await expect(page.getByRole('heading', { name: 'Questions' })).toBeVisible();
+  for (const question of [
+    'Does it cost anything?',
+    'Do I need an account?',
+    'How is it different from Doodle?',
+  ])
+    await expect(page.getByText(question)).toBeVisible();
+});
+
+test('who has answered is invited to plan their own; the organiser is not', async ({
+  browser,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    roster: ['Anna', 'Ben'],
+  });
+  const invite = (page: Page) => page.getByText('Planning something yourself?');
+
+  const anna = await browser.newPage();
+  await anna.goto(`/e/${id}`);
+  await showView(anna, 'mine');
+  await anna.getByRole('button', { name: 'Anna' }).click();
+  await expect(anna.getByText('Hi Anna!')).toBeVisible();
+  await expect(invite(anna)).toBeHidden();
+  await day(myCalendar(anna), D(5)).click();
+  await saved(anna);
+  await expect(invite(anna)).toBeVisible();
+  // The footer offers the same on every page but the start page.
+  await expect(
+    anna.locator('footer').getByRole('link', { name: 'Plan an event' })
+  ).toBeVisible();
+  await anna
+    .getByRole('main')
+    .getByRole('link', { name: 'Plan an event' })
+    .click();
+  await expect(anna).toHaveURL(/\/$/);
+  await expect(
+    anna.locator('footer').getByRole('link', { name: 'Plan an event' })
+  ).toHaveCount(0);
+
+  const organiser = await browser.newPage();
+  await organiser.goto(`/e/${id}#admin=${adminToken}`);
+  await showView(organiser, 'mine');
+  await organiser.getByRole('button', { name: 'Ben' }).click();
+  await day(myCalendar(organiser), D(6)).click();
+  await saved(organiser);
+  await expect(invite(organiser)).toBeHidden();
+  await anna.close();
+  await organiser.close();
 });
 
 test('Spanish is remembered and new events use it', async ({

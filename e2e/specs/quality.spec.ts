@@ -12,6 +12,14 @@ import {
 
 /** Fail on anything axe calls serious or critical against WCAG 2.2 AA. */
 async function expectAccessible(page: Page, label: string): Promise<void> {
+  // A freshly marked day fades to its colour; measured halfway, its contrast
+  // is neither the old one nor the new one. Transitions only: the owl bobs
+  // for ever.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((a) => !(a instanceof CSSTransition) || a.playState !== 'running')
+  );
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     // Days outside the range are faded on purpose and hidden from assistive
