@@ -1,4 +1,5 @@
-import { utcDateOf, type ISODate } from './dates.js';
+import { dayFormatter, utcDateOf, type ISODate } from './dates.js';
+import type { EventSnapshotData } from './schemas.js';
 
 /** The languages the interface speaks, by code. */
 export const LANGUAGES = [
@@ -59,12 +60,11 @@ export function formatDayRange(
   end: ISODate,
   locale: string
 ): string {
-  const format = new Intl.DateTimeFormat(locale, {
+  const format = dayFormatter(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    timeZone: 'UTC',
   });
   return start === end
     ? format.format(utcDateOf(start))
@@ -90,12 +90,13 @@ export const SERVER_TEXTS = {
         ? 'Trag ein, wann du kannst. Ohne Anmeldung.'
         : `Trag ein, wann du kannst · bisher ${answers} ${answers === 1 ? 'Antwort' : 'Antworten'}`,
     previewDecided: (when: string): string => `Der Termin steht: ${when}`,
+    previewClosed: 'Die Abstimmung ist geschlossen.',
     previewImageAlt: 'Eine Eule mit einem Kalender',
     previewCalendarAlt:
       'Die möglichen Tage im Kalender, gefärbt danach, wie viele können',
     /** Below the preview's calendar when a long poll is cut. */
     previewMoreDays: (days: number): string =>
-      `+ ${days} weitere ${days === 1 ? 'Tag' : 'Tage'}`,
+      days === 1 ? '+ 1 weiterer Tag' : `+ ${days} weitere Tage`,
     calendarNote: 'Ausgewählt mit Owl Be There',
   },
   en: {
@@ -108,6 +109,7 @@ export const SERVER_TEXTS = {
         ? 'Add the days you can make it. No sign-up needed.'
         : `Add the days you can make it · ${answers} ${answers === 1 ? 'answer' : 'answers'} so far`,
     previewDecided: (when: string): string => `The date is set: ${when}`,
+    previewClosed: 'This poll is closed.',
     previewImageAlt: 'An owl holding a calendar',
     previewCalendarAlt:
       'The days to choose from on a calendar, coloured by how many can make it',
@@ -125,6 +127,7 @@ export const SERVER_TEXTS = {
         ? 'Marca los días que te vienen bien. Sin registro.'
         : `Marca los días que te vienen bien · ${answers} ${answers === 1 ? 'respuesta' : 'respuestas'} hasta ahora`,
     previewDecided: (when: string): string => `Ya hay fecha: ${when}`,
+    previewClosed: 'Esta votación está cerrada.',
     previewImageAlt: 'Un búho con un calendario',
     previewCalendarAlt:
       'Los días posibles en un calendario, coloreados según cuántos pueden',
@@ -142,6 +145,7 @@ export const SERVER_TEXTS = {
         ? 'Indique les jours où tu es libre. Sans inscription.'
         : `Indique les jours où tu es libre · ${answers} ${answers === 1 ? 'réponse' : 'réponses'} pour le moment`,
     previewDecided: (when: string): string => `La date est fixée : ${when}`,
+    previewClosed: 'Ce sondage est clos.',
     previewImageAlt: 'Un hibou avec un calendrier',
     previewCalendarAlt:
       'Les jours possibles sur un calendrier, colorés selon le nombre de personnes libres',
@@ -159,6 +163,7 @@ export const SERVER_TEXTS = {
         ? 'Segna i giorni in cui ci sei. Senza registrazione.'
         : `Segna i giorni in cui ci sei · ${answers} ${answers === 1 ? 'risposta' : 'risposte'} finora`,
     previewDecided: (when: string): string => `La data è decisa: ${when}`,
+    previewClosed: 'Questo sondaggio è chiuso.',
     previewImageAlt: 'Un gufo con un calendario',
     previewCalendarAlt:
       'I giorni possibili su un calendario, colorati in base a quanti ci sono',
@@ -176,6 +181,7 @@ export const SERVER_TEXTS = {
         ? '行ける日を選んでね。登録は不要。'
         : `行ける日を選んでね · 回答は現在${answers}人`,
     previewDecided: (when: string): string => `日程決定：${when}`,
+    previewClosed: 'この予定の受付は終了しました。',
     previewImageAlt: 'カレンダーを持つフクロウ',
     previewCalendarAlt: '候補日のカレンダー。行ける人の数で色分け',
     previewMoreDays: (days: number): string => `ほか${days}日`,
@@ -191,6 +197,7 @@ export const SERVER_TEXTS = {
         ? 'Vul in wanneer je kunt. Aanmelden hoeft niet.'
         : `Vul in wanneer je kunt · tot nu toe ${answers} ${answers === 1 ? 'antwoord' : 'antwoorden'}`,
     previewDecided: (when: string): string => `De datum staat vast: ${when}`,
+    previewClosed: 'Deze poll is gesloten.',
     previewImageAlt: 'Een uil met een kalender',
     previewCalendarAlt:
       'De mogelijke dagen op een kalender, gekleurd naar hoeveel mensen kunnen',
@@ -208,6 +215,7 @@ export const SERVER_TEXTS = {
         ? 'Marca os dias em que podes. Sem registo.'
         : `Marca os dias em que podes · ${answers} ${answers === 1 ? 'resposta' : 'respostas'} até agora`,
     previewDecided: (when: string): string => `A data está marcada: ${when}`,
+    previewClosed: 'Esta votação está encerrada.',
     previewImageAlt: 'Uma coruja com um calendário',
     previewCalendarAlt:
       'Os dias possíveis num calendário, coloridos conforme quantos podem',
@@ -216,3 +224,24 @@ export const SERVER_TEXTS = {
     calendarNote: 'Data escolhida com Owl Be There',
   },
 } as const satisfies Record<Language, unknown>;
+
+/**
+ * The sentence under a poll's title in link previews and in the preview
+ * picture: the date once it is chosen, else that the poll is closed, else the
+ * invitation to answer. A closed poll refuses answers, so it must not invite
+ * anyone to give one.
+ */
+export function previewStatus(
+  texts: (typeof SERVER_TEXTS)[Language],
+  data: EventSnapshotData,
+  locale: string
+): string {
+  const { event } = data;
+  if (event.finalStart !== null && event.finalEnd !== null) {
+    return texts.previewDecided(
+      formatDayRange(event.finalStart, event.finalEnd, locale)
+    );
+  }
+  if (event.status === 'closed') return texts.previewClosed;
+  return texts.previewOpen(data.participants.filter((p) => p.answered).length);
+}

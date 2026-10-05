@@ -652,12 +652,18 @@ const TEXT_FIELDS = [
   'creatorName',
 ] as const;
 
+/** The last day `addDays` can reach. */
+const LAST_DAY = '9999-12-31';
+
 /** Whether `start` begins a block of the event's duration made of candidate days. */
 export function blockFits(
   db: Db,
   event: Pick<EventRow, 'id' | 'duration_days'>,
   start: ISODate
 ): boolean {
+  // `addDays` throws past the end of the calendar; a block that would reach
+  // beyond it cannot be made of candidate days.
+  if (diffDays(start, LAST_DAY) < event.duration_days - 1) return false;
   const end = addDays(start, event.duration_days - 1);
   const count = db.get<{ n: number }>(
     'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
@@ -703,16 +709,34 @@ export function deleteEvent(db: Db, eventId: string): boolean {
   return db.tx(() => db.run('DELETE FROM events WHERE id = ?', eventId) > 0);
 }
 
+/**
+ * How many events one write transaction deletes. The driver is synchronous: a
+ * transaction that deletes thousands of events holds the write lock, and with
+ * it the process's only thread, for seconds, and another process waiting for
+ * that lock (the command line against a running server) can run out of patience.
+ */
+const DELETE_CHUNK = 200;
+
 /** Delete every event whose last day has passed; return their ids. */
 export function sweepExpired(db: Db, today: ISODate): string[] {
-  return db.tx(() => {
-    const ids = db
-      .all<{ id: string }>('SELECT id FROM events WHERE expires_on < ?', today)
-      .map((row) => row.id);
-    if (ids.length > 0)
-      db.run('DELETE FROM events WHERE expires_on < ?', today);
-    return ids;
-  });
+  const deleted: string[] = [];
+  for (;;) {
+    // Looked up again for every chunk: an event that was extended in between
+    // is no longer expired.
+    const ids = db.tx(() => {
+      const chunk = db
+        .all<{ id: string }>(
+          'SELECT id FROM events WHERE expires_on < ? LIMIT ?',
+          today,
+          DELETE_CHUNK
+        )
+        .map((row) => row.id);
+      for (const id of chunk) db.run('DELETE FROM events WHERE id = ?', id);
+      return chunk;
+    });
+    deleted.push(...ids);
+    if (ids.length < DELETE_CHUNK) return deleted;
+  }
 }
 
 export interface EventListing {
@@ -741,13 +765,25 @@ export function listEvents(db: Db, since: ISODate | null): EventListing[] {
 
 /** Delete events created on or after a day that nobody answered; return their ids. */
 export function purgeEmpty(db: Db, since: ISODate): string[] {
-  return db.tx(() => {
-    const ids = listEvents(db, since)
-      .filter((event) => event.participants === 0)
-      .map((event) => event.id);
-    for (const id of ids) db.run('DELETE FROM events WHERE id = ?', id);
-    return ids;
-  });
+  const candidates = listEvents(db, since)
+    .filter((event) => event.participants === 0)
+    .map((event) => event.id);
+  const deleted: string[] = [];
+  for (let from = 0; from < candidates.length; from += DELETE_CHUNK) {
+    db.tx(() => {
+      for (const id of candidates.slice(from, from + DELETE_CHUNK)) {
+        // Somebody may have answered since the list was made.
+        const changes = db.run(
+          `DELETE FROM events WHERE id = ? AND NOT EXISTS (
+             SELECT 1 FROM participants p
+             WHERE p.event_id = events.id AND p.marks_at IS NOT NULL)`,
+          id
+        );
+        if (changes > 0) deleted.push(id);
+      }
+    });
+  }
+  return deleted;
 }
 
 export function stats(db: Db): {

@@ -212,12 +212,38 @@ describe('the mask penalty', () => {
     //         at three apiece, so 48.
     // Rule 3: nothing. The pattern it looks for is eleven modules wide and
     //         this grid is five.
-    // Rule 4: no dark modules at all, so fifty per cent away from half, which
-    //         is nine steps of five — the tenth would put the lower bound at
-    //         zero per cent, and the rule asks for the integer part. 90.
+    // Rule 4: no dark modules at all, so fifty per cent away from half. The
+    //         dark share lies within 5 * (k + 1) per cent of half from k = 9
+    //         on, where the window reaches zero per cent. 90.
     expect(
       maskPenalty(grid(['.....', '.....', '.....', '.....', '.....']))
     ).toBe(30 + 48 + 0 + 90);
+  });
+
+  it('scores no grid at all at nothing', () => {
+    expect(maskPenalty([])).toBe(0);
+    expect(Number.isFinite(maskPenalty([[]]))).toBe(true);
+    expect(Number.isFinite(maskPenalty(grid(['#'])))).toBe(true);
+    expect(Number.isFinite(maskPenalty(grid(['.'])))).toBe(true);
+  });
+
+  it('scores a six-by-six chequerboard, half dark, at nothing for balance', () => {
+    const rows = ['#.#.#.', '.#.#.#', '#.#.#.', '.#.#.#', '#.#.#.', '.#.#.#'];
+    expect(maskPenalty(grid(rows))).toBe(0);
+  });
+
+  it('charges one step at exactly sixty per cent dark', () => {
+    // Fifteen dark of twenty-five: ten per cent from half, which is the edge of
+    // the second step and not the start of the third. No run of five, no
+    // uniform two-by-two block and no finder-like row, so rule 4 is all there is.
+    const rows = ['##.##', '#.#.#', '.#.#.', '#.#.#', '##.#.'];
+    expect(rows.join('').split('#').length - 1).toBe(15);
+    expect(maskPenalty(grid(rows))).toBe(10);
+    // The same grid inverted is forty per cent dark and scores the same.
+    const inverted = rows.map((row) =>
+      [...row].map((c) => (c === '#' ? '.' : '#')).join('')
+    );
+    expect(maskPenalty(grid(inverted))).toBe(10);
   });
 
   it('scores a perfect chequerboard at nothing', () => {

@@ -15,7 +15,7 @@ import { LIMITS } from './limits.js';
  * This is how an organiser's "from … to …, only Fridays to Sundays" becomes a
  * list of candidate days. An empty or null weekday set allows every weekday —
  * picking no weekdays at all is not a way to ask for nothing. A reversed range
- * yields nothing; a range longer than the span limit is refused outright,
+ * yields nothing; a day that is no date throws, whichever bound it is; a range longer than the span limit is refused outright,
  * because the loop below would otherwise run for as long as someone's typo
  * reaches into the future.
  */
@@ -24,6 +24,9 @@ export function expandRange(
   end: ISODate,
   weekdays: ReadonlySet<Weekday> | null = null
 ): ISODate[] {
+  if (!isValidISODate(start) || !isValidISODate(end)) {
+    throw new RangeError(`Not an ISO date: ${start} to ${end}`);
+  }
   if (compareISODate(start, end) > 0) return [];
   const length = diffDays(start, end) + 1;
   if (length > LIMITS.span) {

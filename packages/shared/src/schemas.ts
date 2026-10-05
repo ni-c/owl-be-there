@@ -13,30 +13,40 @@ import { LANGUAGES } from './texts.js';
  * three components later.
  *
  * Text fields are cleaned (see `text.ts`) before their length is checked, so
- * the limit applies to what is stored. The raw length is capped too, at four
- * times the limit, so nobody can make the server normalise a megabyte.
+ * the limit applies to what is stored, counted in code points. The raw length
+ * is capped too, at four times the limit, so nobody can make the server
+ * normalise a megabyte.
  */
+
+/**
+ * Text that is not empty but shows nothing: only characters that take no
+ * room, such as the blank Hangul filler, which no one can tell from a space.
+ */
+const blank = (text: string): boolean => text !== '' && nameKey(text) === '';
 
 const line = (max: number) =>
   z
     .string()
     .max(max * 4)
     .transform(cleanLine)
-    .pipe(z.string().max(max));
+    .pipe(z.string().max(max))
+    .refine((text) => !blank(text), 'Needs a visible character');
 
 const requiredLine = (max: number) =>
   z
     .string()
     .max(max * 4)
     .transform(cleanLine)
-    .pipe(z.string().min(1).max(max));
+    .pipe(z.string().min(1).max(max))
+    .refine((text) => !blank(text), 'Needs a visible character');
 
 const paragraph = (max: number) =>
   z
     .string()
     .max(max * 4)
     .transform(cleanText)
-    .pipe(z.string().max(max));
+    .pipe(z.string().max(max))
+    .refine((text) => !blank(text), 'Needs a visible character');
 
 export const IsoDay = z
   .string()
@@ -44,12 +54,10 @@ export const IsoDay = z
 
 export const Id = z.string().regex(ID_PATTERN, 'Not a valid id');
 
-export const Name = requiredLine(LIMITS.name)
-  .refine((name) => nameKey(name) !== '', 'A name needs a visible character')
-  .refine(
-    (name) => !mixesScripts(name),
-    'A word must not mix Latin letters with Cyrillic or Greek ones'
-  );
+export const Name = requiredLine(LIMITS.name).refine(
+  (name) => !mixesScripts(name),
+  'A word must not mix Latin letters with Cyrillic or Greek ones'
+);
 
 /** A password being set. Logging in accepts any length up to the maximum. */
 export const NewPassword = z

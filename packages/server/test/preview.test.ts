@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-wasm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -5,7 +6,7 @@ import { loadConfig } from '../src/config.js';
 import { migrate } from '../src/db/migrations.js';
 import { snapshot } from '../src/db/repo.js';
 import { Db } from '../src/db/sqlite.js';
-import { PreviewBusy, PreviewRenderer } from '../src/preview.js';
+import { drawableTitle, PreviewBusy, PreviewRenderer } from '../src/preview.js';
 import {
   CLIENT_DIR,
   createEvent,
@@ -22,6 +23,11 @@ afterEach(async () => {
   await t?.app.close();
   t = undefined;
 });
+
+/** The built client's public files, with the CJK font the test fixture lacks. */
+const REAL_CLIENT = fileURLToPath(
+  new URL('../../client/public', import.meta.url)
+);
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -123,6 +129,290 @@ describe('drawing a picture', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(b).toBe(a);
     expect(c).toBe(a);
+  });
+});
+
+describe('the picture cache', () => {
+  const drawn = () => vi.spyOn(Resvg.prototype, 'render');
+  const asEvent = (data: ReturnType<typeof versionOf>, id: string) => ({
+    ...data,
+    event: { ...data.event, id },
+  });
+
+  it("keeps one slot per event, so one event's edits evict no other picture", async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const spy = drawn();
+    const renderer = new PreviewRenderer(null, 'owl.example.org', 3, {
+      budget: null,
+    });
+    const first = await renderer.render(data);
+    const b = asEvent(data, 'BBBBBBBBBBBB');
+    for (let version = 1; version <= 12; version += 1)
+      await renderer.render(versionOf(b, version));
+    expect(spy).toHaveBeenCalledTimes(13);
+    expect(await renderer.render(data)).toBe(first);
+    expect(spy).toHaveBeenCalledTimes(13);
+  });
+
+  it('replaces the entry of an event when its version changes', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const spy = drawn();
+    const renderer = new PreviewRenderer(null, 'owl.example.org', 1, {
+      budget: null,
+    });
+    const v1 = await renderer.render(versionOf(data, 1));
+    const v2 = await renderer.render(versionOf(data, 2));
+    expect(await renderer.render(versionOf(data, 2))).toBe(v2);
+    expect(spy).toHaveBeenCalledTimes(2);
+    // The old version is gone: it is drawn again.
+    expect(await renderer.render(versionOf(data, 1))).not.toBe(v1);
+    expect(spy).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not let a late older picture replace a newer one', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const spy = drawn();
+    const renderer = new PreviewRenderer(null, 'owl.example.org', 5, {
+      budget: null,
+    });
+    const newer = await renderer.render(versionOf(data, 5));
+    await renderer.render(versionOf(data, 4));
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(await renderer.render(versionOf(data, 5))).toBe(newer);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops the least recently used event when it is full', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const a = snapshot(t.db, id)!;
+    const b = asEvent(a, 'BBBBBBBBBBBB');
+    const c = asEvent(a, 'CCCCCCCCCCCC');
+    const spy = drawn();
+    const renderer = new PreviewRenderer(null, 'owl.example.org', 2, {
+      budget: null,
+    });
+    await renderer.render(a);
+    await renderer.render(b);
+    await renderer.render(a);
+    await renderer.render(c);
+    expect(spy).toHaveBeenCalledTimes(3);
+    // A was used last, so B went; A is still there, B is drawn again.
+    await renderer.render(a);
+    expect(spy).toHaveBeenCalledTimes(3);
+    await renderer.render(b);
+    expect(spy).toHaveBeenCalledTimes(4);
+  });
+});
+
+/** A fresh copy of the renderer module whose first reads or WASM start-up can be made to fail. */
+async function flakyRenderer(failing: {
+  read?: (path: string) => boolean;
+  wasm?: boolean;
+}) {
+  vi.resetModules();
+  const reads: string[] = [];
+  vi.doMock('node:fs/promises', async (original) => {
+    const real = await original<typeof import('node:fs/promises')>();
+    const readFile = (async (path: string, ...rest: unknown[]) => {
+      reads.push(path);
+      if (failing.read?.(path)) {
+        delete failing.read;
+        throw Object.assign(new Error('too many open files'), {
+          code: 'EMFILE',
+        });
+      }
+      return (real.readFile as (...args: unknown[]) => unknown)(path, ...rest);
+    }) as typeof real.readFile;
+    return { ...real, readFile };
+  });
+  // The WebAssembly may be running already, from an earlier test in this file:
+  // a second start-up is then a no-op rather than an error.
+  vi.doMock('@resvg/resvg-wasm', async (original) => {
+    const real = await original<typeof import('@resvg/resvg-wasm')>();
+    let failNext = failing.wasm === true;
+    return {
+      ...real,
+      initWasm: async (...args: Parameters<typeof real.initWasm>) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error('start-up failed');
+        }
+        await real.initWasm(...args).catch(() => undefined);
+      },
+    };
+  });
+  const module = await import('../src/preview.js');
+  return { PreviewRenderer: module.PreviewRenderer, reads };
+}
+
+describe('a failed start', () => {
+  afterEach(() => {
+    vi.doUnmock('node:fs/promises');
+    vi.doUnmock('@resvg/resvg-wasm');
+    vi.resetModules();
+  });
+
+  it('is not kept: a font that could not be read is read again', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const { PreviewRenderer: Renderer, reads } = await flakyRenderer({
+      read: (path) => path.includes('nunito-latin-400'),
+    });
+    const renderer = new Renderer(null, 'owl.example.org', 5, { budget: null });
+    await expect(renderer.render(data)).rejects.toThrow('too many open files');
+    const png = await renderer.render(data);
+    expect(png.subarray(0, 8)).toEqual(PNG);
+    expect(reads.filter((p) => p.includes('nunito-latin-400'))).toHaveLength(2);
+  });
+
+  it('is not kept: the WebAssembly starts again, in a new renderer too', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    const data = snapshot(t.db, id)!;
+    const { PreviewRenderer: Renderer } = await flakyRenderer({ wasm: true });
+    const first = new Renderer(null, 'owl.example.org', 5, { budget: null });
+    await expect(first.render(data)).rejects.toThrow('start-up failed');
+    const second = new Renderer(null, 'owl.example.org', 5, { budget: null });
+    expect((await second.render(data)).subarray(0, 8)).toEqual(PNG);
+  });
+
+  it('is not kept for the CJK font either: a missing file is looked for again', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: '忘年会' });
+    const data = snapshot(t.db, id)!;
+    const { PreviewRenderer: Renderer, reads } = await flakyRenderer({
+      read: (path) => path.includes('noto-sans-cjk-jp-regular'),
+    });
+    const renderer = new Renderer(REAL_CLIENT, 'owl.example.org', 5, {
+      budget: null,
+    });
+    // The first read fails and the picture is drawn without the font; the next
+    // version asks again and gets it.
+    const without = await renderer.render(versionOf(data, 1));
+    const withFont = await renderer.render(versionOf(data, 2));
+    expect(
+      reads.filter((p) => p.includes('noto-sans-cjk-jp-regular'))
+    ).toHaveLength(2);
+    expect(withFont.equals(without)).toBe(false);
+  }, 30_000);
+});
+
+describe('titles in scripts the fonts may not cover', () => {
+  const host = 'owl.example.org';
+  const pictureOf = async (
+    title: string,
+    clientDir: string | null = null
+  ): Promise<Buffer> => {
+    const { id } = await createEvent(t!.app, { title });
+    const renderer = new PreviewRenderer(clientDir, host, 5, { budget: null });
+    return renderer.render(snapshot(t!.db, id)!);
+  };
+
+  it('draws Cyrillic with Nunito: the titles show, and differ', async () => {
+    t = await testApp();
+    const name = await pictureOf('Owl Be There');
+    const a = await pictureOf('Привет');
+    const b = await pictureOf('Абвгде');
+    const ext = await pictureOf('Ѡѣ Ӂ');
+    expect(a.equals(name)).toBe(false);
+    expect(a.equals(b)).toBe(false);
+    expect(ext.equals(name)).toBe(false);
+    expect(ext.equals(a)).toBe(false);
+  });
+
+  it('draws Vietnamese letters Latin Extended does not have', async () => {
+    t = await testApp();
+    const plain = await pictureOf('Tiec');
+    const accents = await pictureOf('Tiệc ạ');
+    expect(accents.equals(plain)).toBe(false);
+    expect(accents.equals(await pictureOf('Owl Be There'))).toBe(false);
+  });
+
+  it('puts the app name where Hebrew and Thai leave nothing to draw', async () => {
+    t = await testApp();
+    const name = await pictureOf('Owl Be There');
+    expect((await pictureOf('שלוםחב')).equals(name)).toBe(true);
+    expect((await pictureOf('กขคงจฉ')).equals(name)).toBe(true);
+    // Greek is the CJK font's; without it, it is the same fallback.
+    expect((await pictureOf('Γειάσο')).equals(name)).toBe(true);
+  });
+
+  it('draws Greek when the CJK font is there', async () => {
+    t = await testApp();
+    const name = await pictureOf('Owl Be There', REAL_CLIENT);
+    const a = await pictureOf('Γειάσο', REAL_CLIENT);
+    const b = await pictureOf('Αβγδεζ', REAL_CLIENT);
+    expect(a.equals(name)).toBe(false);
+    expect(a.equals(b)).toBe(false);
+  }, 30_000);
+
+  it('keeps what can be drawn of a mixed title and marks what cannot', async () => {
+    t = await testApp();
+    const mixed = await pictureOf('Привет שלום');
+    expect(mixed.equals(await pictureOf('Привет …'))).toBe(true);
+    expect(mixed.equals(await pictureOf('Owl Be There'))).toBe(false);
+    // Emoji and symbols are left as they were.
+    expect((await pictureOf('Party 🎉')).equals(await pictureOf('Party'))).toBe(
+      false
+    );
+  });
+});
+
+describe('drawableTitle', () => {
+  const app = 'Owl Be There';
+  const drawn = (title: string, cjk = false) => drawableTitle(title, app, cjk);
+
+  it('leaves titles of covered scripts, digits and punctuation alone', () => {
+    for (const title of [
+      '',
+      ' ',
+      'Grillabend Ü',
+      'Привет 2026!',
+      'Tiệc ạ',
+      '2026',
+      '…',
+      '🎉',
+      '!?',
+    ])
+      expect(drawn(title)).toBe(title);
+  });
+
+  it('replaces each run of letters no font has by one ellipsis', () => {
+    expect(drawn('Hello שלום')).toBe('Hello …');
+    expect(drawn('שלום Hello wörld ไทย')).toBe('… Hello wörld …');
+    expect(drawn('a שלום b')).toBe('a … b');
+    expect(drawn('Dinner 2026 שלום')).toBe('Dinner 2026 …');
+  });
+
+  it('takes the app name when nothing readable is left', () => {
+    expect(drawn('שלוםחב')).toBe(app);
+    expect(drawn('กขคงจฉ')).toBe(app);
+    expect(drawn('שלום!?')).toBe(app);
+    expect(drawn('Γειάσο')).toBe(app);
+    // A digit is still something to show.
+    expect(drawn('שלום 2026')).toBe('… 2026');
+  });
+
+  it('counts the marks that follow a lost letter as lost', () => {
+    expect(drawn('שָׁלוֹם')).toBe(app);
+    expect(drawn('Hello שָׁלוֹם')).toBe('Hello …');
+  });
+
+  it("draws the CJK font's scripts only when the font is loaded", () => {
+    expect(drawn('忘年会')).toBe(app);
+    expect(drawn('忘年会', true)).toBe('忘年会');
+    expect(drawn('안녕 Γειά ー', true)).toBe('안녕 Γειά ー');
+    expect(drawn('Привет 日本', true)).toBe('Привет 日本');
+    // The CJK font has no Hebrew either.
+    expect(drawn('שלום 日本', true)).toBe('… 日本');
   });
 });
 

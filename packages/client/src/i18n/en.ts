@@ -37,6 +37,10 @@ export const en = {
   'home.myEvents': 'Your events',
   'home.organiser': 'organiser',
   'home.forget': 'Remove {title} from this list',
+  'home.forgetOrganiser.title': 'Remove this event from this device?',
+  'home.forgetOrganiser.text':
+    'This device holds the organiser link for {title}. Removing the event also deletes that link here: without a copy of it you can no longer close the poll, pick the date or delete the event from this device.',
+  'home.forgetOrganiser.yes': 'Remove from this device',
   'home.creationDisabled': 'You can’t create new events here right now.',
 
   'create.title': 'Plan an event',
@@ -73,6 +77,8 @@ export const en = {
   'create.next': 'Next',
   'create.submit': 'Create event',
   'create.creating': 'Creating…',
+  'create.durationLess': 'One day less in a row',
+  'create.durationMore': 'One day more in a row',
 
   'error.titleRequired': 'Please give the event a title.',
   'error.range': 'The end date is before the start date.',
@@ -92,6 +98,13 @@ export const en = {
   'error.rateLimited': 'That was a bit quick. Please wait a moment.',
   'error.forbidden': 'You can’t do that with this link.',
   'error.nameTaken': 'Someone already has that name.',
+  'error.numberRange': 'Enter a number from {min} to {max}.',
+  'error.rosterLine': 'A name can have at most {max} characters.',
+  'error.rosterTooMany': 'At most {max} names at a time.',
+  'error.busy': 'The server is busy right now. Please try again in a moment.',
+  'error.changed': 'This entry was changed just now. Please try again.',
+  'error.invalid':
+    'Some of the details are not valid. Please check them and try again.',
 
   'event.loading': 'Loading the event…',
   'event.notFound.title': 'We can’t find this event.',
@@ -104,6 +117,8 @@ export const en = {
   'event.duration_other': '{count} days in a row',
   'event.minCount_one': 'needs {count} person',
   'event.minCount_other': 'needs {count} people',
+  'event.adminRefused':
+    'This organiser link was not accepted. The organiser tools are gone from this device; open the complete organiser link again to get them back.',
   'event.expires':
     'This event will be deleted automatically on {date} unless something changes by then.',
   'event.share': 'Share',
@@ -243,6 +258,15 @@ export const en = {
   'admin.deleteConfirm': 'Delete this event for everyone? You can’t undo this.',
   'admin.deleteYes': 'Delete for good',
   'admin.saved': 'Saved',
+  'admin.lossTitle': 'Save these changes?',
+  'admin.lossMarks_one':
+    'This deletes {count} answer on the removed days for good.',
+  'admin.lossMarks_other':
+    'This deletes {count} answers on the removed days for good.',
+  'admin.lossDateShort': 'The chosen date becomes shorter.',
+  'admin.lossDateDropped':
+    'The chosen date no longer fits and is dropped. The poll stays closed.',
+  'admin.lossConfirm': 'Save anyway',
   'admin.noPeople': 'Nobody here yet.',
 
   'footer.language': 'Language',
@@ -263,7 +287,7 @@ export const en = {
   'privacy.stored.person':
     'For each person, we store their name and marked days. We also store a note and password hash if they add them.',
   'privacy.stored.nothingElse':
-    'There are no accounts, email addresses, cookies or analytics. The app makes no requests to other services and stores no IP addresses.',
+    'There are no accounts, email addresses, cookies or analytics. The app makes no requests to other services and stores no IP addresses. The only exception is the Google Calendar link: when you click it, Google opens with the event’s title, description, location and link.',
   'privacy.visible.title': 'Who can see it',
   'privacy.visible.text':
     'Anyone with an event link can see the names and marked days. Search engines are told not to index event pages.',
@@ -273,10 +297,19 @@ export const en = {
   'privacy.retention.title': 'When it is deleted',
   'privacy.retention.text':
     'We delete an event {days} days after its last change. It stays at least until its final day has passed. The organiser can delete it any time.',
-  'privacy.logs':
-    'The web server logs visits with IP addresses to prevent abuse. These logs are deleted after {days} days.',
-  'privacy.backups':
-    'Backups are kept for {days} days. After that, a deleted event is gone from them too.',
+  'privacy.logs_one':
+    'The web server logs visits with IP addresses to prevent abuse. These logs are deleted after {count} day.',
+  'privacy.logs_other':
+    'The web server logs visits with IP addresses to prevent abuse. These logs are deleted after {count} days.',
+  'privacy.logs.none': 'The web server does not keep logs of visits.',
+  'privacy.backups_one':
+    'Backups are kept for {count} day. After that, a deleted event is gone from them too.',
+  'privacy.backups_other':
+    'Backups are kept for {count} days. After that, a deleted event is gone from them too.',
+  'privacy.backups.none': 'No backups are kept.',
+  'privacy.instance.loading': 'Loading the operator details…',
+  'privacy.instance.failed':
+    'The operator details could not be loaded. Reload the page to try again.',
   'privacy.operator.title': 'Who runs this instance',
   'privacy.operator.contact': 'Contact: {contact}',
   'privacy.source':

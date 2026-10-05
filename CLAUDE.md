@@ -8,29 +8,29 @@ A group finds a **day** (or a block of consecutive days) for an event: the organ
 
 All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install` (see Traps).
 
-| Command                 | Purpose                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------- |
-| `npm run dev`           | API on :8080 and the client with hot reload on :5173                                  |
-| `npm run lint`          | ESLint + Prettier                                                                     |
-| `npm run typecheck`     | every package, the tests and the end-to-end tree                                      |
-| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`)               |
-| `npm run test:coverage` | the same with thresholds                                                              |
-| `npm run test:tz`       | shared and client tests under six time zones                                          |
-| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch                        |
-| `npm run ci:local`      | everything CI runs                                                                    |
-| `npm run build`         | shared → server → client                                                              |
-| `npm run screenshot`    | after a build: the README's pictures of the start page example (`docs/`) and `og.png` |
+| Command                 | Purpose                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`           | API on :8080 and the client with hot reload on :5173                                                                                                   |
+| `npm run lint`          | ESLint + Prettier                                                                                                                                      |
+| `npm run typecheck`     | every package, the tests and the end-to-end tree                                                                                                       |
+| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`)                                                                                |
+| `npm run test:coverage` | the same with thresholds                                                                                                                               |
+| `npm run test:tz`       | shared and client tests under five time zones                                                                                                          |
+| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch                                                                                         |
+| `npm run ci:local`      | lint, typecheck, audit, secret scan, tests and e2e; CI also builds and scans the image, runs CodeQL and dependency review, and renders the screenshots |
+| `npm run build`         | shared → server → client                                                                                                                               |
+| `npm run screenshot`    | after a build: the README's pictures of the start page example (`docs/`) and `og.png`                                                                  |
 
 ## Layout
 
 - `packages/shared` — pure domain logic and zod schemas, used by both sides: dates, candidate days, the week grid, rectangle selection, toggles, ranking of days and blocks, retention, `.ics`, QR codes, limits.
-- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id` and its picture `/e/:id/og.png` (`preview.ts`: the SVG comes from `shared/preview.ts`, resvg turns it into a PNG), the start page per language (`/de` …) with `hreflang`, `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`cli.ts`).
+- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id` and its picture `/e/:id/og.png` (`preview.ts`: the SVG comes from `shared/preview.ts`, resvg turns it into a PNG), the start page per language (`/de` …) with `hreflang`, `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`commands.ts` holds the logic, `cli.ts` is the entry).
 - `packages/client` — React 19 + Vite + Tailwind 4. No router library and no state library: `lib/route.ts`, `useSyncExternalStore` stores, a `SaveQueue` for auto-save. `lib/` is unit-tested in Node; components are tested end to end.
 - `e2e/` — Playwright specs and the harness that starts a real server.
 
 ## Rules not up for discussion
 
-- **Days are strings.** ESLint bans `new Date(string)` and `Date.parse`. Format days with the helpers in `shared/dates.ts`, which go through `Date.UTC` and `timeZone: 'UTC'`.
+- **Days are strings.** ESLint bans `new Date(<string literal>)`, `new Date(<template literal>)` and `Date.parse`; it cannot see a string in a variable, so `npm run test:tz` is the net for `new Date(day)`. Format days with the helpers in `shared/dates.ts`, which go through `Date.UTC` and `timeZone: 'UTC'`.
 - **Nothing the organiser writes becomes a link.** Descriptions are plain text; link previews show the title, the state of the poll and the candidate days, never names or the description. Phishing is the abuse public poll tools attract.
 - **No IP address is stored or logged by the application.** Rate limits live in memory. Request logging is off.
 - **Secrets travel in the URL fragment** (`#admin=…`), never in a path or query, and the client strips the fragment after reading it.
@@ -61,6 +61,9 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **No native modules in the server.** The Dockerfile installs the production dependencies once, on the build machine's architecture, and copies them into the amd64 and the arm64 image. That is why the preview pictures use `@resvg/resvg-wasm` and `wawoff2`, both WebAssembly.
 - **resvg ignores the weight axis of a variable font**: bold text came out regular. The preview uses the static `@fontsource/nunito` files (400 and 800), not the variable font the client uses.
 - **wawoff2 answers with a view into its own WebAssembly memory.** Unpacking the next, larger font grows that memory and detaches every earlier result ("Cannot perform %TypedArray%.prototype.set on a detached ArrayBuffer"). `preview.ts` copies each result out at once.
+- **`PRAGMA user_version` holds `NAME_KEY_VERSION`** (`db/rekey.ts`). Raise it whenever `nameKey` in `shared` changes what it returns; the next start then recomputes the stored `name_key` values, and without it people typing their name the old way no longer find their entry.
+- **Preview fonts:** Nunito covers Latin, Cyrillic and Vietnamese; Greek is drawn only by the CJK font; characters in other scripts are dropped, and a title left without a letter draws the app name.
+- **The preview picture cache keeps one slot per event** (the newest version), so an old version never takes a slot from another event.
 - **`node:sqlite` is a release candidate in Node 26.** Keep it behind `db/sqlite.ts`.
 - **WebKit does not start on unsupported Linux distributions** (missing `libicu74` and friends). Run the WebKit projects in `mcr.microsoft.com/playwright:v<version>-noble` with a Node 26 on `PATH`; see CONTRIBUTING.
 - **A drag must end where the pointer was released.** Moves are applied once per animation frame; a quick flick can end before the next frame, so `pointerup` applies its own position before the stroke is committed.

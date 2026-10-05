@@ -9,6 +9,11 @@ import { Owl } from './components/Owl.tsx';
 import { Select } from './components/ui.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
 import { api } from './lib/api.ts';
+import {
+  INSTANCE_LOADING,
+  InstanceStore,
+  type InstanceState,
+} from './lib/instanceStore.ts';
 import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
@@ -26,18 +31,31 @@ export function App() {
   );
 }
 
-/** What the instance says about itself, fetched once and shared. */
-function useInstance(): InstanceInfoData | null {
-  const [info, setInfo] = useState<InstanceInfoData | null>(null);
+/** What the instance says about itself, fetched (and retried) once and shared. */
+function useInstance(): InstanceState {
+  const [state, setState] = useState<InstanceState>(INSTANCE_LOADING);
   useEffect(() => {
-    api.instance().then(setInfo, () => setInfo(null));
+    const store = new InstanceStore(() => api.instance());
+    const unsubscribe = store.subscribe(() => setState(store.getState()));
+    store.start();
+    // A page that comes back online is a good moment to ask again.
+    const retry = (): void => {
+      if (store.getState().status !== 'ready') void store.fetch();
+    };
+    window.addEventListener('online', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+      unsubscribe();
+      store.stop();
+    };
   }, []);
-  return info;
+  return state;
 }
 
 function Shell() {
   const route = parseRoute(usePathname());
-  const instance = useInstance();
+  const instanceState = useInstance();
+  const instance = instanceState.info;
   const { t, language, setLanguage } = useI18n();
 
   // `/fr` reached by the back button or a link: the page follows the address.
@@ -68,7 +86,7 @@ function Shell() {
       );
       break;
     case 'privacy':
-      page = <PrivacyPage instance={instance} />;
+      page = <PrivacyPage instance={instanceState} />;
       break;
     default:
       page = <NotFoundPage />;

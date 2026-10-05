@@ -15,9 +15,9 @@ export const ja: Dictionary = {
     '名前だけでOK。メールもCookieも追跡もなし。古い予定は自動で削除されるよ。',
   'home.example.title': '試してみてね',
   'home.example.text':
-    'アンナになって都合のいい日を選ぶと、グループのカレンダーが変わります。',
+    'Annaになって都合のいい日を選ぶと、グループのカレンダーが変わります。',
   'home.example.eventTitle': 'チームの食事会',
-  'home.example.hint': '試すための架空のイベントだよ。何も保存されません。',
+  'home.example.hint': '試すための架空の予定だよ。何も保存されません。',
   'home.example.reset': '最初から',
   'home.faq.title': 'よくある質問',
   'home.faq.free.q': 'お金はかかる？',
@@ -25,15 +25,19 @@ export const ja: Dictionary = {
     '無料だよ。Owl Be There はオープンソースで、自分のサーバーでも動かせます。',
   'home.faq.account.q': 'アカウントは必要？',
   'home.faq.account.a':
-    'いらないよ。名前を選ぶだけ。主催者はイベントを管理するための専用リンクをもらえます。',
+    'いらないよ。名前を選ぶだけ。主催者は予定を管理するための専用リンクをもらえます。',
   'home.faq.doodle.q': 'Doodle との違いは？',
   'home.faq.doodle.a':
-    'Owl Be There は日にち単位の日程調整向け。みんなが行ける日に印をつけるだけで、どの日がいちばん良いかヒートマップでひと目でわかります。アカウントもトラッキングもなく、古いイベントは自動で削除されます。',
+    'Owl Be There は日にち単位の日程調整向け。みんなが行ける日に印をつけるだけで、どの日がいちばん良いかヒートマップでひと目でわかります。アカウントもトラッキングもなく、古い予定は自動で削除されます。',
   'event.planOwn.title': '自分でも何か計画する？',
-  'event.planOwn.text': '1分で自分のイベントを作れるよ。アカウントは不要。',
+  'event.planOwn.text': '1分で自分の予定を作れるよ。アカウントは不要。',
   'home.myEvents': '自分の予定',
   'home.organiser': '主催者',
   'home.forget': '{title}をこの一覧から削除',
+  'home.forgetOrganiser.title': 'この端末からこの予定を削除しますか？',
+  'home.forgetOrganiser.text':
+    'この端末には「{title}」の主催者用リンクが保存されています。予定を削除すると、このリンクもここから消えます。コピーがないと、この端末から投票を締め切ったり、日程を決めたり、予定を削除したりできなくなります。',
+  'home.forgetOrganiser.yes': 'この端末から削除',
   'home.creationDisabled': '今はここで新しい予定を作れません。',
 
   'create.title': '予定を立てる',
@@ -71,6 +75,8 @@ export const ja: Dictionary = {
   'create.next': '次へ',
   'create.submit': '予定を作る',
   'create.creating': '作成中…',
+  'create.durationLess': '連続日数を1日減らす',
+  'create.durationMore': '連続日数を1日増やす',
 
   'error.titleRequired': '予定にタイトルをつけてね。',
   'error.range': '終了日は開始日よりあとにしてね。',
@@ -88,6 +94,13 @@ export const ja: Dictionary = {
   'error.rateLimited': '操作が少し速すぎるみたい。少し待ってね。',
   'error.forbidden': 'このリンクでは操作できません。',
   'error.nameTaken': 'その名前はもう使われています。',
+  'error.numberRange': '{min}から{max}までの数字を入力してね。',
+  'error.rosterLine': '名前は{max}文字までです。',
+  'error.rosterTooMany': '一度に追加できるのは{max}人までです。',
+  'error.busy':
+    'サーバーが混み合っています。しばらくしてからもう一度試してね。',
+  'error.changed': 'この名前の内容がたった今変更されました。もう一度試してね。',
+  'error.invalid': '入力に正しくない部分があります。確認してもう一度試してね。',
 
   'event.loading': '予定を読み込み中…',
   'event.notFound.title': 'この予定が見つかりません。',
@@ -99,7 +112,9 @@ export const ja: Dictionary = {
   'event.duration_other': '連続{count}日',
   'event.minCount_one': '必要人数：{count}人',
   'event.minCount_other': '必要人数：{count}人',
-  'event.expires': '変更がなければ、このイベントは{date}に自動で削除されるよ。',
+  'event.adminRefused':
+    'この主催者用リンクは受け付けられませんでした。この端末から主催者用の機能を外しました。完全なリンクをもう一度開くと戻ります。',
+  'event.expires': '変更がなければ、この予定は{date}に自動で削除されるよ。',
   'event.share': '共有',
   'event.tabs': '表示',
   'event.tabMine': '自分の都合',
@@ -237,6 +252,13 @@ export const ja: Dictionary = {
   'admin.deleteConfirm': 'この予定を全員から削除する？ 元には戻せません。',
   'admin.deleteYes': '完全に削除',
   'admin.saved': '保存しました',
+  'admin.lossTitle': '変更を保存しますか？',
+  'admin.lossMarks_one': '削除した日の回答{count}件が完全に消えます。',
+  'admin.lossMarks_other': '削除した日の回答{count}件が完全に消えます。',
+  'admin.lossDateShort': '決定した日程が短くなります。',
+  'admin.lossDateDropped':
+    '決定した日程が合わなくなり、取り消されます。投票は締め切られたままです。',
+  'admin.lossConfirm': 'それでも保存',
   'admin.noPeople': 'まだ参加者がいません。',
 
   'footer.language': '言語',
@@ -257,7 +279,7 @@ export const ja: Dictionary = {
   'privacy.stored.person':
     '参加者ごとに名前と選んだ日を保存します。入力された場合はメモとパスワードのハッシュも保存します。',
   'privacy.stored.nothingElse':
-    'アカウント、メールアドレス、Cookie、アクセス解析はありません。アプリは外部サービスに接続せず、IPアドレスも保存しません。',
+    'アカウント、メールアドレス、Cookie、アクセス解析はありません。アプリは外部サービスに接続せず、IPアドレスも保存しません。唯一の例外は Google カレンダーのリンクで、クリックすると予定のタイトル、説明、場所、リンクを入れた Google が開きます。',
   'privacy.visible.title': '誰が見られる？',
   'privacy.visible.text':
     '予定のリンクを持つ人は、名前と選んだ日を見られます。検索エンジンには予定のページを登録しないよう伝えています。',
@@ -267,10 +289,19 @@ export const ja: Dictionary = {
   'privacy.retention.title': '削除のタイミング',
   'privacy.retention.text':
     '予定は最後の変更から{days}日後に削除されます。ただし、最後の候補日が終わるまでは残ります。主催者はいつでも削除できます。',
-  'privacy.logs':
-    '不正利用を防ぐため、ウェブサーバーはIPアドレスを含むアクセスログを記録します。ログは{days}日後に削除されます。',
-  'privacy.backups':
-    'バックアップは{days}日間保存されます。その後、削除済みの予定はバックアップからも消えます。',
+  'privacy.logs_one':
+    '不正利用を防ぐため、ウェブサーバーはIPアドレスを含むアクセスログを記録します。ログは{count}日後に削除されます。',
+  'privacy.logs_other':
+    '不正利用を防ぐため、ウェブサーバーはIPアドレスを含むアクセスログを記録します。ログは{count}日後に削除されます。',
+  'privacy.logs.none': 'ウェブサーバーはアクセスログを保存しません。',
+  'privacy.backups_one':
+    'バックアップは{count}日間保存されます。その後、削除済みの予定はバックアップからも消えます。',
+  'privacy.backups_other':
+    'バックアップは{count}日間保存されます。その後、削除済みの予定はバックアップからも消えます。',
+  'privacy.backups.none': 'バックアップは保存されません。',
+  'privacy.instance.loading': '運営者の情報を読み込んでいます…',
+  'privacy.instance.failed':
+    '運営者の情報を読み込めませんでした。ページを再読み込みしてもう一度お試しください。',
   'privacy.operator.title': 'このサービスの運営者',
   'privacy.operator.contact': '連絡先：{contact}',
   'privacy.source':

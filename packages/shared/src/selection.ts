@@ -153,8 +153,10 @@ export function onCandidates(marks: Marks, days: ReadonlySet<ISODate>): Marks {
 
 /**
  * How many of the others can on each day — the gentle nudge towards agreement
- * shown while someone marks their own days. Only people who answered count;
- * with nobody else answered there is nothing to show.
+ * shown while someone marks their own days. Only people who answered count,
+ * and on a day only those who have seen it: someone who has not yet looked at
+ * a day the organiser added could not have answered it, and the group view
+ * leaves them out of that day too. A day nobody has an answer for has no entry.
  */
 export function othersOnDays(
   days: readonly ISODate[],
@@ -163,22 +165,30 @@ export function othersOnDays(
     answered: boolean;
     yes: readonly ISODate[];
     maybe: readonly ISODate[];
+    unseen: readonly ISODate[];
   }[],
   self: string
 ): Map<ISODate, { yes: number; maybe: number; total: number }> {
   const map = new Map<ISODate, { yes: number; maybe: number; total: number }>();
-  const others = participants.filter((p) => p.id !== self && p.answered);
+  const others = participants
+    .filter((p) => p.id !== self && p.answered)
+    .map((p) => ({
+      yes: new Set(p.yes),
+      maybe: new Set(p.maybe),
+      unseen: new Set(p.unseen),
+    }));
   if (others.length === 0) return map;
-  const yes = others.map((p) => new Set(p.yes));
-  const maybe = others.map((p) => new Set(p.maybe));
   for (const day of days) {
     let y = 0;
     let m = 0;
-    for (let i = 0; i < others.length; i += 1) {
-      if (yes[i]!.has(day)) y += 1;
-      else if (maybe[i]!.has(day)) m += 1;
+    let total = 0;
+    for (const other of others) {
+      if (other.unseen.has(day)) continue;
+      total += 1;
+      if (other.yes.has(day)) y += 1;
+      else if (other.maybe.has(day)) m += 1;
     }
-    map.set(day, { yes: y, maybe: m, total: others.length });
+    if (total > 0) map.set(day, { yes: y, maybe: m, total });
   }
   return map;
 }

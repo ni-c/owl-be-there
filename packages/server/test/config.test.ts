@@ -114,8 +114,28 @@ describe('loadConfig', () => {
   });
 
   it('refuses a trusted proxy that is not an address', () => {
-    for (const value of ['true', '10.0.0.0/33', '::1/129', '10.0.0.1/8/8']) {
-      expect(problemsOf({ TRUST_PROXY: value }).join()).toMatch(/TRUST_PROXY/);
+    for (const value of [
+      'true',
+      '10.0.0.0/33',
+      '::1/129',
+      '10.0.0.1/8/8',
+      // proxy-addr refuses a prefix length of zero, however it is written.
+      '10.0.0.0/0',
+      '0.0.0.0/0',
+      '::/0',
+      '10.0.0.0/00',
+      '10.0.0.0/000',
+    ]) {
+      expect(problemsOf({ TRUST_PROXY: value }).join(), value).toMatch(
+        /TRUST_PROXY/
+      );
     }
+  });
+
+  it('accepts the smallest and the largest prefix length', () => {
+    expect(
+      loadConfig({ TRUST_PROXY: '10.0.0.0/1, ::/1, 10.0.0.1/32, ::1/128' })
+        .trustProxy
+    ).toEqual(['10.0.0.0/1', '::/1', '10.0.0.1/32', '::1/128']);
   });
 });

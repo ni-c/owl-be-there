@@ -3,12 +3,39 @@
 # Lint and types before anything leaves the machine — a few seconds, so it is
 # not worth bypassing. The test suites run in CI on every pull request.
 #
+# The checks read the working tree, so the hook only runs when that tree is
+# the thing being pushed: the checked-out commit, with nothing uncommitted.
+# Tag pushes, branch deletions and pushes of another branch are not checked
+# here (CI is the gate for those); a dirty tree is refused, because its result
+# says nothing about the commit that leaves the machine.
+#
 # Enabled by `core.hooksPath`, which the `prepare` script in package.json sets
 # on every `npm install`. To do it by hand:
 #
 #     git config core.hooksPath .githooks
 
 set -e
+
+zero=0000000000000000000000000000000000000000
+head=$(git rev-parse HEAD)
+check=no
+# git feeds one line per ref: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _ local_sha remote_ref _; do
+  case "$remote_ref" in refs/tags/*) continue ;; esac
+  [ "$local_sha" = "$zero" ] && continue
+  [ "$local_sha" = "$head" ] && check=yes
+done
+
+if [ "$check" = no ]; then
+  printf '\033[2mpre-push: nothing from the checked-out commit is pushed, no checks\033[0m\n'
+  exit 0
+fi
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo 'pre-push: the working tree has uncommitted changes, so the checks would not' >&2
+  echo 'describe the commit being pushed. Commit or stash them (or use --no-verify).' >&2
+  exit 1
+fi
 
 printf '\033[2mpre-push: lint\033[0m\n'
 npm run --silent lint

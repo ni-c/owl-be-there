@@ -139,9 +139,25 @@ describe('a chosen date and a new duration', () => {
 });
 
 describe('how far ahead days may lie', () => {
-  const last = addDays(TODAY, LIMITS.horizon);
+  // One day more than the limit: the client counts from its local date, which
+  // in UTC+14 is a day ahead of the UTC date the server counts from.
+  const last = addDays(TODAY, LIMITS.horizon + 1);
 
-  it('takes the last day of the horizon and refuses the day after', async () => {
+  it('takes the horizon and a day of slack, and refuses the day after', async () => {
+    for (const days of [[addDays(TODAY, LIMITS.horizon)], [last]]) {
+      const inside = await t.app.inject({
+        method: 'POST',
+        url: '/api/events',
+        payload: {
+          title: 'Inside',
+          emoji: 'owl',
+          language: 'en',
+          durationDays: 1,
+          days,
+        },
+      });
+      expect(inside.statusCode).toBe(201);
+    }
     const ok = await t.app.inject({
       method: 'POST',
       url: '/api/events',
@@ -186,8 +202,9 @@ describe('how far ahead days may lie', () => {
 
   it('refuses a far day added by an edit', async () => {
     const { id, adminToken } = await createEvent(t.app);
-    // Within one span of the first day, but the clock has run on.
-    t.clock.advanceDays(-LIMITS.horizon);
+    // Within one span of the first day, but the clock has run on, and by more
+    // than the day of slack.
+    t.clock.advanceDays(-(LIMITS.horizon + 2));
     const response = await patch(id, adminToken, {
       days: [...DAYS, '2027-03-08'],
       baseDays: DAYS,
@@ -404,6 +421,38 @@ describe('the hourly ceiling on new events', () => {
     }
     expect(ceiling.allow(0, 10, 'late')).toBe(false);
     expect(ceiling.allow(3_600_000, 10, 'late')).toBe(true);
+  });
+
+  it('starts a new window exactly an hour after the first request', () => {
+    const ceiling = new HourlyCeiling();
+    const start = 10 * 3_600_000;
+    expect(ceiling.allow(start, 1, 'a')).toBe(true);
+    expect(ceiling.allow(start + 3_599_999, 1, 'a')).toBe(false);
+    expect(ceiling.allow(start + 3_600_000, 1, 'a')).toBe(true);
+  });
+
+  it('treats a clock stepped back as an expired window', () => {
+    const ceiling = new HourlyCeiling();
+    const start = 10 * 3_600_000;
+    for (let n = 0; n < 10; n += 1) {
+      expect(ceiling.allow(start, 10, `net${n}`)).toBe(true);
+    }
+    expect(ceiling.allow(start, 10, 'late')).toBe(false);
+    // The clock jumps back an hour: the window must not stay shut for it.
+    expect(ceiling.allow(start - 3_600_000, 10, 'late')).toBe(true);
+    // And the new window runs from the stepped-back time.
+    expect(ceiling.allow(start - 3_600_000 + 3_599_999, 10, 'late')).toBe(
+      false
+    );
+    expect(ceiling.allow(start, 10, 'later')).toBe(true);
+  });
+
+  it('resets on the smallest step back, one millisecond', () => {
+    const ceiling = new HourlyCeiling();
+    const start = 10 * 3_600_000;
+    expect(ceiling.allow(start, 1, 'a')).toBe(true);
+    expect(ceiling.allow(start, 1, 'a')).toBe(false);
+    expect(ceiling.allow(start - 1, 1, 'a')).toBe(true);
   });
 
   it('allows each network one even under a tiny ceiling', () => {

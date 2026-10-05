@@ -143,22 +143,16 @@ const checksum = (sql: string): string =>
   createHash('sha256').update(sql).digest('hex');
 
 /**
- * Bring the database up to date, or refuse to start.
- *
- * An applied migration whose text has changed since is an error, not a
- * warning — the database no longer matches what the code believes it is. So is
- * a database newer than the code: running an old release against it would
+ * The versions a database has applied, once they are known to match this
+ * release: an applied migration whose text has changed since is an error, not
+ * a warning — the database no longer matches what the code believes it is. So
+ * is a database newer than the code: running an old release against it would
  * write rows the newer schema never expected.
  */
-export function migrate(
+function appliedVersions(
   db: Db,
-  migrations: readonly Migration[] = MIGRATIONS
-): number {
-  db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
-    version INTEGER PRIMARY KEY,
-    checksum TEXT NOT NULL,
-    applied_at INTEGER NOT NULL
-  ) STRICT`);
+  migrations: readonly Migration[]
+): Set<number> {
   const applied = db.all<{ version: number; checksum: string }>(
     'SELECT version, checksum FROM schema_migrations ORDER BY version'
   );
@@ -176,15 +170,57 @@ export function migrate(
       );
     }
   }
-  const done = new Set(applied.map((row) => row.version));
+  return new Set(applied.map((row) => row.version));
+}
+
+/**
+ * How many migrations the database still lacks, without changing anything: for
+ * a reader that must not upgrade a schema under a server that is running.
+ * Refuses a database that does not match this release, as {@link migrate} does.
+ */
+export function pendingMigrations(
+  db: Db,
+  migrations: readonly Migration[] = MIGRATIONS
+): number {
+  const table = db.get(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+  );
+  if (!table) return migrations.length;
+  const done = appliedVersions(db, migrations);
+  return migrations.filter((m) => !done.has(m.version)).length;
+}
+
+/** Bring the database up to date, or refuse to start; see {@link appliedVersions}. */
+export function migrate(
+  db: Db,
+  migrations: readonly Migration[] = MIGRATIONS
+): number {
+  db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    checksum TEXT NOT NULL,
+    applied_at INTEGER NOT NULL
+  ) STRICT`);
+  const done = appliedVersions(db, migrations);
   let count = 0;
   for (const migration of migrations) {
     if (done.has(migration.version)) continue;
     // SQLite cannot widen a CHECK constraint in place. Dropping the parent
     // table with foreign keys enabled would cascade-delete its child rows.
     if (migration.rebuildsReferencedTable) db.exec('PRAGMA foreign_keys = OFF');
+    let ran = false;
     try {
       db.tx(() => {
+        // Another process on this database (the command line, a second
+        // container) may have applied it since the versions were read; the
+        // lock is held now, so this look is the final one.
+        if (
+          db.get(
+            'SELECT 1 FROM schema_migrations WHERE version = ?',
+            migration.version
+          )
+        ) {
+          return;
+        }
         db.exec(migration.sql);
         if (
           migration.rebuildsReferencedTable &&
@@ -200,12 +236,13 @@ export function migrate(
           checksum(migration.sql),
           Date.now()
         );
+        ran = true;
       });
     } finally {
       if (migration.rebuildsReferencedTable)
         db.exec('PRAGMA foreign_keys = ON');
     }
-    count += 1;
+    if (ran) count += 1;
   }
   return count;
 }

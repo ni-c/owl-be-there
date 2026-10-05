@@ -24,21 +24,30 @@ export function installBrowser() {
   const listeners = new Map<string, Set<() => void>>();
   const location = {
     pathname: '/',
+    search: '',
     hash: '',
     origin: 'https://owl.example.org',
+  };
+  /** Split a path into the parts of `location`, as the browser does. */
+  const setAddress = (path: string): void => {
+    const query = path.indexOf('?');
+    location.pathname = query === -1 ? path : path.slice(0, query);
+    location.search = query === -1 ? '' : path.slice(query);
   };
   const window = {
     localStorage: storage,
     location,
     history: {
       state: null as unknown,
+      length: 1,
       pushState(state: unknown, _title: string, path: string) {
         this.state = state;
-        location.pathname = path;
+        this.length += 1;
+        setAddress(path);
       },
       replaceState(state: unknown, _title: string, path: string) {
         this.state = state;
-        location.pathname = path;
+        setAddress(path);
       },
     },
     scrollTo: vi.fn(),
@@ -52,8 +61,28 @@ export function installBrowser() {
     dispatch(type: string) {
       for (const listener of listeners.get(type) ?? []) listener();
     },
+    /** How many listeners of a type are registered, for leak checks. */
+    listenerCount(type: string) {
+      return listeners.get(type)?.size ?? 0;
+    },
   };
+  const documentListeners = new Map<string, Set<() => void>>();
   const document = {
+    visibilityState: 'visible' as 'visible' | 'hidden',
+    addEventListener(type: string, listener: () => void) {
+      if (!documentListeners.has(type)) documentListeners.set(type, new Set());
+      documentListeners.get(type)!.add(listener);
+    },
+    removeEventListener(type: string, listener: () => void) {
+      documentListeners.get(type)?.delete(listener);
+    },
+    dispatch(type: string) {
+      for (const listener of documentListeners.get(type) ?? []) listener();
+    },
+    /** How many listeners of a type are registered, for leak checks. */
+    listenerCount(type: string) {
+      return documentListeners.get(type)?.size ?? 0;
+    },
     documentElement: {
       lang: 'en',
       setAttribute: (name: string, value: string) =>

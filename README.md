@@ -105,6 +105,8 @@ docker compose exec owl node packages/server/dist/cli.js purge 2027-03-01 --yes
 
 `stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people answered (marked days), and `purge` deletes those among them that nobody answered — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
 
+The CLI never creates or upgrades a database: the server must have started once on that data directory, and after an update of the image it has to be started once before the CLI works again.
+
 **Backups:** copy `owl.db` with SQLite's online backup (`sqlite3 data/owl.db ".backup backup.db"`) rather than the file itself, which may be mid-write. Keep `secret.key` too; without it, participants with a password must log in again. Keep backups only as long as the privacy page says.
 
 ## Development

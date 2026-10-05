@@ -47,6 +47,16 @@ export default defineConfig({
       LOG_LEVEL: 'warn',
       OPERATOR_NAME: 'Example Organisation',
       LOG_RETENTION_DAYS: '7',
+      // Playwright merges this over the caller's whole environment, so every
+      // other setting the server reads is pinned: a blank value counts as unset.
+      CREATION_ENABLED: 'true',
+      MAX_EVENTS: '10000',
+      OWL_SECRET: '',
+      TRUST_PROXY: '',
+      IMPRINT_URL: '',
+      OPERATOR_CONTACT: '',
+      BACKUP_RETENTION_DAYS: '',
+      MAX_DB_BYTES: '',
     },
   },
   projects: [

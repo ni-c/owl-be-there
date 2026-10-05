@@ -1,5 +1,5 @@
 import { joinMarks, type Marks } from '@owl/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   marksOf,
   PermanentSaveError,
@@ -10,20 +10,27 @@ import {
   type SendResult,
   type Timers,
 } from '../src/lib/saveQueue.ts';
+import { installBrowser } from './browser.ts';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /** A send function whose answers the test hands out one by one. */
 class FakeServer {
   rev = 0;
   marks = { yes: [] as string[], maybe: [] as string[] };
   readonly requests: SaveRequest[] = [];
+  readonly keepalives: boolean[] = [];
   private readonly waiting: {
     request: SaveRequest;
     resolve(r: SendResult): void;
     reject(e: unknown): void;
   }[] = [];
 
-  send = (request: SaveRequest): Promise<SendResult> => {
+  send = (request: SaveRequest, keepalive = false): Promise<SendResult> => {
     this.requests.push(request);
+    this.keepalives.push(keepalive);
     return new Promise((resolve, reject) =>
       this.waiting.push({ request, resolve, reject })
     );
@@ -242,20 +249,124 @@ describe('SaveQueue', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it('sends with keepalive when nothing is in flight', () => {
-    const sent: boolean[] = [];
-    const queue = new SaveQueue({
-      baseRev: 0,
-      send: (_request, keepalive) => {
-        sent.push(keepalive);
-        return Promise.reject(new Error('gone'));
-      },
-    });
+  it('sends with keepalive when nothing is in flight', async () => {
+    const { server, queue } = setup();
     // Reach a state with something pending and nothing in flight.
     (queue as unknown as { pending: Marks }).pending = marks('2027-03-06');
     queue.flushOnLeave();
-    expect(sent).toEqual([true]);
+    expect(server.keepalives).toEqual([true]);
+    expect(queue.busy).toBe(true);
+    server.answer();
+    await tick();
     expect(queue.busy).toBe(false);
+    expect(queue.baseRev).toBe(1);
+    expect(queue.currentStatus).toBe('saved');
+  });
+
+  it('sends every save with keepalive, so one under way outlives the page', async () => {
+    const { server, queue } = setup();
+    queue.push(marks('2027-03-06'));
+    // One request in flight, nothing pending: leaving has nothing to add and
+    // sends nothing, but the request under way already is a keepalive one.
+    queue.flushOnLeave();
+    expect(server.requests).toHaveLength(1);
+    expect(server.keepalives).toEqual([true]);
+    server.answer();
+    await tick();
+    queue.push(marks('2027-03-07'));
+    server.answer();
+    await tick();
+    expect(server.keepalives).toEqual([true, true]);
+  });
+
+  it('keeps a retry after a failed save keepalive too', async () => {
+    const { server, queue, timers } = setup();
+    queue.push(marks('2027-03-06'));
+    server.fail(new Error('offline'));
+    await tick();
+    timers.runNext();
+    await tick();
+    expect(server.keepalives).toEqual([true, true]);
+  });
+
+  it('sends an empty selection with keepalive, too', async () => {
+    const { server, queue } = setup();
+    queue.push(new Map());
+    expect(server.requests[0]).toEqual({ baseRev: 0, yes: [], maybe: [] });
+    expect(server.keepalives).toEqual([true]);
+    queue.flushOnLeave();
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('puts a change back and retries when the one sent on leaving fails', async () => {
+    const { server, queue, timers, statuses } = setup();
+    queue.push(marks('2027-03-06'));
+    queue.push(marks('2027-03-07'));
+    queue.flushOnLeave(); // the page is hidden, not gone
+    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1]);
+    server.fail(new Error('offline')); // the first one
+    await tick();
+    server.fail(new Error('offline')); // the one sent on leaving
+    await tick();
+    expect(statuses.at(-1)).toBe('retrying');
+    expect(timers.pending).toHaveLength(1);
+    timers.runNext();
+    await tick();
+    expect(server.requests.at(-1)!.yes).toEqual(['2027-03-07']);
+    server.answer();
+    await tick();
+    expect(queue.busy).toBe(false);
+  });
+
+  it('takes the revision a request sent on leaving made, so the next change is not stale', async () => {
+    const { server, queue } = setup();
+    queue.push(marks('2027-03-06'));
+    queue.push(marks('2027-03-07'));
+    queue.flushOnLeave();
+    server.answer(); // first lands, rev 1
+    await tick();
+    server.answer(); // second (baseRev 1) lands, rev 2
+    await tick();
+    expect(queue.baseRev).toBe(2);
+    expect(server.marks.yes).toEqual(['2027-03-07']);
+    queue.push(marks('2027-03-08'));
+    expect(server.requests.at(-1)!.baseRev).toBe(2);
+  });
+
+  it('resends the state when the one sent on leaving was refused as stale', async () => {
+    const { server, queue } = setup();
+    server.rev = 4; // another device saved meanwhile
+    (queue as unknown as { pending: Marks }).pending = marks('2027-03-06');
+    queue.flushOnLeave();
+    server.answer(); // conflict, nothing in flight
+    await tick();
+    expect(server.requests.at(-1)).toEqual({
+      baseRev: 4,
+      yes: ['2027-03-06'],
+      maybe: [],
+    });
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual(['2027-03-06']);
+  });
+
+  it('ignores what comes back after the queue was disposed of', async () => {
+    const { server, queue, timers } = setup();
+    (queue as unknown as { pending: Marks }).pending = marks('2027-03-06');
+    queue.flushOnLeave();
+    queue.dispose();
+    server.fail(new Error('gone'));
+    await tick();
+    expect(timers.pending).toHaveLength(0);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('leaves nothing to send once disposed of', () => {
+    const { server, queue } = setup();
+    queue.dispose();
+    queue.push(marks('2027-03-06'));
+    queue.flushOnLeave();
+    expect(server.requests).toEqual([]);
   });
 
   it('drops pending work and timers when disposed', async () => {
@@ -307,5 +418,187 @@ describe('SaveQueue', () => {
     await tick();
     expect(calls).toBe(1);
     queue.dispose();
+  });
+
+  it('starts over after dispose and revive, as when StrictMode remounts', async () => {
+    const { server, queue } = setup();
+    queue.dispose();
+    queue.revive();
+    queue.push(marks('2027-03-06'));
+    expect(server.requests).toHaveLength(1);
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual(['2027-03-06']);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('sends an empty selection after revive', async () => {
+    const { server, queue } = setup();
+    queue.dispose();
+    queue.revive();
+    queue.push(new Map());
+    expect(server.requests).toEqual([{ baseRev: 0, yes: [], maybe: [] }]);
+  });
+
+  it('retries after revive, though it did not while disposed of', async () => {
+    const { server, queue, timers } = setup();
+    queue.push(marks('2027-03-06'));
+    queue.dispose();
+    queue.revive();
+    server.fail(new Error('offline'));
+    await tick();
+    expect(timers.pending).toHaveLength(1);
+    timers.runNext();
+    await tick();
+    expect(server.requests).toHaveLength(2);
+  });
+
+  it('keeps a single request in flight across dispose, revive and a new push', async () => {
+    const { server, queue } = setup();
+    queue.push(marks('2027-03-06'));
+    queue.dispose();
+    queue.revive();
+    queue.push(marks('2027-03-07'));
+    expect(server.open).toBe(1);
+    server.answer();
+    await tick();
+    expect(server.open).toBe(1);
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual(['2027-03-07']);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('is revived by attach and disposed of again by its undo', () => {
+    const browser = installBrowser();
+    const { server, queue } = setup();
+    queue.dispose();
+    const detach = queue.attach();
+    expect(browser.window.listenerCount('pagehide')).toBe(1);
+    expect(browser.document.listenerCount('visibilitychange')).toBe(1);
+    queue.push(marks('2027-03-06'));
+    expect(server.requests).toHaveLength(1);
+    detach();
+    expect(browser.window.listenerCount('pagehide')).toBe(0);
+    expect(browser.document.listenerCount('visibilitychange')).toBe(0);
+    queue.push(marks('2027-03-07'));
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('sends what is still pending, with keepalive, when the undo of attach runs', () => {
+    const browser = installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    queue.push(marks('2027-03-06')); // in flight
+    queue.push(marks('2027-03-07')); // pending
+    detach(); // the panel goes away, the page stays
+    expect(server.requests).toHaveLength(2);
+    expect(server.requests[1]).toEqual({
+      baseRev: 1,
+      yes: ['2027-03-07'],
+      maybe: [],
+    });
+    expect(server.keepalives).toEqual([true, true]);
+    expect(browser.window.listenerCount('pagehide')).toBe(0);
+  });
+
+  it('sends nothing when the undo of attach runs with nothing pending', () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    detach();
+    expect(server.requests).toHaveLength(0);
+    queue.push(marks('2027-03-06')); // disposed of: ignored
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it('sends an empty selection that is pending when the undo of attach runs', () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    queue.push(marks('2027-03-06')); // in flight
+    queue.push(new Map()); // pending: "none of these days"
+    detach();
+    expect(server.requests[1]).toEqual({ baseRev: 1, yes: [], maybe: [] });
+  });
+
+  it('does not send the same state twice across a StrictMode remount', () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const first = queue.attach();
+    queue.push(marks('2027-03-06')); // in flight
+    queue.push(marks('2027-03-07')); // pending
+    first(); // cleanup: flushes the pending state once
+    const second = queue.attach();
+    expect(server.requests).toHaveLength(2);
+    second();
+    expect(server.requests).toHaveLength(2);
+  });
+
+  it('survives a StrictMode remount: attach, undo, attach', () => {
+    const browser = installBrowser();
+    const { server, queue } = setup();
+    const first = queue.attach();
+    first();
+    const second = queue.attach();
+    expect(browser.window.listenerCount('pagehide')).toBe(1);
+    queue.push(marks('2027-03-06'));
+    expect(server.requests).toHaveLength(1);
+    second();
+  });
+
+  it('flushes on pagehide and when the page is hidden, not when it is shown', () => {
+    const browser = installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    queue.push(marks('2027-03-06')); // in flight
+    queue.push(marks('2027-03-07')); // pending
+    browser.document.visibilityState = 'visible';
+    browser.document.dispatch('visibilitychange');
+    expect(server.requests).toHaveLength(1);
+    browser.document.visibilityState = 'hidden';
+    browser.document.dispatch('visibilitychange');
+    expect(server.requests).toHaveLength(2);
+    expect(server.keepalives).toEqual([true, true]);
+    queue.push(marks('2027-03-08'));
+    browser.window.dispatch('pagehide');
+    expect(server.requests).toHaveLength(3);
+    detach();
+  });
+
+  it('does not let an older request that failed overtake the newer one sent on leaving', async () => {
+    const { server, queue, timers, statuses } = setup();
+    queue.push(marks('2027-03-06'));
+    queue.push(marks('2027-03-07'));
+    queue.flushOnLeave();
+    server.fail(new Error('offline')); // the older one
+    await tick();
+    expect(timers.pending).toHaveLength(0);
+    expect(queue.busy).toBe(true);
+    // The newer one was based on a revision that never came: stale. The
+    // server's revision is taken and the newest state goes out again.
+    server.answer();
+    await tick();
+    expect(server.requests.at(-1)).toEqual({
+      baseRev: 0,
+      yes: ['2027-03-07'],
+      maybe: [],
+    });
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual(['2027-03-07']);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('ends failed when what was sent on leaving is refused for good', async () => {
+    const { server, queue, timers, statuses } = setup();
+    (queue as unknown as { pending: Marks }).pending = marks('2027-03-06');
+    queue.flushOnLeave();
+    server.fail(new PermanentSaveError('closed'));
+    await tick();
+    expect(statuses.at(-1)).toBe('failed');
+    expect(timers.pending).toHaveLength(0);
+    expect(queue.busy).toBe(false);
   });
 });

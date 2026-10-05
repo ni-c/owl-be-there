@@ -16,7 +16,13 @@ export function registerLiveRoutes(
 ): void {
   app.get<{ Params: { id: string } }>(
     '/api/events/:id/stream',
-    { config: limit(ctx.config, 60, '1 minute') },
+    {
+      config: limit(ctx.config, 60, '1 minute'),
+      // Fastify's HEAD twin would run this handler too: it hijacks the response
+      // and never answers a HEAD, which Node writes no body for, while holding
+      // a stream slot until the lifetime ends.
+      exposeHeadRoute: false,
+    },
     async (request, reply) => {
       const event = eventOr404(ctx, request.params.id);
       const key = networkKey(request.ip);

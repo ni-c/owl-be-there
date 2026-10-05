@@ -35,6 +35,10 @@ export const fr: Dictionary = {
   'home.myEvents': 'Tes événements',
   'home.organiser': 'tu organises',
   'home.forget': 'Retirer {title} de cette liste',
+  'home.forgetOrganiser.title': 'Retirer cet événement de cet appareil ?',
+  'home.forgetOrganiser.text':
+    'Cet appareil conserve le lien d’organisation de « {title} ». Si tu retires l’événement, ce lien est supprimé ici : sans copie, tu ne pourras plus clore le sondage, choisir la date ni supprimer l’événement depuis cet appareil.',
+  'home.forgetOrganiser.yes': 'Retirer de cet appareil',
   'home.creationDisabled':
     'Tu ne peux pas créer d’événement ici pour le moment.',
 
@@ -75,6 +79,8 @@ export const fr: Dictionary = {
   'create.next': 'Suivant',
   'create.submit': 'Créer l’événement',
   'create.creating': 'Création…',
+  'create.durationLess': 'Un jour de moins d’affilée',
+  'create.durationMore': 'Un jour de plus d’affilée',
 
   'error.titleRequired': 'Donne un titre à l’événement.',
   'error.range': 'La date de fin est avant la date de début.',
@@ -94,6 +100,13 @@ export const fr: Dictionary = {
   'error.rateLimited': 'Ça va un peu vite. Attends un instant.',
   'error.forbidden': 'Ce lien ne permet pas de faire ça.',
   'error.nameTaken': 'Quelqu’un utilise déjà ce nom.',
+  'error.numberRange': 'Saisis un nombre de {min} à {max}.',
+  'error.rosterLine': 'Un nom peut comporter {max} caractères au maximum.',
+  'error.rosterTooMany': '{max} noms au maximum à la fois.',
+  'error.busy': 'Le serveur est occupé en ce moment. Réessaie dans un instant.',
+  'error.changed': 'Cette entrée vient d’être modifiée. Réessaie.',
+  'error.invalid':
+    'Certaines informations ne sont pas valides. Vérifie-les et réessaie.',
 
   'event.loading': 'Chargement de l’événement…',
   'event.notFound.title': 'On ne trouve pas cet événement.',
@@ -106,6 +119,8 @@ export const fr: Dictionary = {
   'event.duration_other': '{count} jours d’affilée',
   'event.minCount_one': 'nécessite {count} personne',
   'event.minCount_other': 'nécessite {count} personnes',
+  'event.adminRefused':
+    'Ce lien d’organisation n’a pas été accepté. Les outils d’organisation ont été retirés de cet appareil ; rouvre le lien complet pour les retrouver.',
   'event.expires':
     'L’événement sera supprimé automatiquement le {date} si rien ne change d’ici là.',
   'event.share': 'Partager',
@@ -250,6 +265,15 @@ export const fr: Dictionary = {
     'Supprimer cet événement pour tout le monde ? C’est irréversible.',
   'admin.deleteYes': 'Supprimer définitivement',
   'admin.saved': 'Enregistré',
+  'admin.lossTitle': 'Enregistrer les modifications ?',
+  'admin.lossMarks_one':
+    'Cela supprime définitivement {count} réponse sur les jours retirés.',
+  'admin.lossMarks_other':
+    'Cela supprime définitivement {count} réponses sur les jours retirés.',
+  'admin.lossDateShort': 'La date choisie sera raccourcie.',
+  'admin.lossDateDropped':
+    'La date choisie ne convient plus et est abandonnée. Le sondage reste fermé.',
+  'admin.lossConfirm': 'Enregistrer quand même',
   'admin.noPeople': 'Il n’y a encore personne.',
 
   'footer.language': 'Langue',
@@ -270,7 +294,7 @@ export const fr: Dictionary = {
   'privacy.stored.person':
     'Pour chaque personne, nous gardons son nom et les jours marqués. Nous gardons aussi une note et une empreinte du mot de passe si elle en ajoute.',
   'privacy.stored.nothingElse':
-    'Il n’y a pas de compte, d’adresse e-mail, de cookies ni de statistiques. L’application ne contacte aucun autre service et ne garde pas les adresses IP.',
+    'Il n’y a pas de compte, d’adresse e-mail, de cookies ni de statistiques. L’application ne contacte aucun autre service et ne garde pas les adresses IP. La seule exception est le lien vers Google Agenda : en cliquant dessus, Google s’ouvre avec le titre, la description, le lieu et le lien de l’événement.',
   'privacy.visible.title': 'Qui peut voir ces données',
   'privacy.visible.text':
     'Toute personne ayant le lien d’un événement peut voir les noms et les jours marqués. Les moteurs de recherche reçoivent la consigne de ne pas indexer ces pages.',
@@ -280,10 +304,19 @@ export const fr: Dictionary = {
   'privacy.retention.title': 'Quand les données sont supprimées',
   'privacy.retention.text':
     'Un événement est supprimé {days} jours après sa dernière modification. Jamais avant que son dernier jour soit passé. La personne qui l’organise peut le supprimer à tout moment.',
-  'privacy.logs':
-    'Le serveur web conserve des journaux d’accès avec les adresses IP pour éviter les abus. Ces journaux sont supprimés après {days} jours.',
-  'privacy.backups':
-    'Les sauvegardes sont conservées {days} jours. Ensuite, les événements supprimés en disparaissent aussi.',
+  'privacy.logs_one':
+    'Le serveur web conserve des journaux d’accès avec les adresses IP pour éviter les abus. Ces journaux sont supprimés après {count} jour.',
+  'privacy.logs_other':
+    'Le serveur web conserve des journaux d’accès avec les adresses IP pour éviter les abus. Ces journaux sont supprimés après {count} jours.',
+  'privacy.logs.none': 'Le serveur web ne conserve pas de journaux d’accès.',
+  'privacy.backups_one':
+    'Les sauvegardes sont conservées {count} jour. Ensuite, les événements supprimés en disparaissent aussi.',
+  'privacy.backups_other':
+    'Les sauvegardes sont conservées {count} jours. Ensuite, les événements supprimés en disparaissent aussi.',
+  'privacy.backups.none': 'Aucune sauvegarde n’est conservée.',
+  'privacy.instance.loading': 'Chargement des informations sur l’exploitant…',
+  'privacy.instance.failed':
+    'Les informations sur l’exploitant n’ont pas pu être chargées. Recharge la page pour réessayer.',
   'privacy.operator.title': 'Qui gère cette instance',
   'privacy.operator.contact': 'Contact : {contact}',
   'privacy.source':

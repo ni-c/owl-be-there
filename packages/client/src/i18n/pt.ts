@@ -35,6 +35,10 @@ export const pt: Dictionary = {
   'home.myEvents': 'Os teus eventos',
   'home.organiser': 'organizas',
   'home.forget': 'Remover {title} desta lista',
+  'home.forgetOrganiser.title': 'Remover este evento deste dispositivo?',
+  'home.forgetOrganiser.text':
+    'Este dispositivo guarda o link de organização de «{title}». Ao remover o evento, esse link é apagado daqui: sem uma cópia, deixas de poder fechar a votação, escolher a data ou apagar o evento a partir deste dispositivo.',
+  'home.forgetOrganiser.yes': 'Remover deste dispositivo',
   'home.creationDisabled': 'De momento, não podes criar eventos aqui.',
 
   'create.title': 'Planear um evento',
@@ -73,6 +77,8 @@ export const pt: Dictionary = {
   'create.next': 'Seguinte',
   'create.submit': 'Criar evento',
   'create.creating': 'A criar…',
+  'create.durationLess': 'Menos um dia seguido',
+  'create.durationMore': 'Mais um dia seguido',
 
   'error.titleRequired': 'Dá um título ao evento.',
   'error.range': 'A data de fim é anterior à data de início.',
@@ -92,6 +98,14 @@ export const pt: Dictionary = {
   'error.rateLimited': 'Isso foi um pouco rápido. Espera um momento.',
   'error.forbidden': 'Não podes fazer isso com este link.',
   'error.nameTaken': 'Já há alguém com esse nome.',
+  'error.numberRange': 'Introduz um número de {min} a {max}.',
+  'error.rosterLine': 'Um nome pode ter no máximo {max} caracteres.',
+  'error.rosterTooMany': 'No máximo, {max} nomes de cada vez.',
+  'error.busy':
+    'O servidor está ocupado neste momento. Tenta outra vez daqui a pouco.',
+  'error.changed': 'Esta entrada acabou de ser alterada. Tenta outra vez.',
+  'error.invalid':
+    'Alguns dados não são válidos. Verifica-os e tenta outra vez.',
 
   'event.loading': 'A carregar o evento…',
   'event.notFound.title': 'Não encontramos este evento.',
@@ -104,6 +118,8 @@ export const pt: Dictionary = {
   'event.duration_other': '{count} dias seguidos',
   'event.minCount_one': 'precisa de {count} pessoa',
   'event.minCount_other': 'precisa de {count} pessoas',
+  'event.adminRefused':
+    'Este link de organização não foi aceite. As ferramentas de organização foram removidas deste dispositivo; abre outra vez o link completo para as recuperar.',
   'event.expires':
     'O evento será apagado automaticamente em {date} se nada mudar até lá.',
   'event.share': 'Partilhar',
@@ -245,6 +261,15 @@ export const pt: Dictionary = {
     'Apagar este evento para todos? Não é possível anular.',
   'admin.deleteYes': 'Apagar definitivamente',
   'admin.saved': 'Guardado',
+  'admin.lossTitle': 'Guardar as alterações?',
+  'admin.lossMarks_one':
+    'Isto apaga de vez {count} resposta nos dias removidos.',
+  'admin.lossMarks_other':
+    'Isto apaga de vez {count} respostas nos dias removidos.',
+  'admin.lossDateShort': 'A data escolhida fica mais curta.',
+  'admin.lossDateDropped':
+    'A data escolhida já não cabe e é descartada. A sondagem continua fechada.',
+  'admin.lossConfirm': 'Guardar mesmo assim',
   'admin.noPeople': 'Ainda não há ninguém.',
 
   'footer.language': 'Idioma',
@@ -265,7 +290,7 @@ export const pt: Dictionary = {
   'privacy.stored.person':
     'De cada pessoa guardamos o nome e os dias marcados. Também guardamos uma nota e um hash da palavra-passe, se forem adicionados.',
   'privacy.stored.nothingElse':
-    'Não há contas, endereços de e-mail, cookies nem estatísticas. A aplicação não contacta outros serviços nem guarda endereços IP.',
+    'Não há contas, endereços de e-mail, cookies nem estatísticas. A aplicação não contacta outros serviços nem guarda endereços IP. A única exceção é a ligação para o Google Calendar: ao clicares, o Google abre com o título, a descrição, o local e a ligação do evento.',
   'privacy.visible.title': 'Quem pode ver',
   'privacy.visible.text':
     'Quem tiver o link do evento pode ver os nomes e os dias marcados. Os motores de busca recebem a indicação para não indexar as páginas dos eventos.',
@@ -275,10 +300,19 @@ export const pt: Dictionary = {
   'privacy.retention.title': 'Quando são apagados',
   'privacy.retention.text':
     'Um evento é apagado {days} dias após a última alteração. Nunca antes de terminar o seu último dia. Quem o organiza pode apagá-lo a qualquer momento.',
-  'privacy.logs':
-    'O servidor web regista os acessos com endereços IP para prevenir abusos. Estes registos são apagados após {days} dias.',
-  'privacy.backups':
-    'As cópias de segurança são guardadas durante {days} dias. Depois, os eventos apagados também desaparecem delas.',
+  'privacy.logs_one':
+    'O servidor web regista os acessos com endereços IP para prevenir abusos. Estes registos são apagados após {count} dia.',
+  'privacy.logs_other':
+    'O servidor web regista os acessos com endereços IP para prevenir abusos. Estes registos são apagados após {count} dias.',
+  'privacy.logs.none': 'O servidor web não guarda registos dos acessos.',
+  'privacy.backups_one':
+    'As cópias de segurança são guardadas durante {count} dia. Depois, os eventos apagados também desaparecem delas.',
+  'privacy.backups_other':
+    'As cópias de segurança são guardadas durante {count} dias. Depois, os eventos apagados também desaparecem delas.',
+  'privacy.backups.none': 'Não são guardadas cópias de segurança.',
+  'privacy.instance.loading': 'A carregar os dados de quem gere o serviço…',
+  'privacy.instance.failed':
+    'Não foi possível carregar os dados de quem gere o serviço. Recarrega a página para tentar de novo.',
   'privacy.operator.title': 'Quem gere esta instância',
   'privacy.operator.contact': 'Contacto: {contact}',
   'privacy.source':

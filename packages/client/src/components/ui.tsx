@@ -9,6 +9,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { arrowTarget } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -17,8 +18,10 @@ const VARIANTS: Record<Variant, string> = {
   primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
   secondary:
     'bg-surface text-ink border-2 border-line hover:border-line-strong',
-  ghost: 'text-ink hover:bg-sunken',
-  danger: 'bg-danger text-white hover:opacity-90',
+  // No text colour of its own: it inherits the ink, and a caller's `text-*`
+  // class (a red delete button) is not left to lose a tie between utilities.
+  ghost: 'hover:bg-sunken',
+  danger: 'bg-danger text-danger-ink hover:opacity-90',
 };
 
 export function Button({
@@ -31,7 +34,7 @@ export function Button({
   size?: 'sm' | 'md' | 'lg';
 }) {
   const sizes = {
-    sm: 'min-h-9 px-3 text-sm gap-1.5',
+    sm: 'min-h-11 px-3 text-sm gap-1.5',
     md: 'min-h-11 px-4 gap-2',
     lg: 'min-h-13 px-6 text-lg gap-2',
   };
@@ -104,7 +107,7 @@ export function Field({ label, hint, error, children }: FieldProps) {
 }
 
 const inputClass =
-  'w-full rounded-2xl border-2 border-line bg-surface px-4 py-2.5 text-ink placeholder:text-muted/70 focus:border-focus focus:outline-none aria-[invalid=true]:border-danger';
+  'w-full rounded-2xl border-2 border-line bg-surface px-4 py-2.5 text-ink placeholder:text-muted focus:border-focus focus:outline-none aria-[invalid=true]:border-danger';
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -172,18 +175,19 @@ export function Segmented<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => {
               const index = options.findIndex((o) => o.value === value);
-              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                onChange(options[(index + 1) % options.length]!.value);
-              } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                onChange(
-                  options[(index - 1 + options.length) % options.length]!.value
+              const next = arrowTarget(event.key, index, options.length);
+              if (next === null) return;
+              event.preventDefault();
+              onChange(options[next]!.value);
+              // The focus follows the choice, as in a native radio group.
+              const radios =
+                event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(
+                  '[role=radio]'
                 );
-              }
+              radios?.[next]?.focus();
             }}
             tabIndex={checked ? 0 : -1}
-            className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 font-bold transition ${
+            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 font-bold transition ${
               checked
                 ? 'bg-surface text-ink shadow-card'
                 : 'text-muted hover:text-ink'
@@ -197,7 +201,10 @@ export function Segmented<T extends string>({
   );
 }
 
-/** A button that stays pressed, like a filter chip. */
+/**
+ * A button that stays pressed, like a filter chip. Without `pressed` it is a
+ * plain action in the same look and announces no state.
+ */
 export function Chip({
   pressed,
   onClick,
@@ -205,7 +212,7 @@ export function Chip({
   className = '',
   ...rest
 }: {
-  pressed: boolean;
+  pressed?: boolean;
   onClick(): void;
   children: ReactNode;
   className?: string;
@@ -216,7 +223,7 @@ export function Chip({
       aria-pressed={pressed}
       onClick={onClick}
       {...rest}
-      className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3.5 font-bold transition ${
+      className={`inline-flex max-w-full min-w-0 min-h-11 items-center gap-1.5 rounded-full border-2 px-3.5 font-bold [overflow-wrap:anywhere] transition ${
         pressed
           ? 'border-brand bg-brand-soft text-ink'
           : 'border-line bg-surface text-muted hover:text-ink'
@@ -244,6 +251,9 @@ export function Dialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Whether the press began on the backdrop: a drag that starts inside and
+  // ends outside is a text selection or a cancelled press, not a dismissal.
+  const pressedBackdrop = useRef(false);
   const titleId = useId();
   const { t } = useI18n();
   useEffect(() => {
@@ -264,8 +274,12 @@ export function Dialog({
         event.preventDefault();
         onClose();
       }}
+      onPointerDown={(event) => {
+        pressedBackdrop.current = event.target === event.currentTarget;
+      }}
       onClick={(event) => {
-        if (event.target === ref.current) onClose();
+        if (event.target === ref.current && pressedBackdrop.current) onClose();
+        pressedBackdrop.current = false;
       }}
       className="m-0 mt-auto w-full max-w-none rounded-t-3xl border border-line bg-surface p-0 text-ink shadow-card sm:m-auto sm:max-w-lg sm:rounded-3xl"
     >
@@ -278,13 +292,15 @@ export function Dialog({
             <button
               type="button"
               onClick={onClose}
-              className="grid size-10 place-items-center rounded-full hover:bg-sunken"
+              className="grid size-11 place-items-center rounded-full hover:bg-sunken"
               aria-label={t('day.close')}
             >
               <CloseIcon />
             </button>
           </div>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
+          <div className="overflow-y-auto overscroll-contain px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
         </div>
       )}
     </dialog>
@@ -299,14 +315,14 @@ export function Notice({
   children: ReactNode;
 }) {
   const tones = {
-    info: 'bg-sunken text-ink',
+    info: 'bg-sunken text-ink border-line',
     error: 'bg-danger-soft text-ink border-danger',
-    success: 'bg-brand-soft text-ink',
+    success: 'bg-brand-soft text-ink border-line',
   };
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`rounded-2xl border border-line px-4 py-3 ${tones[tone]}`}
+      className={`rounded-2xl border px-4 py-3 ${tones[tone]}`}
     >
       {children}
     </div>

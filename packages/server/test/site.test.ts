@@ -1,12 +1,15 @@
 import { createHash } from 'node:crypto';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon } from '@owl/shared';
+import { emojiIcon, LANGUAGES, SERVER_TEXTS } from '@owl/shared';
 import { snapshot } from '../src/db/repo.js';
 import { escapeHtml, PageTemplate } from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
+  CLIENT_DIR,
   createEvent,
   eventBody,
   join,
@@ -219,6 +222,59 @@ describe('pages', () => {
     expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
   });
 
+  describe('the preview of a closed poll', () => {
+    const setStatus = (id: string, adminToken: string, payload: object) =>
+      t!.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/status`,
+        headers: { 'x-admin-token': adminToken },
+        payload,
+      });
+    const description = async (id: string): Promise<string> => {
+      const body = (await t!.app.inject({ method: 'GET', url: `/e/${id}` }))
+        .body;
+      const match = /<meta property="og:description" content="([^"]*)"/.exec(
+        body
+      );
+      if (!match) throw new Error('no og:description');
+      return match[1]!;
+    };
+
+    it.each(LANGUAGES)(
+      'says so in %s and no longer invites answers',
+      async (language) => {
+        t = await testApp();
+        const { id, adminToken } = await createEvent(t.app, { language });
+        const texts = SERVER_TEXTS[language];
+        expect(await description(id)).toBe(escapeHtml(texts.previewOpen(0)));
+        await setStatus(id, adminToken, { status: 'closed' });
+        const closed = await description(id);
+        expect(closed).toBe(escapeHtml(texts.previewClosed));
+        expect(closed).not.toBe(escapeHtml(texts.previewOpen(0)));
+      }
+    );
+
+    it('still announces the date of a decided poll, and goes back to the invitation when reopened', async () => {
+      t = await testApp();
+      const { id, adminToken } = await createEvent(t.app);
+      await setStatus(id, adminToken, { status: 'closed' });
+      await setStatus(id, adminToken, {
+        status: 'finalized',
+        start: '2027-03-06',
+      });
+      expect(await description(id)).toMatch(/^The date is set: /);
+      await setStatus(id, adminToken, { status: 'closed' });
+      expect(await description(id)).toBe(SERVER_TEXTS.en.previewClosed);
+      await setStatus(id, adminToken, { status: 'open' });
+      expect(await description(id)).toBe(
+        'Add the days you can make it. No sign-up needed.'
+      );
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, WEEKEND);
+      expect(await description(id)).toContain('1 answer so far');
+    });
+  });
+
   it('serves the start page in every language, in that language', async () => {
     t = await testApp();
     const german = await t.app.inject({ method: 'GET', url: '/de' });
@@ -339,6 +395,136 @@ describe('pages', () => {
     );
   });
 
+  it('serves the pages at their address with a trailing slash, head and all', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: 'Slash party' });
+    for (const [url, bare] of [
+      [`/e/${id}/`, `/e/${id}`],
+      ['/de/', '/de'],
+      ['/ja/', '/ja'],
+      ['/privacy/', '/privacy'],
+    ] as const) {
+      for (const method of ['GET', 'HEAD'] as const) {
+        const slash = await t!.app.inject({ method, url });
+        const plain = await t!.app.inject({ method, url: bare });
+        expect(slash.statusCode, `${method} ${url}`).toBe(200);
+        expect(slash.headers['content-type']).toBe(
+          plain.headers['content-type']
+        );
+        expect(slash.headers['x-robots-tag']).toBe(
+          plain.headers['x-robots-tag']
+        );
+      }
+      expect((await t.app.inject({ method: 'GET', url })).body).toBe(
+        (await t.app.inject({ method: 'GET', url: bare })).body
+      );
+    }
+    const page = await t.app.inject({ method: 'GET', url: `/e/${id}/` });
+    expect(page.body).toContain('Slash party');
+  });
+
+  it('keeps unknown events and paths a 404, with or without a slash', async () => {
+    t = await testApp();
+    for (const url of ['/e/AAAAAAAAAAAA/', '/e/nope/', '/xx/', '/somewhere/']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+    }
+    const { id } = await createEvent(t.app);
+    // The picture has the one address only.
+    const picture = await t.app.inject({
+      method: 'GET',
+      url: `/e/${id}/og.png/`,
+    });
+    expect(picture.statusCode).toBe(404);
+  });
+
+  it('answers the JSON 404 for /api and what is below it, the app for names that merely start with api', async () => {
+    t = await testApp();
+    for (const url of ['/api', '/api/', '/api/x', '/api?x=1', '/api/x?y=2']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.json().error, url).toBe('not_found');
+    }
+    for (const url of ['/apix', '/api.txt', '/apiary/x', '/API']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.headers['content-type'], url).toBe(
+        'text/html; charset=utf-8'
+      );
+    }
+  });
+
+  it('answers the JSON 404 for every path without a client, /apix included', async () => {
+    t = await testApp({ site: false });
+    for (const url of ['/apix', '/api.txt', '/api', '/api/x', '/api?x=1']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.json().error, url).toBe('not_found');
+    }
+  });
+
+  describe('caching static files', () => {
+    const dirs: string[] = [];
+    afterEach(() => {
+      for (const dir of dirs.splice(0))
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** A copy of the test client under a path of our choosing. */
+    const clientAt = (...parts: string[]): string => {
+      const root = mkdtempSync(joinPath(tmpdir(), 'owl-client-'));
+      dirs.push(root);
+      const dir = joinPath(root, ...parts);
+      mkdirSync(dir, { recursive: true });
+      cpSync(CLIENT_DIR, dir, { recursive: true });
+      writeFileSync(joinPath(dir, 'favicon.svg'), '<svg/>');
+      mkdirSync(joinPath(dir, 'assets-old'));
+      writeFileSync(joinPath(dir, 'assets-old', 'old.js'), '//');
+      return dir;
+    };
+    const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+    const cacheControl = async (clientDir: string) => {
+      t = await testApp({ env: { CLIENT_DIR: clientDir } });
+      const get = async (url: string) =>
+        (await t!.app.inject({ method: 'GET', url })).headers['cache-control'];
+      return {
+        asset: await get('/assets/app.js'),
+        icon: await get('/favicon.svg'),
+        index: await get('/index.html'),
+        old: await get('/assets-old/old.js'),
+      };
+    };
+
+    it('makes only the hashed assets immutable', async () => {
+      expect(await cacheControl(clientAt('dist'))).toEqual({
+        asset: IMMUTABLE,
+        icon: 'no-cache',
+        index: 'no-cache',
+        old: 'no-cache',
+      });
+    });
+
+    it('does not mind a client directory with assets in its own path', async () => {
+      for (const parts of [
+        ['assets', 'owl', 'dist'],
+        ['x', 'assets'],
+        ['assets'],
+      ]) {
+        expect(await cacheControl(clientAt(...parts)), parts.join('/')).toEqual(
+          {
+            asset: IMMUTABLE,
+            icon: 'no-cache',
+            index: 'no-cache',
+            old: 'no-cache',
+          }
+        );
+        await t!.app.close();
+        t = undefined;
+      }
+    });
+  });
+
   it('runs as an API alone without a client', async () => {
     t = await testApp({ site: false });
     const response = await t.app.inject({ method: 'GET', url: '/' });
@@ -410,33 +596,6 @@ describe('preview pictures', () => {
     const max = await join(t.app, id, 'Max');
     await mark(t.app, id, max, WEEKEND);
     expect((await get()).equals(first)).toBe(false);
-  });
-
-  it('keeps each version once, dropping the least recently used', async () => {
-    t = await testApp();
-    const { id } = await createEvent(t.app);
-    const data = snapshot(t.db, id)!;
-    const renderer = new PreviewRenderer(null, 'owl.example.org', 2);
-    const v1 = await renderer.render(data);
-    expect(await renderer.render(data)).toBe(v1);
-    const v2 = await renderer.render({
-      ...data,
-      event: { ...data.event, version: data.event.version + 1 },
-    });
-    expect(v2).not.toBe(v1);
-    // v1 used again, so v2 is the one a third version pushes out.
-    expect(await renderer.render(data)).toBe(v1);
-    await renderer.render({
-      ...data,
-      event: { ...data.event, version: data.event.version + 2 },
-    });
-    expect(await renderer.render(data)).toBe(v1);
-    expect(
-      await renderer.render({
-        ...data,
-        event: { ...data.event, version: data.event.version + 1 },
-      })
-    ).not.toBe(v2);
   });
 
   it('draws Japanese events, even without the Japanese font at hand', async () => {

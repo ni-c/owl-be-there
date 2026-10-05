@@ -124,4 +124,94 @@ describe('prefs', () => {
     expect(prefs.readSession(ID)).toBeNull();
     expect(prefs.readAdminToken(ID)).toBeNull();
   });
+
+  describe('the cap on the list', () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const idAt = (i: number) =>
+      `${'1'.repeat(10)}${alphabet[i % 24]}${alphabet[Math.floor(i / 24)]}`;
+    const remember = (
+      i: number,
+      role: 'organiser' | 'participant' = 'participant'
+    ) => {
+      const id = idAt(i);
+      prefs.rememberEvent({ id, title: id, emoji: 'owl' }, role, 100 + i);
+      prefs.writeSession(id, { participantId: OTHER, token: 't', name: 'x' });
+      prefs.writeAdminToken(id, 'k'.repeat(43));
+      return id;
+    };
+
+    it('removes the session and key of the entry that falls off the end, and only that', () => {
+      const ids = Array.from({ length: 51 }, (_, i) => remember(i));
+      const kept = prefs.readMyEvents().map((e) => e.id);
+      expect(kept).toHaveLength(50);
+      expect(kept).not.toContain(ids[0]);
+      expect(prefs.readSession(ids[0]!)).toBeNull();
+      expect(prefs.readAdminToken(ids[0]!)).toBeNull();
+      expect(browser.storage.getItem(`owl.session.${ids[0]}`)).toBeNull();
+      for (const id of ids.slice(1)) {
+        expect(prefs.readSession(id), id).not.toBeNull();
+        expect(prefs.readAdminToken(id), id).not.toBeNull();
+      }
+    });
+
+    it('removes nothing at exactly fifty entries', () => {
+      const ids = Array.from({ length: 50 }, (_, i) => remember(i));
+      expect(prefs.readMyEvents()).toHaveLength(50);
+      for (const id of ids) {
+        expect(prefs.readSession(id), id).not.toBeNull();
+        expect(prefs.readAdminToken(id), id).not.toBeNull();
+      }
+    });
+
+    it('removes nothing when the same event is remembered again at the cap', () => {
+      const ids = Array.from({ length: 50 }, (_, i) => remember(i));
+      prefs.rememberEvent(
+        { id: ids[0]!, title: 'again', emoji: 'owl' },
+        'participant',
+        999
+      );
+      expect(prefs.readMyEvents()).toHaveLength(50);
+      expect(prefs.readMyEvents()[0]!.id).toBe(ids[0]);
+      for (const id of ids) expect(prefs.readSession(id), id).not.toBeNull();
+    });
+
+    it('clears the keys of every entry that falls off, when several do at once', () => {
+      const ids = Array.from({ length: 50 }, (_, i) => remember(i));
+      // Two more entries than the cap, written past the list's own limit.
+      const stored = JSON.parse(browser.storage.getItem('owl.events')!) as {
+        id: string;
+      }[];
+      const extra = [idAt(60), idAt(61)];
+      for (const id of extra) {
+        prefs.writeSession(id, { participantId: OTHER, token: 't', name: 'x' });
+        stored.push({
+          id,
+          title: id,
+          emoji: 'owl',
+          role: 'participant',
+          seenAt: 1,
+        } as never);
+      }
+      browser.storage.setItem('owl.events', JSON.stringify(stored));
+      remember(70);
+      // The oldest of the listed entries goes with them; the rest stay.
+      for (const id of [...extra, ids[0]!])
+        expect(prefs.readSession(id), id).toBeNull();
+      expect(prefs.readSession(ids[1]!)).not.toBeNull();
+    });
+
+    it('forgets an event that is not stored without a fuss', () => {
+      expect(() => prefs.forgetEvent(ID)).not.toThrow();
+      expect(prefs.readMyEvents()).toEqual([]);
+    });
+
+    it('leaves the other events alone when one is forgotten', () => {
+      const a = remember(0);
+      const b = remember(1);
+      prefs.forgetEvent(a);
+      expect(prefs.readMyEvents().map((e) => e.id)).toEqual([b]);
+      expect(prefs.readSession(b)).not.toBeNull();
+      expect(prefs.readAdminToken(a)).toBeNull();
+    });
+  });
 });

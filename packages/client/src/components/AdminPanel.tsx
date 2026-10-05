@@ -1,25 +1,44 @@
 import {
   addDays,
-  compareISODate,
-  diffDays,
   EMOJI_KEYS,
   EMOJIS,
-  expandRange,
-  isValidISODate,
   LIMITS,
   maxISODate,
-  minISODate,
   type EmojiKey,
   type EventSnapshotData,
   type ISODate,
   type Mark,
   type Weekday,
 } from '@owl/shared';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import { api, ApiFailure } from '../lib/api.ts';
-import { errorMessage } from '../lib/errors.ts';
+import { api } from '../lib/api.ts';
+import {
+  daysProblem,
+  daysToSave,
+  extendSelection,
+  isLossy,
+  savingImpact,
+  visibleRange,
+  type Problem,
+  type SavingImpact,
+} from '../lib/dayEdit.ts';
+import { errorMessage, isForbidden } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
+import {
+  changedFields,
+  checkDetails,
+  detailsOf,
+  inputOf,
+  parseRoster,
+  type DetailsValues,
+} from '../lib/forms.ts';
 import { forgetEvent } from '../lib/prefs.ts';
 import { CalendarGrid } from './CalendarGrid.tsx';
 import { LockIcon, TrashIcon } from './icons.tsx';
@@ -58,27 +77,83 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Where in the panel a message belongs: next to the control that caused it. */
+type Place = 'status' | 'details' | 'days' | 'people' | 'delete';
+
 export function AdminPanel(props: AdminPanelProps) {
   const { data, store, adminToken } = props;
   const { t } = useI18n();
   const [message, setMessage] = useState<{
     tone: 'error' | 'success';
     text: string;
+    place: Place;
   } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // A second tap before the first save is answered would carry the old days
+  // and be refused as a conflict with the first.
+  const running = useRef(false);
   const { event } = data;
 
-  const run = async (action: () => Promise<EventSnapshotData | void>) => {
+  /** Run one change; true when it went through. */
+  const run = async (
+    place: Place,
+    action: () => Promise<EventSnapshotData | void>,
+    // The block length a refusal ("no 3 days in a row") talks about.
+    count: number = event.durationDays
+  ): Promise<boolean> => {
+    if (running.current) return false;
+    running.current = true;
+    setBusy(true);
     setMessage(null);
     try {
       const result = await action();
       if (result) store.apply(result);
       else void store.refresh();
-      setMessage({ tone: 'success', text: t('admin.saved') });
+      setMessage({ tone: 'success', text: t('admin.saved'), place });
+      return true;
     } catch (failure) {
-      if (failure instanceof ApiFailure && failure.code === 'forbidden')
+      // A refused key ends the panel: the page says so and takes it away, so
+      // a message here would only flash in the last frame.
+      if (isForbidden(failure)) {
         props.onAdminLost();
-      setMessage({ tone: 'error', text: errorMessage(failure, t) });
+        return false;
+      }
+      setMessage({
+        tone: 'error',
+        text: errorMessage(failure, t, { count }),
+        place,
+      });
+      return false;
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
+  };
+  const clearMessage = () => setMessage(null);
+  const noticeAt = (place: Place) =>
+    message?.place === place && (
+      <div className={place === 'delete' || place === 'status' ? '' : 'mt-4'}>
+        <Notice tone={message.tone}>{message.text}</Notice>
+      </div>
+    );
+
+  const deleteEvent = async () => {
+    try {
+      await api.deleteEvent(event.id, adminToken);
+      forgetEvent(event.id);
+      store.markDeleted();
+    } catch (failure) {
+      setConfirmDelete(false);
+      if (isForbidden(failure)) {
+        props.onAdminLost();
+        return;
+      }
+      setMessage({
+        tone: 'error',
+        text: errorMessage(failure, t),
+        place: 'delete',
+      });
     }
   };
 
@@ -88,8 +163,9 @@ export function AdminPanel(props: AdminPanelProps) {
       <div className="flex flex-wrap gap-2">
         {event.status === 'open' ? (
           <Button
+            disabled={busy}
             onClick={() =>
-              run(() =>
+              void run('status', () =>
                 api.setStatus(event.id, { status: 'closed' }, adminToken)
               )
             }
@@ -98,8 +174,11 @@ export function AdminPanel(props: AdminPanelProps) {
           </Button>
         ) : (
           <Button
+            disabled={busy}
             onClick={() =>
-              run(() => api.setStatus(event.id, { status: 'open' }, adminToken))
+              void run('status', () =>
+                api.setStatus(event.id, { status: 'open' }, adminToken)
+              )
             }
           >
             {event.status === 'finalized'
@@ -111,36 +190,50 @@ export function AdminPanel(props: AdminPanelProps) {
       {event.status !== 'finalized' && (
         <p className="text-sm text-muted">{t('admin.chooseHint')}</p>
       )}
+      {noticeAt('status')}
 
       <Section title={t('admin.edit')}>
         <DetailsForm
           data={data}
+          busy={busy}
+          onEdit={clearMessage}
           onSave={(body) =>
-            run(() => api.updateEvent(event.id, body, adminToken))
+            run(
+              'details',
+              () => api.updateEvent(event.id, body, adminToken),
+              body.durationDays ?? event.durationDays
+            )
           }
         />
+        {noticeAt('details')}
       </Section>
       <Section title={t('admin.days')}>
         <DaysEditor
           // Days changed elsewhere start a fresh edit from the new list.
           key={event.days.join()}
           {...props}
+          busy={busy}
+          onEdit={clearMessage}
           onSave={(days, baseDays) =>
-            run(() => api.updateEvent(event.id, { days, baseDays }, adminToken))
+            run('days', () =>
+              api.updateEvent(event.id, { days, baseDays }, adminToken)
+            )
           }
         />
+        {noticeAt('days')}
       </Section>
       <Section title={t('admin.people')}>
         <People
           {...props}
-          run={run}
+          busy={busy}
+          onEdit={clearMessage}
+          run={(action) => run('people', action)}
           onAdd={(names) =>
-            run(() => api.addRoster(event.id, names, adminToken))
+            run('people', () => api.addRoster(event.id, names, adminToken))
           }
         />
+        {noticeAt('people')}
       </Section>
-
-      {message && <Notice tone={message.tone}>{message.text}</Notice>}
 
       <div>
         <Button
@@ -151,6 +244,7 @@ export function AdminPanel(props: AdminPanelProps) {
           <TrashIcon size={18} /> {t('admin.delete')}
         </Button>
       </div>
+      {noticeAt('delete')}
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -162,19 +256,7 @@ export function AdminPanel(props: AdminPanelProps) {
             <Button onClick={() => setConfirmDelete(false)}>
               {t('mine.cancel')}
             </Button>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                try {
-                  await api.deleteEvent(event.id, adminToken);
-                  forgetEvent(event.id);
-                  store.markDeleted();
-                } catch (failure) {
-                  setConfirmDelete(false);
-                  setMessage({ tone: 'error', text: errorMessage(failure, t) });
-                }
-              }}
-            >
+            <Button variant="danger" onClick={() => void deleteEvent()}>
               {t('admin.deleteYes')}
             </Button>
           </div>
@@ -184,59 +266,107 @@ export function AdminPanel(props: AdminPanelProps) {
   );
 }
 
+/** Asks before a save takes answers or the chosen date away. */
+function LossDialog({
+  impact,
+  onCancel,
+  onConfirm,
+}: {
+  impact: SavingImpact | null;
+  onCancel(): void;
+  onConfirm(): void;
+}) {
+  const { t, tn } = useI18n();
+  return (
+    <Dialog
+      open={impact !== null}
+      onClose={onCancel}
+      title={t('admin.lossTitle')}
+    >
+      <div className="flex flex-col gap-4">
+        {impact && impact.marks > 0 && (
+          <p>{tn('admin.lossMarks', impact.marks)}</p>
+        )}
+        {impact?.date === 'shortened' && <p>{t('admin.lossDateShort')}</p>}
+        {impact?.date === 'dropped' && <p>{t('admin.lossDateDropped')}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button onClick={onCancel}>{t('mine.cancel')}</Button>
+          <Button variant="danger" onClick={onConfirm}>
+            {t('admin.lossConfirm')}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function DetailsForm({
   data,
+  busy,
+  onEdit,
   onSave,
 }: {
   data: EventSnapshotData;
-  onSave(body: {
-    title: string;
-    description: string | null;
-    location: string | null;
-    creatorName: string | null;
-    emoji: EmojiKey;
-    minCount: number | null;
-    durationDays: number;
-  }): Promise<void>;
+  busy: boolean;
+  onEdit(): void;
+  onSave(body: Partial<DetailsValues>): Promise<boolean>;
 }) {
   const { t } = useI18n();
   const { event } = data;
-  const [title, setTitle] = useState(event.title);
-  const [emoji, setEmoji] = useState<EmojiKey>(event.emoji);
-  const [description, setDescription] = useState(event.description ?? '');
-  const [location, setLocation] = useState(event.location ?? '');
-  const [creatorName, setCreatorName] = useState(event.creatorName ?? '');
-  const [minCount, setMinCount] = useState(event.minCount?.toString() ?? '');
-  const [duration, setDuration] = useState(event.durationDays.toString());
+  // What the form started from: only what differs from it is sent, so a field
+  // somebody changed elsewhere meanwhile is not put back by an unrelated edit.
+  const [seed, setSeed] = useState(() => detailsOf(event));
+  const [input, setInput] = useState(() => inputOf(seed));
+  const [tried, setTried] = useState(false);
+  const [confirming, setConfirming] = useState<{
+    patch: Partial<DetailsValues>;
+    values: DetailsValues;
+    impact: SavingImpact;
+  } | null>(null);
+  const edit = (change: Partial<typeof input>) => {
+    setInput({ ...input, ...change });
+    onEdit();
+  };
+
+  const check = checkDetails(input, event.days);
+  const errors = tried && !check.ok ? check.errors : {};
+  const text = (problem: Problem | undefined) =>
+    problem ? t(problem.key, problem.params) : null;
+
+  const save = async (patch: Partial<DetailsValues>, values: DetailsValues) => {
+    if (await onSave(patch)) setSeed(values);
+  };
 
   const submit = (formEvent: FormEvent) => {
     formEvent.preventDefault();
-    if (title.trim() === '') return;
-    void onSave({
-      title,
-      emoji,
-      description: description.trim() || null,
-      location: location.trim() || null,
-      creatorName: creatorName.trim() || null,
-      minCount: minCount.trim()
-        ? Math.min(LIMITS.participants, Math.max(1, Number(minCount)))
-        : null,
-      durationDays: Math.min(
-        LIMITS.durationDays,
-        Math.max(1, Number(duration) || 1)
-      ),
-    });
+    setTried(true);
+    if (!check.ok) return;
+    const patch = changedFields(seed, check.values);
+    if (Object.keys(patch).length === 0) return;
+    // A different duration can shorten the chosen date or make it not fit.
+    const impact =
+      patch.durationDays === undefined
+        ? null
+        : savingImpact(event, data.participants, {
+            days: event.days,
+            durationDays: patch.durationDays,
+          });
+    if (impact && isLossy(impact))
+      setConfirming({ patch, values: check.values, impact });
+    else void save(patch, check.values);
   };
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Field label={t('create.titleLabel')}>
-        {({ id }) => (
+      <Field label={t('create.titleLabel')} error={text(errors.title)}>
+        {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
-            value={title}
+            value={input.title}
             maxLength={LIMITS.title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => edit({ title: e.target.value })}
+            aria-describedby={describedBy}
+            aria-invalid={invalid}
             required
           />
         )}
@@ -245,8 +375,8 @@ function DetailsForm({
         {({ id }) => (
           <Select
             id={id}
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value as EmojiKey)}
+            value={input.emoji}
+            onChange={(e) => edit({ emoji: e.target.value as EmojiKey })}
             className="min-h-11 rounded-2xl border-2 border-line bg-surface pl-3"
           >
             {EMOJI_KEYS.map((key) => (
@@ -261,10 +391,10 @@ function DetailsForm({
         {({ id, describedBy }) => (
           <TextArea
             id={id}
-            value={description}
+            value={input.description}
             maxLength={LIMITS.description}
             aria-describedby={describedBy}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => edit({ description: e.target.value })}
           />
         )}
       </Field>
@@ -273,9 +403,9 @@ function DetailsForm({
           {({ id }) => (
             <TextInput
               id={id}
-              value={location}
+              value={input.location}
               maxLength={LIMITS.location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={(e) => edit({ location: e.target.value })}
             />
           )}
         </Field>
@@ -283,71 +413,104 @@ function DetailsForm({
           {({ id }) => (
             <TextInput
               id={id}
-              value={creatorName}
+              value={input.creatorName}
               maxLength={LIMITS.creatorName}
-              onChange={(e) => setCreatorName(e.target.value)}
+              onChange={(e) => edit({ creatorName: e.target.value })}
             />
           )}
         </Field>
-        <Field label={t('create.minCount')}>
-          {({ id }) => (
+        <Field label={t('create.minCount')} error={text(errors.minCount)}>
+          {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
               inputMode="numeric"
-              value={minCount}
-              onChange={(e) => setMinCount(e.target.value.replace(/\D/g, ''))}
+              value={input.minCount}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              onChange={(e) =>
+                edit({ minCount: e.target.value.replace(/\D/g, '') })
+              }
             />
           )}
         </Field>
-        <Field label={t('create.duration')}>
-          {({ id }) => (
+        <Field label={t('create.duration')} error={text(errors.duration)}>
+          {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
               inputMode="numeric"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value.replace(/\D/g, ''))}
+              value={input.duration}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              onChange={(e) =>
+                edit({ duration: e.target.value.replace(/\D/g, '') })
+              }
             />
           )}
         </Field>
       </div>
       <div>
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" disabled={busy}>
           {t('mine.save')}
         </Button>
       </div>
+      <LossDialog
+        impact={confirming?.impact ?? null}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          const pending = confirming;
+          setConfirming(null);
+          if (pending) void save(pending.patch, pending.values);
+        }}
+      />
     </form>
   );
 }
 
 function DaysEditor(
   props: AdminPanelProps & {
-    onSave(days: ISODate[], baseDays: ISODate[]): Promise<void>;
+    busy: boolean;
+    onEdit(): void;
+    onSave(days: ISODate[], baseDays: ISODate[]): Promise<boolean>;
   }
 ) {
-  const { data, today, firstWeekday } = props;
+  const { data, today, firstWeekday, busy } = props;
   const { t } = useI18n();
-  const days = data.event.days;
+  const { event } = data;
+  const days = event.days;
   const first = days[0]!;
   const last = days[days.length - 1]!;
   const [until, setUntil] = useState(last);
-  const [selection, setSelection] = useState<Map<ISODate, Mark>>(
+  const [selection, setSelection] = useState<ReadonlyMap<ISODate, Mark>>(
     () => new Map(days.map((day) => [day, 'yes' as Mark]))
   );
+  const [confirming, setConfirming] = useState<{
+    days: ISODate[];
+    impact: SavingImpact;
+  } | null>(null);
 
   // The range to show: the existing days, extended up to the chosen end.
-  const end = isValidISODate(until) ? maxISODate(until, last) : last;
   const range = useMemo(
-    () =>
-      expandRange(
-        first,
-        diffDays(first, end) + 1 <= LIMITS.span
-          ? end
-          : addDays(first, LIMITS.span - 1)
-      ),
-    [first, end]
+    () => visibleRange(first, last, until),
+    [first, last, until]
   );
+  // What is saved is what the calendar shows and has selected.
+  const selected = daysToSave(range, selection);
+  const problem = daysProblem(selected, event.durationDays);
+  const edit = (next: ReadonlyMap<ISODate, Mark>) => {
+    setSelection(next);
+    props.onEdit();
+  };
 
-  const selected = [...selection.keys()].sort();
+  const save = (list: ISODate[]) => void props.onSave(list, days);
+  const submit = () => {
+    const impact = savingImpact(event, data.participants, {
+      days: selected,
+      durationDays: event.durationDays,
+    });
+    if (isLossy(impact)) setConfirming({ days: selected, impact });
+    else save(selected);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Field label={t('admin.addDays')}>
@@ -356,26 +519,15 @@ function DaysEditor(
             id={id}
             type="date"
             value={until}
-            min={last}
+            min={maxISODate(last, today)}
             max={addDays(today, LIMITS.horizon)}
             className="max-w-48"
             onChange={(e) => {
               const value = e.target.value;
               setUntil(value);
-              if (!isValidISODate(value) || compareISODate(value, last) <= 0)
-                return;
-              // Never past what an event may span or how far ahead it may
-              // reach — a far date typed in must not throw.
-              const limit = minISODate(
-                addDays(first, LIMITS.span - 1),
-                addDays(today, LIMITS.horizon)
+              edit(
+                extendSelection(selection, { first, last, until: value, today })
               );
-              const upTo = minISODate(value, limit);
-              if (compareISODate(upTo, last) <= 0) return;
-              const next = new Map(selection);
-              for (const day of expandRange(addDays(last, 1), upTo))
-                next.set(day, 'yes');
-              setSelection(next);
             }}
           />
         )}
@@ -386,33 +538,50 @@ function DaysEditor(
         days={range}
         marks={selection}
         brush="yes"
-        onChange={(next) => setSelection(next)}
+        onChange={(next) => edit(next)}
         firstWeekday={firstWeekday}
         today={today}
         label={t('admin.days')}
       />
+      {problem && (
+        <p className="text-sm font-semibold text-danger" role="alert">
+          {t(problem.key, problem.params)}
+        </p>
+      )}
       <div>
         <Button
           variant="primary"
-          disabled={selected.length === 0}
-          onClick={() => void props.onSave(selected, days)}
+          disabled={busy || problem !== null}
+          onClick={submit}
         >
           {t('mine.save')}
         </Button>
       </div>
+      <LossDialog
+        impact={confirming?.impact ?? null}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          const pending = confirming;
+          setConfirming(null);
+          if (pending) save(pending.days);
+        }}
+      />
     </div>
   );
 }
 
 function People(
   props: AdminPanelProps & {
-    run(action: () => Promise<EventSnapshotData | void>): Promise<void>;
-    onAdd(names: string[]): Promise<void>;
+    busy: boolean;
+    onEdit(): void;
+    run(action: () => Promise<EventSnapshotData | void>): Promise<boolean>;
+    onAdd(names: string[]): Promise<boolean>;
   }
 ) {
-  const { data, adminToken, run } = props;
+  const { data, adminToken, run, busy } = props;
   const { t } = useI18n();
   const [names, setNames] = useState('');
+  const [rosterProblem, setRosterProblem] = useState<Problem | null>(null);
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
     null
   );
@@ -472,28 +641,39 @@ function People(
         className="flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const list = names
-            .split('\n')
-            .map((name) => name.trim())
-            .filter(Boolean)
-            .slice(0, LIMITS.roster);
-          if (list.length === 0) return;
-          void props.onAdd(list).then(() => setNames(''));
+          const { names: list, problem } = parseRoster(names);
+          setRosterProblem(problem);
+          if (problem || list.length === 0) return;
+          // What was typed stays when the add fails, so it can be corrected.
+          void props.onAdd(list).then((ok) => {
+            if (ok) setNames('');
+          });
         }}
       >
-        <Field label={t('admin.addNames')} hint={t('admin.addNamesHint')}>
-          {({ id, describedBy }) => (
+        <Field
+          label={t('admin.addNames')}
+          hint={t('admin.addNamesHint')}
+          error={rosterProblem && t(rosterProblem.key, rosterProblem.params)}
+        >
+          {({ id, describedBy, invalid }) => (
             <TextArea
               id={id}
               value={names}
               rows={3}
               aria-describedby={describedBy}
-              onChange={(e) => setNames(e.target.value)}
+              aria-invalid={invalid}
+              onChange={(e) => {
+                setNames(e.target.value);
+                setRosterProblem(null);
+                props.onEdit();
+              }}
             />
           )}
         </Field>
         <div>
-          <Button type="submit">{t('admin.addNames')}</Button>
+          <Button type="submit" disabled={busy}>
+            {t('admin.addNames')}
+          </Button>
         </div>
       </form>
       <Dialog

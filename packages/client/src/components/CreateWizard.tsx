@@ -1,6 +1,5 @@
 import {
   addDays,
-  candidateBlocks,
   compareISODate,
   diffDays,
   EMOJI_KEYS,
@@ -19,7 +18,9 @@ import {
 import { useMemo, useState, type FormEvent } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
+import { daysProblem, type Problem } from '../lib/dayEdit.ts';
 import { errorMessage } from '../lib/errors.ts';
+import { checkMinCount, parseRoster, radioTarget } from '../lib/forms.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
 import { rememberEvent, writeAdminToken } from '../lib/prefs.ts';
 import { navigate } from '../lib/route.ts';
@@ -51,7 +52,9 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const [duration, setDuration] = useState(1);
   const [roster, setRoster] = useState('');
   const [minCount, setMinCount] = useState('');
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
+  // The steps the organiser has tried to leave: their problems show from then
+  // on and follow the input, so a fixed field loses its message at once.
+  const [tried, setTried] = useState<ReadonlySet<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -85,31 +88,25 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
   const dayProblem = (): string | null => {
     if (rangeProblem) return rangeProblem;
-    if (candidates.length === 0) return t('error.noDays');
-    if (candidates.length > LIMITS.days)
-      return t('error.tooManyDays', { max: LIMITS.days });
-    if (candidateBlocks(candidates, duration).length === 0)
-      return t('error.noBlock', { count: duration });
-    return null;
+    const problem = daysProblem(candidates, duration);
+    return problem && t(problem.key, problem.params);
   };
+  const minCountProblem = checkMinCount(minCount).problem;
+  const parsedRoster = parseRoster(roster);
+  const text = (problem: Problem | null) =>
+    problem && t(problem.key, problem.params);
+
+  const titleError =
+    tried.has(1) && title.trim() === '' ? t('error.titleRequired') : null;
+  const daysError = tried.has(2) ? dayProblem() : rangeProblem;
+  const minCountError = tried.has(3) ? text(minCountProblem) : null;
+  const rosterError = tried.has(3) ? text(parsedRoster.problem) : null;
 
   const validate = (which: number): boolean => {
-    const next: Record<string, string | null> = {};
-    if (which === 1)
-      next.title = title.trim() === '' ? t('error.titleRequired') : null;
-    if (which === 2) next.days = dayProblem();
-    if (which === 3) {
-      const min = minCount.trim();
-      next.minCount =
-        min !== '' &&
-        (!/^\d+$/.test(min) ||
-          Number(min) < 1 ||
-          Number(min) > LIMITS.participants)
-          ? `1 – ${LIMITS.participants}`
-          : null;
-    }
-    setErrors(next);
-    return Object.values(next).every((value) => value === null);
+    setTried((current) => new Set(current).add(which));
+    if (which === 1) return title.trim() !== '';
+    if (which === 2) return dayProblem() === null;
+    return minCountProblem === null && parsedRoster.problem === null;
   };
 
   const submit = async (event: FormEvent) => {
@@ -122,11 +119,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const names = roster
-        .split('\n')
-        .map((name) => name.trim())
-        .filter(Boolean)
-        .slice(0, LIMITS.roster);
+      const names = parsedRoster.names;
       const created = await api.createEvent({
         title,
         emoji,
@@ -159,7 +152,11 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
   return (
     <Card>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      <form
+        onSubmit={(event) => void submit(event)}
+        noValidate
+        className="flex flex-col gap-6"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-2xl font-black">{t('create.title')}</h2>
           <p className="font-bold text-muted">
@@ -180,7 +177,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
             <legend className="mb-4 text-xl font-extrabold">
               {t('create.what')}
             </legend>
-            <Field label={t('create.titleLabel')} error={errors.title}>
+            <Field label={t('create.titleLabel')} error={titleError}>
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -211,7 +208,19 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     aria-checked={emoji === key}
                     aria-label={t(`emoji.${key}`)}
                     title={t(`emoji.${key}`)}
+                    data-emoji={key}
+                    // One stop in the tab order; the arrow keys move within.
+                    tabIndex={emoji === key ? 0 : -1}
                     onClick={() => setEmoji(key)}
+                    onKeyDown={(event) => {
+                      const target = radioTarget(EMOJI_KEYS, emoji, event.key);
+                      if (!target) return;
+                      event.preventDefault();
+                      setEmoji(target);
+                      event.currentTarget.parentElement
+                        ?.querySelector<HTMLElement>(`[data-emoji="${target}"]`)
+                        ?.focus();
+                    }}
                     className={`grid size-11 place-items-center rounded-2xl text-2xl transition ${
                       emoji === key
                         ? 'bg-brand-soft ring-2 ring-brand'
@@ -355,7 +364,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                 <Button
                   onClick={() => setDuration(Math.max(1, duration - 1))}
                   disabled={duration <= 1}
-                  aria-label="−"
+                  aria-label={t('create.durationLess')}
                 >
                   −
                 </Button>
@@ -370,7 +379,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     setDuration(Math.min(LIMITS.durationDays, duration + 1))
                   }
                   disabled={duration >= LIMITS.durationDays}
-                  aria-label="+"
+                  aria-label={t('create.durationMore')}
                 >
                   +
                 </Button>
@@ -395,9 +404,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                 </p>
               </div>
             )}
-            {(errors.days || rangeProblem) && (
-              <Notice tone="error">{errors.days ?? rangeProblem}</Notice>
-            )}
+            {daysError && <Notice tone="error">{daysError}</Notice>}
           </fieldset>
         )}
 
@@ -406,21 +413,26 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
             <legend className="mb-4 text-xl font-extrabold">
               {t('create.who')}
             </legend>
-            <Field label={t('create.roster')} hint={t('create.rosterHint')}>
-              {({ id, describedBy }) => (
+            <Field
+              label={t('create.roster')}
+              hint={t('create.rosterHint')}
+              error={rosterError}
+            >
+              {({ id, describedBy, invalid }) => (
                 <TextArea
                   id={id}
                   value={roster}
                   rows={5}
                   onChange={(event) => setRoster(event.target.value)}
                   aria-describedby={describedBy}
+                  aria-invalid={invalid}
                 />
               )}
             </Field>
             <Field
               label={t('create.minCount')}
               hint={t('create.minCountHint')}
-              error={errors.minCount}
+              error={minCountError}
             >
               {({ id, describedBy, invalid }) => (
                 <TextInput

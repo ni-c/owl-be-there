@@ -138,3 +138,18 @@ describe('checkCandidateDays with a latest day', () => {
     expect(addDays('2027-03-01', LIMITS.horizon) > '2032-02-28').toBe(true);
   });
 });
+
+describe('expandRange with days that are no dates', () => {
+  it('throws for an invalid day, whichever bound it is and however it sorts', () => {
+    expect(() => expandRange('2027-03-01', '2027-02-30')).toThrow(RangeError);
+    expect(() => expandRange('2027-02-30', '2027-03-05')).toThrow(RangeError);
+    expect(() => expandRange('zzzz', '2027-03-05')).toThrow(RangeError);
+    expect(() => expandRange('2027-03-05', 'zzzz')).toThrow(RangeError);
+    expect(() => expandRange('', '')).toThrow(RangeError);
+  });
+
+  it('still gives one day for equal bounds and nothing for a reversed range', () => {
+    expect(expandRange('2027-03-05', '2027-03-05')).toEqual(['2027-03-05']);
+    expect(expandRange('2027-03-05', '2027-03-01')).toEqual([]);
+  });
+});

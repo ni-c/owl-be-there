@@ -1,4 +1,5 @@
 import type { Locator, Page, TestInfo } from '@playwright/test';
+import { isMobile } from './helpers.ts';
 
 /**
  * A finger dragged from one element to another, as each browser engine can be
@@ -18,18 +19,18 @@ import type { Locator, Page, TestInfo } from '@playwright/test';
 export async function touchDrag(
   page: Page,
   from: Locator,
-  to: Locator,
-  testInfo: TestInfo
+  to: Locator
 ): Promise<void> {
-  const start = await centre(from);
-  const end = await centre(to);
+  const { start, end } = await centres(page, from, to);
   const steps = 8;
   const points = Array.from({ length: steps + 1 }, (_, i) => ({
     x: start.x + ((end.x - start.x) * i) / steps,
     y: start.y + ((end.y - start.y) * i) / steps,
   }));
 
-  if (testInfo.project.name.startsWith('chromium')) {
+  // The engine, not the project name: a renamed project must not silently
+  // swap the real touch input for synthetic events.
+  if (page.context().browser()?.browserType().name() === 'chromium') {
     const cdp = await page.context().newCDPSession(page);
     const send = (
       type: 'touchStart' | 'touchMove' | 'touchEnd',
@@ -99,8 +100,7 @@ export async function mouseDrag(
   from: Locator,
   to: Locator
 ): Promise<void> {
-  const start = await centre(from);
-  const end = await centre(to);
+  const { start, end } = await centres(page, from, to);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 8 });
@@ -113,16 +113,53 @@ export async function drag(
   to: Locator,
   testInfo: TestInfo
 ): Promise<void> {
-  if (testInfo.project.name.endsWith('mobile'))
-    await touchDrag(page, from, to, testInfo);
+  if (isMobile(testInfo)) await touchDrag(page, from, to);
   else await mouseDrag(page, from, to);
 }
 
-async function centre(locator: Locator): Promise<{ x: number; y: number }> {
-  await locator.scrollIntoViewIfNeeded();
+/**
+ * The centres of both ends of a drag. Both elements are scrolled into view
+ * before either box is measured, because a scroll caused by the second would
+ * invalidate the first measurement; an end that still is not on screen (the
+ * two are further apart than one screen) is an error, not a drag at the wrong
+ * coordinates.
+ */
+async function centres(
+  page: Page,
+  from: Locator,
+  to: Locator
+): Promise<{ start: Point; end: Point }> {
+  await to.scrollIntoViewIfNeeded();
+  await from.scrollIntoViewIfNeeded();
+  const start = await boxCentre(from);
+  const end = await boxCentre(to);
+  const viewport = page.viewportSize();
+  for (const point of [start, end]) {
+    if (
+      viewport &&
+      (point.x < 0 ||
+        point.y < 0 ||
+        point.x > viewport.width ||
+        point.y > viewport.height)
+    )
+      throw new Error(
+        `drag end at (${point.x}, ${point.y}) is outside the ${viewport.width}x${viewport.height} viewport`
+      );
+  }
+  return { start, end };
+}
+
+type Point = { x: number; y: number };
+
+async function boxCentre(locator: Locator): Promise<Point> {
   const box = await locator.boundingBox();
   if (!box) throw new Error('element has no box');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+async function centre(locator: Locator): Promise<Point> {
+  await locator.scrollIntoViewIfNeeded();
+  return boxCentre(locator);
 }
 
 /**

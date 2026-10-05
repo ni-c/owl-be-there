@@ -6,6 +6,7 @@ import {
   previewNeedsCjk,
   previewSvg,
   PREVIEW_WIDTH,
+  SERVER_TEXTS,
   type EventSnapshotData,
 } from '@owl/shared';
 
@@ -23,11 +24,94 @@ async function decompress(woff2: Uint8Array): Promise<Uint8Array> {
   return (await wawoff2.decompress(woff2)).slice();
 }
 
+/**
+ * A value made once, on first use. A failure is not kept: the next caller
+ * tries again, so one transient read error does not spoil every picture until
+ * the process restarts. Neither is a null, which stands for a file that could
+ * not be read.
+ */
+class Lazy<T> {
+  private value: Promise<T> | null = null;
+  private readonly make: () => Promise<T>;
+
+  constructor(make: () => Promise<T>) {
+    this.make = make;
+  }
+
+  get(): Promise<T> {
+    if (!this.value) {
+      const forget = (): void => {
+        this.value = null;
+      };
+      this.value = this.make().then(
+        (value) => {
+          if (value === null) forget();
+          return value;
+        },
+        (error: unknown) => {
+          forget();
+          throw error;
+        }
+      );
+    }
+    return this.value;
+  }
+}
+
+/** Letters Nunito draws: its latin, latin-ext, cyrillic and vietnamese files. */
+const NUNITO_LETTER = /[\p{scx=Latin}\p{scx=Cyrillic}]/u;
+/** Letters the CJK font adds. It carries Greek and Cyrillic too, but no Hebrew or Thai. */
+const CJK_LETTER =
+  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Bopomofo}\p{scx=Greek}]/u;
+
+/** Whether the title has a Greek letter, which only the CJK font draws. */
+const hasGreek = (title: string): boolean => /\p{scx=Greek}/u.test(title);
+
+/**
+ * The title as the loaded fonts can draw it. A letter no font has would come
+ * out as nothing at all, so each run of them becomes an ellipsis, and a title
+ * made of nothing else (Hebrew, Thai, ...) is the app's name: a picture
+ * without a title looks broken, one with the name looks like a link to the
+ * poll tool.
+ */
+export function drawableTitle(
+  title: string,
+  appName: string,
+  cjk: boolean
+): string {
+  let out = '';
+  let lost = false;
+  let any = false;
+  for (const char of title) {
+    const gap = /\p{L}/u.test(char)
+      ? !NUNITO_LETTER.test(char) && !(cjk && CJK_LETTER.test(char))
+      : lost && /\p{M}/u.test(char);
+    if (gap) {
+      if (!lost) out += '…';
+      lost = true;
+      any = true;
+    } else {
+      out += char;
+      lost = false;
+    }
+  }
+  return any && !/[\p{L}\p{N}]/u.test(out) ? appName : out;
+}
+
 /** Renders per second the renderer sustains, and how many it does in a burst. */
 export interface RenderBudget {
   burst: number;
   perSecond: number;
 }
+
+/** Nunito's files, 400 and 800 each: Latin and the scripts around it. */
+const NUNITO_FILES = [
+  'latin',
+  'latin-ext',
+  'vietnamese',
+  'cyrillic',
+  'cyrillic-ext',
+].flatMap((subset) => [`${subset}-400`, `${subset}-800`]);
 
 const DEFAULT_BUDGET: RenderBudget = { burst: 10, perSecond: 5 };
 
@@ -62,17 +146,41 @@ export class PreviewBusy extends Error {
  * limit: a token bucket for the whole instance.
  */
 export class PreviewRenderer {
-  private ready: Promise<void> | null = null;
-  private latin: Promise<Uint8Array[]> | null = null;
-  private cjk: Promise<Uint8Array | null> | null = null;
-  private owl: Promise<string | null> | null = null;
-  private readonly cache = new Map<string, Buffer>();
+  private readonly latin = new Lazy(() =>
+    Promise.all(
+      NUNITO_FILES.map(async (name) =>
+        decompress(
+          await readFile(
+            require.resolve(
+              `@fontsource/nunito/files/nunito-${name}-normal.woff2`
+            )
+          )
+        )
+      )
+    )
+  );
+  /** Noto Sans CJK JP from the built client, or null when there is none. */
+  private readonly cjk = new Lazy(() =>
+    this.clientFile('fonts/noto-sans-cjk-jp-regular.woff2').then((file) =>
+      file ? decompress(file) : null
+    )
+  );
+  private readonly owl = new Lazy(() =>
+    this.clientFile('favicon.svg').then((file) =>
+      file ? `data:image/svg+xml;base64,${file.toString('base64')}` : null
+    )
+  );
+  /**
+   * The newest picture of each event, one slot per event: an older version
+   * can never be asked for again, so it must not take a slot from the others.
+   */
+  private readonly cache = new Map<string, { version: number; png: Buffer }>();
   /** Pictures being drawn, so two requests for one version draw it once. */
   private readonly drawing = new Map<string, Promise<Buffer>>();
 
   private readonly clientDir: string | null;
   private readonly host: string;
-  /** Pictures kept in memory, the least recently used dropped first. */
+  /** Events whose picture is kept in memory, the least recently used dropped first. */
   private readonly cacheSize: number;
   private readonly budget: RenderBudget | null;
   private readonly now: () => number;
@@ -101,18 +209,19 @@ export class PreviewRenderer {
    * spent.
    */
   async render(data: EventSnapshotData): Promise<Buffer> {
-    const key = `${data.event.id}:${data.event.version}`;
-    const hit = this.cache.get(key);
-    if (hit) {
-      this.cache.delete(key);
-      this.cache.set(key, hit);
-      return hit;
+    const { id, version } = data.event;
+    const key = `${id}:${version}`;
+    const hit = this.cache.get(id);
+    if (hit?.version === version) {
+      this.cache.delete(id);
+      this.cache.set(id, hit);
+      return hit.png;
     }
     const pending = this.drawing.get(key);
     if (pending) return pending;
     const wait = this.take();
     if (wait > 0) throw new PreviewBusy(wait);
-    const job = this.draw(key, data).finally(() => this.drawing.delete(key));
+    const job = this.draw(data).finally(() => this.drawing.delete(key));
     this.drawing.set(key, job);
     return job;
   }
@@ -134,55 +243,37 @@ export class PreviewRenderer {
     return Math.max(1, Math.ceil((1 - this.tokens) / this.budget.perSecond));
   }
 
-  private async draw(key: string, data: EventSnapshotData): Promise<Buffer> {
-    await this.init();
-    const fonts = [...(await this.latinFonts())];
-    if (previewNeedsCjk(data)) {
-      const cjk = await this.cjkFont();
-      if (cjk) fonts.push(cjk);
+  private async draw(data: EventSnapshotData): Promise<Buffer> {
+    await wasm.get();
+    const fonts = [...(await this.latin.get())];
+    let cjk = false;
+    if (previewNeedsCjk(data) || hasGreek(data.event.title)) {
+      const font = await this.cjk.get();
+      if (font) {
+        fonts.push(font);
+        cjk = true;
+      }
     }
-    const svg = previewSvg(data, { host: this.host, owl: await this.owlUri() });
+    const { event } = data;
+    const title = drawableTitle(
+      event.title,
+      SERVER_TEXTS[event.language].appName,
+      cjk
+    );
+    const svg = previewSvg(
+      title === event.title ? data : { ...data, event: { ...event, title } },
+      { host: this.host, owl: await this.owl.get() }
+    );
     const png = rasterise(svg, fonts);
-    this.cache.set(key, png);
-    if (this.cache.size > this.cacheSize)
-      this.cache.delete(this.cache.keys().next().value!);
+    // Two requests can overlap across a change; the newer picture stays.
+    const kept = this.cache.get(event.id);
+    if (!kept || kept.version <= event.version) {
+      this.cache.delete(event.id);
+      this.cache.set(event.id, { version: event.version, png });
+      if (this.cache.size > this.cacheSize)
+        this.cache.delete(this.cache.keys().next().value!);
+    }
     return png;
-  }
-
-  private init(): Promise<void> {
-    this.ready ??= initOnce();
-    return this.ready;
-  }
-
-  private latinFonts(): Promise<Uint8Array[]> {
-    this.latin ??= Promise.all(
-      ['latin-400', 'latin-800', 'latin-ext-400', 'latin-ext-800'].map(
-        async (name) =>
-          decompress(
-            await readFile(
-              require.resolve(
-                `@fontsource/nunito/files/nunito-${name}-normal.woff2`
-              )
-            )
-          )
-      )
-    );
-    return this.latin;
-  }
-
-  /** Noto Sans CJK JP from the built client, or null when there is none. */
-  private cjkFont(): Promise<Uint8Array | null> {
-    this.cjk ??= this.clientFile('fonts/noto-sans-cjk-jp-regular.woff2').then(
-      (file) => (file ? decompress(file) : null)
-    );
-    return this.cjk;
-  }
-
-  private owlUri(): Promise<string | null> {
-    this.owl ??= this.clientFile('favicon.svg').then((file) =>
-      file ? `data:image/svg+xml;base64,${file.toString('base64')}` : null
-    );
-    return this.owl;
   }
 
   private async clientFile(path: string): Promise<Buffer | null> {
@@ -219,10 +310,6 @@ function rasterise(svg: string, fonts: Uint8Array[]): Buffer {
 }
 
 /** resvg's WebAssembly can be initialised once per process, not per renderer. */
-let wasm: Promise<void> | null = null;
-function initOnce(): Promise<void> {
-  wasm ??= readFile(require.resolve('@resvg/resvg-wasm/index_bg.wasm')).then(
-    (bytes) => initWasm(bytes)
-  );
-  return wasm;
-}
+const wasm = new Lazy(async () =>
+  initWasm(await readFile(require.resolve('@resvg/resvg-wasm/index_bg.wasm')))
+);

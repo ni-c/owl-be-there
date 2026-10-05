@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Pushes made with the GITHUB_TOKEN, such as the Dependabot auto-merge, start
+  # no workflow on main; this lets a maintainer run CI on main by hand.
+  workflow_dispatch:
   schedule:
     # So a dependency advisory published after the last push still reaches
     # someone. Without it `audit` only runs on a change, which is the one moment
@@ -54,7 +57,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run test:coverage
-      # The calendar logic again under six time zones, from UTC+14 to UTC-11.
+      # The calendar logic again under five time zones, from UTC+14 to UTC-11.
       # A day string turned into a `Date` the wrong way passes in Berlin and
       # fails in Samoa.
       - run: npm run test:tz

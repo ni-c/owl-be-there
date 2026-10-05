@@ -39,7 +39,7 @@ export type Params = Record<string, string | number>;
 /** Fill `{name}` placeholders; a missing parameter stays visible as `{name}`. */
 export function interpolate(text: string, params: Params = {}): string {
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>
-    name in params ? String(params[name]) : match
+    Object.hasOwn(params, name) ? String(params[name]) : match
   );
 }
 

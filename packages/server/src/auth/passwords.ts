@@ -95,7 +95,7 @@ export function assertPasswordCapacity(): void {
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const derived = await gate.run(() =>
-    scryptAsync(password, salt, KEY_LENGTH, {
+    scryptAsync(password.normalize('NFC'), salt, KEY_LENGTH, {
       N: COST,
       r: BLOCK_SIZE,
       p: PARALLELISATION,
@@ -144,19 +144,30 @@ export async function verifyPassword(
   const expectedBuffer = Buffer.from(expected, 'base64');
   if (expectedBuffer.length !== KEY_LENGTH) return false;
 
-  let derived: Buffer;
-  try {
-    derived = await gate.run(() =>
-      scryptAsync(password, Buffer.from(salt, 'base64'), KEY_LENGTH, {
-        N: Number(cost),
-        r: Number(blockSize),
-        p: Number(parallelisation),
-        maxmem: MAX_MEMORY,
-      })
-    );
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    return false;
+  // The same visible password is one string on one keyboard and another on
+  // the next ("ü" precomposed or "u" and a combining diaeresis), so it is
+  // composed before it is hashed. A hash made before that, from whatever
+  // was typed, is still met by trying the string as it came.
+  const typed =
+    password.normalize('NFC') === password
+      ? [password]
+      : [password.normalize('NFC'), password];
+  for (const candidate of typed) {
+    let derived: Buffer;
+    try {
+      derived = await gate.run(() =>
+        scryptAsync(candidate, Buffer.from(salt, 'base64'), KEY_LENGTH, {
+          N: Number(cost),
+          r: Number(blockSize),
+          p: Number(parallelisation),
+          maxmem: MAX_MEMORY,
+        })
+      );
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      return false;
+    }
+    if (timingSafeEqual(derived, expectedBuffer)) return true;
   }
-  return timingSafeEqual(derived, expectedBuffer);
+  return false;
 }

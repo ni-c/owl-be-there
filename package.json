@@ -24,7 +24,7 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "build": "npm run build:shared && npm run build -w @owl/server && npm run build -w @owl/client",
     "build:shared": "npm run build -w @owl/shared",
-    "dev": "npm run build:shared && concurrently -n shared,server,client -c blue,green,cyan \"npm run watch -w @owl/shared\" \"npm run dev -w @owl/server\" \"npm run dev -w @owl/client\"",
+    "dev": "npm run build:shared && npm run build -w @owl/server && concurrently -n shared,tsc,server,client -c blue,yellow,green,cyan \"npm run watch -w @owl/shared\" \"npm run watch -w @owl/server\" \"npm run dev -w @owl/server\" \"npm run dev -w @owl/client\"",
     "start": "node packages/server/dist/index.js",
     "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json",
     "lint": "eslint . && prettier --check .",

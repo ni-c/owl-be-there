@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import {
   EMOJIS,
   emojiIcon,
-  formatDayRange,
   LANGUAGES,
   LOCALES,
+  previewStatus,
   SERVER_TEXTS,
   type EventSnapshotData,
   type Language,
@@ -206,17 +206,7 @@ export function eventHead(publicUrl: string, data: EventSnapshotData): string {
   const { event } = data;
   const texts = SERVER_TEXTS[event.language];
   const emoji = EMOJIS[event.emoji];
-  const answers = data.participants.filter((p) => p.answered).length;
-  const description =
-    event.finalStart !== null && event.finalEnd !== null
-      ? texts.previewDecided(
-          formatDayRange(
-            event.finalStart,
-            event.finalEnd,
-            LOCALES[event.language]
-          )
-        )
-      : texts.previewOpen(answers);
+  const description = previewStatus(texts, data, LOCALES[event.language]);
   return head({
     publicUrl,
     path: `/e/${event.id}`,

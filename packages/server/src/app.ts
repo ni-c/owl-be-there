@@ -6,13 +6,14 @@ import Fastify, {
   LogController,
   type FastifyError,
   type FastifyInstance,
+  type FastifyReply,
 } from 'fastify';
 import {
   DEFAULT_THROTTLE_LIMITS,
   PasswordThrottle,
   type ThrottleLimits,
 } from './auth/throttle.js';
-import type { Config } from './config.js';
+import { ConfigError, type Config } from './config.js';
 import { systemClock, type AppContext, type Clock } from './context.js';
 import { sweepExpired } from './db/repo.js';
 import type { Db } from './db/sqlite.js';
@@ -107,8 +108,11 @@ export function contentSecurityPolicy(scriptHashes: readonly string[]): string {
 }
 
 /**
- * The headers every response carries. The live stream takes over its response
- * and skips the `onSend` hook, so it sets these itself from `ctx.headers`.
+ * The headers every response a handler or the framework's error path sends
+ * carries. The live stream takes over its response and skips the `onSend`
+ * hook, so it sets these itself from `ctx.headers`. A request Node refuses
+ * before it reaches Fastify — a malformed request line — is answered by Node
+ * alone and carries none.
  */
 export function securityHeaders(
   csp: string,
@@ -128,12 +132,38 @@ export function securityHeaders(
   };
 }
 
+/**
+ * The link-preview pictures, which other sites embed: `/og.png` and
+ * `/e/:id/og.png`. They answer `cross-origin`, every other response
+ * `same-origin`.
+ */
+const PICTURE_PATH = /^\/(?:e\/[^/?#]+\/)?og\.png(?:\?|$)/;
+
 export async function buildApp(
   options: BuildAppOptions
 ): Promise<FastifyInstance> {
   const { config, db, secret } = options;
   const clock = options.clock ?? systemClock;
   const requestTimeout = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+
+  if (config.clientDir !== null && !hasClient(config.clientDir)) {
+    // Left unset, CLIENT_DIR means API only; a directory without a built
+    // client is a typo or a missing mount, and would take the pages offline
+    // while the health check stays green.
+    throw new ConfigError([
+      `CLIENT_DIR ${config.clientDir} does not hold a built client (no index.html)`,
+    ]);
+  }
+  const template =
+    config.clientDir !== null
+      ? new PageTemplate(
+          readFileSync(join(config.clientDir, 'index.html'), 'utf8')
+        )
+      : null;
+  const hub = new SseHub(options.streamLimits, options.heartbeatMs);
+  const csp = contentSecurityPolicy(template?.scriptHashes ?? []);
+  const https = config.publicUrl.startsWith('https:');
+  const headers = securityHeaders(csp, https);
 
   const app = Fastify({
     // Request logging is off: a request log is a list of IP addresses with
@@ -148,6 +178,21 @@ export async function buildApp(
             ...(options.logStream && { stream: options.logStream }),
           },
     logController: new LogController({ disableRequestLogging: true }),
+    // A URL the router cannot take (`/e/AbC%`) never reaches a handler or the
+    // error handler below; without this it is answered with the framework's
+    // own JSON and none of the security headers. The message names no path:
+    // event links are access keys.
+    frameworkErrors: (error, _request, reply) => {
+      const status = error.statusCode === 414 ? 414 : 400;
+      void (reply as FastifyReply)
+        .code(status)
+        .headers(headers)
+        .send(
+          status === 414
+            ? { error: 'uri_too_long', message: 'The URL is too long' }
+            : { error: 'bad_request', message: 'Malformed URL' }
+        );
+    },
     trustProxy: config.trustProxy === false ? false : config.trustProxy,
     bodyLimit: 32 * 1024,
     // A body that stops arriving must not hold its connection, and with it
@@ -168,14 +213,6 @@ export async function buildApp(
   // a foreign page can forge without CORS reaches a handler.
   app.removeContentTypeParser('text/plain');
 
-  const template = hasClient(config.clientDir)
-    ? new PageTemplate(
-        readFileSync(join(config.clientDir!, 'index.html'), 'utf8')
-      )
-    : null;
-  const hub = new SseHub(options.streamLimits, options.heartbeatMs);
-  const csp = contentSecurityPolicy(template?.scriptHashes ?? []);
-  const https = config.publicUrl.startsWith('https:');
   const ctx: AppContext = {
     config,
     db,
@@ -194,7 +231,7 @@ export async function buildApp(
         )
       : null,
     version: readVersion(),
-    headers: securityHeaders(csp, https),
+    headers,
     throttle: new PasswordThrottle(clock, {
       ...DEFAULT_THROTTLE_LIMITS,
       ...options.throttleLimits,
@@ -204,8 +241,13 @@ export async function buildApp(
     }),
   };
 
-  app.addHook('onSend', async (_request, reply, payload) => {
+  app.addHook('onSend', async (request, reply, payload) => {
     reply.headers(ctx.headers);
+    // Other sites embed the link-preview pictures; a browser would refuse
+    // them under `same-origin`.
+    if (PICTURE_PATH.test(request.url)) {
+      reply.header('cross-origin-resource-policy', 'cross-origin');
+    }
     return payload;
   });
 

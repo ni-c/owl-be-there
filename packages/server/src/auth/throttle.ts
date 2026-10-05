@@ -138,7 +138,15 @@ export class PasswordThrottle {
   attempt(eventId: string, nameKey: string, network: string): number {
     const now = this.clock.now();
     const name = this.names.get(nameId(eventId, nameKey));
-    if (name && name.blockedUntil > now) return name.blockedUntil - now;
+    if (name && name.lastFailure > now) {
+      // The clock stepped back (NTP, a resumed VM): the wait set at the last
+      // miss counts from now on, not from an instant that has not come yet.
+      name.blockedUntil = now + (name.blockedUntil - name.lastFailure);
+      name.lastFailure = now;
+    }
+    if (name && name.blockedUntil > now) {
+      return Math.min(name.blockedUntil - now, this.limits.maxDelayMs);
+    }
     return this.charge(`check\u0000${network}`, now);
   }
 
@@ -152,12 +160,21 @@ export class PasswordThrottle {
 
   private charge(key: string, now: number): number {
     const entry = this.networks.get(key);
-    if (!entry || now - entry.windowStart >= this.limits.networkWindowMs) {
+    // A window that starts in the future is one from before the clock stepped
+    // back; it is over.
+    if (
+      !entry ||
+      now < entry.windowStart ||
+      now - entry.windowStart >= this.limits.networkWindowMs
+    ) {
       this.networks.set(key, { windowStart: now, count: 1 });
       return 0;
     }
     if (entry.count >= this.limits.perNetwork) {
-      return entry.windowStart + this.limits.networkWindowMs - now;
+      return Math.min(
+        entry.windowStart + this.limits.networkWindowMs - now,
+        this.limits.networkWindowMs
+      );
     }
     entry.count += 1;
     return 0;
@@ -175,7 +192,8 @@ export class PasswordThrottle {
     // A name nobody has guessed at for a long while starts afresh.
     const stale =
       previous !== undefined &&
-      now - previous.lastFailure > 2 * this.limits.maxDelayMs;
+      (previous.lastFailure > now ||
+        now - previous.lastFailure > 2 * this.limits.maxDelayMs);
     const failures = (previous && !stale ? previous.failures : 0) + 1;
     const over = failures - this.limits.freeFailures;
     const delay =

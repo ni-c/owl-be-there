@@ -36,6 +36,10 @@ export const nl: Dictionary = {
   'home.myEvents': 'Jouw evenementen',
   'home.organiser': 'organisator',
   'home.forget': 'Verwijder {title} uit deze lijst',
+  'home.forgetOrganiser.title': 'Dit evenement van dit apparaat verwijderen?',
+  'home.forgetOrganiser.text':
+    'Op dit apparaat staat de link als organisator voor ‘{title}’. Als je het evenement verwijdert, verdwijnt die link hier: zonder kopie kun je vanaf dit apparaat de poll niet meer sluiten, geen datum kiezen en het evenement niet verwijderen.',
+  'home.forgetOrganiser.yes': 'Van dit apparaat verwijderen',
   'home.creationDisabled': 'Je kunt hier nu geen nieuwe evenementen maken.',
 
   'create.title': 'Plan een evenement',
@@ -74,6 +78,8 @@ export const nl: Dictionary = {
   'create.next': 'Volgende',
   'create.submit': 'Evenement maken',
   'create.creating': 'Evenement maken…',
+  'create.durationLess': 'Eén dag minder achter elkaar',
+  'create.durationMore': 'Eén dag meer achter elkaar',
 
   'error.titleRequired': 'Geef het evenement een titel.',
   'error.range': 'De einddatum ligt voor de begindatum.',
@@ -93,6 +99,13 @@ export const nl: Dictionary = {
   'error.rateLimited': 'Dat ging wel erg snel. Wacht even.',
   'error.forbidden': 'Met deze link kun je dat niet doen.',
   'error.nameTaken': 'Die naam is al in gebruik.',
+  'error.numberRange': 'Voer een getal in van {min} tot {max}.',
+  'error.rosterLine': 'Een naam mag hoogstens {max} tekens lang zijn.',
+  'error.rosterTooMany': 'Maximaal {max} namen tegelijk.',
+  'error.busy': 'De server is het even druk. Probeer het zo meteen nog eens.',
+  'error.changed': 'Deze invoer is zojuist gewijzigd. Probeer het nog eens.',
+  'error.invalid':
+    'Sommige gegevens zijn niet geldig. Controleer ze en probeer het nog eens.',
 
   'event.loading': 'Evenement laden…',
   'event.notFound.title': 'We kunnen dit evenement niet vinden.',
@@ -105,6 +118,8 @@ export const nl: Dictionary = {
   'event.duration_other': '{count} dagen achter elkaar',
   'event.minCount_one': '{count} persoon nodig',
   'event.minCount_other': '{count} mensen nodig',
+  'event.adminRefused':
+    'Deze organisatorlink is niet geaccepteerd. De organisatortools zijn van dit apparaat gehaald; open de volledige link opnieuw om ze terug te krijgen.',
   'event.expires':
     'Dit evenement wordt op {date} automatisch verwijderd als er tot dan niets verandert.',
   'event.share': 'Delen',
@@ -249,6 +264,15 @@ export const nl: Dictionary = {
     'Dit evenement voor iedereen verwijderen? Dit kun je niet terugdraaien.',
   'admin.deleteYes': 'Definitief verwijderen',
   'admin.saved': 'Opgeslagen',
+  'admin.lossTitle': 'Wijzigingen opslaan?',
+  'admin.lossMarks_one':
+    'Hiermee wordt {count} antwoord op de verwijderde dagen definitief gewist.',
+  'admin.lossMarks_other':
+    'Hiermee worden {count} antwoorden op de verwijderde dagen definitief gewist.',
+  'admin.lossDateShort': 'De gekozen datum wordt korter.',
+  'admin.lossDateDropped':
+    'De gekozen datum past niet meer en vervalt. De poll blijft gesloten.',
+  'admin.lossConfirm': 'Toch opslaan',
   'admin.noPeople': 'Er is nog niemand.',
 
   'footer.language': 'Taal',
@@ -269,7 +293,7 @@ export const nl: Dictionary = {
   'privacy.stored.person':
     'Van elke persoon bewaren we de naam en gemarkeerde dagen. We bewaren ook een opmerking en een wachtwoordhash als die zijn toegevoegd.',
   'privacy.stored.nothingElse':
-    'Er zijn geen accounts, e-mailadressen, cookies of statistieken. De app neemt geen contact op met andere diensten en bewaart geen IP-adressen.',
+    'Er zijn geen accounts, e-mailadressen, cookies of statistieken. De app neemt geen contact op met andere diensten en bewaart geen IP-adressen. De enige uitzondering is de link naar Google Agenda: als je erop klikt, opent Google met de titel, beschrijving, locatie en link van het evenement.',
   'privacy.visible.title': 'Wie kan het zien?',
   'privacy.visible.text':
     'Iedereen met de evenementlink kan de namen en gemarkeerde dagen zien. Zoekmachines krijgen de opdracht om evenementpagina’s niet te indexeren.',
@@ -279,10 +303,19 @@ export const nl: Dictionary = {
   'privacy.retention.title': 'Wanneer we het verwijderen',
   'privacy.retention.text':
     'We verwijderen een evenement {days} dagen na de laatste wijziging. Nooit voordat de laatste dag voorbij is. De organisator kan het op elk moment verwijderen.',
-  'privacy.logs':
-    'De webserver registreert bezoeken met IP-adressen om misbruik tegen te gaan. Deze logbestanden worden na {days} dagen verwijderd.',
-  'privacy.backups':
-    'Back-ups worden {days} dagen bewaard. Daarna zijn verwijderde evenementen daar ook weg.',
+  'privacy.logs_one':
+    'De webserver registreert bezoeken met IP-adressen om misbruik tegen te gaan. Deze logbestanden worden na {count} dag verwijderd.',
+  'privacy.logs_other':
+    'De webserver registreert bezoeken met IP-adressen om misbruik tegen te gaan. Deze logbestanden worden na {count} dagen verwijderd.',
+  'privacy.logs.none': 'De webserver bewaart geen logbestanden van bezoeken.',
+  'privacy.backups_one':
+    'Back-ups worden {count} dag bewaard. Daarna zijn verwijderde evenementen daar ook weg.',
+  'privacy.backups_other':
+    'Back-ups worden {count} dagen bewaard. Daarna zijn verwijderde evenementen daar ook weg.',
+  'privacy.backups.none': 'Er worden geen back-ups bewaard.',
+  'privacy.instance.loading': 'De gegevens van de beheerder worden geladen…',
+  'privacy.instance.failed':
+    'De gegevens van de beheerder konden niet worden geladen. Laad de pagina opnieuw om het nog eens te proberen.',
   'privacy.operator.title': 'Wie deze dienst beheert',
   'privacy.operator.contact': 'Contact: {contact}',
   'privacy.source':

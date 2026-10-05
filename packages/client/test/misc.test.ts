@@ -186,6 +186,68 @@ describe('routes', () => {
     expect(window.scrollTo).toHaveBeenCalledTimes(2);
   });
 
+  it('does not add a history entry for the page one is on', () => {
+    const { window } = installBrowser();
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    navigate('/privacy');
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    expect(window.scrollTo).toHaveBeenCalledTimes(3);
+    // The start page from the start page, the logo's case.
+    navigate('/', { replace: true });
+    navigate('/');
+    navigate('/');
+    expect(window.history.length).toBe(2);
+  });
+
+  it('still pushes for another path, a query string or a trailing slash', () => {
+    const { window } = installBrowser();
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    navigate('/privacy?x=1');
+    expect(window.history.length).toBe(3);
+    expect(window.location.search).toBe('?x=1');
+    navigate('/privacy?x=1'); // same again: no new entry
+    expect(window.history.length).toBe(3);
+    navigate('/privacy?x=2');
+    expect(window.history.length).toBe(4);
+    navigate('/privacy/');
+    expect(window.history.length).toBe(5);
+    navigate('/');
+    expect(window.history.length).toBe(6);
+  });
+
+  it('keeps the history state when the same page is asked for again, and takes a new one', () => {
+    const { window } = installBrowser();
+    navigate('/e/7gT4kPq2Wx9Z', { state: { created: true } });
+    navigate('/e/7gT4kPq2Wx9Z');
+    expect(window.history.state).toEqual({ created: true });
+    expect(window.history.length).toBe(2);
+    navigate('/e/7gT4kPq2Wx9Z', { state: { created: false } });
+    expect(window.history.state).toEqual({ created: false });
+    expect(window.history.length).toBe(2);
+  });
+
+  it('tells subscribers even when it adds no entry', () => {
+    installBrowser();
+    let calls = 0;
+    const unsubscribe = subscribeToRoute(() => (calls += 1));
+    navigate('/privacy');
+    navigate('/privacy');
+    unsubscribe();
+    expect(calls).toBe(2);
+  });
+
+  it('replaces the entry when asked to, whatever the address', () => {
+    const { window } = installBrowser();
+    navigate('/privacy', { replace: true });
+    expect(window.history.length).toBe(1);
+    navigate('/de', { replace: true });
+    expect(window.history.length).toBe(1);
+    expect(window.location.pathname).toBe('/de');
+  });
+
   it('changes only the address when told to keep the scroll position', () => {
     const { window } = installBrowser();
     navigate('/de', { replace: true, keepScroll: true });

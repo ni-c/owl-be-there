@@ -65,9 +65,13 @@ export function earliestDay(ctx: AppContext): ISODate {
   return addDays(todayUTC(new Date(ctx.clock.now())), -1);
 }
 
-/** The last day a new candidate day may be: about five years ahead. */
+/**
+ * The last day a new candidate day may be: about five years ahead. The client
+ * counts the horizon from its local date, which is a day ahead of UTC in
+ * UTC+14, so the server allows one day more than the limit says.
+ */
 export function latestDay(ctx: AppContext): ISODate {
-  return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon);
+  return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon + 1);
 }
 
 function checkDays(
@@ -136,7 +140,9 @@ export class HourlyCeiling {
   private readonly perNetwork = new Map<string, number>();
 
   allow(now: number, max: number, network: string): boolean {
-    if (now - this.windowStart >= 3_600_000) {
+    // A clock stepped back (now < windowStart) would keep the window shut for
+    // as long as the step, so it counts as an expired window too.
+    if (now < this.windowStart || now - this.windowStart >= 3_600_000) {
       this.windowStart = now;
       this.count = 0;
       this.perNetwork.clear();

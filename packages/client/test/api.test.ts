@@ -4,6 +4,7 @@ import {
   ApiFailure,
   calendarFileUrl,
   NetworkFailure,
+  REQUEST_TIMEOUT_MS,
   streamUrl,
 } from '../src/lib/api.ts';
 import { jsonResponse } from './browser.ts';
@@ -217,5 +218,174 @@ describe('api', () => {
   it('builds the calendar and stream links', () => {
     expect(calendarFileUrl(ID)).toBe(`/api/events/${ID}/calendar.ics`);
     expect(streamUrl(ID)).toBe(`/api/events/${ID}/stream`);
+  });
+
+  describe('failures in the answer', () => {
+    const body = { baseRev: 0, yes: [], maybe: [] };
+
+    /** A 200 whose body breaks off after the headers, as a dropped link does. */
+    const brokenBody = (status = 200): Response =>
+      new Response(
+        new ReadableStream({
+          pull(controller) {
+            controller.error(new TypeError('terminated'));
+          },
+        }),
+        { status, headers: { 'content-type': 'application/json' } }
+      );
+
+    it('calls a body that breaks off a network failure', async () => {
+      mockFetch(brokenBody(), brokenBody(), brokenBody());
+      await expect(
+        api.putMarks(ID, PID, body, { participant: 't' })
+      ).rejects.toBeInstanceOf(NetworkFailure);
+      await expect(api.instance()).rejects.toBeInstanceOf(NetworkFailure);
+      await expect(api.getEvent(ID, null)).rejects.toBeInstanceOf(
+        NetworkFailure
+      );
+    });
+
+    it('calls a 200 that is not JSON a bad answer worth retrying', async () => {
+      mockFetch(
+        new Response('<html>Sign in to the Wi-Fi</html>', { status: 200 }),
+        new Response('<html>Sign in to the Wi-Fi</html>', { status: 200 })
+      );
+      await expect(
+        api.putMarks(ID, PID, body, { participant: 't' })
+      ).rejects.toMatchObject({ status: 502, code: 'bad_response' });
+      await expect(api.instance()).rejects.toMatchObject({
+        status: 502,
+        code: 'bad_response',
+      });
+    });
+
+    it('calls a 409 that is not JSON retryable, not unknown', async () => {
+      mockFetch(new Response('conflict', { status: 409 }));
+      const failure = await api
+        .putMarks(ID, PID, body, { participant: 't' })
+        .catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(ApiFailure);
+      expect(failure).toMatchObject({ status: 502, code: 'bad_response' });
+    });
+
+    it('keeps a 200 that is JSON but the wrong shape out of the network failures', async () => {
+      mockFetch(jsonResponse(200, { nope: true }));
+      const failure = await api.instance().catch((error: unknown) => error);
+      expect(failure).not.toBeInstanceOf(NetworkFailure);
+      expect(failure).not.toBeInstanceOf(ApiFailure);
+    });
+
+    it('still answers an error whose body breaks off with its status', async () => {
+      mockFetch(brokenBody(503));
+      await expect(api.instance()).rejects.toMatchObject({
+        status: 503,
+        code: 'http_503',
+      });
+    });
+  });
+
+  describe('deadline', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** A fetch that never answers, and gives up when its signal fires. */
+    function stalledFetch() {
+      const signals: AbortSignal[] = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          (_url: string, init: RequestInit) =>
+            new Promise((_resolve, reject) => {
+              signals.push(init.signal!);
+              init.signal!.addEventListener('abort', () =>
+                reject(new DOMException('aborted', 'AbortError'))
+              );
+            })
+        )
+      );
+      return signals;
+    }
+
+    it('gives up on a request that never answers, as a network failure', async () => {
+      vi.useFakeTimers();
+      const signals = stalledFetch();
+      const result = api.instance().catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1);
+      expect(signals[0]!.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toBeInstanceOf(NetworkFailure);
+      expect(signals[0]!.aborted).toBe(true);
+    });
+
+    it('applies the deadline to saves, keepalive ones included', async () => {
+      vi.useFakeTimers();
+      const signals = stalledFetch();
+      const result = api
+        .putMarks(
+          ID,
+          PID,
+          { baseRev: 0, yes: [], maybe: [] },
+          { participant: 't' },
+          true
+        )
+        .catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+      expect(await result).toBeInstanceOf(NetworkFailure);
+      expect(signals).toHaveLength(1);
+    });
+
+    it('gives up on a body that never ends, too', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_url: string, init: RequestInit) => {
+          const stream = new ReadableStream({
+            start(controller) {
+              init.signal!.addEventListener('abort', () =>
+                controller.error(new DOMException('aborted', 'AbortError'))
+              );
+            },
+          });
+          return new Response(stream, { status: 200 });
+        })
+      );
+      const result = api.instance().catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+      expect(await result).toBeInstanceOf(NetworkFailure);
+    });
+
+    it('lets an answer that arrives just before the deadline through', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () => resolve(jsonResponse(200, snapshot, { etag: '"v3"' })),
+                REQUEST_TIMEOUT_MS - 1
+              )
+            )
+        )
+      );
+      const result = api.getEvent(ID, null);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1);
+      expect(await result).toMatchObject({ etag: '"v3"' });
+    });
+
+    it('stops the clock once the answer is in', async () => {
+      vi.useFakeTimers();
+      mockFetch(jsonResponse(200, snapshot));
+      await api.getEvent(ID, null);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('stops the clock after a failure, too', async () => {
+      vi.useFakeTimers();
+      mockFetch(new TypeError('Failed to fetch'));
+      await api.instance().catch(() => undefined);
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 });

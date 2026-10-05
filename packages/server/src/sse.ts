@@ -31,6 +31,7 @@ export class SseHub {
   private readonly streams = new Map<string, Set<Stream>>();
   private readonly perClient = new Map<string, number>();
   private count = 0;
+  private closed = false;
   private readonly heartbeat: NodeJS.Timeout;
   private readonly limits: StreamLimits;
   private readonly maxLifetimeMs: number;
@@ -58,6 +59,7 @@ export class SseHub {
   /** Whether one more stream for this client and event would fit. */
   hasRoom(eventId: string, clientKey: string): boolean {
     return (
+      !this.closed &&
       this.count < this.limits.total &&
       (this.streams.get(eventId)?.size ?? 0) < this.limits.perEvent &&
       (this.perClient.get(clientKey) ?? 0) < this.limits.perClient
@@ -71,6 +73,13 @@ export class SseHub {
     response: ServerResponse,
     version: number
   ): void {
+    // A request that was already on its way when the server began to shut down
+    // reaches here after `close`: no heartbeat would come and nothing would end
+    // the stream, so the shutdown would wait for it.
+    if (this.closed) {
+      if (!response.writableEnded) response.end();
+      return;
+    }
     // The client may have gone while the route was still deciding; its
     // 'close' has then fired already and would never free the slot.
     if (response.destroyed || response.writableEnded) return;
@@ -141,6 +150,7 @@ export class SseHub {
   }
 
   close(): void {
+    this.closed = true;
     clearInterval(this.heartbeat);
     for (const [eventId, set] of [...this.streams]) {
       for (const stream of [...set]) this.hangUp(eventId, stream);

@@ -9,6 +9,7 @@ import {
 } from '@owl/shared';
 import { useCallback, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { pushUndo, sameMarksOn } from '../lib/undoStack.ts';
 import { CalendarGrid, type HintInfo } from './CalendarGrid.tsx';
 import { CheckIcon, UndoIcon } from './icons.tsx';
 import { Button, Notice, Segmented } from './ui.tsx';
@@ -35,22 +36,40 @@ export function MarksEditor(props: {
   const { days, marks, onMarksChange, today, locked = false } = props;
   const { t, tn } = useI18n();
   const [brush, setBrush] = useState<Mark>('yes');
-  const [undo, setUndo] = useState<Marks[]>([]);
+  // The strokes that can be undone, and the marks this editor last handed on.
+  // Marks that differ from those came from somewhere else — another device's
+  // save adopted by the page — and undoing back past them would wipe them out,
+  // so the history starts over.
+  const [history, setHistory] = useState<{ undo: Marks[]; emitted: Marks }>({
+    undo: [],
+    emitted: marks,
+  });
   const [announcement, setAnnouncement] = useState('');
+  const undo = useMemo(
+    () => (sameMarksOn(days, marks, history.emitted) ? history.undo : []),
+    [days, marks, history]
+  );
 
   const change = useCallback(
     (next: Map<ISODate, Mark>, changed: number) => {
-      setUndo((stack) => [...stack.slice(-(UNDO_LIMIT - 1)), marks]);
+      setHistory((current) => ({
+        undo: pushUndo(
+          sameMarksOn(days, marks, current.emitted) ? current.undo : [],
+          marks,
+          UNDO_LIMIT
+        ),
+        emitted: next,
+      }));
       onMarksChange(next);
       setAnnouncement(tn('cal.changed', changed));
     },
-    [marks, onMarksChange, tn]
+    [days, marks, onMarksChange, tn]
   );
 
   const undoLast = useCallback(() => {
     const previous = undo[undo.length - 1];
     if (!previous) return;
-    setUndo(undo.slice(0, -1));
+    setHistory({ undo: undo.slice(0, -1), emitted: previous });
     onMarksChange(previous);
   }, [undo, onMarksChange]);
 

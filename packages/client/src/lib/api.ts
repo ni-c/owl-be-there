@@ -62,22 +62,66 @@ interface RequestOptions {
   keepalive?: boolean;
 }
 
-async function send(
+/**
+ * How long one request may take, answer included. A connection that goes
+ * quiet without being closed would otherwise hold a refresh or a save up for
+ * as long as the browser or a proxy cares to wait.
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * Run one request and read its answer inside `read`. A network error, a
+ * deadline that runs out and a body that breaks off half way all come out as
+ * `NetworkFailure`: the cases a retry can mend.
+ */
+async function exchange<T>(
   method: string,
   path: string,
-  options: RequestOptions = {}
-): Promise<Response> {
+  options: RequestOptions,
+  read: (response: Response) => Promise<T>
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(path, {
-      method,
-      headers: {
-        ...headersFor(options.credentials, options.body !== undefined),
-        ...options.headers,
-      },
-      ...(options.body !== undefined && { body: JSON.stringify(options.body) }),
-      ...(options.keepalive && { keepalive: true }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(path, {
+        method,
+        headers: {
+          ...headersFor(options.credentials, options.body !== undefined),
+          ...options.headers,
+        },
+        ...(options.body !== undefined && {
+          body: JSON.stringify(options.body),
+        }),
+        ...(options.keepalive && { keepalive: true }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw new NetworkFailure(error);
+    }
+    return await read(response);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The JSON body of an answer. A body that breaks off is a network failure; a
+ * body that is not JSON (a captive portal's page, a proxy's) is a bad answer
+ * from upstream, which is worth a retry too.
+ */
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
   } catch (error) {
+    if (error instanceof SyntaxError)
+      throw new ApiFailure(
+        502,
+        'bad_response',
+        'The answer was not JSON',
+        null
+      );
     throw new NetworkFailure(error);
   }
 }
@@ -106,9 +150,10 @@ async function request<S extends z.ZodType>(
   schema: S,
   options: RequestOptions = {}
 ): Promise<z.output<S>> {
-  const response = await send(method, path, options);
-  if (!response.ok) throw await failure(response);
-  return schema.parse(await response.json());
+  return exchange(method, path, options, async (response) => {
+    if (!response.ok) throw await failure(response);
+    return schema.parse(await readJson(response));
+  });
 }
 
 async function requestEmpty(
@@ -116,8 +161,9 @@ async function requestEmpty(
   path: string,
   options: RequestOptions = {}
 ): Promise<void> {
-  const response = await send(method, path, options);
-  if (!response.ok) throw await failure(response);
+  await exchange(method, path, options, async (response) => {
+    if (!response.ok) throw await failure(response);
+  });
 }
 
 const events = (id: string): string => `/api/events/${encodeURIComponent(id)}`;
@@ -140,15 +186,19 @@ export const api = {
     id: string,
     etag: string | null
   ): Promise<{ data: EventSnapshotData; etag: string | null } | null> {
-    const response = await send('GET', events(id), {
-      ...(etag !== null && { headers: { 'if-none-match': etag } }),
-    });
-    if (response.status === 304) return null;
-    if (!response.ok) throw await failure(response);
-    return {
-      data: EventSnapshot.parse(await response.json()),
-      etag: response.headers.get('etag'),
-    };
+    return exchange(
+      'GET',
+      events(id),
+      { ...(etag !== null && { headers: { 'if-none-match': etag } }) },
+      async (response) => {
+        if (response.status === 304) return null;
+        if (!response.ok) throw await failure(response);
+        return {
+          data: EventSnapshot.parse(await readJson(response)),
+          etag: response.headers.get('etag'),
+        };
+      }
+    );
   },
 
   session(id: string, name: string, password?: string) {
@@ -174,34 +224,35 @@ export const api = {
     | { ok: true; rev: number; version: number }
     | { ok: false; rev: number; yes: string[]; maybe: string[] }
   > {
-    const response = await send(
+    return exchange(
       'PUT',
       `${events(id)}/participants/${participantId}/marks`,
-      {
-        body,
-        credentials,
-        keepalive,
+      { body, credentials, keepalive },
+      async (response) => {
+        if (response.status === 409) {
+          const json = await readJson(response);
+          const conflict = MarksConflict.safeParse(json);
+          if (conflict.success)
+            return {
+              ok: false as const,
+              rev: conflict.data.rev,
+              yes: conflict.data.yes,
+              maybe: conflict.data.maybe,
+            };
+          throw new ApiFailure(
+            409,
+            ApiErrorBody.safeParse(json).data?.error ?? 'conflict',
+            'Conflict',
+            json
+          );
+        }
+        if (!response.ok) throw await failure(response);
+        return {
+          ok: true as const,
+          ...MarksResponse.parse(await readJson(response)),
+        };
       }
     );
-    if (response.status === 409) {
-      const json: unknown = await response.json();
-      const conflict = MarksConflict.safeParse(json);
-      if (conflict.success)
-        return {
-          ok: false,
-          rev: conflict.data.rev,
-          yes: conflict.data.yes,
-          maybe: conflict.data.maybe,
-        };
-      throw new ApiFailure(
-        409,
-        ApiErrorBody.safeParse(json).data?.error ?? 'conflict',
-        'Conflict',
-        json
-      );
-    }
-    if (!response.ok) throw await failure(response);
-    return { ok: true, ...MarksResponse.parse(await response.json()) };
   },
 
   updateParticipant(

@@ -43,8 +43,12 @@ export function navigate(
   } = {}
 ): void {
   const state = options.state ?? null;
+  // A link to the page one is on is no new place: Back must not have to click
+  // through copies of it.
+  const here = window.location.pathname + window.location.search;
   if (options.replace) window.history.replaceState(state, '', path);
-  else window.history.pushState(state, '', path);
+  else if (path !== here) window.history.pushState(state, '', path);
+  else if (options.state) window.history.replaceState(state, '', path);
   if (!options.keepScroll) window.scrollTo({ top: 0 });
   for (const listener of listeners) listener();
 }

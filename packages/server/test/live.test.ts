@@ -102,6 +102,28 @@ describe('live updates', () => {
     expect(response.status).toBe(404);
   });
 
+  it('do not run the stream for HEAD: a monitor gets an answer and no slot', async () => {
+    const { id } = await createEvent(t.app);
+    const head = await t.app.inject({
+      method: 'HEAD',
+      url: `/api/events/${id}/stream`,
+    });
+    expect(head.statusCode).toBe(404);
+    expect(t.app.hub.size).toBe(0);
+    // Over a real connection too, where the hijacked handler never answered.
+    const answered = await fetch(`${base}/api/events/${id}/stream`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(1000),
+    });
+    expect(answered.status).toBe(404);
+    expect(t.app.hub.size).toBe(0);
+    // GET still opens a stream.
+    const response = await fetch(`${base}/api/events/${id}/stream`);
+    expect(response.status).toBe(200);
+    expect(t.app.hub.size).toBe(1);
+    await response.body!.cancel();
+  });
+
   it('refuse streams beyond the limits and count closed ones out', async () => {
     const { id } = await createEvent(t.app);
     const open = [
@@ -143,8 +165,9 @@ describe('the sweep', () => {
 });
 
 describe('how long an event lives', () => {
-  // The latest day a new candidate day may take, from 2027-03-01.
-  const farDay = addDays('2027-03-01', LIMITS.horizon);
+  // The latest day a new candidate day may take, from 2027-03-01: the horizon
+  // and one day of slack for a client ahead of UTC.
+  const farDay = addDays('2027-03-01', LIMITS.horizon + 1);
 
   it('is ninety days for an event nobody answered, however late its days', async () => {
     const { id } = await createEvent(t.app, {

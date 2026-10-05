@@ -75,6 +75,28 @@ describe('who are you', () => {
     );
   });
 
+  it('counts the length of a password in characters, not UTF-16 units', async () => {
+    // Three emoji are six UTF-16 units but three characters.
+    const emoji = await session({ name: 'New', password: '😀😀😀' });
+    expect(emoji.statusCode).toBe(400);
+    expect(emoji.json().error).toBe('password_too_short');
+    await join(t.app, id, 'Max');
+    expect(
+      (await session({ name: 'Max', password: '😀😀😀' })).json().error
+    ).toBe('password_too_short');
+    // Five characters are still too few, six are enough.
+    expect(
+      (await session({ name: 'New', password: '😀'.repeat(5) })).statusCode
+    ).toBe(400);
+    expect(
+      (await session({ name: 'New', password: '😀'.repeat(6) })).statusCode
+    ).toBe(200);
+    // Accented letters are one character each, in either form.
+    expect(
+      (await session({ name: 'Ann', password: 'éééééé' })).statusCode
+    ).toBe(200);
+  });
+
   it('lets roster names in without creating anyone', async () => {
     const roster = await createEvent(t.app, { roster: ['Anna'] });
     const anna = await join(t.app, roster.id, 'anna');
@@ -143,14 +165,104 @@ describe('marks', () => {
     );
   });
 
-  it('refuses days that are not candidates, and a day marked twice', async () => {
+  it('refuses a day marked as both yes and maybe', async () => {
     const max = await join(t.app, id, 'Max');
-    expect((await mark(t.app, id, max, ['2027-03-09'])).json().error).toBe(
-      'invalid_marks'
+    const response = await mark(t.app, id, max, ['2027-03-06'], ['2027-03-06']);
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toBe('invalid_marks');
+  });
+
+  it('keeps only the candidate days of a save', async () => {
+    const max = await join(t.app, id, 'Max');
+    const response = await mark(
+      t.app,
+      id,
+      max,
+      ['2027-03-09', '2027-03-06'],
+      ['2027-03-10', '2027-03-07']
     );
-    expect(
-      (await mark(t.app, id, max, ['2027-03-06'], ['2027-03-06'])).json().error
-    ).toBe('invalid_marks');
+    expect(response.statusCode).toBe(200);
+    expect((await getSnapshot(t.app, id)).participants[0]).toMatchObject({
+      yes: ['2027-03-06'],
+      maybe: ['2027-03-07'],
+    });
+    // Nothing but strangers is a save of no marks: still an answer.
+    expect((await mark(t.app, id, max, ['2027-03-09'], [], 1)).statusCode).toBe(
+      200
+    );
+    expect((await getSnapshot(t.app, id)).participants[0]).toMatchObject({
+      yes: [],
+      maybe: [],
+      answered: true,
+    });
+  });
+
+  describe('after the organiser removed a day', () => {
+    const DAYS = ['2027-03-05', ...WEEKEND];
+    const remove = (days: string[]) =>
+      t.app.inject({
+        method: 'PATCH',
+        url: `/api/events/${id}`,
+        headers: { 'x-admin-token': adminToken },
+        payload: { days, baseDays: DAYS },
+      });
+
+    it('answers a save that still carries it with the 409 and the current marks', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06', '2027-03-07']);
+      expect((await remove(['2027-03-05', '2027-03-06'])).statusCode).toBe(200);
+      // A stale save, from a device that still has 2027-03-07.
+      const late = await mark(
+        t.app,
+        id,
+        max,
+        ['2027-03-05', '2027-03-06', '2027-03-07'],
+        [],
+        1
+      );
+      expect(late.statusCode).toBe(409);
+      expect(late.json()).toMatchObject({
+        error: 'stale',
+        yes: ['2027-03-06'],
+        maybe: [],
+      });
+    });
+
+    it('drops it from a save that is up to date, and from one that empties the marks', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06', '2027-03-07']);
+      await remove(['2027-03-05', '2027-03-06']);
+      const rev = (await getSnapshot(t.app, id)).participants[0].rev as number;
+      expect(
+        (await mark(t.app, id, max, ['2027-03-05', '2027-03-07'], [], rev))
+          .statusCode
+      ).toBe(200);
+      expect((await getSnapshot(t.app, id)).participants[0].yes).toEqual([
+        '2027-03-05',
+      ]);
+      expect(
+        (await mark(t.app, id, max, ['2027-03-07'], ['2027-03-08'], rev + 1))
+          .statusCode
+      ).toBe(200);
+      expect((await getSnapshot(t.app, id)).participants[0]).toMatchObject({
+        yes: [],
+        maybe: [],
+        answered: true,
+      });
+    });
+
+    it('still refuses yes and maybe on one remaining day', async () => {
+      const max = await join(t.app, id, 'Max');
+      await remove(['2027-03-05', '2027-03-06']);
+      const response = await mark(
+        t.app,
+        id,
+        max,
+        ['2027-03-06', '2027-03-07'],
+        ['2027-03-06']
+      );
+      expect(response.statusCode).toBe(400);
+    });
   });
 
   it('collapses repeated days', async () => {
@@ -295,6 +407,28 @@ describe('changing a participant', () => {
           WEEKEND
         )
       ).statusCode
+    ).toBe(200);
+  });
+
+  it('counts the length of a new password in characters', async () => {
+    const max = await join(t.app, id, 'Max');
+    const headers = { 'x-participant-token': max.token };
+    // The schema refuses it, counting characters like the session route.
+    for (const password of ['😀😀😀', '😀'.repeat(5)]) {
+      const response = await patch(max.participantId, headers, { password });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('validation_failed');
+    }
+    expect(
+      (await patch(max.participantId, headers, { password: 'abc' })).statusCode
+    ).toBe(400);
+    // Still unprotected, and the old token still works.
+    expect((await getSnapshot(t.app, id)).participants[0].hasPassword).toBe(
+      false
+    );
+    expect(
+      (await patch(max.participantId, headers, { password: '😀'.repeat(6) }))
+        .statusCode
     ).toBe(200);
   });
 

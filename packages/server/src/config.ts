@@ -230,5 +230,7 @@ function isProxyEntry(entry: string): boolean {
   if (version === 0) return false;
   if (bits === undefined) return true;
   if (!/^\d{1,3}$/.test(bits)) return false;
-  return Number(bits) <= (version === 4 ? 32 : 128);
+  // A /0 is refused by proxy-addr, and would trust every address anyway.
+  const length = Number(bits);
+  return length >= 1 && length <= (version === 4 ? 32 : 128);
 }

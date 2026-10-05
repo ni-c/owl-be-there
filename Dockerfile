@@ -92,9 +92,10 @@ USER node
 VOLUME ["/data"]
 EXPOSE 8080
 
-# Node's own fetch, so the image needs neither curl nor wget.
+# Node's own fetch, so the image needs neither curl nor wget. A blank PORT
+# means 8080, exactly as the server reads it.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT}/api/health`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+  CMD ["node", "-e", "fetch(`http://127.0.0.1:${(process.env.PORT || '').trim() || 8080}/api/health`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
 # Exec form: node is PID 1 and receives SIGTERM itself, closing the server and
 # checkpointing the database before it exits.

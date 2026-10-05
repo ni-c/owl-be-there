@@ -1,6 +1,7 @@
 import {
   addDays,
   compareISODate,
+  dayFormatter,
   formatDay,
   utcDateOf,
   type ISODate,
@@ -8,7 +9,7 @@ import {
 import { buildWeeks } from './grid.js';
 import { heatLevel, heatOf, tally, type Respondent } from './ranking.js';
 import type { EventSnapshotData } from './schemas.js';
-import { formatDayRange, LOCALES, SERVER_TEXTS } from './texts.js';
+import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
 
 /**
  * The picture link previews show for an event: its title, the state of the
@@ -131,12 +132,20 @@ export function escapeXml(text: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** Rough width of a character in em: SVG has no text measuring. */
+/**
+ * Rough width of a character in em: SVG has no text measuring. The four wide
+ * letters are measured from the rendered font at weight 800; the rest of the
+ * alphabet sits close to one average.
+ */
 function charWidth(char: string): number {
   const code = char.codePointAt(0)!;
   if (code >= 0x2e80) return 1; // CJK and other full-width scripts
   if (char === ' ') return 0.26;
-  if (/[A-ZÄÖÜÉÈÀ0-9MW@#%&]/.test(char)) return 0.68;
+  if (char === 'W') return 1.1;
+  if (char === 'M') return 0.95;
+  if (char === 'm') return 0.9;
+  if (char === 'w') return 0.8;
+  if (/[A-ZÄÖÜÉÈÀ0-9@#%&]/.test(char)) return 0.68;
   return 0.54;
 }
 
@@ -154,36 +163,35 @@ export function wrapText(
   const limit = maxWidth / fontSize;
   const chars = [...text.trim().replace(/\s+/g, ' ')];
   const lines: string[] = [];
-  let line: string[] = [];
+  // The line being filled starts at `start`; when a character does not fit,
+  // the word it is in moves to the next line and is measured again from there.
+  let start = 0;
   let width = 0;
   let lastSpace = -1;
-  for (const char of chars) {
+  let i = 0;
+  while (i < chars.length) {
+    const char = chars[i]!;
     const w = charWidth(char);
-    if (width + w > limit && line.length > 0) {
-      let rest: string[] = [];
-      if (char !== ' ' && lastSpace > 0) {
-        rest = line.slice(lastSpace + 1);
-        line = line.slice(0, lastSpace);
-      }
-      lines.push(line.join('').trimEnd());
-      line = char === ' ' ? [...rest] : [...rest, char];
-      width = line.reduce((sum, c) => sum + charWidth(c), 0);
-      lastSpace = line.lastIndexOf(' ');
+    if (width + w > limit && i > start) {
+      const wordBreak = char !== ' ' && lastSpace > start;
+      const end = wordBreak ? lastSpace : i;
+      lines.push(chars.slice(start, end).join('').trimEnd());
+      start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : i;
+      width = 0;
+      lastSpace = -1;
+      i = start;
       continue;
     }
-    if (char === ' ') lastSpace = line.length;
-    line.push(char);
+    if (char === ' ') lastSpace = i;
     width += w;
+    i += 1;
   }
-  if (line.length > 0) lines.push(line.join('').trim());
+  if (start < chars.length) lines.push(chars.slice(start).join('').trim());
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
   const last = [...kept[maxLines - 1]!];
   const ellipsis = charWidth('…');
-  while (
-    last.length > 0 &&
-    last.reduce((sum, c) => sum + charWidth(c), 0) + ellipsis > limit
-  )
+  while (last.length > 0 && textWidth(last.join(''), 1) + ellipsis > limit)
     last.pop();
   kept[maxLines - 1] = `${last.join('').trimEnd()}…`;
   return kept;
@@ -198,13 +206,7 @@ export function previewSvg(
   const texts = SERVER_TEXTS[event.language];
   const locale = LOCALES[event.language];
   const e = escapeXml;
-  const answers = data.participants.filter((p) => p.answered).length;
-  const status =
-    event.finalStart !== null && event.finalEnd !== null
-      ? texts.previewDecided(
-          formatDayRange(event.finalStart, event.finalEnd, locale)
-        )
-      : texts.previewOpen(answers);
+  const status = previewStatus(texts, data, locale);
 
   const left = 72;
   const columnWidth = 590;
@@ -332,7 +334,7 @@ export function monthRange(
   locale: string
 ): string {
   const format = (options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+    dayFormatter(locale, options);
   const full = format({ month: 'long', year: 'numeric' });
   if (!locale.startsWith('ja'))
     return full.formatRange(utcDateOf(first), utcDateOf(last));

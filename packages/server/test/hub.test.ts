@@ -146,6 +146,62 @@ describe('SseHub, when a stream goes away', () => {
   });
 });
 
+describe('SseHub, once closed', () => {
+  class StrictResponse extends FakeResponse {
+    destroyed = false;
+    get writableEnded(): boolean {
+      return this.ended;
+    }
+  }
+  const strict = (): StrictResponse & ServerResponse =>
+    new StrictResponse() as unknown as StrictResponse & ServerResponse;
+
+  it('has no room, and ends a stream added late instead of keeping it', () => {
+    const hub = new SseHub();
+    hub.close();
+    expect(hub.hasRoom('e', 'k')).toBe(false);
+    const late = strict();
+    hub.add('e', 'k', late, 1);
+    expect(late.ended).toBe(true);
+    expect(late.written).toEqual([]);
+    expect(hub.size).toBe(0);
+    expect(hub.hasRoom('e', 'k')).toBe(false);
+  });
+
+  it('copes with a late stream that has ended already', () => {
+    const hub = new SseHub();
+    hub.close();
+    const gone = strict();
+    gone.ended = true;
+    expect(() => hub.add('e', 'k', gone, 1)).not.toThrow();
+    expect(hub.size).toBe(0);
+  });
+
+  it('can be closed again, or while empty, and still ends what was added before', () => {
+    const empty = new SseHub();
+    expect(() => {
+      empty.close();
+      empty.close();
+    }).not.toThrow();
+    const hub = new SseHub();
+    const before = strict();
+    hub.add('e', 'k', before, 1);
+    hub.close();
+    expect(before.ended).toBe(true);
+    expect(() => hub.close()).not.toThrow();
+    expect(hub.size).toBe(0);
+  });
+
+  it('keeps notifying nobody and breaking nothing', () => {
+    const hub = new SseHub();
+    hub.close();
+    expect(() => {
+      hub.changed('e', 2);
+      hub.deleted('e');
+    }).not.toThrow();
+  });
+});
+
 describe('context', () => {
   it('reads the system clock', () => {
     const before = Date.now();

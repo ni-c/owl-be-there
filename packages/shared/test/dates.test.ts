@@ -4,6 +4,7 @@ import {
   basicDate,
   civilFromDays,
   compareISODate,
+  dayFormatter,
   dayNumber,
   daysFromCivil,
   daysInMonth,
@@ -158,5 +159,101 @@ describe('formatting', () => {
         month: 'long',
       })
     ).toBe('Samstag, 6. März');
+  });
+});
+
+describe('the ends of the calendar', () => {
+  it('steps to the first and the last day and no further', () => {
+    expect(addDays('9999-12-30', 1)).toBe('9999-12-31');
+    expect(addDays('0000-01-02', -1)).toBe('0000-01-01');
+    expect(() => addDays('9999-12-31', 1)).toThrow(RangeError);
+    expect(() => addDays('0000-01-01', -1)).toThrow(RangeError);
+    expect(() => addDays('9999-12-31', 400)).toThrow(RangeError);
+  });
+
+  it('stays put for a step of nothing, on both ends', () => {
+    expect(addDays('9999-12-31', 0)).toBe('9999-12-31');
+    expect(addDays('0000-01-01', 0)).toBe('0000-01-01');
+  });
+
+  it('refuses day numbers outside 0000-01-01 to 9999-12-31', () => {
+    const first = dayNumber('0000-01-01');
+    const last = dayNumber('9999-12-31');
+    expect(isoFromDayNumber(first)).toBe('0000-01-01');
+    expect(isoFromDayNumber(last)).toBe('9999-12-31');
+    expect(() => isoFromDayNumber(first - 1)).toThrow(RangeError);
+    expect(() => isoFromDayNumber(last + 1)).toThrow(RangeError);
+    expect(() => isoFromDayNumber(Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe('utcDateOf in the first centuries', () => {
+  it('does not read a year below 100 as 19xx', () => {
+    expect(utcDateOf('0000-01-01').getUTCFullYear()).toBe(0);
+    expect(utcDateOf('0050-06-15').getUTCFullYear()).toBe(50);
+    expect(utcDateOf('0099-12-31').getUTCFullYear()).toBe(99);
+    expect(utcDateOf('0100-01-01').getUTCFullYear()).toBe(100);
+  });
+
+  it('keeps month and day, and knows year 0 is a leap year', () => {
+    const leap = utcDateOf('0000-02-29');
+    expect(leap.getUTCMonth()).toBe(1);
+    expect(leap.getUTCDate()).toBe(29);
+    const mid = utcDateOf('0050-06-15');
+    expect([mid.getUTCMonth(), mid.getUTCDate()]).toEqual([5, 15]);
+    expect(utcDateOf('0000-01-01').getUTCHours()).toBe(0);
+  });
+
+  it('formats such a year as itself', () => {
+    expect(
+      formatDay('0050-06-15', 'en-US', { year: 'numeric', month: 'numeric' })
+    ).toContain('50');
+    expect(
+      formatDay('0050-06-15', 'en-US', { year: 'numeric', month: 'numeric' })
+    ).not.toContain('1950');
+  });
+});
+
+describe('formatDay with cached formatters', () => {
+  const long = { weekday: 'long', day: 'numeric', month: 'long' } as const;
+  const month = { month: 'long' } as const;
+
+  it('gives the same answer on every call', () => {
+    const first = formatDay('2027-03-08', 'en-GB', long);
+    for (let i = 0; i < 3; i += 1) {
+      expect(formatDay('2027-03-08', 'en-GB', long)).toBe(first);
+    }
+  });
+
+  it('keeps locales and options apart', () => {
+    expect(formatDay('2027-03-08', 'en-GB', month)).toBe('March');
+    expect(formatDay('2027-03-08', 'de-DE', month)).toBe('März');
+    expect(formatDay('2027-03-08', 'en-GB', long)).toBe('Monday 8 March');
+    expect(formatDay('2027-03-08', 'en-GB', month)).toBe('March');
+    expect(formatDay('2027-03-08', 'de-DE', long)).toBe('Montag, 8. März');
+  });
+
+  it('formats the first and the last day of the calendar', () => {
+    const numeric = {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    } as const;
+    expect(formatDay('0001-01-01', 'en-US', numeric)).toBe('1/1/1');
+    expect(formatDay('9999-12-31', 'en-US', numeric)).toBe('12/31/9999');
+  });
+
+  it('reuses one formatter, always in UTC', () => {
+    expect(dayFormatter('en-GB', long)).toBe(dayFormatter('en-GB', long));
+    expect(dayFormatter('en-GB', long)).not.toBe(dayFormatter('de-DE', long));
+    expect(dayFormatter('en-GB', long).resolvedOptions().timeZone).toBe('UTC');
+  });
+
+  it('survives a stream of different options', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const options = { ...month, tag: i } as Intl.DateTimeFormatOptions;
+      expect(formatDay('2027-03-08', 'en-GB', options)).toBe('March');
+    }
+    expect(formatDay('2027-03-08', 'de-DE', month)).toBe('März');
   });
 });

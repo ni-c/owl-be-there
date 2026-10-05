@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import {
+  charCount,
   isId,
   LIMITS,
   makeId,
@@ -37,8 +38,9 @@ import { eventOr404, published } from './events.js';
 
 type ParticipantParams = { Params: { id: string; pid: string } };
 
+/** Counted in code points, like every other length limit; three emoji are three. */
 function checkPasswordLength(password: string): void {
-  if (password.length < LIMITS.passwordMin) {
+  if (charCount(password) < LIMITS.passwordMin) {
     throw new ApiError(
       400,
       'password_too_short',
@@ -273,17 +275,18 @@ export function registerParticipantRoutes(
       const candidates = new Set(
         getDays(ctx.db, event.id).map((row) => row.day)
       );
-      const yes = [...new Set(body.yes)].sort();
-      const maybe = [...new Set(body.maybe)].sort();
+      // A day the organiser has just removed is dropped, not refused: a save
+      // that still carries it must reach the revision check and get the
+      // current marks back with a 409, not a 400 that discards the whole save.
+      const onCandidate = (day: string): boolean => candidates.has(day);
+      const yes = [...new Set(body.yes)].filter(onCandidate).sort();
+      const maybe = [...new Set(body.maybe)].filter(onCandidate).sort();
       const both = new Set(yes);
-      if (
-        [...yes, ...maybe].some((day) => !candidates.has(day)) ||
-        maybe.some((day) => both.has(day))
-      ) {
+      if (maybe.some((day) => both.has(day))) {
         throw new ApiError(
           400,
           'invalid_marks',
-          'Marks must be on candidate days, each once'
+          'A day can be marked yes or maybe, not both'
         );
       }
       const result = replaceMarks(

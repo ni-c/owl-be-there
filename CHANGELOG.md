@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An event's description uses the full width of the page instead of breaking early.
 - Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
 - The note at the bottom of an event page says that the event is deleted automatically: "This event will be deleted automatically on … unless something changes by then."
+- Link-preview pictures may be embedded by other sites (`Cross-Origin-Resource-Policy: cross-origin`); everything else stays `same-origin`.
+- New candidate days may lie one day further ahead, so people east of UTC can pick the last allowed day.
+- Marks on days that are not candidate days are dropped instead of refusing the whole save.
+- Saving days or a duration that would delete answers, or shorten or drop the chosen date, asks first and names how many answers are lost.
+- The operator command line checks the command and the configuration before it opens anything, and it never creates or upgrades a database.
+- The privacy page mentions that the Google Calendar button opens Google with the event's details.
+- German and Japanese wording is consistent ("Abstimmung", 予定); Italian weekday buttons read "Ogni sabato".
+- The pre-push hook checks only pushes of the checked-out branch and refuses a dirty working tree; `npm run screenshot` picks a free port and cleans up after itself; `og.png` is set in the bundled Nunito; `npm run test:tz` runs five zones.
 
 ### Security
 
@@ -53,6 +61,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Event pages, link previews and their pictures reuse the event's state as long as it is unchanged, instead of rebuilding every participant and mark per request.
 - The operator's `list` and `purge` commands count only people who marked days, so names typed into a list no longer keep an unanswered event from being purged.
 - Addresses a proxy reports with a port are rate limited like the address alone.
+- Marks painted just before switching tabs on a phone, resizing the window or filling in for someone else are saved instead of dropped, saves survive closing the tab, and pending changes are sent when the page goes into the background.
+- A save that still contains a day the organiser just removed is saved without that day instead of failing.
+- A request that stops answering no longer freezes saving and refreshing; requests give up after 20 seconds and are retried. A dropped connection or a captive-portal page during a save is retried instead of failing for good.
+- An update announced while another fetch was running, or a failed refresh, no longer leaves the page on an old version, and the page refreshes when the phone wakes up, the tab becomes visible or the network returns.
+- One failed request for the instance information no longer leaves the imprint link, the privacy details and the share links missing for the whole visit.
+- Failed saves and organiser edits name the actual reason (no run of days long enough, too many days, past or distant days, a busy server, a changed entry, a short password) instead of "That didn't work".
+- Saving after a password change revoked this device's session asks who you are again instead of failing.
+- The days editor no longer saves days its calendar does not show, and no longer adds days that have passed or more days than an event may hold.
+- Saving the organiser's details sends only the fields that changed, so it no longer undoes a change made on another device; duration and "people needed" are checked with a message instead of being adjusted silently; a failed "Add names" keeps the typed names, and a double-clicked Save no longer reports a conflict.
+- Organiser messages appear next to the control that caused them and clear on the next edit; wizard errors disappear once the input is fixed; over-long names and lists are caught before they are sent.
+- Undo no longer restores marks older than ones adopted from another device.
+- Notes are saved only when they changed, a note changed on another device is not overwritten by stale text, and a failed note save is shown next to the note.
+- "Saved: none of these days work for you" appears only once the save has finished.
+- The organiser leaves "Fill in" when that person disappears.
+- Keyboard selection in the calendar no longer survives a click or leaving the grid, no longer previews on a closed poll, takes its paint or erase mode from a day that can be painted, and Ctrl, Alt or Shift combinations no longer trigger the brush and undo shortcuts. Shift with Home or End starts a selection.
+- A tap right after a drag is no longer ignored, and a drag whose release was lost no longer leaves the calendar stuck.
+- The group view drops hidden people, selections and open day sheets that no longer exist.
+- Long unbroken titles, places, descriptions, names and notes wrap instead of widening the page.
+- The start page asks before it forgets an event whose organiser link is stored on this device.
+- An organiser link pasted into an open event page is taken and removed from the address bar; a key the server refuses is dropped for good, with a message.
+- Opening a deleted or unknown event removes it, its organiser key and its session from this device, and events that fall off the "My events" list leave no keys behind.
+- The event page names the day an event is actually deleted, one day after its last day.
+- The privacy page no longer says "0 days" or "1 days", and says when the operator's details are loading or could not be loaded.
+- The "All set!" greeting appears only the first time the share dialog opens; the share sheet gets the link once; an over-long public address leaves out the QR code instead of blanking the page; in Japanese, the two copy fields no longer share an id.
+- The password option is no longer offered when joining a closed poll.
+- Delete buttons have readable text in dark mode and the red text applies where meant; placeholder text meets 4.5:1 contrast; error notices have their red border again.
+- Arrow keys in a choice group and in the emoji picker move the focus with the selection; buttons, chips, brushes and the dialog close button are 44 px tall; the page no longer scrolls behind dialogs, and a drag that ends on the backdrop no longer closes one.
+- Phones with a notch or home indicator get safe-area spacing without extra scrolling.
+- Clicking a link to the page you are on no longer adds history entries.
+- Saving works again in the development build.
+- Invisible tag characters and other default-ignorable characters can no longer make a second, identical-looking name, and stored names are matched again after the rules change. Titles, places, organiser names and descriptions made only of invisible characters are refused.
+- Lone surrogates, U+FFFE and U+FFFF are cleaned from text, vertical tab, form feed and next-line characters separate words, and text is normalised after invisible characters are removed.
+- Length limits count characters (code points) everywhere, passwords included, so three emoji are too short for a password.
+- Passwords typed in a differently composed Unicode form are recognised as the same password.
+- The "I can" hint bar ignores people who have not seen a day yet, matching the group heatmap.
+- Days beyond year 9999 or before year 0 are refused instead of producing malformed dates, choosing a block that would run past 9999-12-31 answers 400 instead of 500, and years below 100 are formatted correctly.
+- The link preview and its picture of a closed poll say that it is closed. Titles in Cyrillic or Vietnamese appear in the picture, Greek ones through the Japanese font, and titles in scripts no font covers show the app name. Long titles with wide letters no longer run under the calendar, and German says "+ 1 weiterer Tag".
+- Editing one event no longer pushes other events' preview pictures out of the cache, and one failed font or WebAssembly load no longer disables preview pictures until a restart.
+- Links with a trailing slash (`/e/<id>/`, `/de/`, `/privacy/`) show the same page as without it; paths that merely start with `/api` get the app's not-found page; malformed URLs get the app's JSON error and its security headers.
+- A HEAD request to the live-update stream no longer hangs, and a stream opened during shutdown is ended at once.
+- A `CLIENT_DIR` without a built client stops start-up with a clear message; `TRUST_PROXY` ranges ending in `/0` are reported as a configuration error; a crash or full disk during the first start can no longer leave a broken `secret.key`.
+- Password waits and the hourly limit on new events no longer stretch or stay shut when the system clock is set back.
+- Purging or sweeping many events no longer holds the database write lock for the whole run, and two processes migrating one database no longer fail.
+- A client directory with `assets` in its path no longer makes every static file immutable.
+- The container health check treats a blank `PORT` as 8080, like the server.
+- `npm run dev` compiles the server and recompiles it on every edit.
+- Release tags must match the version of all four package manifests, only the highest stable release moves `latest`, pre-releases are marked as such, and CI can be started by hand.
 
 ## [0.2.1] - 2026-10-05
 

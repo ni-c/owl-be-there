@@ -18,6 +18,7 @@ import {
   LIMITS,
   makeId,
   MarksBody,
+  NewPassword,
   RETENTION_DAYS,
   SERVER_TEXTS,
   SessionBody,
@@ -87,6 +88,40 @@ describe('retention at the end of the calendar', () => {
         answered: true,
       })
     ).toBe('9999-12-31');
+  });
+});
+
+describe('retention at the very end of the calendar', () => {
+  it('holds at the last day for every write day within the window', () => {
+    for (const lastWriteDay of ['9999-12-31', '9999-12-30', '9999-10-02']) {
+      expect(
+        expiresOn({
+          lastWriteDay,
+          lastCandidateDay: '9999-12-31',
+          finalEnd: null,
+          answered: false,
+        })
+      ).toBe('9999-12-31');
+    }
+  });
+
+  it('counts normally when the window ends on the last day', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-10-02',
+        lastCandidateDay: '9999-10-02',
+        finalEnd: null,
+        answered: false,
+      })
+    ).toBe('9999-12-31');
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-10-01',
+        lastCandidateDay: '9999-10-01',
+        finalEnd: null,
+        answered: false,
+      })
+    ).toBe('9999-12-30');
   });
 });
 
@@ -166,6 +201,102 @@ describe('the emoji icon', () => {
     expect(svg).not.toContain('<image');
     expect(svg).toContain('&lt;/text&gt;&lt;image href="x"/&gt;');
     expect(decodeURIComponent(emojiIcon('&'))).toContain('&amp;');
+  });
+});
+
+describe('text that shows nothing', () => {
+  const create = (fields: Record<string, unknown>) =>
+    CreateEventBody.safeParse({
+      title: 'Summer tournament',
+      emoji: 'soccer',
+      language: 'en',
+      durationDays: 1,
+      days: ['2027-03-06'],
+      ...fields,
+    });
+
+  it('refuses a title made only of characters that take no room', () => {
+    for (const title of [
+      '\u3164',
+      '\u200D',
+      '\u2800',
+      '\uFE0F',
+      '\u200C\u200D',
+      '\u{E0041}',
+      '',
+      '   ',
+      '\uFFFF',
+    ]) {
+      expect(create({ title }).success, JSON.stringify(title)).toBe(false);
+    }
+  });
+
+  it('still accepts a title of one emoji, and one with a joiner inside', () => {
+    expect(create({ title: '🎉' }).success).toBe(true);
+    expect(create({ title: 'A\u200DB' }).success).toBe(true);
+  });
+
+  it('refuses a location, a creator name and a description that only look empty', () => {
+    expect(create({ location: '\u3164' }).success).toBe(false);
+    expect(create({ creatorName: '\u2800' }).success).toBe(false);
+    expect(create({ description: 'a\n\u200D\u3164' }).success).toBe(true);
+    expect(create({ description: '\u3164\n\u200D' }).success).toBe(false);
+  });
+
+  it('accepts those fields empty or absent', () => {
+    expect(
+      create({ location: '', creatorName: '   ', description: '' }).success
+    ).toBe(true);
+    expect(create({}).success).toBe(true);
+  });
+
+  it('refuses a name with only a tag character, a format control or a filler', () => {
+    for (const name of ['\u{E0041}', '\u206A', '\u17B4', '\u3164', '\u200C']) {
+      expect(SessionBody.safeParse({ name }).success, name).toBe(false);
+    }
+    for (const name of ['Zoë', '李雷', 'Max 🦉']) {
+      expect(SessionBody.safeParse({ name }).success, name).toBe(true);
+    }
+  });
+});
+
+describe('length limits', () => {
+  const name = (value: string) =>
+    SessionBody.safeParse({ name: value }).success;
+  const note = (value: string) =>
+    UpdateParticipantBody.safeParse({ note: value }).success;
+
+  it('count code points after cleaning, so an emoji is one', () => {
+    expect(name('😀'.repeat(LIMITS.name))).toBe(true);
+    expect(name('😀'.repeat(LIMITS.name + 1))).toBe(false);
+    expect(note('😀'.repeat(LIMITS.note))).toBe(true);
+    expect(note('😀'.repeat(LIMITS.note + 1))).toBe(false);
+  });
+
+  it('count a character that NFC splits as two', () => {
+    // U+0958 becomes two code points when composed text is normalised.
+    expect(name('\u0958'.repeat(LIMITS.name / 2))).toBe(true);
+    expect(name('\u0958'.repeat(LIMITS.name / 2 + 1))).toBe(false);
+    expect(note('\u0958'.repeat(LIMITS.note / 2))).toBe(true);
+    expect(note('\u0958'.repeat(LIMITS.note / 2 + 1))).toBe(false);
+  });
+
+  it('keep the empty and the blank outside', () => {
+    expect(name('')).toBe(false);
+    expect(name('   ')).toBe(false);
+    expect(note('')).toBe(true);
+  });
+
+  it('count a new password the way the session body does', () => {
+    const create = (password: string) =>
+      NewPassword.safeParse(password).success;
+    expect(create('😀😀😀')).toBe(false); // three code points, six units
+    expect(create('😀'.repeat(LIMITS.passwordMin))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMin - 1))).toBe(false);
+    expect(create('a'.repeat(LIMITS.passwordMin))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMax))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMax + 1))).toBe(false);
+    expect(create('')).toBe(false);
   });
 });
 

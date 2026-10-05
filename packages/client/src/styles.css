@@ -26,6 +26,7 @@
   --owl-brand-soft: #f8e4d0;
   --owl-focus: #1d4ed8;
   --owl-danger: #b42318;
+  --owl-danger-ink: #ffffff;
   --owl-danger-soft: #fde8e6;
   --owl-yes: #268262;
   --owl-yes-ink: #ffffff;
@@ -64,6 +65,7 @@
     --owl-brand-soft: #3a2c2a;
     --owl-focus: #93b4ff;
     --owl-danger: #ff8a7a;
+    --owl-danger-ink: #1b1308;
     --owl-danger-soft: #3d2230;
     --owl-yes: #2c9572;
     --owl-yes-ink: #0c1f18;
@@ -102,6 +104,7 @@
   --owl-brand-soft: #3a2c2a;
   --owl-focus: #93b4ff;
   --owl-danger: #ff8a7a;
+  --owl-danger-ink: #1b1308;
   --owl-danger-soft: #3d2230;
   --owl-yes: #2c9572;
   --owl-yes-ink: #0c1f18;
@@ -158,6 +161,7 @@
   --color-brand-soft: var(--owl-brand-soft);
   --color-focus: var(--owl-focus);
   --color-danger: var(--owl-danger);
+  --color-danger-ink: var(--owl-danger-ink);
   --color-danger-soft: var(--owl-danger-soft);
   --color-yes: var(--owl-yes);
   --color-yes-ink: var(--owl-yes-ink);
@@ -172,9 +176,18 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * `viewport-fit=cover` lets the page run under a notch and the home indicator,
+ * so the sides keep clear of the insets and the footer clears the bottom one.
+ * The shell is `min-h-dvh` itself: a body padding would come on top of that
+ * and make every short page scroll.
+ */
 body {
   font-family: var(--font-sans);
-  min-height: 100dvh;
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+footer {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -425,4 +438,13 @@ button.cal-cell:not(:disabled):active {
 
 dialog::backdrop {
   background: rgb(20 15 10 / 0.45);
+}
+
+/*
+ * A modal dialog makes the page inert but does not stop it scrolling. The
+ * gutter stays, so the page does not shift sideways when its scrollbar goes.
+ */
+html:has(dialog[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }

@@ -4,6 +4,7 @@ import { buildApp } from './app.js';
 import { loadSecret } from './auth/secret.js';
 import { ConfigError, loadConfig } from './config.js';
 import { migrate } from './db/migrations.js';
+import { rekeyParticipants } from './db/rekey.js';
 import { Db } from './db/sqlite.js';
 
 /** How often expired events are swept out. Their last day is a whole day. */
@@ -28,8 +29,30 @@ async function main(): Promise<void> {
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const db = new Db(join(config.dataDir, 'owl.db'));
   migrate(db);
+  const rekeyed = rekeyParticipants(db);
   const secret = loadSecret(config.dataDir, config.secret);
-  const app = await buildApp({ config, db, secret });
+  let app;
+  try {
+    app = await buildApp({ config, db, secret });
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      console.error(error.message);
+      db.close();
+      process.exit(2);
+    }
+    throw error;
+  }
+
+  if (rekeyed.updated > 0 || rekeyed.skipped > 0) {
+    // Counts only: neither a name nor an event belongs in a log.
+    app.log.info(rekeyed, 'participant name keys brought up to date');
+  }
+  if (rekeyed.skipped > 0) {
+    app.log.warn(
+      { skipped: rekeyed.skipped },
+      'some participant name keys were kept: their new key is taken or empty'
+    );
+  }
 
   const sweep = (): void => {
     try {

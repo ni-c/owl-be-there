@@ -6,9 +6,13 @@ import {
   type TestInfo,
 } from '@playwright/test';
 
+// Read once per worker, so D(n) is the same day for the whole run even when it
+// crosses midnight UTC between creating an event and clicking its days.
+const BASE = Date.now();
+
 /** A day `offset` days from today, in UTC — far enough ahead to be valid in every zone. */
 export function dayFromNow(offset: number): string {
-  const date = new Date();
+  const date = new Date(BASE);
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 }
@@ -49,13 +53,17 @@ export async function createEvent(
   return response.json();
 }
 
-/** Answer as someone through the API. */
+/**
+ * Answer as someone through the API. `baseRev` is the revision the answer is
+ * based on: 0 creates it, a later one must be the current revision.
+ */
 export async function answer(
   request: APIRequestContext,
   id: string,
   name: string,
   yes: string[],
-  maybe: string[] = []
+  maybe: string[] = [],
+  baseRev = 0
 ): Promise<void> {
   const session = await (
     await request.post(`/api/events/${id}/session`, { data: { name } })
@@ -64,7 +72,7 @@ export async function answer(
     `/api/events/${id}/participants/${session.participantId}/marks`,
     {
       headers: { 'x-participant-token': session.token },
-      data: { baseRev: 0, yes, maybe },
+      data: { baseRev, yes, maybe },
     }
   );
   expect(response.status()).toBe(200);
@@ -79,6 +87,9 @@ export async function showView(
   page: Page,
   view: 'mine' | 'group'
 ): Promise<void> {
+  // The page shows a loading state first; the tabs (or, on wide screens, the
+  // calendars) exist only once the event is in, and `isVisible` does not wait.
+  await page.getByRole('tablist').or(page.getByRole('grid')).first().waitFor();
   const tab = page.getByRole('tab', {
     name: view === 'mine' ? 'My days' : /^Group/,
   });
@@ -109,7 +120,8 @@ export async function joinAs(page: Page, name: string): Promise<void> {
 }
 
 export function isMobile(testInfo: TestInfo): boolean {
-  return testInfo.project.name.endsWith('mobile');
+  // Touch devices are the phone projects; the name of the project is free text.
+  return Boolean(testInfo.project.use.hasTouch);
 }
 
 /** Wait until the last change is on the server. */

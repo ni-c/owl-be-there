@@ -14,6 +14,8 @@ const REFETCH_DELAY_MS = 400;
 const POLL_MS = 30_000;
 /** How long to poll before trying the live stream again. */
 const STREAM_RETRY_MS = 5 * 60_000;
+/** The longest pause between attempts to catch up with an announced version. */
+const CATCH_UP_MAX_MS = 30_000;
 
 /**
  * One event as the client knows it: the latest snapshot, kept fresh by the
@@ -33,6 +35,11 @@ export class EventStore {
   private streamRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private fetching: Promise<void> | null = null;
   private stopped = false;
+  private unlisten: (() => void) | null = null;
+  /** The newest version the stream has announced, -1 before any. */
+  private announced = -1;
+  /** Catch-up fetches in a row that did not reach the announced version. */
+  private catchUpMisses = 0;
   readonly id: string;
 
   constructor(id: string) {
@@ -55,6 +62,7 @@ export class EventStore {
     this.stopped = false;
     void this.refresh();
     this.openStream();
+    this.listenForReturn();
   }
 
   stop(): void {
@@ -67,6 +75,8 @@ export class EventStore {
     this.refetchTimer = null;
     this.pollTimer = null;
     this.streamRetryTimer = null;
+    this.unlisten?.();
+    this.unlisten = null;
   }
 
   /** Fetch now, unless a fetch is already under way. */
@@ -78,25 +88,36 @@ export class EventStore {
   }
 
   private async fetchOnce(): Promise<void> {
+    let failed = false;
+    try {
+      failed = await this.fetchAndApply();
+    } finally {
+      this.catchUp(failed);
+    }
+  }
+
+  /** One GET, applied to the state. Whether it failed. */
+  private async fetchAndApply(): Promise<boolean> {
     try {
       const result = await api.getEvent(this.id, this.etag);
-      if (this.stopped) return;
+      if (this.stopped) return false;
       if (result === null) {
         if (this.state.status === 'ready' && this.state.stale) {
           this.set({ ...this.state, stale: false });
         }
-        return;
+        return false;
       }
       // A write may have applied a newer snapshot while this GET travelled.
       if (
         this.state.status === 'ready' &&
         result.data.event.version < this.state.data.event.version
       )
-        return;
+        return false;
       this.etag = result.etag;
       this.set({ status: 'ready', data: result.data, stale: false });
+      return false;
     } catch (error) {
-      if (this.stopped) return;
+      if (this.stopped) return false;
       if (error instanceof ApiFailure && error.status === 404) {
         this.set(
           this.state.status === 'ready'
@@ -104,13 +125,41 @@ export class EventStore {
             : { status: 'not-found' }
         );
         this.stop();
-      } else if (this.state.status === 'ready') {
+        return false;
+      }
+      if (this.state.status === 'ready') {
         // Keep showing what we have; say it may be out of date.
         this.set({ ...this.state, stale: true });
       } else {
         this.set({ status: 'error', error });
       }
+      return true;
     }
+  }
+
+  private shownVersion(): number {
+    return this.state.status === 'ready' ? this.state.data.event.version : -1;
+  }
+
+  /**
+   * An announcement is said once. When the fetch it set off failed, or ran
+   * into a request that was already under way and brought an older snapshot
+   * home, nothing would ask again: so while the store is behind the newest
+   * version heard of, it keeps asking, with growing pauses once it is not
+   * getting there.
+   */
+  private catchUp(failed: boolean): void {
+    if (this.stopped || this.refetchTimer) return;
+    if (this.announced <= this.shownVersion()) {
+      this.catchUpMisses = 0;
+      return;
+    }
+    const delay =
+      failed || this.catchUpMisses > 0
+        ? Math.min(1000 * 2 ** this.catchUpMisses, CATCH_UP_MAX_MS)
+        : REFETCH_DELAY_MS;
+    this.catchUpMisses += 1;
+    this.scheduleRefetch(delay, true);
   }
 
   /** Take a snapshot a write returned, if it is newer than what we show. */
@@ -137,9 +186,9 @@ export class EventStore {
     this.source = source;
     source.addEventListener('changed', (message) => {
       const version = parseVersion((message as MessageEvent<string>).data);
-      const current =
-        this.state.status === 'ready' ? this.state.data.event.version : -1;
-      if (version !== null && version > current) this.scheduleRefetch();
+      if (version === null) return;
+      this.announced = Math.max(this.announced, version);
+      if (version > this.shownVersion()) this.scheduleRefetch();
     });
     source.addEventListener('deleted', () => {
       this.markDeleted();
@@ -163,12 +212,38 @@ export class EventStore {
     });
   }
 
-  private scheduleRefetch(): void {
+  private scheduleRefetch(
+    delay: number = REFETCH_DELAY_MS,
+    onlyIfBehind = false
+  ): void {
     if (this.refetchTimer) return;
     this.refetchTimer = setTimeout(() => {
       this.refetchTimer = null;
+      // A write may have caught up while a catch-up was waiting.
+      if (onlyIfBehind && this.announced <= this.shownVersion()) return;
       void this.refresh();
-    }, REFETCH_DELAY_MS);
+    }, delay);
+  }
+
+  /**
+   * A phone that slept or changed networks loses its connection without the
+   * stream noticing, so the view would stay as it was. Coming back to the
+   * page, or back online, asks for the event again.
+   */
+  private listenForReturn(): void {
+    if (this.unlisten || typeof window === 'undefined') return;
+    const check = (): void => {
+      if (!this.stopped) void this.refresh();
+    };
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') check();
+    };
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', onVisible);
+    this.unlisten = () => {
+      window.removeEventListener('online', check);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }
 
   private startPolling(): void {

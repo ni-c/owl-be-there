@@ -142,6 +142,8 @@ export function CalendarGrid(props: CalendarGridProps) {
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
   const suppressClickUntil = useRef(0);
+  // Where a keyboard selection with Shift started; it ends with the selection.
+  const [anchor, setAnchor] = useState<ISODate | null>(null);
   const frame = useRef<number | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -233,6 +235,11 @@ export function CalendarGrid(props: CalendarGridProps) {
     };
     const onMove = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
+      // The button was released where no release event reached the page.
+      if (event.pointerType === 'mouse' && event.buttons === 0) {
+        endStroke(false);
+        return;
+      }
       latest = { x: event.clientX, y: event.clientY };
       if (frame.current !== null) return;
       frame.current = requestAnimationFrame(() => {
@@ -253,6 +260,12 @@ export function CalendarGrid(props: CalendarGridProps) {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') endStroke(false);
     };
+    // The page lost the pointer — another window, another tab — and the
+    // release will not come.
+    const onAway = () => endStroke(false);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') endStroke(false);
+    };
     // A safety net for iOS: once a drag is under way, the page must not scroll.
     const onTouchMove = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
@@ -261,12 +274,16 @@ export function CalendarGrid(props: CalendarGridProps) {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', onAway);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', onAway);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('touchmove', onTouchMove);
     };
     // Re-subscribing on every move would drop events; only the pointer matters.
@@ -274,9 +291,14 @@ export function CalendarGrid(props: CalendarGridProps) {
   }, [stroke?.pointerId, endStroke, positionAt]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    setAnchor(null);
     if (!paint || disabled || !marks) return;
-    if (!event.isPrimary || strokeRef.current) return;
+    if (!event.isPrimary) return;
+    // A stroke still open at a new primary press lost its end: drop it.
+    if (strokeRef.current) endStroke(false);
     if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // The click that followed an earlier drag has come and gone by now.
+    suppressClickUntil.current = 0;
     const position = positionAt(event.clientX, event.clientY);
     if (!position) return;
     const day = rows[position.row]?.days[position.col];
@@ -298,6 +320,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const onDayClick = (day: ISODate) => {
+    setAnchor(null);
     if (props.mode === 'heat') {
       props.onDayClick(day);
       return;
@@ -311,9 +334,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   /* ------------------------------------------------------------ keyboard */
 
   const [focused, setFocused] = useState<ISODate | null>(null);
-  const [anchor, setAnchor] = useState<ISODate | null>(null);
   const buttons = useRef(new Map<ISODate, HTMLButtonElement>());
-  const keyboardMoved = useRef(false);
 
   const focusable = useMemo(() => {
     const list: ISODate[] = [];
@@ -329,12 +350,12 @@ export function CalendarGrid(props: CalendarGridProps) {
         focusable[0] ??
         null);
 
-  useEffect(() => {
-    if (keyboardMoved.current && focused) {
-      buttons.current.get(focused)?.focus();
-      keyboardMoved.current = false;
-    }
-  }, [focused, rows]);
+  // Keyboard moves put the focus on the day themselves, so that a later
+  // snapshot never has a reason to take it from wherever it has gone since.
+  const focusDay = (day: ISODate) => {
+    setFocused(day);
+    buttons.current.get(day)?.focus();
+  };
 
   const move = (from: ISODate, dRow: number, dCol: number): ISODate | null => {
     const start = positions.get(from);
@@ -357,21 +378,34 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const keyboardPreview = useMemo(() => {
-    if (!paint || !marks || !anchor || !focused) return null;
+    if (!paint || disabled || !marks || !anchor || !focused) return null;
     const a = positions.get(anchor);
     const b = positions.get(focused);
     if (!a || !b) return null;
     const rectDays = daysInRect(a, b);
+    // As with a pointer stroke, the first day that can be painted decides
+    // between painting and erasing; the anchor may be a past day.
+    const first = selectable(anchor) ? anchor : rectDays[0];
     return {
       days: new Set(rectDays),
       marks: applyStroke(
         marks,
         rectDays,
         brush,
-        strokeModeFor(marks, anchor, brush)
+        first ? strokeModeFor(marks, first, brush) : 'set'
       ),
     };
-  }, [paint, marks, anchor, focused, positions, daysInRect, brush]);
+  }, [
+    paint,
+    disabled,
+    marks,
+    anchor,
+    focused,
+    positions,
+    daysInRect,
+    selectable,
+    brush,
+  ]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = (event.target as HTMLElement).dataset.day;
@@ -386,12 +420,10 @@ export function CalendarGrid(props: CalendarGridProps) {
     if (step) {
       event.preventDefault();
       const next = move(target, step[0], step[1]);
-      if (paint && event.shiftKey) setAnchor((current) => current ?? target);
+      if (paint && !disabled && event.shiftKey)
+        setAnchor((current) => current ?? target);
       else setAnchor(null);
-      if (next) {
-        keyboardMoved.current = true;
-        setFocused(next);
-      }
+      if (next) focusDay(next);
       return;
     }
     if (event.key === 'Home' || event.key === 'End') {
@@ -399,10 +431,10 @@ export function CalendarGrid(props: CalendarGridProps) {
       const row = rows[positions.get(target)?.row ?? 0]!;
       const inRow = row.days.filter((day) => daySet.has(day));
       const next = event.key === 'Home' ? inRow[0] : inRow[inRow.length - 1];
-      if (next) {
-        keyboardMoved.current = true;
-        setFocused(next);
-      }
+      if (paint && !disabled && event.shiftKey)
+        setAnchor((current) => current ?? target);
+      else setAnchor(null);
+      if (next) focusDay(next);
       return;
     }
     if (!paint || disabled) return;
@@ -420,15 +452,18 @@ export function CalendarGrid(props: CalendarGridProps) {
       setAnchor(null);
       return;
     }
-    if ((event.key === 'y' || event.key === 'Y') && paintProps.onBrushChange) {
-      paintProps.onBrushChange('yes');
+    const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (plain && (event.key === 'y' || event.key === 'Y')) {
+      paintProps.onBrushChange?.('yes');
     } else if (
-      (event.key === 'm' || event.key === 'M' || event.key === '?') &&
-      paintProps.onBrushChange
+      plain &&
+      (event.key === 'm' || event.key === 'M' || event.key === '?')
     ) {
-      paintProps.onBrushChange('maybe');
+      paintProps.onBrushChange?.('maybe');
     } else if (
       (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey &&
       event.key.toLowerCase() === 'z' &&
       paintProps.onUndo
     ) {
@@ -491,6 +526,11 @@ export function CalendarGrid(props: CalendarGridProps) {
         aria-readonly={!paint || disabled}
         tabIndex={-1}
         onKeyDown={onKeyDown}
+        onBlur={(event) => {
+          // A selection does not outlast the focus leaving the grid.
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setAnchor(null);
+        }}
       >
         <div role="row" className="cal-head mb-1">
           <span role="columnheader" aria-hidden="true" />

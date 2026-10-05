@@ -1,4 +1,11 @@
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { randomBytes, scryptSync } from 'node:crypto';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -81,6 +88,62 @@ describe('passwords', () => {
     expect(await verifyPassword('Correct horse', stored)).toBe(false);
   });
 
+  describe('typed on another keyboard', () => {
+    const composed = 'Gr\u00fc\u00dfe123';
+    const decomposed = 'Gru\u0308\u00dfe123';
+
+    // A hash as an earlier release made it: from the string as it came.
+    const legacyHash = (password: string): string => {
+      const salt = randomBytes(16);
+      const derived = scryptSync(password, salt, 64, {
+        N: 32_768,
+        r: 8,
+        p: 1,
+        maxmem: 256 * 1024 * 1024,
+      });
+      return [
+        'scrypt',
+        32_768,
+        8,
+        1,
+        salt.toString('base64'),
+        derived.toString('base64'),
+      ].join('$');
+    };
+
+    it('is one password, however the letters are put together', async () => {
+      expect(composed).not.toBe(decomposed);
+      for (const set of [composed, decomposed]) {
+        const stored = await hashPassword(set);
+        expect(await verifyPassword(composed, stored)).toBe(true);
+        expect(await verifyPassword(decomposed, stored)).toBe(true);
+        expect(await verifyPassword('Grusse123', stored)).toBe(false);
+      }
+    });
+
+    it('still opens a hash made from either form before', async () => {
+      for (const set of [composed, decomposed]) {
+        const stored = legacyHash(set);
+        expect(await verifyPassword(composed, stored)).toBe(set === composed);
+        expect(await verifyPassword(decomposed, stored)).toBe(true);
+        expect(await verifyPassword('wrong', stored)).toBe(false);
+      }
+    });
+
+    it('leaves ASCII, the empty string and compatibility forms alone', async () => {
+      const ascii = await hashPassword('correct horse');
+      expect(await verifyPassword('correct horse', ascii)).toBe(true);
+      expect(await verifyPassword('correct  horse', ascii)).toBe(false);
+      const empty = await hashPassword('');
+      expect(await verifyPassword('', empty)).toBe(true);
+      expect(await verifyPassword(' ', empty)).toBe(false);
+      // Full-width letters are other letters: NFC does not fold them.
+      const wide = await hashPassword('\uff21bc');
+      expect(await verifyPassword('Abc', wide)).toBe(false);
+      expect(await verifyPassword('\uff21bc', wide)).toBe(true);
+    });
+  });
+
   it('salt every hash', async () => {
     expect(await hashPassword('same')).not.toBe(await hashPassword('same'));
   });
@@ -126,6 +189,39 @@ describe('loadSecret', () => {
     const dir = mkdtempSync(join(tmpdir(), 'owl-secret-'));
     writeFileSync(join(dir, 'secret.key'), 'c2hvcnQ=');
     expect(() => loadSecret(dir, null)).toThrow(/shorter than 32 bytes/);
+  });
+
+  it('leaves nothing but the key in the directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'owl-secret-'));
+    loadSecret(dir, null);
+    loadSecret(dir, null);
+    expect(readdirSync(dir)).toEqual(['secret.key']);
+  });
+
+  it('keeps a key that is there, and refuses one of 31 bytes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'owl-secret-'));
+    const key = Buffer.alloc(32, 9);
+    writeFileSync(join(dir, 'secret.key'), key.toString('base64'));
+    expect(loadSecret(dir, null).equals(key)).toBe(true);
+    expect(readdirSync(dir)).toEqual(['secret.key']);
+    writeFileSync(
+      join(dir, 'secret.key'),
+      Buffer.alloc(31, 9).toString('base64')
+    );
+    expect(() => loadSecret(dir, null)).toThrow(/shorter than 32 bytes/);
+  });
+
+  it('says what is wrong with an empty file left by a crash', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'owl-secret-'));
+    writeFileSync(join(dir, 'secret.key'), '');
+    expect(() => loadSecret(dir, null)).toThrow(/delete it/);
+    expect(readdirSync(dir)).toEqual(['secret.key']);
+  });
+
+  it('never writes a file with an override', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'owl-secret-'));
+    loadSecret(dir, 'z'.repeat(32));
+    expect(readdirSync(dir)).toEqual([]);
   });
 
   it('passes on errors other than an existing file', () => {
@@ -262,6 +358,98 @@ describe('PasswordThrottle', () => {
     throttle.succeeded('e', 'max');
     expect(throttle.attempt('e', 'max', 'net')).toBe(0);
     expect(throttle.size.names).toBe(0);
+  });
+});
+
+describe('PasswordThrottle, when the clock steps back', () => {
+  const HOUR = 60 * 60_000;
+  const clock = {
+    time: 0,
+    now() {
+      return this.time;
+    },
+  };
+  const limits = { ...DEFAULT_THROTTLE_LIMITS, perNetwork: 3 };
+  const block = (throttle: PasswordThrottle, name: string): void => {
+    for (let miss = 0; miss < limits.freeFailures; miss += 1) {
+      throttle.failed('e', name);
+    }
+  };
+
+  it('keeps a name waiting for its own wait, not for the step as well', () => {
+    clock.time = 2 * HOUR;
+    const throttle = new PasswordThrottle(clock, limits);
+    block(throttle, 'max');
+    expect(throttle.attempt('e', 'max', 'net')).toBe(limits.baseDelayMs);
+    clock.time -= HOUR;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(limits.baseDelayMs);
+    // The wait runs out as it would have.
+    clock.time += limits.baseDelayMs - 1;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(1);
+    clock.time += 1;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(0);
+  });
+
+  it('never makes a name wait longer than the maximum', () => {
+    clock.time = 10 * HOUR;
+    const throttle = new PasswordThrottle(clock, limits);
+    for (let miss = 0; miss < 40; miss += 1) throttle.failed('e', 'max');
+    clock.time -= 9 * HOUR;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(limits.maxDelayMs);
+  });
+
+  it('counts a miss after a step back as the first, not as the next', () => {
+    clock.time = 2 * HOUR;
+    const throttle = new PasswordThrottle(clock, limits);
+    block(throttle, 'max');
+    clock.time -= HOUR;
+    throttle.failed('e', 'max');
+    expect(throttle.attempt('e', 'max', 'net')).toBe(0);
+  });
+
+  it('lets a small step back stretch the wait by no more than the wait', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    block(throttle, 'max');
+    clock.time = 20_000;
+    clock.time -= 10_000;
+    expect(throttle.attempt('e', 'max', 'net')).toBeLessThanOrEqual(
+      limits.baseDelayMs
+    );
+  });
+
+  it('ends a network window that lies in the future', () => {
+    clock.time = 2 * HOUR;
+    const throttle = new PasswordThrottle(clock, limits);
+    for (let i = 0; i < limits.perNetwork; i += 1) {
+      expect(throttle.attempt('e', 'a', 'net')).toBe(0);
+    }
+    expect(throttle.attempt('e', 'a', 'net')).toBe(limits.networkWindowMs);
+    clock.time -= HOUR;
+    expect(throttle.attempt('e', 'a', 'net')).toBe(0);
+    expect(throttle.chargeHash('net')).toBe(0);
+  });
+
+  it('treats a step forward as the time that has passed', () => {
+    clock.time = 0;
+    const throttle = new PasswordThrottle(clock, limits);
+    block(throttle, 'max');
+    for (let i = 0; i < limits.perNetwork; i += 1) {
+      throttle.attempt('e', 'other', 'net');
+    }
+    clock.time += HOUR;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(0);
+    expect(throttle.attempt('e', 'other', 'net')).toBe(0);
+  });
+
+  it('keeps the window and the wait to the millisecond', () => {
+    clock.time = 5;
+    const throttle = new PasswordThrottle(clock, limits);
+    block(throttle, 'max');
+    clock.time = 5 + limits.baseDelayMs - 1;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(1);
+    clock.time = 5 + limits.baseDelayMs;
+    expect(throttle.attempt('e', 'max', 'net')).toBe(0);
   });
 });
 
