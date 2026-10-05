@@ -14,6 +14,23 @@ export interface Respondent {
   unseen: ReadonlySet<ISODate>;
 }
 
+/** The ranking's view of a participant of an event snapshot. */
+export function respondentOf(p: {
+  id: string;
+  answered: boolean;
+  yes: readonly ISODate[];
+  maybe: readonly ISODate[];
+  unseen: readonly ISODate[];
+}): Respondent {
+  return {
+    id: p.id,
+    answered: p.answered,
+    yes: new Set(p.yes),
+    maybe: new Set(p.maybe),
+    unseen: new Set(p.unseen),
+  };
+}
+
 /** A person's answer for one day. */
 export function answerFor(person: Respondent, day: ISODate): Answer {
   if (!person.answered || person.unseen.has(day)) return 'open';

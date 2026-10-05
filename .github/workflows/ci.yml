@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Pushes made with the GITHUB_TOKEN, such as the Dependabot auto-merge, start
+  # no workflow on main; this lets a maintainer run CI on main by hand.
+  workflow_dispatch:
   schedule:
     # So a dependency advisory published after the last push still reaches
     # someone. Without it `audit` only runs on a change, which is the one moment
@@ -18,6 +21,13 @@ concurrency:
 
 permissions:
   contents: read
+
+# The Trivy release every scan runs. Dependabot bumps `uses:` references only,
+# never this, so it is a manual bump with two companions: the same version in
+# `release.yml` and in the `scan:secrets` image of `package.json`
+# (`aquasec/trivy:<version without the v>`).
+env:
+  TRIVY_VERSION: v0.73.0
 
 # The job names are the required status checks of the `protect-main` ruleset.
 # Adding a job is safe; renaming or removing one leaves every pull request
@@ -54,7 +64,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run test:coverage
-      # The calendar logic again under six time zones, from UTC+14 to UTC-11.
+      # The calendar logic again under five time zones, from UTC+14 to UTC-11.
       # A day string turned into a `Date` the wrong way passes in Berlin and
       # fails in Samoa.
       - run: npm run test:tz
@@ -85,8 +95,7 @@ jobs:
       # browser builds are wanted.
       - id: playwright-version
         run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
-      - id: browser-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
@@ -128,6 +137,9 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          # Build tooling (vite, tailwindcss, the test runners) is part of what
+          # a pull request can make vulnerable, not only the runtime tree.
+          fail-on-scopes: runtime, development
 
   audit:
     runs-on: ubuntu-latest
@@ -170,14 +182,23 @@ jobs:
           # removed again is still a secret.
           fetch-depth: 0
           persist-credentials: false
+      # The files as they are now.
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           # Pinned: the action's default version was withdrawn upstream once.
-          version: v0.73.0
+          version: ${{ env.TRIVY_VERSION }}
           scan-type: fs
           scan-ref: .
           scanners: secret
           exit-code: '1'
+      # Every commit on every branch. Trivy only reads the checked-out files;
+      # gitleaks walks the history, so a token that was committed and deleted
+      # again is found. Pinned by digest.
+      - name: Scan the history for secrets
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo:ro \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --redact --no-banner --log-opts=--all /repo
 
   # Builds the image for both architectures and scans it. A finding is reported
   # as a code scanning alert (which closes itself once a later scan no longer
@@ -219,7 +240,7 @@ jobs:
       # uploaded before the gate can turn the job red.
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.73.0
+          version: ${{ env.TRIVY_VERSION }}
           image-ref: owl-be-there:scan-${{ matrix.tag }}
           format: sarif
           output: trivy-${{ matrix.tag }}.sarif
@@ -236,7 +257,6 @@ jobs:
           category: trivy-${{ matrix.tag }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.73.0
           image-ref: owl-be-there:scan-${{ matrix.tag }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true

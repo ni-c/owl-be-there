@@ -1,8 +1,9 @@
+import { APP_NAME, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
-  'app.name': 'Owl Be There',
-  'app.tagline': 'Findet einen Tag, an dem alle können.',
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.de,
 
   'home.lead':
     'Wann könnt ihr alle? Markiert eure Tage im Kalender und findet es heraus. Ohne Anmeldung und Tracking.',
@@ -36,6 +37,10 @@ export const de: Dictionary = {
   'home.myEvents': 'Deine Events',
   'home.organiser': 'Organisation',
   'home.forget': '{title} aus dieser Liste entfernen',
+  'home.forgetOrganiser.title': 'Dieses Event von diesem Gerät entfernen?',
+  'home.forgetOrganiser.text':
+    'Auf diesem Gerät liegt der Organisations-Link für „{title}“. Wenn du das Event entfernst, wird dieser Link hier gelöscht: Ohne eine Kopie davon kannst du von diesem Gerät aus die Abstimmung nicht mehr schließen, keinen Termin festlegen und das Event nicht löschen.',
+  'home.forgetOrganiser.yes': 'Von diesem Gerät entfernen',
   'home.creationDisabled': 'Hier kannst du gerade keine neuen Events anlegen.',
 
   'create.title': 'Event planen',
@@ -73,6 +78,8 @@ export const de: Dictionary = {
   'create.next': 'Weiter',
   'create.submit': 'Event anlegen',
   'create.creating': 'Wird angelegt…',
+  'create.durationLess': 'Einen Tag weniger am Stück',
+  'create.durationMore': 'Einen Tag mehr am Stück',
 
   'error.titleRequired': 'Bitte gib dem Event einen Titel.',
   'error.range': 'Das Enddatum liegt vor dem Startdatum.',
@@ -92,6 +99,15 @@ export const de: Dictionary = {
   'error.rateLimited': 'Das ging etwas schnell. Warte bitte kurz.',
   'error.forbidden': 'Mit diesem Link geht das nicht.',
   'error.nameTaken': 'Diesen Namen hat schon jemand.',
+  'error.numberRange': 'Gib eine Zahl von {min} bis {max} ein.',
+  'error.rosterLine': 'Ein Name darf höchstens {max} Zeichen lang sein.',
+  'error.rosterTooMany': 'Höchstens {max} Namen auf einmal.',
+  'error.busy':
+    'Der Server ist gerade ausgelastet. Versuch es gleich noch mal.',
+  'error.changed':
+    'Dieser Eintrag wurde gerade geändert. Versuch es bitte noch mal.',
+  'error.invalid':
+    'Einige Angaben sind ungültig. Prüf sie bitte und versuch es noch mal.',
 
   'event.loading': 'Event wird geladen…',
   'event.notFound.title': 'Dieses Event finden wir nicht.',
@@ -104,6 +120,8 @@ export const de: Dictionary = {
   'event.duration_other': '{count} Tage am Stück',
   'event.minCount_one': 'braucht {count} Person',
   'event.minCount_other': 'braucht {count} Personen',
+  'event.adminRefused':
+    'Dieser Organisations-Link wurde nicht akzeptiert. Die Organisations-Werkzeuge sind von diesem Gerät entfernt; öffne den vollständigen Link noch einmal, um sie zurückzuholen.',
   'event.expires':
     'Das Event wird am {date} automatisch gelöscht, wenn sich bis dahin nichts ändert.',
   'event.share': 'Teilen',
@@ -226,8 +244,8 @@ export const de: Dictionary = {
     'Diesen Link behältst du am besten für dich. Wer ihn hat, kann das Event ändern oder löschen. Bewahre ihn gut auf. Nur damit kannst du das Event auch von einem anderen Gerät aus verwalten.',
 
   'admin.title': 'Organisation',
-  'admin.close': 'Umfrage schließen',
-  'admin.reopen': 'Umfrage wieder öffnen',
+  'admin.close': 'Abstimmung schließen',
+  'admin.reopen': 'Abstimmung wieder öffnen',
   'admin.unchoose': 'Festlegung aufheben',
   'admin.chooseHint':
     'Wähle den Termin bei „Beste Tage“ in der Gruppenansicht.',
@@ -239,6 +257,8 @@ export const de: Dictionary = {
   'admin.addNamesHint': 'Einer pro Zeile',
   'admin.fillIn': 'Eintragen',
   'admin.resetPassword': 'Passwort entfernen',
+  'admin.resetPasswordConfirm':
+    'Passwort von {name} entfernen? Danach kann jede Person mit dem Link diesen Eintrag ändern.',
   'admin.remove': 'Entfernen',
   'admin.removeConfirm': '{name} und alle Tage dieser Person entfernen?',
   'admin.delete': 'Event löschen',
@@ -246,13 +266,22 @@ export const de: Dictionary = {
     'Event für alle löschen? Das lässt sich nicht rückgängig machen.',
   'admin.deleteYes': 'Endgültig löschen',
   'admin.saved': 'Gespeichert',
+  'admin.lossTitle': 'Änderungen speichern?',
+  'admin.lossMarks_one':
+    'Damit wird {count} Antwort auf den entfernten Tagen endgültig gelöscht.',
+  'admin.lossMarks_other':
+    'Damit werden {count} Antworten auf den entfernten Tagen endgültig gelöscht.',
+  'admin.lossDateShort': 'Der gewählte Termin wird kürzer.',
+  'admin.lossDateDropped':
+    'Der gewählte Termin passt nicht mehr und entfällt. Die Abstimmung bleibt geschlossen.',
+  'admin.lossConfirm': 'Trotzdem speichern',
   'admin.noPeople': 'Noch niemand da.',
 
   'footer.language': 'Sprache',
   'footer.theme': 'Darstellung',
   'footer.privacy': 'Datenschutz',
   'footer.imprint': 'Impressum',
-  'footer.source': 'Open Source',
+  'footer.source': 'Open Source von Willi Thiel',
   'theme.system': 'System',
   'theme.light': 'Hell',
   'theme.dark': 'Dunkel',
@@ -266,7 +295,7 @@ export const de: Dictionary = {
   'privacy.stored.person':
     'Zu jeder Person speichern wir den Namen und die markierten Tage. Falls angegeben, auch eine Notiz und einen Passwort-Hash.',
   'privacy.stored.nothingElse':
-    'Es gibt keine Konten, E-Mail-Adressen, Cookies oder Statistiken. Die App fragt keine anderen Dienste an und speichert keine IP-Adressen.',
+    'Es gibt keine Konten, E-Mail-Adressen, Cookies oder Statistiken. Die App fragt keine anderen Dienste an und speichert keine IP-Adressen. Die einzige Ausnahme ist der Link zu Google Kalender: Mit einem Klick darauf öffnet sich Google mit Titel, Beschreibung, Ort und Link des Events.',
   'privacy.visible.title': 'Wer es sieht',
   'privacy.visible.text':
     'Alle mit dem Event-Link sehen die Namen und Markierungen. Suchmaschinen sollen Event-Seiten nicht erfassen.',
@@ -276,14 +305,38 @@ export const de: Dictionary = {
   'privacy.retention.title': 'Wann gelöscht wird',
   'privacy.retention.text':
     'Wir löschen ein Event {days} Tage nach der letzten Änderung. Frühestens aber nach seinem letzten Tag. Die Organisation kann es jederzeit löschen.',
-  'privacy.logs':
-    'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {days} Tagen gelöscht.',
-  'privacy.backups':
-    'Backups bleiben {days} Tage gespeichert. Danach ist ein gelöschtes Event auch daraus verschwunden.',
+  'privacy.logs_one':
+    'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {count} Tag gelöscht.',
+  'privacy.logs_other':
+    'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {count} Tagen gelöscht.',
+  'privacy.logs.none': 'Der Webserver speichert keine Logs über Zugriffe.',
+  'privacy.backups_one':
+    'Backups bleiben {count} Tag gespeichert. Danach ist ein gelöschtes Event auch daraus verschwunden.',
+  'privacy.backups_other':
+    'Backups bleiben {count} Tage gespeichert. Danach ist ein gelöschtes Event auch daraus verschwunden.',
+  'privacy.backups.none': 'Es werden keine Backups aufbewahrt.',
+  'privacy.instance.loading': 'Die Angaben zum Betreiber werden geladen …',
+  'privacy.instance.failed':
+    'Die Angaben zum Betreiber konnten nicht geladen werden. Lade die Seite neu, um es noch einmal zu versuchen.',
   'privacy.operator.title': 'Wer diese Instanz betreibt',
   'privacy.operator.contact': 'Kontakt: {contact}',
   'privacy.source':
     'Owl Be There ist Open Source. Du kannst den Code ansehen oder die App selbst betreiben.',
+
+  'imprint.title': 'Impressum',
+  'imprint.provider.title':
+    'Anbieterkennzeichnung nach § 5 DDG und § 18 Abs. 1 MStV',
+  'imprint.contact.title': 'Kontakt',
+  'imprint.contact.label': 'E-Mail:',
+  'imprint.about.title': 'Über Owl Be There',
+  'imprint.about.text':
+    'Owl Be There ist ein privates, nicht gewerbliches Projekt und kann kostenlos genutzt werden. Es gibt weder Werbung noch bezahlte Inhalte.',
+  'imprint.dispute.title': 'Verbraucherstreitbeilegung',
+  'imprint.dispute.text':
+    'Zur Teilnahme an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle (§ 36 VSBG) besteht keine Verpflichtung und keine Bereitschaft.',
+  'imprint.liability.title': 'Haftung für Inhalte und Links',
+  'imprint.liability.text':
+    'Die Inhalte dieser Anwendung wurden mit Sorgfalt erstellt. Für verlinkte externe Seiten ist der jeweilige Anbieter verantwortlich; zum Zeitpunkt der Verlinkung waren keine Rechtsverstöße erkennbar. Für Inhalte, die Organisatoren und Teilnehmende in Abstimmungen eintragen, sind diese selbst verantwortlich.',
 
   'notFound.title': 'Diese Seite finden wir nicht.',
   'notFound.home': 'Zur Startseite',

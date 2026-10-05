@@ -1,3 +1,4 @@
+import { chmodSync } from 'node:fs';
 import {
   DatabaseSync,
   type SQLInputValue,
@@ -22,11 +23,17 @@ export class Db {
 
   constructor(path: string) {
     this.db = new DatabaseSync(path, { enableForeignKeyConstraints: true });
+    if (path !== ':memory:' && path !== '') {
+      // Names, notes and event links are in this file: the owner only. SQLite
+      // gives the -wal and -shm files the mode of the database file, so this
+      // comes before the journal mode creates them; ones left by an earlier
+      // run are tightened too.
+      for (const file of [path, `${path}-wal`, `${path}-shm`]) restrict(file);
+    }
     // WAL lets readers proceed while a write commits. An in-memory database
     // answers `memory` instead, which is fine.
     this.db.exec('PRAGMA journal_mode = WAL');
     this.db.exec('PRAGMA synchronous = NORMAL');
-    this.db.exec('PRAGMA foreign_keys = ON');
     this.db.exec('PRAGMA busy_timeout = 5000');
     // Deleted rows are overwritten rather than left in free pages: when an
     // event is deleted, its names should really be gone from the file.
@@ -91,6 +98,11 @@ export class Db {
     }
   }
 
+  /** Whether a write transaction is open. */
+  get inTransaction(): boolean {
+    return this.depth > 0;
+  }
+
   private nested<T>(fn: () => T): T {
     this.depth += 1;
     try {
@@ -100,14 +112,35 @@ export class Db {
     }
   }
 
-  /** Fold the write-ahead log back into the database file and truncate it. */
-  checkpoint(): void {
-    this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+  /**
+   * Fold the write-ahead log back into the database file and truncate it.
+   * Returns false when a reader (the command line, say) kept it from finishing
+   * within the busy timeout; the log is then folded in by a later checkpoint.
+   */
+  checkpoint(): boolean {
+    const row = this.get<{ busy: number }>('PRAGMA wal_checkpoint(TRUNCATE)');
+    return row === undefined || Number(row.busy) === 0;
+  }
+
+  /** The size of the database in bytes: pages in use times the page size. */
+  sizeBytes(): number {
+    const pages = this.get<{ page_count: number }>('PRAGMA page_count');
+    const size = this.get<{ page_size: number }>('PRAGMA page_size');
+    return Number(pages?.page_count ?? 0) * Number(size?.page_size ?? 0);
   }
 
   close(): void {
     this.statements.clear();
     if (this.db.isOpen) this.db.close();
+  }
+}
+
+/** Owner-only access to a file, if it exists. */
+function restrict(file: string): void {
+  try {
+    chmodSync(file, 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 }
 

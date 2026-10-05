@@ -1,7 +1,7 @@
-import { isLanguage, type Language } from '@owl/shared';
+import { isId, isLanguage, type Language } from '@owl/shared';
 
 /**
- * Four pages need no router library: the path, a way to change it, and a
+ * Five pages need no router library: the path, a way to change it, and a
  * subscription to the browser's back and forward buttons.
  */
 export type Route =
@@ -9,15 +9,18 @@ export type Route =
   | { page: 'home'; language?: Language }
   | { page: 'event'; id: string }
   | { page: 'privacy' }
+  | { page: 'imprint' }
   | { page: 'not-found' };
 
 export function parseRoute(pathname: string): Route {
   if (pathname === '/' || pathname === '') return { page: 'home' };
-  if (pathname === '/privacy') return { page: 'privacy' };
+  // The server answers these with and without a trailing slash; so does the app.
+  if (/^\/privacy\/?$/.test(pathname)) return { page: 'privacy' };
+  if (/^\/imprint\/?$/.test(pathname)) return { page: 'imprint' };
   const home = /^\/([a-z]{2})\/?$/.exec(pathname);
   if (home && isLanguage(home[1]!)) return { page: 'home', language: home[1] };
-  const event = /^\/e\/([1-9A-HJ-NP-Za-km-z]{12})\/?$/.exec(pathname);
-  if (event) return { page: 'event', id: event[1]! };
+  const event = /^\/e\/([^/]+)\/?$/.exec(pathname);
+  if (event && isId(event[1]!)) return { page: 'event', id: event[1]! };
   return { page: 'not-found' };
 }
 
@@ -43,8 +46,12 @@ export function navigate(
   } = {}
 ): void {
   const state = options.state ?? null;
+  // A link to the page one is on is no new place: Back must not have to click
+  // through copies of it.
+  const here = window.location.pathname + window.location.search;
   if (options.replace) window.history.replaceState(state, '', path);
-  else window.history.pushState(state, '', path);
+  else if (path !== here) window.history.pushState(state, '', path);
+  else if (options.state) window.history.replaceState(state, '', path);
   if (!options.keepScroll) window.scrollTo({ top: 0 });
   for (const listener of listeners) listener();
 }

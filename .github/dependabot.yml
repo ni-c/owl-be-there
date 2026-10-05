@@ -69,6 +69,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A hijacked action is usually withdrawn within days; the pull request's CI
+    # runs the new code, so it should not open the hour it is released.
+    cooldown:
+      default-days: 3
     groups:
       # init and analyze are separate dependencies to Dependabot. Ungrouped, one
       # of them bumps first and the version mismatch fails the CodeQL job.

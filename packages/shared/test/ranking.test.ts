@@ -8,6 +8,7 @@ import {
   heatLevel,
   heatOf,
   rankBlocks,
+  respondentOf,
   tally,
   type Respondent,
 } from '../src/index.js';
@@ -26,6 +27,51 @@ const person = (
 });
 
 const WEEKEND = ['2027-03-06', '2027-03-07'];
+
+describe('respondentOf', () => {
+  const participant = (
+    over: Partial<{
+      answered: boolean;
+      yes: string[];
+      maybe: string[];
+      unseen: string[];
+    }> = {}
+  ) => ({
+    id: 'p1',
+    answered: true,
+    yes: ['2027-03-06'],
+    maybe: ['2027-03-07'],
+    unseen: [] as string[],
+    ...over,
+  });
+
+  it('answers open on every day for someone who never answered', () => {
+    const who = respondentOf(participant({ answered: false }));
+    for (const day of ['2027-03-06', '2027-03-07', '2027-03-08'])
+      expect(answerFor(who, day)).toBe('open');
+  });
+
+  it('answers open for an unseen day even when it is in yes', () => {
+    const who = respondentOf(participant({ unseen: ['2027-03-06'] }));
+    expect(answerFor(who, '2027-03-06')).toBe('open');
+    expect(answerFor(who, '2027-03-07')).toBe('maybe');
+  });
+
+  it('turns empty lists into empty sets, and a day in none of them into no', () => {
+    const who = respondentOf(participant({ yes: [], maybe: [] }));
+    expect(who.yes.size).toBe(0);
+    expect(who.maybe.size).toBe(0);
+    expect(who.unseen.size).toBe(0);
+    expect(answerFor(who, '2027-03-06')).toBe('no');
+  });
+
+  it('copies the lists', () => {
+    const yes = ['2027-03-06'];
+    const who = respondentOf(participant({ yes }));
+    yes.push('2027-03-09');
+    expect(who.yes.has('2027-03-09')).toBe(false);
+  });
+});
 
 describe('answerFor', () => {
   it('reads yes, maybe and no', () => {

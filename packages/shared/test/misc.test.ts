@@ -4,11 +4,11 @@ import {
   CreateEventBody,
   DEFAULT_EMOJI,
   EMOJI_KEYS,
+  emojiIcon,
   EMOJIS,
   expiresOn,
   formatDayRange,
   ID_LENGTH,
-  isExpired,
   isId,
   isLanguage,
   LANGUAGE_NAMES,
@@ -17,8 +17,12 @@ import {
   LIMITS,
   makeId,
   MarksBody,
+  NewPassword,
   RETENTION_DAYS,
   SERVER_TEXTS,
+  APP_NAME,
+  DESCRIPTION_EN,
+  TAGLINES,
   SessionBody,
   StatusBody,
   UpdateEventBody,
@@ -66,6 +70,7 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '9999-12-31',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
     expect(
@@ -73,6 +78,7 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '9999-12-01',
         lastCandidateDay: '9999-12-02',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
     // The day before the end still works as always.
@@ -81,8 +87,218 @@ describe('retention at the end of the calendar', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '9999-12-30',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('9999-12-31');
+  });
+});
+
+describe('retention at the very end of the calendar', () => {
+  it('holds at the last day for every write day within the window', () => {
+    for (const lastWriteDay of ['9999-12-31', '9999-12-30', '9999-10-02']) {
+      expect(
+        expiresOn({
+          lastWriteDay,
+          lastCandidateDay: '9999-12-31',
+          finalEnd: null,
+          answered: false,
+        })
+      ).toBe('9999-12-31');
+    }
+  });
+
+  it('counts normally when the window ends on the last day', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-10-02',
+        lastCandidateDay: '9999-10-02',
+        finalEnd: null,
+        answered: false,
+      })
+    ).toBe('9999-12-31');
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-10-01',
+        lastCandidateDay: '9999-10-01',
+        finalEnd: null,
+        answered: false,
+      })
+    ).toBe('9999-12-30');
+  });
+});
+
+describe('retention of an event nobody answered', () => {
+  const unanswered = { finalEnd: null, answered: false } as const;
+
+  it('goes ninety days after the last change, whatever its candidate days', () => {
+    // The first and the last day a candidate day may take, and a year between.
+    for (const lastCandidateDay of ['2026-12-31', '2027-06-01', '2032-03-01']) {
+      expect(
+        expiresOn({
+          lastWriteDay: '2027-03-01',
+          lastCandidateDay,
+          ...unanswered,
+        })
+      ).toBe('2027-05-30');
+    }
+  });
+
+  it('ignores a chosen date as well', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-03-01',
+        lastCandidateDay: '2027-09-01',
+        finalEnd: '2027-09-02',
+        answered: false,
+      })
+    ).toBe('2027-05-30');
+  });
+
+  it('keeps the old rule once somebody has answered, and goes back without', () => {
+    const input = {
+      lastWriteDay: '2027-03-01',
+      lastCandidateDay: '2032-03-01',
+      finalEnd: null,
+    } as const;
+    expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
+    expect(expiresOn({ ...input, answered: true })).toBe('2032-03-02');
+    expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
+  });
+
+  it('does not outlast an answered event with a short horizon', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '2027-03-01',
+        lastCandidateDay: '2027-03-02',
+        finalEnd: null,
+        answered: true,
+      })
+    ).toBe('2027-05-30');
+  });
+
+  it('stops at 9999-12-31 as well', () => {
+    expect(
+      expiresOn({
+        lastWriteDay: '9999-12-31',
+        lastCandidateDay: '9999-12-31',
+        ...unanswered,
+      })
+    ).toBe('9999-12-31');
+  });
+});
+
+describe('the emoji icon', () => {
+  it('draws every emoji on the list as it is', () => {
+    for (const key of EMOJI_KEYS) {
+      const svg = decodeURIComponent(
+        emojiIcon(EMOJIS[key]).replace('data:image/svg+xml,', '')
+      );
+      expect(svg).toContain(`>${EMOJIS[key]}</text>`);
+    }
+  });
+
+  it('escapes markup instead of writing it into the picture', () => {
+    const icon = emojiIcon('</text><image href="x"/>');
+    const svg = decodeURIComponent(icon.replace('data:image/svg+xml,', ''));
+    expect(svg).not.toContain('<image');
+    expect(svg).toContain('&lt;/text&gt;&lt;image href="x"/&gt;');
+    expect(decodeURIComponent(emojiIcon('&'))).toContain('&amp;');
+  });
+});
+
+describe('text that shows nothing', () => {
+  const create = (fields: Record<string, unknown>) =>
+    CreateEventBody.safeParse({
+      title: 'Summer tournament',
+      emoji: 'soccer',
+      language: 'en',
+      durationDays: 1,
+      days: ['2027-03-06'],
+      ...fields,
+    });
+
+  it('refuses a title made only of characters that take no room', () => {
+    for (const title of [
+      '\u3164',
+      '\u200D',
+      '\u2800',
+      '\uFE0F',
+      '\u200C\u200D',
+      '\u{E0041}',
+      '',
+      '   ',
+      '\uFFFF',
+    ]) {
+      expect(create({ title }).success, JSON.stringify(title)).toBe(false);
+    }
+  });
+
+  it('still accepts a title of one emoji, and one with a joiner inside', () => {
+    expect(create({ title: '🎉' }).success).toBe(true);
+    expect(create({ title: 'A\u200DB' }).success).toBe(true);
+  });
+
+  it('refuses a location, a creator name and a description that only look empty', () => {
+    expect(create({ location: '\u3164' }).success).toBe(false);
+    expect(create({ creatorName: '\u2800' }).success).toBe(false);
+    expect(create({ description: 'a\n\u200D\u3164' }).success).toBe(true);
+    expect(create({ description: '\u3164\n\u200D' }).success).toBe(false);
+  });
+
+  it('accepts those fields empty or absent', () => {
+    expect(
+      create({ location: '', creatorName: '   ', description: '' }).success
+    ).toBe(true);
+    expect(create({}).success).toBe(true);
+  });
+
+  it('refuses a name with only a tag character, a format control or a filler', () => {
+    for (const name of ['\u{E0041}', '\u206A', '\u17B4', '\u3164', '\u200C']) {
+      expect(SessionBody.safeParse({ name }).success, name).toBe(false);
+    }
+    for (const name of ['Zoë', '李雷', 'Max 🦉']) {
+      expect(SessionBody.safeParse({ name }).success, name).toBe(true);
+    }
+  });
+});
+
+describe('length limits', () => {
+  const name = (value: string) =>
+    SessionBody.safeParse({ name: value }).success;
+  const note = (value: string) =>
+    UpdateParticipantBody.safeParse({ note: value }).success;
+
+  it('count code points after cleaning, so an emoji is one', () => {
+    expect(name('😀'.repeat(LIMITS.name))).toBe(true);
+    expect(name('😀'.repeat(LIMITS.name + 1))).toBe(false);
+    expect(note('😀'.repeat(LIMITS.note))).toBe(true);
+    expect(note('😀'.repeat(LIMITS.note + 1))).toBe(false);
+  });
+
+  it('count a character that NFC splits as two', () => {
+    // U+0958 becomes two code points when composed text is normalised.
+    expect(name('\u0958'.repeat(LIMITS.name / 2))).toBe(true);
+    expect(name('\u0958'.repeat(LIMITS.name / 2 + 1))).toBe(false);
+    expect(note('\u0958'.repeat(LIMITS.note / 2))).toBe(true);
+    expect(note('\u0958'.repeat(LIMITS.note / 2 + 1))).toBe(false);
+  });
+
+  it('keep the empty and the blank outside', () => {
+    expect(name('')).toBe(false);
+    expect(name('   ')).toBe(false);
+    expect(note('')).toBe(true);
+  });
+
+  it('count a new password the way the session body does', () => {
+    const create = (password: string) =>
+      NewPassword.safeParse(password).success;
+    expect(create('😀😀😀')).toBe(false); // three code points, six units
+    expect(create('😀'.repeat(LIMITS.passwordMin))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMin - 1))).toBe(false);
+    expect(create('a'.repeat(LIMITS.passwordMin))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMax))).toBe(true);
+    expect(create('a'.repeat(LIMITS.passwordMax + 1))).toBe(false);
+    expect(create('')).toBe(false);
   });
 });
 
@@ -91,6 +307,47 @@ describe('names', () => {
     expect(SessionBody.safeParse({ name: '\u200C' }).success).toBe(false);
     expect(SessionBody.safeParse({ name: '\u3164' }).success).toBe(false);
     expect(SessionBody.safeParse({ name: 'Max' }).success).toBe(true);
+  });
+
+  it('refuses a word that mixes Latin letters with Cyrillic or Greek ones', () => {
+    const ok = (name: string) => SessionBody.safeParse({ name }).success;
+    expect(ok('M\u0430x')).toBe(false); // Cyrillic a
+    expect(ok('M\u03B1x')).toBe(false); // Greek alpha
+    expect(ok('Ma\u0445')).toBe(false); // Cyrillic ha at the end
+    expect(ok('\u041CAX')).toBe(false); // Cyrillic Em at the start
+    expect(ok('Max M\u0430x')).toBe(false); // one bad word is enough
+    expect(ok('Max')).toBe(true);
+    expect(ok('\u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(
+      ok('\u0391\u03BB\u03AD\u03BE\u03B1\u03BD\u03B4\u03C1\u03BF\u03C2')
+    ).toBe(true);
+    // Different words in different scripts, and digits or emoji next to them.
+    expect(ok('Olga \u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(ok('Max-\u041E\u043B\u044C\u0433\u0430')).toBe(true);
+    expect(ok('\u041E\u043B\u044C\u0433\u0430 2')).toBe(true);
+    expect(ok('Max 🦉')).toBe(true);
+    // The roster and the rename take the same rule.
+    expect(
+      CreateEventBody.safeParse({
+        title: 'x',
+        emoji: 'owl',
+        language: 'en',
+        durationDays: 1,
+        days: ['2027-03-05'],
+        roster: ['M\u0430x'],
+      }).success
+    ).toBe(false);
+    expect(UpdateParticipantBody.safeParse({ name: 'M\u03B1x' }).success).toBe(
+      false
+    );
+  });
+
+  it('applies the rule at the length limit', () => {
+    const limit = LIMITS.name;
+    const ok = (name: string) => SessionBody.safeParse({ name }).success;
+    expect(ok('a'.repeat(limit))).toBe(true);
+    expect(ok('a'.repeat(limit - 1) + '\u0430')).toBe(false);
+    expect(ok('a'.repeat(limit + 1))).toBe(false);
   });
 });
 
@@ -117,6 +374,7 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-01-10',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('2027-04-01');
     expect(RETENTION_DAYS).toBe(90);
@@ -128,6 +386,7 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-09-30',
         finalEnd: null,
+        answered: true,
       })
     ).toBe('2027-10-01');
     expect(
@@ -135,14 +394,25 @@ describe('retention', () => {
         lastWriteDay: '2027-01-01',
         lastCandidateDay: '2027-06-01',
         finalEnd: '2027-09-30',
+        answered: true,
       })
     ).toBe('2027-10-01');
   });
+});
 
-  it('expires on the day after its last day, not on it', () => {
-    expect(isExpired('2027-04-01', '2027-04-01')).toBe(false);
-    expect(isExpired('2027-04-01', '2027-04-02')).toBe(true);
-    expect(isExpired('2027-04-01', '2027-03-31')).toBe(false);
+describe('the name and tagline', () => {
+  it('have an entry for every language and nothing else', () => {
+    expect(Object.keys(TAGLINES).sort()).toEqual([...LANGUAGES].sort());
+    expect(Object.keys(SERVER_TEXTS).sort()).toEqual([...LANGUAGES].sort());
+  });
+
+  it('are what the server texts say, in every language', () => {
+    for (const language of LANGUAGES) {
+      expect(SERVER_TEXTS[language].appName, language).toBe(APP_NAME);
+      expect(SERVER_TEXTS[language].tagline, language).toBe(TAGLINES[language]);
+      expect(TAGLINES[language].trim(), language).not.toBe('');
+    }
+    expect(SERVER_TEXTS.en.description).toBe(DESCRIPTION_EN);
   });
 });
 
@@ -263,7 +533,10 @@ describe('texts', () => {
       const texts = SERVER_TEXTS[language];
       expect(Object.keys(texts).sort(), language).toEqual(keys);
       for (const value of Object.values(texts)) {
-        const text = typeof value === 'function' ? value(0) : value;
+        const text =
+          typeof value === 'function'
+            ? (value as (argument: unknown) => string)(0)
+            : value;
         expect(text.trim(), language).not.toBe('');
       }
       expect(texts.previewOpen(2), language).toMatch(/2/);

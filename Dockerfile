@@ -8,7 +8,9 @@
 # production dependencies — fastify, its two plugins and zod in plain
 # JavaScript; resvg and wawoff2, which draw the link-preview pictures, in
 # WebAssembly; and the Nunito font files — so it runs unchanged on amd64 and
-# arm64. Never add a native module: it would be built for one of the two. Only the runtime stage
+# arm64. Never add a native module: it would be built for one of the two. Neither
+# WebAssembly module may be fed anything but the server's own SVG and the bundled
+# fonts (wawoff2 is unmaintained, resvg-wasm embeds old crates). Only the runtime stage
 # is per architecture, and it compiles nothing; a multi-arch build therefore
 # needs no emulation except for one `apk upgrade`.
 
@@ -35,10 +37,9 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 COPY packages/client packages/client
-# Shared, then server, then client; the order is in the script. Source maps
-# would be a publicly fetchable copy of the sources, so none are kept.
+# Shared, then server, then client; the order is in the script. The client
+# build emits no source maps (a publicly fetchable copy of the sources).
 RUN npm run build \
-  && rm -f packages/client/dist/assets/*.map \
   && mkdir /data-template
 
 # ---------------------------------------------------------- production deps
@@ -75,7 +76,6 @@ ENV NODE_ENV=production \
     CLIENT_DIR=/app/packages/client/dist
 
 WORKDIR /app
-COPY package.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/server/package.json packages/server/package.json
 COPY --from=deps /app/node_modules node_modules
@@ -90,9 +90,10 @@ USER node
 VOLUME ["/data"]
 EXPOSE 8080
 
-# Node's own fetch, so the image needs neither curl nor wget.
+# Node's own fetch, so the image needs neither curl nor wget. A blank PORT
+# means 8080, exactly as the server reads it.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT}/api/health`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+  CMD ["node", "-e", "fetch(`http://127.0.0.1:${(process.env.PORT || '').trim() || 8080}/api/health`).then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
 # Exec form: node is PID 1 and receives SIGTERM itself, closing the server and
 # checkpointing the database before it exits.

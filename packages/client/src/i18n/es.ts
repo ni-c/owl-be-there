@@ -1,8 +1,9 @@
+import { APP_NAME, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const es: Dictionary = {
-  'app.name': 'Owl Be There',
-  'app.tagline': 'Encontrad un día que os venga bien a todos.',
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.es,
 
   'home.lead':
     '¿Cuándo podéis quedar? Marcad vuestros días en el calendario y descubridlo. Sin registro ni seguimiento.',
@@ -34,6 +35,10 @@ export const es: Dictionary = {
   'home.myEvents': 'Tus eventos',
   'home.organiser': 'lo organizas',
   'home.forget': 'Quitar {title} de esta lista',
+  'home.forgetOrganiser.title': '¿Quitar este evento de este dispositivo?',
+  'home.forgetOrganiser.text':
+    'Este dispositivo guarda el enlace de organización de «{title}». Al quitar el evento, ese enlace se borra aquí: sin una copia no podrás cerrar la votación, elegir la fecha ni borrar el evento desde este dispositivo.',
+  'home.forgetOrganiser.yes': 'Quitar de este dispositivo',
   'home.creationDisabled': 'Ahora mismo no puedes crear eventos aquí.',
 
   'create.title': 'Planear un evento',
@@ -72,6 +77,8 @@ export const es: Dictionary = {
   'create.next': 'Siguiente',
   'create.submit': 'Crear evento',
   'create.creating': 'Creando…',
+  'create.durationLess': 'Un día menos seguido',
+  'create.durationMore': 'Un día más seguido',
 
   'error.titleRequired': 'Ponle un título al evento.',
   'error.range': 'La fecha final es anterior a la inicial.',
@@ -91,6 +98,14 @@ export const es: Dictionary = {
   'error.rateLimited': 'Vas un poco rápido. Espera un momento.',
   'error.forbidden': 'Con este enlace no puedes hacer eso.',
   'error.nameTaken': 'Alguien ya usa ese nombre.',
+  'error.numberRange': 'Introduce un número del {min} al {max}.',
+  'error.rosterLine': 'Un nombre puede tener como máximo {max} caracteres.',
+  'error.rosterTooMany': 'Como máximo, {max} nombres de una vez.',
+  'error.busy':
+    'El servidor está ocupado en este momento. Inténtalo de nuevo en un rato.',
+  'error.changed': 'Esta entrada se acaba de modificar. Inténtalo de nuevo.',
+  'error.invalid':
+    'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.',
 
   'event.loading': 'Cargando el evento…',
   'event.notFound.title': 'No encontramos este evento.',
@@ -103,6 +118,8 @@ export const es: Dictionary = {
   'event.duration_other': '{count} días seguidos',
   'event.minCount_one': 'necesita {count} persona',
   'event.minCount_other': 'necesita {count} personas',
+  'event.adminRefused':
+    'Este enlace de organización no fue aceptado. Las herramientas de organización se han quitado de este dispositivo; abre de nuevo el enlace completo para recuperarlas.',
   'event.expires':
     'El evento se borrará automáticamente el {date} si no cambia nada antes.',
   'event.share': 'Compartir',
@@ -236,6 +253,8 @@ export const es: Dictionary = {
   'admin.addNamesHint': 'Uno por línea',
   'admin.fillIn': 'Responder',
   'admin.resetPassword': 'Quitar contraseña',
+  'admin.resetPasswordConfirm':
+    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta entrada.',
   'admin.remove': 'Quitar',
   'admin.removeConfirm': '¿Quitar a {name} y todos sus días?',
   'admin.delete': 'Borrar evento',
@@ -243,13 +262,22 @@ export const es: Dictionary = {
     '¿Borrar este evento para todos? No se puede deshacer.',
   'admin.deleteYes': 'Borrar definitivamente',
   'admin.saved': 'Guardado',
+  'admin.lossTitle': '¿Guardar los cambios?',
+  'admin.lossMarks_one':
+    'Esto borra para siempre {count} respuesta de los días quitados.',
+  'admin.lossMarks_other':
+    'Esto borra para siempre {count} respuestas de los días quitados.',
+  'admin.lossDateShort': 'La fecha elegida se acorta.',
+  'admin.lossDateDropped':
+    'La fecha elegida ya no encaja y se descarta. La encuesta sigue cerrada.',
+  'admin.lossConfirm': 'Guardar de todos modos',
   'admin.noPeople': 'Aún no hay nadie.',
 
   'footer.language': 'Idioma',
   'footer.theme': 'Apariencia',
   'footer.privacy': 'Privacidad',
   'footer.imprint': 'Aviso legal',
-  'footer.source': 'Código abierto',
+  'footer.source': 'Código abierto de Willi Thiel',
   'theme.system': 'Sistema',
   'theme.light': 'Claro',
   'theme.dark': 'Oscuro',
@@ -263,7 +291,7 @@ export const es: Dictionary = {
   'privacy.stored.person':
     'De cada persona guardamos el nombre y los días que ha marcado. También guardamos una nota y un hash de la contraseña si los añade.',
   'privacy.stored.nothingElse':
-    'No hay cuentas, correos electrónicos, cookies ni estadísticas. La aplicación no consulta otros servicios ni guarda direcciones IP.',
+    'No hay cuentas, correos electrónicos, cookies ni estadísticas. La aplicación no consulta otros servicios ni guarda direcciones IP. La única excepción es el enlace a Google Calendar: al hacer clic, se abre Google con el título, la descripción, el lugar y el enlace del evento.',
   'privacy.visible.title': 'Quién puede verlo',
   'privacy.visible.text':
     'Quien tenga el enlace del evento podrá ver los nombres y los días marcados. Se indica a los buscadores que no indexen las páginas de eventos.',
@@ -273,14 +301,39 @@ export const es: Dictionary = {
   'privacy.retention.title': 'Cuándo se borra',
   'privacy.retention.text':
     'Borramos cada evento {days} días después de su último cambio. Nunca antes de que pase su último día. Quien lo organiza puede borrarlo en cualquier momento.',
-  'privacy.logs':
-    'El servidor web registra los accesos con direcciones IP para prevenir abusos. Estos registros se borran después de {days} días.',
-  'privacy.backups':
-    'Las copias de seguridad se conservan {days} días. Después, los eventos borrados también desaparecen de ellas.',
+  'privacy.logs_one':
+    'El servidor web registra los accesos con direcciones IP para prevenir abusos. Estos registros se borran después de {count} día.',
+  'privacy.logs_other':
+    'El servidor web registra los accesos con direcciones IP para prevenir abusos. Estos registros se borran después de {count} días.',
+  'privacy.logs.none': 'El servidor web no guarda registros de los accesos.',
+  'privacy.backups_one':
+    'Las copias de seguridad se conservan {count} día. Después, los eventos borrados también desaparecen de ellas.',
+  'privacy.backups_other':
+    'Las copias de seguridad se conservan {count} días. Después, los eventos borrados también desaparecen de ellas.',
+  'privacy.backups.none': 'No se conservan copias de seguridad.',
+  'privacy.instance.loading':
+    'Cargando los datos de quien gestiona el servicio…',
+  'privacy.instance.failed':
+    'No se pudieron cargar los datos de quien gestiona el servicio. Recarga la página para intentarlo de nuevo.',
   'privacy.operator.title': 'Quién gestiona esta instancia',
   'privacy.operator.contact': 'Contacto: {contact}',
   'privacy.source':
     'Owl Be There es de código abierto. Puedes consultar el código o alojar tu propia instancia.',
+
+  'imprint.title': 'Aviso legal',
+  'imprint.provider.title':
+    'Identificación del proveedor según § 5 DDG y § 18 Abs. 1 MStV',
+  'imprint.contact.title': 'Contacto',
+  'imprint.contact.label': 'Correo electrónico:',
+  'imprint.about.title': 'Sobre Owl Be There',
+  'imprint.about.text':
+    'Owl Be There es un proyecto privado, sin fines comerciales, y se puede usar gratis. No hay publicidad ni contenidos de pago.',
+  'imprint.dispute.title': 'Resolución de litigios de consumo',
+  'imprint.dispute.text':
+    'No existe obligación ni disposición de participar en un procedimiento de resolución de litigios ante una entidad de arbitraje de consumo (§ 36 VSBG).',
+  'imprint.liability.title': 'Responsabilidad por contenidos y enlaces',
+  'imprint.liability.text':
+    'Los contenidos de esta aplicación se han elaborado con cuidado. De las páginas externas enlazadas es responsable su respectivo proveedor; en el momento de enlazarlas no se apreciaba ninguna infracción legal. De lo que organizadores y participantes escriben en las encuestas son responsables ellos mismos.',
 
   'notFound.title': 'No encontramos esta página.',
   'notFound.home': 'Volver al inicio',

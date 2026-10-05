@@ -1,14 +1,14 @@
 import {
-  addDays,
   applyStroke,
   buildWeeks,
+  cellsInRect,
   compareISODate,
   formatDay,
   strokeModeFor,
   tapDay,
   toggleDays,
   weekdayOf,
-  WEEKDAYS,
+  type Cell,
   type ISODate,
   type Mark,
   type Marks,
@@ -26,6 +26,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { weekdayName, weekdayOrder } from '../lib/locale.ts';
 
 export interface HeatInfo {
   level: 0 | 1 | 2 | 3 | 4 | 5;
@@ -71,15 +72,10 @@ interface HeatProps extends BaseProps {
 
 export type CalendarGridProps = PaintProps | HeatProps;
 
-interface Position {
-  row: number;
-  col: number;
-}
-
 interface Stroke {
   pointerId: number;
-  start: Position;
-  current: Position;
+  start: Cell;
+  current: Cell;
   mode: StrokeMode;
   moved: boolean;
 }
@@ -108,7 +104,7 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   // Where each day sits in the grid, for the rectangle.
   const positions = useMemo(() => {
-    const map = new Map<ISODate, Position>();
+    const map = new Map<ISODate, Cell>();
     rows.forEach((row, rowIndex) =>
       row.days.forEach((day, col) => map.set(day, { row: rowIndex, col }))
     );
@@ -116,24 +112,10 @@ export function CalendarGrid(props: CalendarGridProps) {
   }, [rows]);
 
   const daysInRect = useCallback(
-    (a: Position, b: Position): ISODate[] => {
-      const result: ISODate[] = [];
-      for (
-        let row = Math.min(a.row, b.row);
-        row <= Math.max(a.row, b.row);
-        row += 1
-      ) {
-        for (
-          let col = Math.min(a.col, b.col);
-          col <= Math.max(a.col, b.col);
-          col += 1
-        ) {
-          const day = rows[row]?.days[col];
-          if (day && selectable(day)) result.push(day);
-        }
-      }
-      return result;
-    },
+    (a: Cell, b: Cell): ISODate[] =>
+      cellsInRect(a, b)
+        .map(({ row, col }) => rows[row]?.days[col])
+        .filter((day): day is ISODate => day !== undefined && selectable(day)),
     [rows, selectable]
   );
 
@@ -142,6 +124,8 @@ export function CalendarGrid(props: CalendarGridProps) {
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
   const suppressClickUntil = useRef(0);
+  // Where a keyboard selection with Shift started; it ends with the selection.
+  const [anchor, setAnchor] = useState<ISODate | null>(null);
   const frame = useRef<number | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -178,7 +162,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const positionAt = useCallback(
-    (x: number, y: number): Position | null => {
+    (x: number, y: number): Cell | null => {
       const element = document
         .elementFromPoint(x, y)
         ?.closest<HTMLElement>('[data-day]');
@@ -233,6 +217,11 @@ export function CalendarGrid(props: CalendarGridProps) {
     };
     const onMove = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
+      // The button was released where no release event reached the page.
+      if (event.pointerType === 'mouse' && event.buttons === 0) {
+        endStroke(false);
+        return;
+      }
       latest = { x: event.clientX, y: event.clientY };
       if (frame.current !== null) return;
       frame.current = requestAnimationFrame(() => {
@@ -253,6 +242,12 @@ export function CalendarGrid(props: CalendarGridProps) {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') endStroke(false);
     };
+    // The page lost the pointer — another window, another tab — and the
+    // release will not come.
+    const onAway = () => endStroke(false);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') endStroke(false);
+    };
     // A safety net for iOS: once a drag is under way, the page must not scroll.
     const onTouchMove = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
@@ -261,12 +256,16 @@ export function CalendarGrid(props: CalendarGridProps) {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', onAway);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', onAway);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('touchmove', onTouchMove);
     };
     // Re-subscribing on every move would drop events; only the pointer matters.
@@ -274,9 +273,14 @@ export function CalendarGrid(props: CalendarGridProps) {
   }, [stroke?.pointerId, endStroke, positionAt]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    setAnchor(null);
     if (!paint || disabled || !marks) return;
-    if (!event.isPrimary || strokeRef.current) return;
+    if (!event.isPrimary) return;
+    // A stroke still open at a new primary press lost its end: drop it.
+    if (strokeRef.current) endStroke(false);
     if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // The click that followed an earlier drag has come and gone by now.
+    suppressClickUntil.current = 0;
     const position = positionAt(event.clientX, event.clientY);
     if (!position) return;
     const day = rows[position.row]?.days[position.col];
@@ -298,6 +302,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const onDayClick = (day: ISODate) => {
+    setAnchor(null);
     if (props.mode === 'heat') {
       props.onDayClick(day);
       return;
@@ -311,9 +316,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   /* ------------------------------------------------------------ keyboard */
 
   const [focused, setFocused] = useState<ISODate | null>(null);
-  const [anchor, setAnchor] = useState<ISODate | null>(null);
   const buttons = useRef(new Map<ISODate, HTMLButtonElement>());
-  const keyboardMoved = useRef(false);
 
   const focusable = useMemo(() => {
     const list: ISODate[] = [];
@@ -329,12 +332,12 @@ export function CalendarGrid(props: CalendarGridProps) {
         focusable[0] ??
         null);
 
-  useEffect(() => {
-    if (keyboardMoved.current && focused) {
-      buttons.current.get(focused)?.focus();
-      keyboardMoved.current = false;
-    }
-  }, [focused, rows]);
+  // Keyboard moves put the focus on the day themselves, so that a later
+  // snapshot never has a reason to take it from wherever it has gone since.
+  const focusDay = (day: ISODate) => {
+    setFocused(day);
+    buttons.current.get(day)?.focus();
+  };
 
   const move = (from: ISODate, dRow: number, dCol: number): ISODate | null => {
     const start = positions.get(from);
@@ -357,21 +360,34 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const keyboardPreview = useMemo(() => {
-    if (!paint || !marks || !anchor || !focused) return null;
+    if (!paint || disabled || !marks || !anchor || !focused) return null;
     const a = positions.get(anchor);
     const b = positions.get(focused);
     if (!a || !b) return null;
     const rectDays = daysInRect(a, b);
+    // As with a pointer stroke, the first day that can be painted decides
+    // between painting and erasing; the anchor may be a past day.
+    const first = selectable(anchor) ? anchor : rectDays[0];
     return {
       days: new Set(rectDays),
       marks: applyStroke(
         marks,
         rectDays,
         brush,
-        strokeModeFor(marks, anchor, brush)
+        first ? strokeModeFor(marks, first, brush) : 'set'
       ),
     };
-  }, [paint, marks, anchor, focused, positions, daysInRect, brush]);
+  }, [
+    paint,
+    disabled,
+    marks,
+    anchor,
+    focused,
+    positions,
+    daysInRect,
+    selectable,
+    brush,
+  ]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = (event.target as HTMLElement).dataset.day;
@@ -386,12 +402,10 @@ export function CalendarGrid(props: CalendarGridProps) {
     if (step) {
       event.preventDefault();
       const next = move(target, step[0], step[1]);
-      if (paint && event.shiftKey) setAnchor((current) => current ?? target);
+      if (paint && !disabled && event.shiftKey)
+        setAnchor((current) => current ?? target);
       else setAnchor(null);
-      if (next) {
-        keyboardMoved.current = true;
-        setFocused(next);
-      }
+      if (next) focusDay(next);
       return;
     }
     if (event.key === 'Home' || event.key === 'End') {
@@ -399,10 +413,10 @@ export function CalendarGrid(props: CalendarGridProps) {
       const row = rows[positions.get(target)?.row ?? 0]!;
       const inRow = row.days.filter((day) => daySet.has(day));
       const next = event.key === 'Home' ? inRow[0] : inRow[inRow.length - 1];
-      if (next) {
-        keyboardMoved.current = true;
-        setFocused(next);
-      }
+      if (paint && !disabled && event.shiftKey)
+        setAnchor((current) => current ?? target);
+      else setAnchor(null);
+      if (next) focusDay(next);
       return;
     }
     if (!paint || disabled) return;
@@ -420,15 +434,18 @@ export function CalendarGrid(props: CalendarGridProps) {
       setAnchor(null);
       return;
     }
-    if ((event.key === 'y' || event.key === 'Y') && paintProps.onBrushChange) {
-      paintProps.onBrushChange('yes');
+    const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (plain && (event.key === 'y' || event.key === 'Y')) {
+      paintProps.onBrushChange?.('yes');
     } else if (
-      (event.key === 'm' || event.key === 'M' || event.key === '?') &&
-      paintProps.onBrushChange
+      plain &&
+      (event.key === 'm' || event.key === 'M' || event.key === '?')
     ) {
-      paintProps.onBrushChange('maybe');
+      paintProps.onBrushChange?.('maybe');
     } else if (
       (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey &&
       event.key.toLowerCase() === 'z' &&
       paintProps.onUndo
     ) {
@@ -455,17 +472,8 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   const shownMarks = preview?.marks ?? keyboardPreview?.marks ?? marks;
   const previewDays = preview?.days ?? keyboardPreview?.days ?? null;
-  const weekdayOrder = WEEKDAYS.map(
-    (offset) => ((firstWeekday + offset) % 7) as Weekday
-  );
-  // 2024-01-01 was a Monday: a fixed week to take weekday names from.
-  const weekdayName = (weekday: Weekday, style: 'short' | 'long') =>
-    formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
-  const monthName = (monthKey: string, style: 'short' | 'long') =>
-    formatDay(`${monthKey}-01`, locale, {
-      month: style,
-      ...(style === 'long' && { year: 'numeric' }),
-    });
+  const monthName = (monthKey: string) =>
+    formatDay(`${monthKey}-01`, locale, { month: 'short' });
 
   const stateLabel = (day: ISODate): string => {
     if (props.mode === 'heat') {
@@ -491,10 +499,15 @@ export function CalendarGrid(props: CalendarGridProps) {
         aria-readonly={!paint || disabled}
         tabIndex={-1}
         onKeyDown={onKeyDown}
+        onBlur={(event) => {
+          // A selection does not outlast the focus leaving the grid.
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setAnchor(null);
+        }}
       >
         <div role="row" className="cal-head mb-1">
           <span role="columnheader" aria-hidden="true" />
-          {weekdayOrder.map((weekday) => (
+          {weekdayOrder(firstWeekday).map((weekday) => (
             <span
               role="columnheader"
               key={weekday}
@@ -506,19 +519,19 @@ export function CalendarGrid(props: CalendarGridProps) {
                   className="min-h-9 w-full rounded-lg text-sm font-bold text-muted hover:bg-sunken hover:text-ink"
                   onClick={() => toggleTargets(weekdayTargets(weekday))}
                   aria-label={t('cal.weekdayAll', {
-                    weekday: weekdayName(weekday, 'long'),
+                    weekday: weekdayName(weekday, locale, 'long'),
                   })}
                   tabIndex={-1}
                 >
-                  {weekdayName(weekday, 'short')}
+                  {weekdayName(weekday, locale, 'short')}
                 </button>
               ) : (
                 <span className="text-sm font-bold text-muted">
                   <abbr
-                    title={weekdayName(weekday, 'long')}
+                    title={weekdayName(weekday, locale, 'long')}
                     className="no-underline"
                   >
-                    {weekdayName(weekday, 'short')}
+                    {weekdayName(weekday, locale, 'short')}
                   </abbr>
                 </span>
               )}
@@ -549,7 +562,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                   )}
                   {row.monthLabel && (
                     <span className="font-extrabold text-ink">
-                      {monthName(row.monthLabel, 'short')}
+                      {monthName(row.monthLabel)}
                     </span>
                   )}
                   {paint && !disabled && weekTargets.length > 0 ? (
@@ -578,11 +591,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                   if (!inSet) {
                     return (
                       <div role="gridcell" key={day} aria-hidden="true">
-                        <div
-                          className="cal-cell text-sm"
-                          data-kind="outside"
-                          data-month-start={monthStart}
-                        >
+                        <div className="cal-cell text-sm" data-kind="outside">
                           {number}
                         </div>
                       </div>

@@ -10,6 +10,8 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
+  setStatus,
 } from './helpers.js';
 
 let t: TestApp;
@@ -19,8 +21,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await t.app.close();
 });
-
-const admin = (token: string) => ({ 'x-admin-token': token });
 
 describe('creating an event', () => {
   it('answers with the id and the organiser key, and stores everything', async () => {
@@ -215,7 +215,7 @@ describe('the organiser', () => {
       { method: 'DELETE' as const, url: `/api/events/${id}` },
     ];
     for (const request of requests) {
-      for (const headers of [{}, admin('wrong')]) {
+      for (const headers of [{}, adminHeaders('wrong')]) {
         const response = await t.app.inject({ ...request, headers });
         expect(response.statusCode, `${request.method} ${request.url}`).toBe(
           403
@@ -232,7 +232,7 @@ describe('the organiser', () => {
     const response = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         title: ' New title ',
         location: null,
@@ -260,7 +260,7 @@ describe('the organiser', () => {
     const response = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         days: ['2027-03-06', '2027-03-08'],
         baseDays: ['2027-03-05', ...WEEKEND],
@@ -278,7 +278,7 @@ describe('the organiser', () => {
     const keep = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         days: ['2027-03-05', '2027-03-20'],
         baseDays: ['2027-03-05', ...WEEKEND],
@@ -288,7 +288,7 @@ describe('the organiser', () => {
     const add = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         days: ['2027-03-05', '2027-03-06', '2027-03-20'],
         baseDays: ['2027-03-05', '2027-03-20'],
@@ -303,7 +303,7 @@ describe('the organiser', () => {
     const response = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: { durationDays: 4 },
     });
     expect(response.json().error).toBe('no_block');
@@ -311,28 +311,30 @@ describe('the organiser', () => {
 
   it('closes, chooses a date, and reopens', async () => {
     const { id, adminToken } = await createEvent(t.app, { durationDays: 2 });
-    const status = (payload: Record<string, unknown>) =>
-      t.app.inject({
-        method: 'PUT',
-        url: `/api/events/${id}/status`,
-        headers: admin(adminToken),
-        payload,
-      });
-    expect((await status({ status: 'closed' })).json().event.status).toBe(
-      'closed'
-    );
-    const bad = await status({ status: 'finalized', start: '2027-03-07' });
+    expect(
+      (await setStatus(t.app, id, adminToken, { status: 'closed' })).json()
+        .event.status
+    ).toBe('closed');
+    const bad = await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-07',
+    });
     expect(bad.statusCode).toBe(400);
     expect(bad.json().error).toBe('invalid_block');
     const chosen = (
-      await status({ status: 'finalized', start: '2027-03-06' })
+      await setStatus(t.app, id, adminToken, {
+        status: 'finalized',
+        start: '2027-03-06',
+      })
     ).json().event;
     expect(chosen).toMatchObject({
       status: 'finalized',
       finalStart: '2027-03-06',
       finalEnd: '2027-03-07',
     });
-    expect((await status({ status: 'open' })).json().event).toMatchObject({
+    expect(
+      (await setStatus(t.app, id, adminToken, { status: 'open' })).json().event
+    ).toMatchObject({
       status: 'open',
       finalStart: null,
     });
@@ -340,16 +342,14 @@ describe('the organiser', () => {
 
   it('drops a chosen date that no longer fits after an edit, keeping the poll closed', async () => {
     const { id, adminToken } = await createEvent(t.app);
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: admin(adminToken),
-      payload: { status: 'finalized', start: '2027-03-07' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-07',
     });
     const response = await t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         days: ['2027-03-05', '2027-03-06'],
         baseDays: ['2027-03-05', ...WEEKEND],
@@ -366,7 +366,7 @@ describe('the organiser', () => {
     const response = await t.app.inject({
       method: 'POST',
       url: `/api/events/${id}/participants`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: { names: ['ANNA', 'Ben'] },
     });
     expect(
@@ -375,7 +375,7 @@ describe('the organiser', () => {
     const tooMany = await t.app.inject({
       method: 'POST',
       url: `/api/events/${id}/participants`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: {
         names: Array.from(
           { length: LIMITS.participants - 1 },
@@ -394,7 +394,7 @@ describe('the organiser', () => {
     const response = await t.app.inject({
       method: 'DELETE',
       url: `/api/events/${id}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
     });
     expect(response.statusCode).toBe(204);
     expect(
@@ -417,11 +417,9 @@ describe('the calendar file', () => {
     });
     expect(before.statusCode).toBe(404);
     expect(before.json().error).toBe('not_decided');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: admin(adminToken),
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const file = await t.app.inject({
       method: 'GET',
@@ -445,11 +443,9 @@ describe('the calendar file', () => {
       ['nl', 'Datum gekozen met Owl Be There'],
     ]) {
       const { id, adminToken } = await createEvent(t.app, { language });
-      await t.app.inject({
-        method: 'PUT',
-        url: `/api/events/${id}/status`,
-        headers: admin(adminToken),
-        payload: { status: 'finalized', start: '2027-03-06' },
+      await setStatus(t.app, id, adminToken, {
+        status: 'finalized',
+        start: '2027-03-06',
       });
       const file = await t.app.inject({
         method: 'GET',

@@ -7,9 +7,15 @@ import {
   todayLocal,
   type EventSnapshotData,
 } from '@owl/shared';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AdminPanel } from '../components/AdminPanel.tsx';
-import { EventViews } from '../components/EventViews.tsx';
+import { EventViews, type EventTab } from '../components/EventViews.tsx';
 import { GroupView } from '../components/GroupView.tsx';
 import {
   CalendarIcon,
@@ -32,39 +38,23 @@ import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
 import { eventLink } from '../lib/links.ts';
 import {
+  clearAdminToken,
+  takeAdminTokenFromFragment,
+} from '../lib/adminKey.ts';
+import { deletionDay } from '../lib/retentionText.ts';
+import {
+  forgetEvent,
   readAdminToken,
   readSession,
   rememberEvent,
+  storeSession,
   writeAdminToken,
   type Session,
 } from '../lib/prefs.ts';
 
-/**
- * The organiser key arrives in the URL fragment. It is removed from the
- * address bar at once, so that copying the address shares the event — not the
- * right to delete it. Without a key on this device it is stored right away;
- * one that would replace a different key is handed back to be checked first,
- * so a link with a made-up key cannot cost the organiser their access.
- */
-function takeAdminTokenFromFragment(eventId: string): string | null {
-  const hash = window.location.hash;
-  if (!hash.startsWith('#admin=')) return null;
-  window.history.replaceState(
-    window.history.state,
-    '',
-    window.location.pathname
-  );
-  const match = /^#admin=([\w-]{20,128})$/.exec(hash);
-  if (!match) return null;
-  const candidate = match[1]!;
-  const stored = readAdminToken(eventId);
-  if (stored === candidate) return null;
-  if (stored === null) {
-    writeAdminToken(eventId, candidate);
-    return null;
-  }
-  return candidate;
-}
+/** The look of the calendar-file and Google links under a decided event. */
+const RAISED_PILL =
+  'inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card';
 
 export function EventPage({
   id,
@@ -74,9 +64,24 @@ export function EventPage({
   publicUrl: string | null;
 }) {
   const { t } = useI18n();
-  const candidate = useMemo(() => takeAdminTokenFromFragment(id), [id]);
   const { store, state } = useEventStore(id);
   const [adminToken, setAdminToken] = useState(() => readAdminToken(id));
+  const [adminRefused, setAdminRefused] = useState(false);
+  const [candidate, setCandidate] = useState<string | null>(null);
+
+  // The organiser key in the address is taken on arrival and whenever the
+  // fragment changes: a link pasted into the open tab changes nothing else.
+  useEffect(() => {
+    const take = () => {
+      if (!window.location.hash.startsWith('#admin=')) return;
+      const taken = takeAdminTokenFromFragment(id);
+      if (taken !== null) setCandidate(taken);
+      setAdminToken(readAdminToken(id));
+    };
+    take();
+    window.addEventListener('hashchange', take);
+    return () => window.removeEventListener('hashchange', take);
+  }, [id]);
 
   // A key from the link that differs from the stored one replaces it only if
   // the server says it is this event's.
@@ -89,6 +94,7 @@ export function EventPage({
         if (!valid || !current) return;
         writeAdminToken(id, candidate);
         setAdminToken(candidate);
+        setAdminRefused(false);
       })
       .catch(() => undefined);
     return () => {
@@ -96,10 +102,18 @@ export function EventPage({
     };
   }, [id, candidate]);
   const [session, setSession] = useState<Session | null>(() => readSession(id));
+  // Every change of the session is kept on this device and shown at once.
+  const changeSession = useCallback(
+    (next: Session | null) => {
+      storeSession(id, next);
+      setSession(next);
+    },
+    [id]
+  );
   const [shareOpen, setShareOpen] = useState(() =>
     Boolean((window.history.state as { created?: boolean } | null)?.created)
   );
-  const [justCreated] = useState(shareOpen);
+  const [justCreated, setJustCreated] = useState(shareOpen);
 
   useEffect(() => {
     if (justCreated)
@@ -116,6 +130,13 @@ export function EventPage({
       setFavicon(emojiIcon(EMOJIS[loaded.emoji]));
     }
   }, [loaded, adminToken, t]);
+
+  // An event that is gone has no use for the entry in the list, the organiser
+  // key or the session kept for it.
+  const gone = state.status === 'not-found' || state.status === 'deleted';
+  useEffect(() => {
+    if (gone) forgetEvent(id);
+  }, [gone, id]);
 
   if (state.status === 'loading') {
     return (
@@ -156,11 +177,22 @@ export function EventPage({
       stale={state.stale}
       store={store}
       adminToken={adminToken}
-      onAdminLost={() => setAdminToken(null)}
+      onAdminLost={() => {
+        // The server refused the key: forget it here too, or the dead panel
+        // returns with the next visit.
+        clearAdminToken(id);
+        setAdminToken(null);
+        setAdminRefused(true);
+      }}
+      adminRefused={adminRefused}
       session={session}
-      onSession={setSession}
+      onSession={changeSession}
       shareOpen={shareOpen}
-      onShare={setShareOpen}
+      onShare={(open) => {
+        setShareOpen(open);
+        // The greeting is for the first look at the dialog only.
+        if (!open) setJustCreated(false);
+      }}
       justCreated={justCreated}
       publicUrl={publicUrl}
     />
@@ -173,6 +205,7 @@ interface EventViewProps {
   store: EventStore;
   adminToken: string | null;
   onAdminLost(): void;
+  adminRefused: boolean;
   session: Session | null;
   onSession(session: Session | null): void;
   shareOpen: boolean;
@@ -183,8 +216,8 @@ interface EventViewProps {
 
 function EventView(props: EventViewProps) {
   const { data, stale, store, adminToken, session, onSession } = props;
-  const { t, tn, locale } = useI18n();
-  const [tab, setTab] = useState<'mine' | 'group'>('mine');
+  const { t, locale } = useI18n();
+  const [tab, setTab] = useState<EventTab>('mine');
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
   const today = todayLocal();
@@ -219,6 +252,9 @@ function EventView(props: EventViewProps) {
     <div className="flex flex-col gap-5">
       <EventHeader data={data} onShare={() => props.onShare(true)} />
       {stale && <Notice>{t('event.stale')}</Notice>}
+      {props.adminRefused && (
+        <Notice tone="error">{t('event.adminRefused')}</Notice>
+      )}
       <StatusBanner data={data} publicUrl={props.publicUrl} />
 
       <EventViews
@@ -262,7 +298,7 @@ function EventView(props: EventViewProps) {
 
       <p className="text-center text-sm text-muted">
         {t('event.expires', {
-          date: formatDay(event.expiresOn, locale, {
+          date: formatDay(deletionDay(event.expiresOn), locale, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
@@ -278,9 +314,6 @@ function EventView(props: EventViewProps) {
         justCreated={props.justCreated}
         publicUrl={props.publicUrl}
       />
-      <span className="sr-only">
-        {tn('event.duration', event.durationDays)}
-      </span>
     </div>
   );
 }
@@ -312,9 +345,9 @@ function EventHeader({
   return (
     <header className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <h1 className="flex items-start gap-3 text-3xl leading-tight font-black sm:text-4xl">
+        <h1 className="flex min-w-0 items-start gap-3 text-3xl leading-tight font-black sm:text-4xl">
           <span aria-hidden="true">{EMOJIS[event.emoji]}</span>
-          <span className="break-words">{event.title}</span>
+          <span className="min-w-0 wrap-anywhere">{event.title}</span>
         </h1>
         <Button variant="primary" onClick={onShare} className="shrink-0">
           <ShareIcon />
@@ -326,7 +359,7 @@ function EventHeader({
           {meta.map((item) => (
             <li
               key={item.text}
-              className="inline-flex items-center gap-1.5 rounded-full bg-sunken px-3 py-1 text-sm font-bold"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1 text-sm font-bold wrap-anywhere"
             >
               {item.icon}
               {item.text}
@@ -336,7 +369,7 @@ function EventHeader({
       )}
       {event.description && (
         // Plain text on purpose: nothing an organiser writes becomes a link.
-        <p className="leading-relaxed whitespace-pre-line text-muted">
+        <p className="leading-relaxed wrap-anywhere whitespace-pre-line text-muted">
           {event.description}
         </p>
       )}
@@ -383,7 +416,7 @@ function StatusBanner({
         <a
           href={calendarFileUrl(event.id)}
           download="owl-be-there.ics"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card"
+          className={RAISED_PILL}
         >
           <CalendarIcon /> {t('event.icsFile')}
         </a>
@@ -391,7 +424,7 @@ function StatusBanner({
           href={google}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card"
+          className={RAISED_PILL}
         >
           {t('event.google')}
         </a>

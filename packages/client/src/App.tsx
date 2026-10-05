@@ -9,13 +9,20 @@ import { Owl } from './components/Owl.tsx';
 import { Select } from './components/ui.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
 import { api } from './lib/api.ts';
+import {
+  INSTANCE_LOADING,
+  InstanceStore,
+  type InstanceState,
+} from './lib/instanceStore.ts';
 import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
+import { imprintLink } from './lib/imprint.ts';
 import { navigate, parseRoute, type Route } from './lib/route.ts';
 import { EventPage } from './pages/EventPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
+import { ImprintPage } from './pages/ImprintPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
 
 export function App() {
@@ -26,18 +33,31 @@ export function App() {
   );
 }
 
-/** What the instance says about itself, fetched once and shared. */
-function useInstance(): InstanceInfoData | null {
-  const [info, setInfo] = useState<InstanceInfoData | null>(null);
+/** What the instance says about itself, fetched (and retried) once and shared. */
+function useInstance(): InstanceState {
+  const [state, setState] = useState<InstanceState>(INSTANCE_LOADING);
   useEffect(() => {
-    api.instance().then(setInfo, () => setInfo(null));
+    const store = new InstanceStore(() => api.instance());
+    const unsubscribe = store.subscribe(() => setState(store.getState()));
+    store.start();
+    // A page that comes back online is a good moment to ask again.
+    const retry = (): void => {
+      if (store.getState().status !== 'ready') void store.fetch();
+    };
+    window.addEventListener('online', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+      unsubscribe();
+      store.stop();
+    };
   }, []);
-  return info;
+  return state;
 }
 
 function Shell() {
   const route = parseRoute(usePathname());
-  const instance = useInstance();
+  const instanceState = useInstance();
+  const instance = instanceState.info;
   const { t, language, setLanguage } = useI18n();
 
   // `/fr` reached by the back button or a link: the page follows the address.
@@ -68,7 +88,10 @@ function Shell() {
       );
       break;
     case 'privacy':
-      page = <PrivacyPage instance={instance} />;
+      page = <PrivacyPage instance={instanceState} />;
+      break;
+    case 'imprint':
+      page = <ImprintPage instance={instanceState} />;
       break;
     default:
       page = <NotFoundPage />;
@@ -140,13 +163,14 @@ function Footer({
   route: Route;
 }) {
   const { t, language, setLanguage } = useI18n();
+  const imprint = imprintLink(instance);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const choose = (next: ThemeChoice) => {
     setTheme(next);
     writeTheme(next);
   };
   const selectClass =
-    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus focus:outline-none';
+    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus';
   return (
     <footer className="border-t border-line bg-sunken/60">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm sm:px-6">
@@ -195,9 +219,17 @@ function Footer({
           <Link href="/privacy" className="underline-offset-4 hover:underline">
             {t('footer.privacy')}
           </Link>
-          {instance?.imprintUrl && (
+          {imprint?.kind === 'internal' && (
+            <Link
+              href={imprint.href}
+              className="underline-offset-4 hover:underline"
+            >
+              {t('footer.imprint')}
+            </Link>
+          )}
+          {imprint?.kind === 'external' && (
             <a
-              href={instance.imprintUrl}
+              href={imprint.href}
               rel="noopener noreferrer"
               className="underline-offset-4 hover:underline"
             >

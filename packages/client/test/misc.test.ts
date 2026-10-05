@@ -10,7 +10,11 @@ import { pt } from '../src/i18n/pt.ts';
 import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
-import { firstWeekdayFor } from '../src/lib/locale.ts';
+import {
+  firstWeekdayFor,
+  weekdayName,
+  weekdayOrder,
+} from '../src/lib/locale.ts';
 import { navigate, parseRoute, subscribeToRoute } from '../src/lib/route.ts';
 import { installBrowser } from './browser.ts';
 
@@ -139,8 +143,31 @@ describe('firstWeekdayFor', () => {
   });
 });
 
+describe('weekdayOrder', () => {
+  it('starts on the first weekday and wraps, with every weekday once', () => {
+    expect(weekdayOrder(0)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(weekdayOrder(6)).toEqual([6, 0, 1, 2, 3, 4, 5]);
+    expect(weekdayOrder(3)).toEqual([3, 4, 5, 6, 0, 1, 2]);
+    for (const first of [0, 1, 2, 3, 4, 5, 6] as const)
+      expect([...weekdayOrder(first)].sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});
+
+describe('weekdayName', () => {
+  it('names Monday as 0 and Sunday as 6, short and long', () => {
+    expect(weekdayName(0, 'en', 'short')).toBe('Mon');
+    expect(weekdayName(0, 'en', 'long')).toBe('Monday');
+    expect(weekdayName(6, 'en', 'long')).toBe('Sunday');
+  });
+
+  it('follows the locale', () => {
+    expect(weekdayName(0, 'de', 'short')).toBe('Mo');
+    expect(weekdayName(2, 'de', 'long')).toBe('Mittwoch');
+  });
+});
+
 describe('routes', () => {
-  it('knows the four pages', () => {
+  it('knows the five pages', () => {
     expect(parseRoute('/')).toEqual({ page: 'home' });
     expect(parseRoute('')).toEqual({ page: 'home' });
     expect(parseRoute('/privacy')).toEqual({ page: 'privacy' });
@@ -164,6 +191,12 @@ describe('routes', () => {
   it('refuses malformed event ids and unknown paths', () => {
     for (const path of [
       '/e/short',
+      '/e/7gT4kPq2Wx9',
+      '/e/7gT4kPq2Wx9Za',
+      '/e/',
+      '/e//',
+      '/e/7gT4kPq2Wx9Z//',
+      '/e/7gT4kPq2Wx9%20',
       '/e/0OIl00000000',
       '/e/7gT4kPq2Wx9Z/x',
       '/nope',
@@ -184,6 +217,68 @@ describe('routes', () => {
     navigate('/e/7gT4kPq2Wx9Z', { replace: true, state: { created: true } });
     expect(window.history.state).toEqual({ created: true });
     expect(window.scrollTo).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not add a history entry for the page one is on', () => {
+    const { window } = installBrowser();
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    navigate('/privacy');
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    expect(window.scrollTo).toHaveBeenCalledTimes(3);
+    // The start page from the start page, the logo's case.
+    navigate('/', { replace: true });
+    navigate('/');
+    navigate('/');
+    expect(window.history.length).toBe(2);
+  });
+
+  it('still pushes for another path, a query string or a trailing slash', () => {
+    const { window } = installBrowser();
+    navigate('/privacy');
+    expect(window.history.length).toBe(2);
+    navigate('/privacy?x=1');
+    expect(window.history.length).toBe(3);
+    expect(window.location.search).toBe('?x=1');
+    navigate('/privacy?x=1'); // same again: no new entry
+    expect(window.history.length).toBe(3);
+    navigate('/privacy?x=2');
+    expect(window.history.length).toBe(4);
+    navigate('/privacy/');
+    expect(window.history.length).toBe(5);
+    navigate('/');
+    expect(window.history.length).toBe(6);
+  });
+
+  it('keeps the history state when the same page is asked for again, and takes a new one', () => {
+    const { window } = installBrowser();
+    navigate('/e/7gT4kPq2Wx9Z', { state: { created: true } });
+    navigate('/e/7gT4kPq2Wx9Z');
+    expect(window.history.state).toEqual({ created: true });
+    expect(window.history.length).toBe(2);
+    navigate('/e/7gT4kPq2Wx9Z', { state: { created: false } });
+    expect(window.history.state).toEqual({ created: false });
+    expect(window.history.length).toBe(2);
+  });
+
+  it('tells subscribers even when it adds no entry', () => {
+    installBrowser();
+    let calls = 0;
+    const unsubscribe = subscribeToRoute(() => (calls += 1));
+    navigate('/privacy');
+    navigate('/privacy');
+    unsubscribe();
+    expect(calls).toBe(2);
+  });
+
+  it('replaces the entry when asked to, whatever the address', () => {
+    const { window } = installBrowser();
+    navigate('/privacy', { replace: true });
+    expect(window.history.length).toBe(1);
+    navigate('/de', { replace: true });
+    expect(window.history.length).toBe(1);
+    expect(window.location.pathname).toBe('/de');
   });
 
   it('changes only the address when told to keep the scroll position', () => {

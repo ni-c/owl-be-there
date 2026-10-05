@@ -1,6 +1,6 @@
 import {
   addDays,
-  dayNumber,
+  diffDays,
   isoWeekNumber,
   monthKeyOf,
   weekdayOf,
@@ -8,6 +8,7 @@ import {
   type MonthKey,
   type Weekday,
 } from './dates.js';
+import { normalizeDays } from './candidates.js';
 
 /** One row of the calendar: seven consecutive days. */
 export interface WeekRow {
@@ -18,8 +19,9 @@ export interface WeekRow {
   /** ISO week number of the row's Monday-based week, for the row label. */
   weekNumber: number;
   /**
-   * The month whose name belongs beside this row: the month of the row's first
-   * candidate day when the row is the first one shown or a month begins in it.
+   * The month whose name belongs beside this row: the first month among the
+   * row's candidate days that no earlier row names, or null when every month
+   * in the row is already named.
    */
   monthLabel: MonthKey | null;
   /** True when weeks without any candidate day were left out above this row. */
@@ -52,7 +54,7 @@ export function buildWeeks(
   firstWeekday: Weekday
 ): WeekRow[] {
   if (candidates.length === 0) return [];
-  const sorted = [...new Set(candidates)].sort();
+  const sorted = normalizeDays(candidates);
   const rows: WeekRow[] = [];
   const named = new Set<MonthKey>();
   let previousStart: ISODate | null = null;
@@ -70,9 +72,7 @@ export function buildWeeks(
       days,
       weekNumber: isoWeekNumber(addDays(start, (7 - firstWeekday) % 7)),
       monthLabel: label,
-      gapBefore:
-        previousStart !== null &&
-        dayNumber(start) - dayNumber(previousStart) > 7,
+      gapBefore: previousStart !== null && diffDays(previousStart, start) > 7,
     });
     previousStart = start;
   }

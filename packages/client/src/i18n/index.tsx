@@ -39,7 +39,7 @@ export type Params = Record<string, string | number>;
 /** Fill `{name}` placeholders; a missing parameter stays visible as `{name}`. */
 export function interpolate(text: string, params: Params = {}): string {
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>
-    name in params ? String(params[name]) : match
+    Object.hasOwn(params, name) ? String(params[name]) : match
   );
 }
 
@@ -79,7 +79,7 @@ export function translator(language: Language) {
   return { t, tn };
 }
 
-export interface I18n {
+interface I18n {
   language: Language;
   locale: string;
   setLanguage(language: Language): void;
@@ -95,11 +95,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const fromPath = route.page === 'home' ? (route.language ?? null) : null;
     // Arriving on `/fr` is a choice of French; the event pages keep it.
     if (fromPath) writeLanguage(fromPath);
-    return detectLanguage(
-      readLanguage(),
-      navigator.languages ?? [navigator.language],
-      fromPath
-    );
+    return detectLanguage(readLanguage(), navigator.languages, fromPath);
   });
   const setLanguage = useCallback((next: Language) => {
     writeLanguage(next);

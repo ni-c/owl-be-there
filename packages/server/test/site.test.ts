@@ -1,12 +1,15 @@
 import { createHash } from 'node:crypto';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon } from '@owl/shared';
+import { emojiIcon, escapeMarkup, LANGUAGES, SERVER_TEXTS } from '@owl/shared';
 import { snapshot } from '../src/db/repo.js';
-import { escapeHtml, PageTemplate } from '../src/pages.js';
+import { PageTemplate } from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
+  CLIENT_DIR,
   createEvent,
   eventBody,
   join,
@@ -14,6 +17,9 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
+  setStatus,
+  sessionRequest,
 } from './helpers.js';
 
 let t: TestApp | undefined;
@@ -21,6 +27,13 @@ afterEach(async () => {
   await t?.app.close();
   t = undefined;
 });
+
+/** Everything the built-in legal notice needs; all of it fictional. */
+const IMPRINT_ENV = {
+  OPERATOR_NAME: 'Example Org',
+  OPERATOR_ADDRESS: 'Musterstraße 1, 12345 Musterstadt, Germany',
+  OPERATOR_CONTACT: 'privacy@example.org',
+};
 
 const hashOf = (script: string): string =>
   `'sha256-${createHash('sha256').update(script).digest('base64')}'`;
@@ -74,6 +87,60 @@ describe('pages', () => {
     }
   });
 
+  it('serves /imprint with the default head, with and without a slash, once the notice is configured', async () => {
+    t = await testApp({ env: IMPRINT_ENV });
+    for (const [url, path] of [
+      ['/imprint', '/imprint'],
+      ['/imprint/', '/imprint'],
+    ] as const) {
+      for (const method of ['GET', 'HEAD'] as const) {
+        const response = await t.app.inject({ method, url });
+        expect(response.statusCode, `${method} ${url}`).toBe(200);
+        expect(response.headers['content-type']).toBe(
+          'text/html; charset=utf-8'
+        );
+        if (method === 'GET') {
+          expect(response.body).toContain(
+            `<meta property="og:url" content="https://owl.example.org${path}" />`
+          );
+          expect(response.body).not.toContain('noindex');
+          expect(response.body).not.toContain('<!--owl:head-->');
+        }
+      }
+    }
+  });
+
+  it('knows no /imprint unless name, address and contact are all set', async () => {
+    const partial: Record<string, string>[] = [
+      {},
+      { OPERATOR_NAME: 'Example Org' },
+      { OPERATOR_NAME: 'Example Org', OPERATOR_ADDRESS: 'Musterstraße 1' },
+      { OPERATOR_NAME: 'Example Org', OPERATOR_CONTACT: 'privacy@example.org' },
+      {
+        OPERATOR_ADDRESS: 'Musterstraße 1',
+        OPERATOR_CONTACT: 'privacy@example.org',
+      },
+      // An external notice does not create the built-in page.
+      { IMPRINT_URL: 'https://example.org/imprint' },
+    ];
+    for (const env of partial) {
+      t = await testApp({ env });
+      for (const url of ['/imprint', '/imprint/']) {
+        const response = await t.app.inject({ method: 'GET', url });
+        expect(response.statusCode, `${url} with ${JSON.stringify(env)}`).toBe(
+          404
+        );
+      }
+      const sitemap = await t.app.inject({
+        method: 'GET',
+        url: '/sitemap.xml',
+      });
+      expect(sitemap.body).not.toContain('/imprint');
+      await t.app.close();
+    }
+    t = undefined;
+  });
+
   it('puts the event title in the head, escaped, and never the description', async () => {
     t = await testApp();
     const { id } = await createEvent(t.app, {
@@ -116,11 +183,9 @@ describe('pages', () => {
     expect(
       (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body
     ).toContain('bisher 1 Antwort');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     expect(
       (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body
@@ -132,11 +197,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'es' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Marca los días que te vienen bien');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('Ya hay fecha: sáb, 6 de marzo de 2027');
@@ -147,11 +210,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'fr' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Indique les jours où tu es libre');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('La date est fixée : sam. 6 mars 2027');
@@ -162,11 +223,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'pt' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Marca os dias em que podes');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain(
@@ -179,11 +238,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'it' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Segna i giorni in cui ci sei');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('La data è decisa: sab 6 marzo 2027');
@@ -194,11 +251,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'ja' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('行ける日を選んでね');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('日程決定：2027年3月6日(土)');
@@ -209,14 +264,58 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'nl' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Vul in wanneer je kunt');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
+  });
+
+  describe('the preview of a closed poll', () => {
+    const description = async (id: string): Promise<string> => {
+      const body = (await t!.app.inject({ method: 'GET', url: `/e/${id}` }))
+        .body;
+      const match = /<meta property="og:description" content="([^"]*)"/.exec(
+        body
+      );
+      if (!match) throw new Error('no og:description');
+      return match[1]!;
+    };
+
+    it.each(LANGUAGES)(
+      'says so in %s and no longer invites answers',
+      async (language) => {
+        t = await testApp();
+        const { id, adminToken } = await createEvent(t.app, { language });
+        const texts = SERVER_TEXTS[language];
+        expect(await description(id)).toBe(escapeMarkup(texts.previewOpen(0)));
+        await setStatus(t!.app, id, adminToken, { status: 'closed' });
+        const closed = await description(id);
+        expect(closed).toBe(escapeMarkup(texts.previewClosed));
+        expect(closed).not.toBe(escapeMarkup(texts.previewOpen(0)));
+      }
+    );
+
+    it('still announces the date of a decided poll, and goes back to the invitation when reopened', async () => {
+      t = await testApp();
+      const { id, adminToken } = await createEvent(t.app);
+      await setStatus(t!.app, id, adminToken, { status: 'closed' });
+      await setStatus(t!.app, id, adminToken, {
+        status: 'finalized',
+        start: '2027-03-06',
+      });
+      expect(await description(id)).toMatch(/^The date is set: /);
+      await setStatus(t!.app, id, adminToken, { status: 'closed' });
+      expect(await description(id)).toBe(SERVER_TEXTS.en.previewClosed);
+      await setStatus(t!.app, id, adminToken, { status: 'open' });
+      expect(await description(id)).toBe(
+        'Add the days you can make it. No sign-up needed.'
+      );
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, WEEKEND);
+      expect(await description(id)).toContain('1 answer so far');
+    });
   });
 
   it('serves the start page in every language, in that language', async () => {
@@ -306,10 +405,23 @@ describe('pages', () => {
       ),
       'https://owl.example.org/privacy',
     ]);
+    expect(response.body).not.toContain('/imprint');
     expect(response.body).not.toContain(id);
     expect(response.body).not.toContain('/e/');
     // Each start page names all nine versions.
     expect(response.body.match(/hreflang=/g)).toHaveLength(9 * 9);
+  });
+
+  it('lists /imprint in the sitemap, after the privacy page, when it is configured', async () => {
+    t = await testApp({ env: IMPRINT_ENV });
+    const response = await t.app.inject({ method: 'GET', url: '/sitemap.xml' });
+    const locs = [...response.body.matchAll(/<loc>([^<]*)<\/loc>/g)].map(
+      (match) => match[1]
+    );
+    expect(locs.slice(-2)).toEqual([
+      'https://owl.example.org/privacy',
+      'https://owl.example.org/imprint',
+    ]);
   });
 
   it('answers an unknown event or path with the app and a 404', async () => {
@@ -339,6 +451,136 @@ describe('pages', () => {
     );
   });
 
+  it('serves the pages at their address with a trailing slash, head and all', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: 'Slash party' });
+    for (const [url, bare] of [
+      [`/e/${id}/`, `/e/${id}`],
+      ['/de/', '/de'],
+      ['/ja/', '/ja'],
+      ['/privacy/', '/privacy'],
+    ] as const) {
+      for (const method of ['GET', 'HEAD'] as const) {
+        const slash = await t!.app.inject({ method, url });
+        const plain = await t!.app.inject({ method, url: bare });
+        expect(slash.statusCode, `${method} ${url}`).toBe(200);
+        expect(slash.headers['content-type']).toBe(
+          plain.headers['content-type']
+        );
+        expect(slash.headers['x-robots-tag']).toBe(
+          plain.headers['x-robots-tag']
+        );
+      }
+      expect((await t.app.inject({ method: 'GET', url })).body).toBe(
+        (await t.app.inject({ method: 'GET', url: bare })).body
+      );
+    }
+    const page = await t.app.inject({ method: 'GET', url: `/e/${id}/` });
+    expect(page.body).toContain('Slash party');
+  });
+
+  it('keeps unknown events and paths a 404, with or without a slash', async () => {
+    t = await testApp();
+    for (const url of ['/e/AAAAAAAAAAAA/', '/e/nope/', '/xx/', '/somewhere/']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+    }
+    const { id } = await createEvent(t.app);
+    // The picture has the one address only.
+    const picture = await t.app.inject({
+      method: 'GET',
+      url: `/e/${id}/og.png/`,
+    });
+    expect(picture.statusCode).toBe(404);
+  });
+
+  it('answers the JSON 404 for /api and what is below it, the app for names that merely start with api', async () => {
+    t = await testApp();
+    for (const url of ['/api', '/api/', '/api/x', '/api?x=1', '/api/x?y=2']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.json().error, url).toBe('not_found');
+    }
+    for (const url of ['/apix', '/api.txt', '/apiary/x', '/API']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.headers['content-type'], url).toBe(
+        'text/html; charset=utf-8'
+      );
+    }
+  });
+
+  it('answers the JSON 404 for every path without a client, /apix included', async () => {
+    t = await testApp({ site: false });
+    for (const url of ['/apix', '/api.txt', '/api', '/api/x', '/api?x=1']) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(404);
+      expect(response.json().error, url).toBe('not_found');
+    }
+  });
+
+  describe('caching static files', () => {
+    const dirs: string[] = [];
+    afterEach(() => {
+      for (const dir of dirs.splice(0))
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** A copy of the test client under a path of our choosing. */
+    const clientAt = (...parts: string[]): string => {
+      const root = mkdtempSync(joinPath(tmpdir(), 'owl-client-'));
+      dirs.push(root);
+      const dir = joinPath(root, ...parts);
+      mkdirSync(dir, { recursive: true });
+      cpSync(CLIENT_DIR, dir, { recursive: true });
+      writeFileSync(joinPath(dir, 'favicon.svg'), '<svg/>');
+      mkdirSync(joinPath(dir, 'assets-old'));
+      writeFileSync(joinPath(dir, 'assets-old', 'old.js'), '//');
+      return dir;
+    };
+    const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+    const cacheControl = async (clientDir: string) => {
+      t = await testApp({ env: { CLIENT_DIR: clientDir } });
+      const get = async (url: string) =>
+        (await t!.app.inject({ method: 'GET', url })).headers['cache-control'];
+      return {
+        asset: await get('/assets/app.js'),
+        icon: await get('/favicon.svg'),
+        index: await get('/index.html'),
+        old: await get('/assets-old/old.js'),
+      };
+    };
+
+    it('makes only the hashed assets immutable', async () => {
+      expect(await cacheControl(clientAt('dist'))).toEqual({
+        asset: IMMUTABLE,
+        icon: 'no-cache',
+        index: 'no-cache',
+        old: 'no-cache',
+      });
+    });
+
+    it('does not mind a client directory with assets in its own path', async () => {
+      for (const parts of [
+        ['assets', 'owl', 'dist'],
+        ['x', 'assets'],
+        ['assets'],
+      ]) {
+        expect(await cacheControl(clientAt(...parts)), parts.join('/')).toEqual(
+          {
+            asset: IMMUTABLE,
+            icon: 'no-cache',
+            index: 'no-cache',
+            old: 'no-cache',
+          }
+        );
+        await t!.app.close();
+        t = undefined;
+      }
+    });
+  });
+
   it('runs as an API alone without a client', async () => {
     t = await testApp({ site: false });
     const response = await t.app.inject({ method: 'GET', url: '/' });
@@ -365,7 +607,8 @@ describe('preview pictures', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toBe('image/png');
-    expect(response.headers['cache-control']).toBe('public, max-age=300');
+    // The picture shows the title and the heatmap: no shared cache keeps it.
+    expect(response.headers['cache-control']).toBe('private, max-age=300');
     expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
     expect(response.rawPayload.subarray(0, 8)).toEqual(PNG);
     // 1200 × 630, from the IHDR chunk.
@@ -411,33 +654,6 @@ describe('preview pictures', () => {
     expect((await get()).equals(first)).toBe(false);
   });
 
-  it('keeps each version once, dropping the least recently used', async () => {
-    t = await testApp();
-    const { id } = await createEvent(t.app);
-    const data = snapshot(t.db, id)!;
-    const renderer = new PreviewRenderer(null, 'owl.example.org', 2);
-    const v1 = await renderer.render(data);
-    expect(await renderer.render(data)).toBe(v1);
-    const v2 = await renderer.render({
-      ...data,
-      event: { ...data.event, version: data.event.version + 1 },
-    });
-    expect(v2).not.toBe(v1);
-    // v1 used again, so v2 is the one a third version pushes out.
-    expect(await renderer.render(data)).toBe(v1);
-    await renderer.render({
-      ...data,
-      event: { ...data.event, version: data.event.version + 2 },
-    });
-    expect(await renderer.render(data)).toBe(v1);
-    expect(
-      await renderer.render({
-        ...data,
-        event: { ...data.event, version: data.event.version + 1 },
-      })
-    ).not.toBe(v2);
-  });
-
   it('draws Japanese events, even without the Japanese font at hand', async () => {
     t = await testApp();
     const { id } = await createEvent(t.app, {
@@ -477,13 +693,71 @@ describe('preview pictures', () => {
       const response = await t.app.inject({ method: 'GET', url });
       expect(response.statusCode, url).toBe(404);
       expect(response.headers['content-type']).toContain('application/json');
+      expect(response.headers['cache-control'], url).toBeUndefined();
     }
+  });
+
+  it('is gone with the event, from the picture and from the page', async () => {
+    t = await testApp();
+    const { id, adminToken } = await createEvent(t.app);
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      const response = await t.app.inject({ method: 'GET', url });
+      expect(response.statusCode, url).toBe(200);
+      expect(response.headers['cache-control'], url).toMatch(/^private,/);
+    }
+    await t.app.inject({
+      method: 'DELETE',
+      url: `/api/events/${id}`,
+      headers: adminHeaders(adminToken),
+    });
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      for (let i = 0; i < 2; i += 1) {
+        const response = await t.app.inject({ method: 'GET', url });
+        expect(response.statusCode, url).toBe(404);
+        expect(response.headers['cache-control'] ?? '', url).not.toMatch(
+          /public/
+        );
+      }
+    }
+  });
+
+  it('count a HEAD request against the same limit as GET', async () => {
+    t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
+    const { id } = await createEvent(t.app);
+    const url = `/e/${id}/og.png`;
+    for (let i = 0; i < 120; i += 1) {
+      expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(200);
+    }
+    expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(429);
+    expect((await t.app.inject({ method: 'HEAD', url })).statusCode).toBe(429);
+    // The page has a limit of its own; this one is not used up.
+    expect(
+      (await t.app.inject({ method: 'HEAD', url: `/e/${id}` })).statusCode
+    ).toBe(200);
+  });
+
+  it('answers HEAD for the page and the picture like GET', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app);
+    for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
+      const get = await t.app.inject({ method: 'GET', url });
+      const head = await t.app.inject({ method: 'HEAD', url });
+      expect(head.statusCode, url).toBe(200);
+      expect(head.headers['content-type'], url).toBe(
+        get.headers['content-type']
+      );
+    }
+    const unknown = await t.app.inject({
+      method: 'HEAD',
+      url: '/e/AAAAAAAAAAAA',
+    });
+    expect(unknown.statusCode).toBe(404);
   });
 });
 
 describe('page helpers', () => {
   it('escape everything that could end an attribute or a tag', () => {
-    expect(escapeHtml(`<a href="x" title='y'>&</a>`)).toBe(
+    expect(escapeMarkup(`<a href="x" title='y'>&</a>`)).toBe(
       '&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;'
     );
   });
@@ -532,6 +806,7 @@ describe('requests', () => {
     t = await testApp({
       env: {
         OPERATOR_NAME: 'Example Org',
+        OPERATOR_ADDRESS: 'Musterstraße 1\n12345 Musterstadt',
         LOG_RETENTION_DAYS: '7',
         IMPRINT_URL: 'https://example.org/imprint',
       },
@@ -543,6 +818,8 @@ describe('requests', () => {
       logRetentionDays: 7,
       backupRetentionDays: null,
       operatorName: 'Example Org',
+      operatorAddress: 'Musterstraße 1, 12345 Musterstadt',
+      operatorContact: null,
       imprintUrl: 'https://example.org/imprint',
       publicUrl: 'https://owl.example.org',
     });
@@ -558,12 +835,7 @@ describe('rate limits', () => {
     t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
     const { id } = await createEvent(t.app);
     const sessionFrom = (remoteAddress: string, name: string) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        remoteAddress,
-      });
+      sessionRequest(t!.app, id, { name }, { remoteAddress });
     for (let i = 0; i < 10; i += 1) {
       expect((await sessionFrom('203.0.113.1', `A${i}`)).statusCode).toBe(200);
     }
@@ -586,13 +858,12 @@ describe('rate limits', () => {
       name: string,
       remoteAddress = '127.0.0.1'
     ) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        headers: { 'x-forwarded-for': forwardedFor },
-        remoteAddress,
-      });
+      sessionRequest(
+        t!.app,
+        id,
+        { name },
+        { headers: { 'x-forwarded-for': forwardedFor }, remoteAddress }
+      );
     for (let i = 0; i < 10; i += 1) await session('203.0.113.9', `A${i}`);
     expect((await session('203.0.113.9', 'A10')).statusCode).toBe(429);
     expect((await session('203.0.113.10', 'B')).statusCode).toBe(200);

@@ -4,6 +4,7 @@ import {
   heatLevel,
   heatOf,
   rankBlocks,
+  respondentOf,
   tally,
   type EventSnapshotData,
   type ISODate,
@@ -16,6 +17,7 @@ import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
 import { errorMessage } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
+import { liveHidden, liveOpenDay, liveSelection } from '../lib/groupState.ts';
 import { CalendarGrid, type HeatInfo } from './CalendarGrid.tsx';
 import { CheckIcon, StarIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
@@ -36,29 +38,28 @@ export function GroupView(props: GroupViewProps) {
   const { data, adminToken, today, store } = props;
   const { t, locale } = useI18n();
   const { event } = data;
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [openDay, setOpenDay] = useState<ISODate | null>(null);
-  const [selected, setSelected] = useState<RankedBlock | null>(null);
+  const [hiddenIds, setHidden] = useState<Set<string>>(new Set());
+  const [openDayState, setOpenDay] = useState<ISODate | null>(null);
+  const [selectedBlock, setSelected] = useState<RankedBlock | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const people: Respondent[] = useMemo(
-    () =>
-      data.participants.map((p) => ({
-        id: p.id,
-        answered: p.answered,
-        yes: new Set(p.yes),
-        maybe: new Set(p.maybe),
-        unseen: new Set(p.unseen),
-      })),
+    () => data.participants.map(respondentOf),
     [data.participants]
-  );
-  const visible = useMemo(
-    () => people.filter((p) => !hidden.has(p.id)),
-    [people, hidden]
   );
   const names = useMemo(
     () => new Map(data.participants.map((p) => [p.id, p])),
     [data.participants]
+  );
+  // What was picked is checked against every new snapshot: a person, a day or
+  // a block that is gone is no longer hidden, open or selected.
+  const hidden = useMemo(
+    () => liveHidden(hiddenIds, names),
+    [hiddenIds, names]
+  );
+  const visible = useMemo(
+    () => people.filter((p) => !hidden.has(p.id)),
+    [people, hidden]
   );
 
   const heat = useMemo(() => {
@@ -90,24 +91,30 @@ export function GroupView(props: GroupViewProps) {
     [event, people, hidden, today]
   );
   const best = ranked.slice(0, BEST_SHOWN);
-  const highlighted = useMemo(() => new Set(best[0]?.days ?? []), [best]);
+  const highlighted = useMemo(() => new Set(ranked[0]?.days ?? []), [ranked]);
+  const selected = liveSelection(selectedBlock, best);
   const selectedDays = useMemo(() => new Set(selected?.days ?? []), [selected]);
   const answeredCount = visible.filter((p) => p.answered).length;
   const waiting = data.participants.filter((p) => !p.answered);
+  const waitingNote = waiting.length > 0 && (
+    <p className="text-sm [overflow-wrap:anywhere] text-muted">
+      {t('group.waiting', { names: waiting.map((p) => p.name).join(', ') })}
+    </p>
+  );
+  const anyAnswered = data.participants.some((p) => p.answered);
+  const openDay = liveOpenDay(openDayState, event.days, anyAnswered);
+  // A day sheet that closed because its day or every answer went must not
+  // open again by itself when the day or an answer comes back.
+  if (openDay !== openDayState) setOpenDay(openDay);
+  if (selected === null && selectedBlock !== null) setSelected(null);
 
-  if (!data.participants.some((p) => p.answered)) {
+  if (!anyAnswered) {
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-center">
         <Owl mood="sleeping" size={110} />
         <p className="text-lg font-extrabold">{t('group.empty.title')}</p>
         <p className="max-w-sm text-muted">{t('group.empty.text')}</p>
-        {waiting.length > 0 && (
-          <p className="text-sm text-muted">
-            {t('group.waiting', {
-              names: waiting.map((p) => p.name).join(', '),
-            })}
-          </p>
-        )}
+        {waitingNote}
       </div>
     );
   }
@@ -236,7 +243,7 @@ export function GroupView(props: GroupViewProps) {
                   else next.add(p.id);
                   setHidden(next);
                 }}
-                className={hidden.has(p.id) ? 'line-through' : ''}
+                className={`max-w-full min-w-0 [overflow-wrap:anywhere] ${hidden.has(p.id) ? 'line-through' : ''}`}
               >
                 {p.name}
               </Chip>
@@ -251,13 +258,7 @@ export function GroupView(props: GroupViewProps) {
             </Button>
           )}
         </div>
-        {waiting.length > 0 && (
-          <p className="text-sm text-muted">
-            {t('group.waiting', {
-              names: waiting.map((p) => p.name).join(', '),
-            })}
-          </p>
-        )}
+        {waitingNote}
       </section>
 
       <Dialog
@@ -321,9 +322,14 @@ function DayDetails({
                   const person = names.get(id);
                   return (
                     <li key={id}>
-                      <span className="font-bold">{person?.name}</span>
+                      <span className="font-bold [overflow-wrap:anywhere]">
+                        {person?.name}
+                      </span>
                       {person?.note && (
-                        <span className="text-muted"> — {person.note}</span>
+                        <span className="[overflow-wrap:anywhere] text-muted">
+                          {' '}
+                          — {person.note}
+                        </span>
                       )}
                     </li>
                   );

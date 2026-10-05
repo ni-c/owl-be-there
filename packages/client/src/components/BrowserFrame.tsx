@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
  * come from PUBLIC_URL alone — but part of the advertising, which shows the
  * project's own domain on every instance.
  */
-export const SHOWN_HOST = 'owlbethere.app';
+const SHOWN_HOST = 'owlbethere.app';
 
 /**
  * A browser window around the example on the start page, so it reads as a

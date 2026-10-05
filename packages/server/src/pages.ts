@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import {
   EMOJIS,
   emojiIcon,
-  formatDayRange,
+  escapeMarkup,
   LANGUAGES,
   LOCALES,
+  PREVIEW_HEIGHT,
+  PREVIEW_WIDTH,
+  previewStatus,
   SERVER_TEXTS,
   type EventSnapshotData,
   type Language,
@@ -59,7 +62,7 @@ export class PageTemplate {
  * allowance, and an injected one is not on the list. Only meta, title and link
  * tags are ever put into the page, so the hashes stay valid.
  */
-export function inlineScriptHashes(html: string): string[] {
+function inlineScriptHashes(html: string): string[] {
   const hashes: string[] = [];
   for (const match of html.matchAll(
     /<script(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi
@@ -70,15 +73,6 @@ export function inlineScriptHashes(html: string): string[] {
     );
   }
   return hashes;
-}
-
-export function escapeHtml(text: string): string {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 interface HeadOptions {
@@ -106,7 +100,7 @@ export function homePath(language: Language | null): string {
 }
 
 function head(options: HeadOptions): string {
-  const e = escapeHtml;
+  const e = escapeMarkup;
   const image = options.image ?? `${options.publicUrl}/og.png`;
   return [
     `<title>${e(options.title)}</title>`,
@@ -118,8 +112,8 @@ function head(options: HeadOptions): string {
     `<meta property="og:description" content="${e(options.description)}" />`,
     `<meta property="og:url" content="${e(options.publicUrl + options.path)}" />`,
     `<meta property="og:image" content="${e(image)}" />`,
-    `<meta property="og:image:width" content="1200" />`,
-    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:width" content="${PREVIEW_WIDTH}" />`,
+    `<meta property="og:image:height" content="${PREVIEW_HEIGHT}" />`,
     `<meta property="og:image:alt" content="${e(options.imageAlt)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<link rel="icon" href="${e(options.icon)}" />`,
@@ -159,10 +153,14 @@ export function defaultHead(
 
 /**
  * The sitemap: the start page in every language, each naming the others, and
- * the privacy page. Event pages are private and never listed.
+ * the privacy page, and the legal notice when the instance has one. Event
+ * pages are private and never listed.
  */
-export function sitemap(publicUrl: string): string {
-  const e = escapeHtml;
+export function sitemap(
+  publicUrl: string,
+  options: { imprint?: boolean } = {}
+): string {
+  const e = escapeMarkup;
   const alternates = [
     ...LANGUAGES.map(
       (language) =>
@@ -179,6 +177,9 @@ export function sitemap(publicUrl: string): string {
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
     ...home,
     `  <url>\n    <loc>${e(publicUrl)}/privacy</loc>\n  </url>`,
+    ...(options.imprint
+      ? [`  <url>\n    <loc>${e(publicUrl)}/imprint</loc>\n  </url>`]
+      : []),
     '</urlset>',
     '',
   ].join('\n');
@@ -206,17 +207,7 @@ export function eventHead(publicUrl: string, data: EventSnapshotData): string {
   const { event } = data;
   const texts = SERVER_TEXTS[event.language];
   const emoji = EMOJIS[event.emoji];
-  const answers = data.participants.filter((p) => p.answered).length;
-  const description =
-    event.finalStart !== null && event.finalEnd !== null
-      ? texts.previewDecided(
-          formatDayRange(
-            event.finalStart,
-            event.finalEnd,
-            LOCALES[event.language]
-          )
-        )
-      : texts.previewOpen(answers);
+  const description = previewStatus(texts, data, LOCALES[event.language]);
   return head({
     publicUrl,
     path: `/e/${event.id}`,

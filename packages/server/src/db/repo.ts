@@ -5,6 +5,7 @@ import {
   expiresOn,
   todayUTC,
   type EmojiKey,
+  type EventStatusData,
   type EventSnapshotData,
   type ISODate,
   type Language,
@@ -25,7 +26,7 @@ export interface EventRow {
   location: string | null;
   emoji: string;
   creator_name: string | null;
-  language: string;
+  language: Language;
   duration_days: number;
   min_count: number | null;
   closed_at: number | null;
@@ -62,11 +63,9 @@ interface MarkRow {
   state: 'yes' | 'maybe';
 }
 
-export type EventStatus = 'open' | 'closed' | 'finalized';
-
 export function statusOf(
   row: Pick<EventRow, 'closed_at' | 'final_start'>
-): EventStatus {
+): EventStatusData {
   if (row.final_start !== null) return 'finalized';
   return row.closed_at !== null ? 'closed' : 'open';
 }
@@ -134,7 +133,7 @@ function marksOf(
 }
 
 /** A participant as the API shows them. */
-export function participantView(
+function participantView(
   row: ParticipantRow,
   days: readonly DayRow[],
   marks: { yes: string[]; maybe: string[] }
@@ -157,10 +156,70 @@ export function participantView(
   };
 }
 
-/** Everything about an event that anyone with the link may see. */
+/** One participant as the API shows them, without building the whole snapshot. */
+export function participantViewOf(
+  db: Db,
+  eventId: string,
+  row: ParticipantRow
+): ParticipantViewData {
+  return participantView(
+    row,
+    getDays(db, eventId),
+    marksOf(db, eventId, row.id)
+  );
+}
+
+/** How many events keep their last snapshot in memory. */
+const SNAPSHOT_CACHE_SIZE = 32;
+
+interface CachedSnapshot {
+  version: number;
+  data: EventSnapshotData;
+}
+
+/**
+ * The latest snapshot of each event, least recently used dropped first, per
+ * database. Building one reads every participant and every mark, and the same
+ * state is read over and over — by the group's browsers, by link previews.
+ */
+const snapshots = new WeakMap<Db, Map<string, CachedSnapshot>>();
+
+/**
+ * Everything about an event that anyone with the link may see.
+ *
+ * The same object is returned until the event changes, so callers must not
+ * modify it. Every write moves `events.version` on, and the cache is keyed by
+ * it; an event that is gone is never answered from the cache.
+ */
 export function snapshot(db: Db, id: string): EventSnapshotData | null {
+  const cache = snapshots.get(db) ?? new Map<string, CachedSnapshot>();
+  snapshots.set(db, cache);
   const event = getEvent(db, id);
-  if (!event) return null;
+  if (!event) {
+    cache.delete(id);
+    return null;
+  }
+  const hit = cache.get(id);
+  if (hit?.version === event.version) {
+    cache.delete(id);
+    cache.set(id, hit);
+    return hit.data;
+  }
+  const data = buildSnapshot(db, event);
+  cache.delete(id);
+  // Inside a transaction the version may still roll back to a number that a
+  // later commit reuses for other data: only committed states are kept.
+  if (!db.inTransaction) {
+    cache.set(id, { version: event.version, data });
+    if (cache.size > SNAPSHOT_CACHE_SIZE)
+      cache.delete(cache.keys().next().value!);
+  }
+  return data;
+}
+
+/** The snapshot of an event as the database holds it now, cache aside. */
+export function buildSnapshot(db: Db, event: EventRow): EventSnapshotData {
+  const id = event.id;
   const days = getDays(db, id);
   const participants = db.all<ParticipantRow>(
     'SELECT * FROM participants WHERE event_id = ? ORDER BY created_at, rowid',
@@ -185,13 +244,12 @@ export function snapshot(db: Db, id: string): EventSnapshotData | null {
       location: event.location,
       emoji: event.emoji as EmojiKey,
       creatorName: event.creator_name,
-      language: event.language as Language,
+      language: event.language,
       durationDays: event.duration_days,
       minCount: event.min_count,
       status: statusOf(event),
       finalStart: event.final_start,
       finalEnd: event.final_end,
-      createdAt: event.created_at,
       expiresOn: event.expires_on,
       version: event.version,
       days: days.map((day) => day.day),
@@ -213,11 +271,19 @@ function touch(db: Db, eventId: string, now: number): number {
     'SELECT max(day) AS day FROM event_days WHERE event_id = ?',
     eventId
   )!.day;
+  const answered =
+    db.get(
+      'SELECT 1 FROM participants WHERE event_id = ? AND marks_at IS NOT NULL LIMIT 1',
+      eventId
+    ) !== undefined;
   const expires = expiresOn({
     lastWriteDay: todayUTC(new Date(now)),
     lastCandidateDay: lastDay,
     finalEnd: event.final_end,
+    answered,
   });
+  // Nothing reads last_write_at (expires_on carries the retention date), but
+  // the column is NOT NULL and an applied migration is never edited: it stays.
   db.run(
     'UPDATE events SET version = version + 1, last_write_at = ?, expires_on = ? WHERE id = ?',
     now,
@@ -254,6 +320,8 @@ export function insertEvent(db: Db, event: NewEvent, now: number): void {
       lastWriteDay: todayUTC(new Date(now)),
       lastCandidateDay: event.days[event.days.length - 1]!,
       finalEnd: null,
+      // Names on the roster have not answered.
+      answered: false,
     });
     db.run(
       `INSERT INTO events (id, admin_hash, title, description, location, emoji,
@@ -465,6 +533,18 @@ export function deleteParticipant(
     );
     touch(db, eventId, now);
   });
+  scrub(db);
+}
+
+/**
+ * Make removed text really leave the files. `secure_delete` zeroes it in the
+ * new page images, but in WAL mode the old images stay in the log and in the
+ * database file until a checkpoint overwrites them; a change that took a name
+ * or a text out must not wait for one. Inside a larger transaction nothing is
+ * written yet, so there is nothing to fold in.
+ */
+function scrub(db: Db): void {
+  if (!db.inTransaction) db.checkpoint();
 }
 
 export interface EventPatch {
@@ -511,11 +591,7 @@ export function updateEvent(
     ][]) {
       const value = patch[key];
       if (value === undefined) continue;
-      db.run(
-        `UPDATE events SET ${column} = ? WHERE id = ?`,
-        value === '' ? null : value,
-        eventId
-      );
+      db.run(`UPDATE events SET ${column} = ? WHERE id = ?`, value, eventId);
     }
     if (patch.days) {
       const wanted = new Set(patch.days);
@@ -574,7 +650,19 @@ export function updateEvent(
     }
     touch(db, eventId, now);
   });
+  if (TEXT_FIELDS.some((key) => patch[key] !== undefined)) scrub(db);
 }
+
+/** The details that are free text: a rewrite leaves the old words behind. */
+const TEXT_FIELDS = [
+  'title',
+  'description',
+  'location',
+  'creatorName',
+] as const;
+
+/** The last day `addDays` can reach. */
+const LAST_DAY = '9999-12-31';
 
 /** Whether `start` begins a block of the event's duration made of candidate days. */
 export function blockFits(
@@ -582,6 +670,9 @@ export function blockFits(
   event: Pick<EventRow, 'id' | 'duration_days'>,
   start: ISODate
 ): boolean {
+  // `addDays` throws past the end of the calendar; a block that would reach
+  // beyond it cannot be made of candidate days.
+  if (diffDays(start, LAST_DAY) < event.duration_days - 1) return false;
   const end = addDays(start, event.duration_days - 1);
   const count = db.get<{ n: number }>(
     'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
@@ -627,16 +718,37 @@ export function deleteEvent(db: Db, eventId: string): boolean {
   return db.tx(() => db.run('DELETE FROM events WHERE id = ?', eventId) > 0);
 }
 
-/** Delete every event whose last day has passed; return their ids. */
+/**
+ * How many events one write transaction deletes. The driver is synchronous: a
+ * transaction that deletes thousands of events holds the write lock, and with
+ * it the process's only thread, for seconds, and another process waiting for
+ * that lock (the command line against a running server) can run out of patience.
+ */
+const DELETE_CHUNK = 200;
+
+/**
+ * Delete every event whose last day has passed (`expires_on < today`: on the
+ * last day itself it still exists); return their ids.
+ */
 export function sweepExpired(db: Db, today: ISODate): string[] {
-  return db.tx(() => {
-    const ids = db
-      .all<{ id: string }>('SELECT id FROM events WHERE expires_on < ?', today)
-      .map((row) => row.id);
-    if (ids.length > 0)
-      db.run('DELETE FROM events WHERE expires_on < ?', today);
-    return ids;
-  });
+  const deleted: string[] = [];
+  for (;;) {
+    // Looked up again for every chunk: an event that was extended in between
+    // is no longer expired.
+    const ids = db.tx(() => {
+      const chunk = db
+        .all<{ id: string }>(
+          'SELECT id FROM events WHERE expires_on < ? LIMIT ?',
+          today,
+          DELETE_CHUNK
+        )
+        .map((row) => row.id);
+      for (const id of chunk) db.run('DELETE FROM events WHERE id = ?', id);
+      return chunk;
+    });
+    deleted.push(...ids);
+    if (ids.length < DELETE_CHUNK) return deleted;
+  }
 }
 
 export interface EventListing {
@@ -647,29 +759,48 @@ export interface EventListing {
 }
 
 /**
- * Events created on or after a day, newest first, with how many people joined
- * — for an operator looking into a flood of new events.
+ * Events created on or after a day, newest first, with how many people
+ * answered — those with marks saved; a name the organiser typed into the
+ * roster or somebody joined under does not count until it has marked a day.
+ * For an operator looking into a flood of new events.
  */
 export function listEvents(db: Db, since: ISODate | null): EventListing[] {
   const from = since === null ? 0 : utcDateOf(since).getTime();
   return db.all<EventListing>(
     `SELECT e.id, e.title,
             strftime('%Y-%m-%dT%H:%M:%SZ', e.created_at / 1000, 'unixepoch') AS created,
-            (SELECT count(*) FROM participants p WHERE p.event_id = e.id) AS participants
+            (SELECT count(*) FROM participants p WHERE p.event_id = e.id AND p.marks_at IS NOT NULL) AS participants
      FROM events e WHERE e.created_at >= ? ORDER BY e.created_at DESC`,
     from
   );
 }
 
-/** Delete events created on or after a day that nobody joined; return their ids. */
+/** The events created on or after a day that nobody has joined, by id. */
+export function emptyEventIds(db: Db, since: ISODate): string[] {
+  return listEvents(db, since)
+    .filter((event) => event.participants === 0)
+    .map((event) => event.id);
+}
+
+/** Delete events created on or after a day that nobody answered; return their ids. */
 export function purgeEmpty(db: Db, since: ISODate): string[] {
-  return db.tx(() => {
-    const ids = listEvents(db, since)
-      .filter((event) => event.participants === 0)
-      .map((event) => event.id);
-    for (const id of ids) db.run('DELETE FROM events WHERE id = ?', id);
-    return ids;
-  });
+  const candidates = emptyEventIds(db, since);
+  const deleted: string[] = [];
+  for (let from = 0; from < candidates.length; from += DELETE_CHUNK) {
+    db.tx(() => {
+      for (const id of candidates.slice(from, from + DELETE_CHUNK)) {
+        // Somebody may have answered since the list was made.
+        const changes = db.run(
+          `DELETE FROM events WHERE id = ? AND NOT EXISTS (
+             SELECT 1 FROM participants p
+             WHERE p.event_id = events.id AND p.marks_at IS NOT NULL)`,
+          id
+        );
+        if (changes > 0) deleted.push(id);
+      }
+    });
+  }
+  return deleted;
 }
 
 export function stats(db: Db): {

@@ -3,7 +3,34 @@
  * with history and storage, a document element, and fetch and EventSource
  * fakes the tests control.
  */
+import type { EventSnapshotData } from '@owl/shared';
 import { vi } from 'vitest';
+
+export const EVENT_ID = '7gT4kPq2Wx9Z';
+
+/** A valid event snapshot with no participants, at `version`. */
+export function eventSnapshot(version = 3): EventSnapshotData {
+  return {
+    event: {
+      id: EVENT_ID,
+      title: 'T',
+      description: null,
+      location: null,
+      emoji: 'owl',
+      creatorName: null,
+      language: 'en',
+      durationDays: 1,
+      minCount: null,
+      status: 'open',
+      finalStart: null,
+      finalEnd: null,
+      expiresOn: '2027-05-30',
+      version,
+      days: ['2027-03-06'],
+    },
+    participants: [],
+  };
+}
 
 export class MemoryStorage {
   readonly map = new Map<string, string>();
@@ -24,21 +51,29 @@ export function installBrowser() {
   const listeners = new Map<string, Set<() => void>>();
   const location = {
     pathname: '/',
+    search: '',
     hash: '',
-    origin: 'https://owl.example.org',
+  };
+  /** Split a path into the parts of `location`, as the browser does. */
+  const setAddress = (path: string): void => {
+    const query = path.indexOf('?');
+    location.pathname = query === -1 ? path : path.slice(0, query);
+    location.search = query === -1 ? '' : path.slice(query);
   };
   const window = {
     localStorage: storage,
     location,
     history: {
       state: null as unknown,
+      length: 1,
       pushState(state: unknown, _title: string, path: string) {
         this.state = state;
-        location.pathname = path;
+        this.length += 1;
+        setAddress(path);
       },
       replaceState(state: unknown, _title: string, path: string) {
         this.state = state;
-        location.pathname = path;
+        setAddress(path);
       },
     },
     scrollTo: vi.fn(),
@@ -52,14 +87,32 @@ export function installBrowser() {
     dispatch(type: string) {
       for (const listener of listeners.get(type) ?? []) listener();
     },
+    /** How many listeners of a type are registered, for leak checks. */
+    listenerCount(type: string) {
+      return listeners.get(type)?.size ?? 0;
+    },
   };
+  const documentListeners = new Map<string, Set<() => void>>();
   const document = {
+    visibilityState: 'visible' as 'visible' | 'hidden',
+    addEventListener(type: string, listener: () => void) {
+      if (!documentListeners.has(type)) documentListeners.set(type, new Set());
+      documentListeners.get(type)!.add(listener);
+    },
+    removeEventListener(type: string, listener: () => void) {
+      documentListeners.get(type)?.delete(listener);
+    },
+    dispatch(type: string) {
+      for (const listener of documentListeners.get(type) ?? []) listener();
+    },
+    /** How many listeners of a type are registered, for leak checks. */
+    listenerCount(type: string) {
+      return documentListeners.get(type)?.size ?? 0;
+    },
     documentElement: {
-      lang: 'en',
       setAttribute: (name: string, value: string) =>
         attributes.set(name, value),
       removeAttribute: (name: string) => attributes.delete(name),
-      getAttribute: (name: string) => attributes.get(name) ?? null,
     },
   };
   vi.stubGlobal('window', window);
@@ -71,7 +124,6 @@ export function installBrowser() {
 export class FakeEventSource {
   static readonly CLOSED = 2;
   static instances: FakeEventSource[] = [];
-  readonly url: string;
   readyState = 1;
   closed = false;
   private readonly handlers = new Map<
@@ -79,8 +131,7 @@ export class FakeEventSource {
     ((event: { data: string }) => void)[]
   >();
 
-  constructor(url: string) {
-    this.url = url;
+  constructor(_url: string) {
     FakeEventSource.instances.push(this);
   }
 

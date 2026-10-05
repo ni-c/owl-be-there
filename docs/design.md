@@ -41,4 +41,4 @@ Green and amber stay distinguishable under protanopia, deuteranopia and tritanop
 
 ## The owl
 
-Hand-drawn SVG in [`Owl.tsx`](../packages/client/src/components/Owl.tsx), coloured with the `--owl-feather`, `--owl-belly`, `--owl-iris` and `--owl-beak` tokens, so it follows the theme. Moods: happy, thinking, sleeping, celebrating, confused. The link-preview image `og.png` is rendered with Playwright by `scripts/make-og-image.ts`.
+Hand-drawn SVG in [`Owl.tsx`](../packages/client/src/components/Owl.tsx), coloured with the `--owl-feather`, `--owl-belly`, `--owl-iris` and `--owl-beak` tokens, so it follows the theme. Moods: happy, thinking, sleeping, celebrating, confused. The default link-preview image `og.png` (start pages and privacy page; an event link draws its own, see `packages/server/src/preview.ts`) is rendered with Playwright by `scripts/make-screenshot.ts` (`npm run screenshot`).

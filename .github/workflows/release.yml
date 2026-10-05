@@ -14,27 +14,77 @@ concurrency:
 permissions:
   contents: read
 
+# The Trivy release every scan runs. Dependabot bumps `uses:` references only,
+# never this, so it is a manual bump with two companions: the same version in
+# `ci.yml` and in the `scan:secrets` image of `package.json`
+# (`aquasec/trivy:<version without the v>`).
+env:
+  TRIVY_VERSION: v0.73.0
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      # `true` when no higher stable release tag exists: only that tag may move
+      # `latest`, so re-running an old release cannot roll it back.
+      highest: ${{ steps.highest.outputs.highest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      # The server answers /api/instance with its own manifest's version, so
+      # all four manifests must carry the tag's version.
       - name: The tag names the package version and sits on main
         run: |
-          test "$GITHUB_REF_NAME" = "v$(node -p "require('./package.json').version")"
+          for manifest in package.json packages/*/package.json; do
+            version=$(node -p "require('./$manifest').version")
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "$manifest has version $version, the tag is $GITHUB_REF_NAME" >&2
+              exit 1
+            fi
+          done
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Find out whether this is the highest stable release
+        id: highest
+        run: |
+          top=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -v -- - | head -n 1 || true)
+          if [ "$top" = "$GITHUB_REF_NAME" ]; then
+            echo "highest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "highest=false" >> "$GITHUB_OUTPUT"
+          fi
+      # The tag must be an annotated tag that GitHub verifies against the
+      # maintainer's GPG key, the one credential a leaked token does not have.
+      # A lightweight tag has no tag object, so the lookup fails closed.
+      - name: The tag is signed by the maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type + " " + .object.sha')
+          type="${object% *}"
+          sha="${object#* }"
+          if [ "$type" != tag ]; then
+            echo "$GITHUB_REF_NAME is a lightweight tag; release tags must be signed (git tag -s)" >&2
+            exit 1
+          fi
+          verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq .verification.verified)
+          if [ "$verified" != true ]; then
+            echo "The signature of $GITHUB_REF_NAME is not verified by GitHub" >&2
+            exit 1
+          fi
+      # The example deployment is the only place that names a tag; a release
+      # that leaves it on an older one sends self-hosters to missing fixes.
+      - name: The example compose file names this release
+        run: grep -q "owl-be-there:${GITHUB_REF_NAME#v}\$" compose.example.yaml
       # Checked before anything is published: the release notes come from this
       # section, and an image without its notes cannot be taken back.
       - name: The CHANGELOG has a section for this version
         run: |
           version="${GITHUB_REF_NAME#v}"
-          if ! awk -v ver="$version" \
-            '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/ {flag=0} /^\[.*\]: / {flag=0} flag' \
-            CHANGELOG.md | grep -q .; then
-            echo "No CHANGELOG section found for $version" >&2
+          # A section of headings only has no release notes either.
+          if ! bash scripts/changelog-section.sh "$version" | grep -q '^[^#[:space:]]'; then
+            echo "No CHANGELOG section with content found for $version" >&2
             exit 1
           fi
 
@@ -58,7 +108,7 @@ jobs:
   # The image for both architectures, with an SBOM and a provenance statement
   # attached to it in the registry. Self-hosters pull it; nobody builds.
   publish:
-    needs: test
+    needs: [validate, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -73,11 +123,6 @@ jobs:
       # the published image is no older than the one that was scanned.
       - id: epoch
         run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -85,9 +130,11 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
-      # The image is scanned before anything is pushed: the release builds on
-      # its own day epoch, so it is not the image container-scan saw.
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') && needs.validate.outputs.highest == 'true' }}
+      # Both architectures are scanned before anything is pushed, and before
+      # the registry credentials are written to disk: the release builds on its
+      # own day epoch, so it is not the image container-scan saw, and the arm64
+      # runtime layer has its own `apk upgrade`.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -97,11 +144,30 @@ jobs:
           build-args: APK_SECURITY_EPOCH=${{ steps.epoch.outputs.day }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.73.0
+          version: ${{ env.TRIVY_VERSION }}
           image-ref: owl-be-there:release-scan
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          platforms: linux/arm64
+          tags: owl-be-there:release-scan-arm64
+          build-args: APK_SECURITY_EPOCH=${{ steps.epoch.outputs.day }}
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: owl-be-there:release-scan-arm64
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-setup-trivy: true
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -114,7 +180,7 @@ jobs:
           provenance: mode=max
 
   github-release:
-    needs: publish
+    needs: [validate, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -125,9 +191,8 @@ jobs:
       - name: Extract the release notes from the CHANGELOG
         run: |
           version="${GITHUB_REF_NAME#v}"
-          awk -v ver="$version" \
-            '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/ {flag=0} /^\[.*\]: / {flag=0} flag' \
-            CHANGELOG.md > release-notes.md
+          bash scripts/changelog-section.sh "$version" > release-notes.md
+          test -s release-notes.md
           {
             echo
             echo "**Container image:** \`ghcr.io/ni-c/owl-be-there:${version}\` (amd64, arm64)"
@@ -135,13 +200,22 @@ jobs:
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          HIGHEST: ${{ needs.validate.outputs.highest }}
         run: |
           # A re-run must be able to finish the missing half.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists — skipping"
             exit 0
           fi
+          # Mirrors the image tags: a pre-release or an older release must not
+          # become "Latest", just as it does not move the `latest` image tag.
+          flags=()
+          case "$GITHUB_REF_NAME" in
+            *-*) flags=(--prerelease --latest=false) ;;
+            *) [ "$HIGHEST" = true ] || flags=(--latest=false) ;;
+          esac
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md \
+            "${flags[@]}"

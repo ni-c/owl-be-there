@@ -1,10 +1,8 @@
-export type OwlMood =
-  'happy' | 'thinking' | 'sleeping' | 'celebrating' | 'confused';
+type OwlMood = 'happy' | 'thinking' | 'sleeping' | 'celebrating' | 'confused';
 
 interface OwlProps {
   mood?: OwlMood;
   size?: number;
-  className?: string;
   /** Gently bob up and down — off when the reader prefers reduced motion. */
   bob?: boolean;
 }
@@ -13,12 +11,7 @@ interface OwlProps {
  * The mascot, drawn in the theme's colours so it changes with dark mode.
  * Decorative everywhere it appears: the text next to it says what it means.
  */
-export function Owl({
-  mood = 'happy',
-  size = 120,
-  className,
-  bob = false,
-}: OwlProps) {
+export function Owl({ mood = 'happy', size = 120, bob = false }: OwlProps) {
   const wingsUp = mood === 'celebrating';
   return (
     <svg
@@ -27,7 +20,7 @@ export function Owl({
       height={size}
       aria-hidden="true"
       focusable="false"
-      className={[bob ? 'owl-bob' : '', className ?? ''].join(' ').trim()}
+      className={bob ? 'owl-bob' : undefined}
     >
       {mood === 'celebrating' && <Confetti />}
       {/* Ear tufts */}
@@ -113,7 +106,12 @@ export function Owl({
 }
 
 function Eyes({ mood }: { mood: OwlMood }) {
-  if (mood === 'sleeping') {
+  if (mood === 'sleeping' || mood === 'celebrating') {
+    // Closed eyes: the lids sag when asleep and arch when celebrating.
+    const [left, right] =
+      mood === 'sleeping'
+        ? ['M33 52 Q42 58 51 52', 'M69 52 Q78 58 87 52']
+        : ['M34 54 Q42 44 50 54', 'M70 54 Q78 44 86 54'];
     return (
       <g
         fill="none"
@@ -123,23 +121,8 @@ function Eyes({ mood }: { mood: OwlMood }) {
       >
         <circle cx="42" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
         <circle cx="78" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <path d="M33 52 Q42 58 51 52" />
-        <path d="M69 52 Q78 58 87 52" />
-      </g>
-    );
-  }
-  if (mood === 'celebrating') {
-    return (
-      <g
-        fill="none"
-        stroke="var(--owl-feather-dark)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      >
-        <circle cx="42" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <circle cx="78" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <path d="M34 54 Q42 44 50 54" />
-        <path d="M70 54 Q78 44 86 54" />
+        <path d={left} />
+        <path d={right} />
       </g>
     );
   }

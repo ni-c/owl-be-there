@@ -17,8 +17,8 @@
  * at its end mixes both cases. So the payload is UTF-8 bytes, which is what
  * brings Reed–Solomon over GF(256) with it and most of the length of this file.
  *
- * Error correction level M throughout — a quarter of the code may be lost and
- * it still reads. L would make the picture smaller and a scuffed phone screen
+ * Error correction level M throughout — about 15 % of the codewords may be lost
+ * and it still reads. L would make the picture smaller and a scuffed phone screen
  * is exactly the reading condition this has to survive; Q and H would make it
  * denser for a benefit nobody is asking for.
  *
@@ -193,11 +193,12 @@ function codewordsFor(data: Uint8Array, version: number): number[] {
   for (const byte of data) buffer.append(byte, 8);
 
   const capacity = dataCodewords(version) * 8;
-  // Up to four zero bits saying "nothing follows", or fewer if there is not
-  // room — the specification allows the terminator to be cut short at the end.
-  buffer.append(0, Math.min(4, capacity - buffer.bits.length));
-  // Then to a whole byte, and then alternating pad bytes to the end.
-  buffer.append(0, (8 - (buffer.bits.length % 8)) % 8);
+  // Four zero bits saying "nothing follows". The header is 12 or 20 bits and
+  // the data a whole number of bytes, so the length is 4 mod 8 while the
+  // capacity is a multiple of 8: the room left is at least four bits, and a
+  // full terminator ends on a byte boundary. Then alternating pad bytes to
+  // the end.
+  buffer.append(0, 4);
   for (let i = 0; buffer.bits.length < capacity; i += 1) {
     buffer.append(PAD_BYTES[i % 2]!, 8);
   }
@@ -357,31 +358,11 @@ function drawFunctionPatterns(canvas: Canvas, version: number): void {
   // it to tell a code from its own negative.
   set(canvas, 8, size - 8, true);
 
-  // The format information goes in twice, so both areas are held back now and
-  // written once the mask is known.
-  for (let i = 0; i <= 8; i += 1) {
-    if (i !== 6) {
-      set(canvas, i, 8, false);
-      set(canvas, 8, i, false);
-    }
-  }
-  // Eight along the bottom right of the top-right finder, but only *seven*
-  // going up from the bottom left — the eighth position, `(8, size - 8)`, is
-  // the dark module set above and not part of the format at all. Reserving
-  // eight there quietly overwrote it, which cost one module in every symbol
-  // this produced and is exactly the kind of thing a reader tolerates and a
-  // comparison against another implementation does not.
-  for (let i = 0; i < 8; i += 1) set(canvas, size - 1 - i, 8, false);
-  for (let i = 0; i < 7; i += 1) set(canvas, 8, size - 1 - i, false);
-
-  if (version >= 7) {
-    for (let i = 0; i < 18; i += 1) {
-      const a = size - 11 + (i % 3);
-      const b = Math.floor(i / 3);
-      set(canvas, a, b, false);
-      set(canvas, b, a, false);
-    }
-  }
+  // The format and version areas are held back by drawing them now. The format
+  // bits are a placeholder (mask 0): they are overwritten once the mask is
+  // known. Neither draws the dark module above, which is not part of the format.
+  drawFormat(canvas, 0);
+  drawVersion(canvas, version);
 }
 
 /**
@@ -578,11 +559,11 @@ export function maskPenalty(modules: readonly (readonly boolean[])[]): number {
   // Rule 4, how far the whole picture is from half dark, in steps of five per
   // cent.
   //
-  // The arithmetic avoids floating point on purpose, and the `- 1` is what the
-  // specification asks for: `k` is the *integer part* of the deviation divided
-  // by five, the smallest integer with
-  // `(20k - 10) * total <= 20 * dark - 10 * total <= (20k + 10) * total`. A
-  // plain `ceil` stood here first and was one too many.
+  // The `- 1` is what the specification asks for: `k` is the smallest integer
+  // of zero or more with
+  // `-(k + 1) * total <= 20 * dark - 10 * total <= (k + 1) * total`, which is
+  // `ceil(|20 * dark - 10 * total| / total) - 1`. A plain `ceil` stood here
+  // first and was one too many.
   //
   // **It cannot change which mask wins, and that is worth writing down.** The
   // error was a constant ten added to every candidate alike, so the ranking was
@@ -600,11 +581,14 @@ export function maskPenalty(modules: readonly (readonly boolean[])[]): number {
   let dark = 0;
   for (const row of modules) for (const module of row) if (module) dark += 1;
   const total = size * size;
-  const deviation = Math.max(
-    0,
-    Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1
-  );
-  score += deviation * PENALTY_IMBALANCE;
+  // An empty grid has no balance to judge.
+  if (total > 0) {
+    const deviation = Math.max(
+      0,
+      Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1
+    );
+    score += deviation * PENALTY_IMBALANCE;
+  }
 
   return score;
 }
@@ -633,7 +617,6 @@ export function encodeQr(text: string): QrMatrix {
   for (let mask = 0; mask < MASKS.length; mask += 1) {
     const canvas = blankCanvas(sizeOf(version));
     drawFunctionPatterns(canvas, version);
-    drawVersion(canvas, version);
     drawCodewords(canvas, codewords);
     applyMask(canvas, mask);
     drawFormat(canvas, mask);

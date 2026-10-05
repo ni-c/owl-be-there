@@ -51,7 +51,7 @@ export function ExampleDemo() {
   const mine = (
     <div className="flex flex-col gap-3">
       <p className="text-lg font-extrabold">
-        {t('mine.hello', { name: 'Anna' })}
+        {t('mine.hello', { name: data.participants[0]!.name })}
       </p>
       <MarksEditor
         key={round}

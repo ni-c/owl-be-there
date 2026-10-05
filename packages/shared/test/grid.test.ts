@@ -73,6 +73,17 @@ describe('buildWeeks', () => {
     expect(rows.map((row) => row.gapBefore)).toEqual([false, true]);
   });
 
+  it('marks a gap only when a whole week is skipped', () => {
+    // Rows 7 days apart touch; rows 14 days apart have a week between them.
+    const touching = buildWeeks(['2026-10-05', '2026-10-12'], MONDAY);
+    expect(touching.map((row) => row.gapBefore)).toEqual([false, false]);
+    const apart = buildWeeks(['2026-10-05', '2026-10-19'], MONDAY);
+    expect(apart.map((row) => row.gapBefore)).toEqual([false, true]);
+    // Across the turn of the year.
+    const year = buildWeeks(['2026-12-28', '2027-01-11'], MONDAY);
+    expect(year.map((row) => row.gapBefore)).toEqual([false, true]);
+  });
+
   it('ignores the order and duplicates of its input', () => {
     expect(
       buildWeeks(['2026-10-10', '2026-10-03', '2026-10-03'], MONDAY)

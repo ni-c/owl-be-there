@@ -29,7 +29,7 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   for (const weekday of ['Friday', 'Saturday', 'Sunday']) {
     await page.getByRole('button', { name: weekday, exact: true }).click();
   }
-  await page.getByRole('button', { name: '+' }).click();
+  await page.getByRole('button', { name: 'One day more in a row' }).click();
   await expect(page.getByText(/days? to choose from/)).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Names (optional)').fill('Anna\nBen');
@@ -68,7 +68,7 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   await expect(
     page.getByRole('heading', { name: 'Five-a-side' })
   ).toBeVisible();
-  await expect(page.getByText('2 days in a row').first()).toBeVisible();
+  await expect(page.getByText('2 days in a row')).toBeVisible();
   expect(new URL(page.url()).hash).toBe('');
   await showView(page, 'mine');
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
@@ -340,6 +340,32 @@ test('a protected name needs its password on another device', async ({
   await expect(laptop.getByText('Hi Maxi!')).toBeVisible();
 });
 
+test('the organiser removes a password only after confirming it', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  const session = await request.post(`/api/events/${id}/session`, {
+    data: { name: 'Maxi', password: 'secret-1' },
+  });
+  expect(session.status()).toBe(200);
+  const protectedEntry = async () =>
+    (await snapshot(request, id)).participants[0].hasPassword;
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.locator('summary', { hasText: 'People' }).click();
+  await page.getByRole('button', { name: 'Remove password' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Anyone with the event link');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+  expect(await protectedEntry()).toBe(true);
+
+  await page.getByRole('button', { name: 'Remove password' }).click();
+  await dialog.getByRole('button', { name: 'Remove password' }).click();
+  await expect.poll(protectedEntry).toBe(false);
+});
+
 test('the organiser chooses the best day; everyone gets a calendar file', async ({
   page,
   request,
@@ -424,6 +450,58 @@ test('the privacy page names the operator and the log retention', async ({
   await expect(
     page.getByText(/These logs are deleted after 7 days/)
   ).toBeVisible();
+});
+
+test('the footer links the legal notice between privacy and the source, and the page names the operator', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const links = page.getByRole('contentinfo').getByRole('navigation');
+  await expect(links.getByRole('link')).toHaveText([
+    'Privacy',
+    'Imprint',
+    'Open source by Willi Thiel',
+  ]);
+  await links.getByRole('link', { name: 'Imprint' }).click();
+  await expect(page).toHaveURL(/\/imprint$/);
+  await expect(page.getByRole('heading', { name: 'Imprint' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Provider identification under § 5 DDG and § 18(1) MStV',
+    })
+  ).toBeVisible();
+  const provider = page.locator('p').filter({
+    hasText: 'Example Organisation',
+  });
+  await expect(provider.locator('span')).toHaveText([
+    'Musterstraße 1',
+    '12345 Musterstadt',
+    'Germany',
+  ]);
+  await expect(provider).toContainText('Example Organisation');
+  await expect(page.getByText('Email:')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'privacy@example.org' })
+  ).toHaveAttribute('href', 'mailto:privacy@example.org');
+  await expect(
+    page.getByRole('heading', { name: 'About Owl Be There' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Consumer dispute resolution' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Liability for content and links' })
+  ).toBeVisible();
+
+  // The address with a slash is the same page; German keeps the statute names.
+  await page.goto('/imprint/');
+  await page.getByLabel('Language').selectOption('de');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Anbieterkennzeichnung nach § 5 DDG und § 18 Abs. 1 MStV',
+    })
+  ).toBeVisible();
+  await expect(page.getByText('Kontakt', { exact: true })).toBeVisible();
 });
 
 test('German is a click away and remembered', async ({ page }) => {
@@ -686,4 +764,164 @@ test('the count of answers is spelled out and follows live', async ({
   await expect(page.locator('main')).toContainText('2 answers', {
     timeout: 10_000,
   });
+});
+
+test('forgetting an event with an organiser key on this device asks first', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    title: 'Garden party',
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await page.goto('/');
+  const forget = page.getByRole('button', {
+    name: 'Remove Garden party from this list',
+  });
+  const stored = () =>
+    page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`);
+
+  // Cancelling keeps the entry and the key.
+  await forget.click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Remove this event from this device?',
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('organiser link');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(forget).toBeVisible();
+  expect(await stored()).toContain(adminToken);
+
+  // Confirming removes both.
+  await forget.click();
+  await dialog.getByRole('button', { name: 'Remove from this device' }).click();
+  await expect(forget).toHaveCount(0);
+  expect(await stored()).toBeNull();
+});
+
+test('forgetting an event without an organiser key takes one tap', async ({
+  page,
+  request,
+}) => {
+  const { id } = await createEvent(request, { title: 'Book club' });
+  await page.goto(`/e/${id}`);
+  await expect(page.getByRole('heading', { name: 'Book club' })).toBeVisible();
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Remove Book club from this list' })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Remove Book club from this list' })
+  ).toHaveCount(0);
+});
+
+test('an organiser link pasted into the open event page is taken and removed from the address', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await page.goto(`/e/${id}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  await page.evaluate((key) => {
+    window.location.hash = `#admin=${key}`;
+  }, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('');
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toContain(adminToken);
+});
+
+/** One of the organiser's sections, opened. */
+async function openSection(page: Page, title: string): Promise<Locator> {
+  const section = page.locator('details').filter({
+    has: page.locator('summary', { hasText: title }),
+  });
+  await section.locator('summary').click();
+  return section;
+}
+
+test('the days editor saves only the days its calendar shows', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    days: [D(3), D(4), D(5)],
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const section = await openSection(page, 'Days');
+  const until = section.getByLabel('Add days up to');
+  // A far date typed first, then corrected to a near one: the days in between
+  // that are no longer shown must not be saved.
+  await until.fill(D(40));
+  await until.fill(D(8));
+  await section.getByRole('button', { name: 'Save' }).click();
+  await expect(section.getByText('Saved')).toBeVisible();
+  expect((await snapshot(request, id)).event.days).toEqual(
+    [3, 4, 5, 6, 7, 8].map(D)
+  );
+});
+
+test('saving days or a duration that takes answers or the date away asks first', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    days: [3, 4, 5, 6, 7, 8].map(D),
+    durationDays: 3,
+  });
+  await answer(request, id, 'Anna', [D(7), D(8)]);
+  const response = await request.put(`/api/events/${id}/status`, {
+    headers: { 'x-admin-token': adminToken },
+    data: { status: 'finalized', start: D(3) },
+  });
+  expect(response.status()).toBe(200);
+  const current = async () => (await snapshot(request, id)).event;
+  const dialog = page.getByRole('dialog');
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const days = await openSection(page, 'Days');
+  await day(days.getByRole('grid'), D(8)).click();
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toContainText('deletes 1 answer');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+  expect((await current()).days).toHaveLength(6);
+  const annasDays = async () => {
+    const [anna] = (await snapshot(request, id)).participants;
+    return anna.yes;
+  };
+  expect(await annasDays()).toEqual([D(7), D(8)]);
+
+  await days.getByRole('button', { name: 'Save' }).click();
+  await dialog.getByRole('button', { name: 'Save anyway' }).click();
+  await expect.poll(async () => (await current()).days).toHaveLength(5);
+  expect(await annasDays()).toEqual([D(7)]);
+
+  // A day without answers goes without a question.
+  await day(days.getByRole('grid'), D(6)).click();
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await current()).days).toHaveLength(4);
+
+  // A shorter duration cuts the chosen date short.
+  const details = await openSection(page, 'Details');
+  await details.getByLabel('Days in a row').fill('2');
+  await details.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toContainText('The chosen date becomes shorter');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  expect((await current()).durationDays).toBe(3);
+  await details.getByRole('button', { name: 'Save' }).click();
+  await dialog.getByRole('button', { name: 'Save anyway' }).click();
+  await expect.poll(async () => (await current()).durationDays).toBe(2);
+  expect((await current()).finalEnd).toBe(D(4));
 });

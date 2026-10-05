@@ -1,8 +1,9 @@
+import { APP_NAME, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const it: Dictionary = {
-  'app.name': 'Owl Be There',
-  'app.tagline': 'Trova un giorno che vada bene a tutti.',
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.it,
 
   'home.lead':
     'Quando ci siete tutti? Segnate i vostri giorni sul calendario e scopritelo. Senza registrazione né tracciamento.',
@@ -35,6 +36,11 @@ export const it: Dictionary = {
   'home.myEvents': 'I tuoi eventi',
   'home.organiser': 'organizzatore',
   'home.forget': 'Rimuovi {title} da questo elenco',
+  'home.forgetOrganiser.title':
+    'Rimuovere questo evento da questo dispositivo?',
+  'home.forgetOrganiser.text':
+    'Questo dispositivo conserva il link da organizzatore di «{title}». Rimuovendo l’evento, il link viene eliminato da qui: senza una copia non potrai più chiudere il sondaggio, scegliere la data né eliminare l’evento da questo dispositivo.',
+  'home.forgetOrganiser.yes': 'Rimuovi da questo dispositivo',
   'home.creationDisabled': 'Al momento non puoi creare nuovi eventi qui.',
 
   'create.title': 'Organizza un evento',
@@ -73,6 +79,8 @@ export const it: Dictionary = {
   'create.next': 'Avanti',
   'create.submit': 'Crea evento',
   'create.creating': 'Creazione in corso…',
+  'create.durationLess': 'Un giorno in meno di fila',
+  'create.durationMore': 'Un giorno in più di fila',
 
   'error.titleRequired': 'Dai un titolo all’evento.',
   'error.range': 'La data finale è prima di quella iniziale.',
@@ -92,6 +100,12 @@ export const it: Dictionary = {
   'error.rateLimited': 'Un po’ troppo in fretta. Aspetta un momento.',
   'error.forbidden': 'Non puoi farlo con questo link.',
   'error.nameTaken': 'Questo nome è già stato scelto.',
+  'error.numberRange': 'Inserisci un numero da {min} a {max}.',
+  'error.rosterLine': 'Un nome può avere al massimo {max} caratteri.',
+  'error.rosterTooMany': 'Al massimo {max} nomi alla volta.',
+  'error.busy': 'Il server è occupato al momento. Riprova tra un attimo.',
+  'error.changed': 'Questa voce è stata appena modificata. Riprova.',
+  'error.invalid': 'Alcuni dati non sono validi. Controllali e riprova.',
 
   'event.loading': 'Caricamento dell’evento…',
   'event.notFound.title': 'Non troviamo questo evento.',
@@ -104,6 +118,8 @@ export const it: Dictionary = {
   'event.duration_other': '{count} giorni consecutivi',
   'event.minCount_one': 'serve {count} persona',
   'event.minCount_other': 'servono {count} persone',
+  'event.adminRefused':
+    'Questo link da organizzatore non è stato accettato. Gli strumenti da organizzatore sono stati tolti da questo dispositivo; riapri il link completo per riaverli.',
   'event.expires':
     'L’evento sarà eliminato automaticamente il {date} se nel frattempo non cambia nulla.',
   'event.share': 'Condividi',
@@ -169,7 +185,7 @@ export const it: Dictionary = {
   'mine.stopEditing': 'Fine',
 
   'cal.label': 'Calendario',
-  'cal.weekdayAll': 'Tutti i {weekday}',
+  'cal.weekdayAll': 'Ogni {weekday}',
   'cal.weekToggle': 'Settimana {number}',
   'cal.week': 'S{number}',
   'cal.yes': 'può',
@@ -238,6 +254,8 @@ export const it: Dictionary = {
   'admin.addNamesHint': 'Uno per riga',
   'admin.fillIn': 'Rispondi',
   'admin.resetPassword': 'Rimuovi la password',
+  'admin.resetPasswordConfirm':
+    'Rimuovere la password di {name}? Poi chiunque abbia il link potrà modificare questa voce.',
   'admin.remove': 'Rimuovi',
   'admin.removeConfirm': 'Rimuovere {name} e tutti i suoi giorni?',
   'admin.delete': 'Elimina evento',
@@ -245,13 +263,22 @@ export const it: Dictionary = {
     'Eliminare questo evento per tutti? Non si può annullare.',
   'admin.deleteYes': 'Elimina definitivamente',
   'admin.saved': 'Salvato',
+  'admin.lossTitle': 'Salvare le modifiche?',
+  'admin.lossMarks_one':
+    'Questo elimina definitivamente {count} risposta nei giorni rimossi.',
+  'admin.lossMarks_other':
+    'Questo elimina definitivamente {count} risposte nei giorni rimossi.',
+  'admin.lossDateShort': 'La data scelta diventa più breve.',
+  'admin.lossDateDropped':
+    'La data scelta non è più valida e viene tolta. Il sondaggio resta chiuso.',
+  'admin.lossConfirm': 'Salva comunque',
   'admin.noPeople': 'Non c’è ancora nessuno.',
 
   'footer.language': 'Lingua',
   'footer.theme': 'Aspetto',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Note legali',
-  'footer.source': 'Codice sorgente',
+  'footer.source': 'Open source di Willi Thiel',
   'theme.system': 'Sistema',
   'theme.light': 'Chiaro',
   'theme.dark': 'Scuro',
@@ -265,7 +292,7 @@ export const it: Dictionary = {
   'privacy.stored.person':
     'Per ogni persona conserviamo il nome e i giorni segnati. Se aggiunti, conserviamo anche una nota e l’hash della password.',
   'privacy.stored.nothingElse':
-    'Non ci sono account, indirizzi email, cookie o statistiche. L’app non contatta altri servizi e non conserva indirizzi IP.',
+    'Non ci sono account, indirizzi email, cookie o statistiche. L’app non contatta altri servizi e non conserva indirizzi IP. L’unica eccezione è il link a Google Calendar: cliccandolo si apre Google con titolo, descrizione, luogo e link dell’evento.',
   'privacy.visible.title': 'Chi può vedere i dati',
   'privacy.visible.text':
     'Chi ha il link dell’evento può vedere i nomi e i giorni segnati. Ai motori di ricerca viene chiesto di non indicizzare le pagine degli eventi.',
@@ -275,14 +302,38 @@ export const it: Dictionary = {
   'privacy.retention.title': 'Quando vengono eliminati',
   'privacy.retention.text':
     'Un evento viene eliminato {days} giorni dopo l’ultima modifica. Mai prima che sia passato il suo ultimo giorno. L’organizzatore può eliminarlo in qualsiasi momento.',
-  'privacy.logs':
-    'Il server web registra gli accessi con gli indirizzi IP per prevenire abusi. Questi registri vengono eliminati dopo {days} giorni.',
-  'privacy.backups':
-    'Le copie di sicurezza sono conservate per {days} giorni. Poi gli eventi eliminati spariscono anche da lì.',
+  'privacy.logs_one':
+    'Il server web registra gli accessi con gli indirizzi IP per prevenire abusi. Questi registri vengono eliminati dopo {count} giorno.',
+  'privacy.logs_other':
+    'Il server web registra gli accessi con gli indirizzi IP per prevenire abusi. Questi registri vengono eliminati dopo {count} giorni.',
+  'privacy.logs.none': 'Il server web non conserva registri degli accessi.',
+  'privacy.backups_one':
+    'Le copie di sicurezza sono conservate per {count} giorno. Poi gli eventi eliminati spariscono anche da lì.',
+  'privacy.backups_other':
+    'Le copie di sicurezza sono conservate per {count} giorni. Poi gli eventi eliminati spariscono anche da lì.',
+  'privacy.backups.none': 'Non vengono conservate copie di sicurezza.',
+  'privacy.instance.loading': 'Caricamento dei dati del gestore…',
+  'privacy.instance.failed':
+    'Impossibile caricare i dati del gestore. Ricarica la pagina per riprovare.',
   'privacy.operator.title': 'Chi gestisce questa istanza',
   'privacy.operator.contact': 'Contatto: {contact}',
   'privacy.source':
     'Owl Be There è open source. Puoi leggere il codice o ospitare una tua istanza.',
+
+  'imprint.title': 'Note legali',
+  'imprint.provider.title':
+    'Identificazione del fornitore ai sensi del § 5 DDG e del § 18 Abs. 1 MStV',
+  'imprint.contact.title': 'Contatto',
+  'imprint.contact.label': 'E-mail:',
+  'imprint.about.title': 'Su Owl Be There',
+  'imprint.about.text':
+    'Owl Be There è un progetto privato, senza scopo commerciale, e si può usare gratuitamente. Non ci sono pubblicità né contenuti a pagamento.',
+  'imprint.dispute.title': 'Risoluzione delle controversie dei consumatori',
+  'imprint.dispute.text':
+    'Non sussiste alcun obbligo né alcuna disponibilità a partecipare a una procedura di risoluzione delle controversie dinanzi a un organismo di conciliazione dei consumatori (§ 36 VSBG).',
+  'imprint.liability.title': 'Responsabilità per contenuti e link',
+  'imprint.liability.text':
+    'I contenuti di questa applicazione sono stati realizzati con cura. Dei siti esterni collegati risponde il rispettivo gestore; al momento del collegamento non erano riconoscibili violazioni di legge. Di ciò che organizzatori e partecipanti inseriscono nei sondaggi rispondono loro stessi.',
 
   'notFound.title': 'Non troviamo questa pagina.',
   'notFound.home': 'Vai alla pagina iniziale',

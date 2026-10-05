@@ -27,7 +27,7 @@
  * like the ones the application encodes, and one large enough to be split into
  * several blocks and interleaved.
  */
-export interface QrFixture {
+interface QrFixture {
   readonly text: string;
   /** One string per row, `#` dark and `.` light. */
   readonly rows: readonly string[];

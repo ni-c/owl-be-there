@@ -6,9 +6,13 @@ import {
   type TestInfo,
 } from '@playwright/test';
 
+// Read once per worker, so D(n) is the same day for the whole run even when it
+// crosses midnight UTC between creating an event and clicking its days.
+const BASE = Date.now();
+
 /** A day `offset` days from today, in UTC — far enough ahead to be valid in every zone. */
 export function dayFromNow(offset: number): string {
-  const date = new Date();
+  const date = new Date(BASE);
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 }
@@ -26,7 +30,7 @@ export function daysFromNow(from: number, to: number): string[] {
   return days;
 }
 
-export interface CreatedEvent {
+interface CreatedEvent {
   id: string;
   adminToken: string;
 }
@@ -49,13 +53,17 @@ export async function createEvent(
   return response.json();
 }
 
-/** Answer as someone through the API. */
+/**
+ * Answer as someone through the API. `baseRev` is the revision the answer is
+ * based on: 0 creates it, a later one must be the current revision.
+ */
 export async function answer(
   request: APIRequestContext,
   id: string,
   name: string,
   yes: string[],
-  maybe: string[] = []
+  maybe: string[] = [],
+  baseRev = 0
 ): Promise<void> {
   const session = await (
     await request.post(`/api/events/${id}/session`, { data: { name } })
@@ -64,7 +72,7 @@ export async function answer(
     `/api/events/${id}/participants/${session.participantId}/marks`,
     {
       headers: { 'x-participant-token': session.token },
-      data: { baseRev: 0, yes, maybe },
+      data: { baseRev, yes, maybe },
     }
   );
   expect(response.status()).toBe(200);
@@ -79,6 +87,10 @@ export async function showView(
   page: Page,
   view: 'mine' | 'group'
 ): Promise<void> {
+  // The page shows a loading state first; the event's heading exists only once
+  // the event is in (on every width, before anyone has joined and with a modal
+  // open), and `isVisible` does not wait.
+  await page.getByRole('heading', { level: 1, includeHidden: true }).waitFor();
   const tab = page.getByRole('tab', {
     name: view === 'mine' ? 'My days' : /^Group/,
   });
@@ -101,15 +113,14 @@ export function day(grid: Locator, iso: string): Locator {
 /** Say who you are with a name typed in. */
 export async function joinAs(page: Page, name: string): Promise<void> {
   await showView(page, 'mine');
-  const someoneElse = page.getByRole('button', { name: 'Someone else' });
-  if (await someoneElse.isVisible()) await someoneElse.click();
   await page.getByLabel('Your name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText(`Hi ${name}!`)).toBeVisible();
 }
 
 export function isMobile(testInfo: TestInfo): boolean {
-  return testInfo.project.name.endsWith('mobile');
+  // Touch devices are the phone projects; the name of the project is free text.
+  return Boolean(testInfo.project.use.hasTouch);
 }
 
 /** Wait until the last change is on the server. */

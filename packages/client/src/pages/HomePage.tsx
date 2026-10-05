@@ -5,7 +5,7 @@ import { CreateWizard } from '../components/CreateWizard.tsx';
 import { ExampleDemo } from '../components/ExampleDemo.tsx';
 import { CloseIcon, LockIcon, StarIcon } from '../components/icons.tsx';
 import { Owl } from '../components/Owl.tsx';
-import { Button, Card, Notice } from '../components/ui.tsx';
+import { Button, Card, Dialog, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { forgetEvent, readMyEvents, type MyEvent } from '../lib/prefs.ts';
 
@@ -13,6 +13,9 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
   const [myEvents, setMyEvents] = useState<MyEvent[]>(readMyEvents);
+  // The organiser key lives only in this browser: forgetting such an event
+  // asks first, and a plain list entry goes at once.
+  const [forgetting, setForgetting] = useState<MyEvent | null>(null);
   const wizardRef = useRef<HTMLDivElement>(null);
   const creationDisabled = instance?.creationEnabled === false;
 
@@ -21,6 +24,11 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
     requestAnimationFrame(() =>
       wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     );
+  };
+
+  const forget = (event: MyEvent) => {
+    forgetEvent(event.id);
+    setMyEvents(readMyEvents());
   };
 
   const features = [
@@ -81,13 +89,13 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
               >
                 <Link
                   href={`/e/${event.id}`}
-                  className="flex min-h-12 flex-1 items-center gap-3 font-bold"
+                  className="flex min-h-12 min-w-0 flex-1 items-center gap-3 font-bold"
                 >
                   <span className="text-2xl" aria-hidden="true">
                     {EMOJIS[event.emoji]}
                   </span>
-                  <span className="flex flex-col">
-                    <span>{event.title}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="wrap-anywhere">{event.title}</span>
                     {event.role === 'organiser' && (
                       <span className="text-sm font-semibold text-muted">
                         {t('home.organiser')}
@@ -99,10 +107,11 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
                   type="button"
                   className="grid size-11 place-items-center rounded-full text-muted hover:bg-sunken hover:text-ink"
                   aria-label={t('home.forget', { title: event.title })}
-                  onClick={() => {
-                    forgetEvent(event.id);
-                    setMyEvents(readMyEvents());
-                  }}
+                  onClick={() =>
+                    event.role === 'organiser'
+                      ? setForgetting(event)
+                      : forget(event)
+                  }
                 >
                   <CloseIcon />
                 </button>
@@ -111,6 +120,33 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
           </ul>
         </section>
       )}
+
+      <Dialog
+        open={forgetting !== null}
+        onClose={() => setForgetting(null)}
+        title={t('home.forgetOrganiser.title')}
+      >
+        <div className="flex flex-col gap-5">
+          <p className="leading-relaxed wrap-anywhere">
+            {forgetting &&
+              t('home.forgetOrganiser.text', { title: forgetting.title })}
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button onClick={() => setForgetting(null)}>
+              {t('mine.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (forgetting) forget(forgetting);
+                setForgetting(null);
+              }}
+            >
+              {t('home.forgetOrganiser.yes')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <section className="grid gap-4 sm:grid-cols-2">
         {features.map((feature) => (

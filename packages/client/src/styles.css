@@ -26,6 +26,7 @@
   --owl-brand-soft: #f8e4d0;
   --owl-focus: #1d4ed8;
   --owl-danger: #b42318;
+  --owl-danger-ink: #ffffff;
   --owl-danger-soft: #fde8e6;
   --owl-yes: #268262;
   --owl-yes-ink: #ffffff;
@@ -46,6 +47,12 @@
   --owl-iris: #e8a33d;
   --owl-beak: #e07a2e;
   --owl-shadow: 0 1px 2px rgb(60 40 20 / 0.06), 0 4px 16px rgb(60 40 20 / 0.06);
+  /* The stripes of "maybe", the same in both themes. */
+  --owl-hatch: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.34) 0 3px,
+    transparent 3px 7px
+  );
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,6 +71,7 @@
     --owl-brand-soft: #3a2c2a;
     --owl-focus: #93b4ff;
     --owl-danger: #ff8a7a;
+    --owl-danger-ink: #1b1308;
     --owl-danger-soft: #3d2230;
     --owl-yes: #2c9572;
     --owl-yes-ink: #0c1f18;
@@ -102,6 +110,7 @@
   --owl-brand-soft: #3a2c2a;
   --owl-focus: #93b4ff;
   --owl-danger: #ff8a7a;
+  --owl-danger-ink: #1b1308;
   --owl-danger-soft: #3d2230;
   --owl-yes: #2c9572;
   --owl-yes-ink: #0c1f18;
@@ -134,11 +143,9 @@
 @layer base {
   a[href],
   button:not(:disabled),
-  [role='button']:not([aria-disabled='true']),
   select:not(:disabled),
   summary,
-  input[type='checkbox']:not(:disabled),
-  input[type='radio']:not(:disabled) {
+  input[type='checkbox']:not(:disabled) {
     cursor: pointer;
   }
 }
@@ -158,6 +165,7 @@
   --color-brand-soft: var(--owl-brand-soft);
   --color-focus: var(--owl-focus);
   --color-danger: var(--owl-danger);
+  --color-danger-ink: var(--owl-danger-ink);
   --color-danger-soft: var(--owl-danger-soft);
   --color-yes: var(--owl-yes);
   --color-yes-ink: var(--owl-yes-ink);
@@ -172,9 +180,18 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * `viewport-fit=cover` lets the page run under a notch and the home indicator,
+ * so the sides keep clear of the insets and the footer clears the bottom one.
+ * The shell is `min-h-dvh` itself: a body padding would come on top of that
+ * and make every short page scroll.
+ */
 body {
   font-family: var(--font-sans);
-  min-height: 100dvh;
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+footer {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -218,11 +235,7 @@ html:lang(ja) body {
 
 /* Hatching: the second channel for "maybe", so it never relies on colour. */
 .hatch {
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.32) 0 3px,
-    transparent 3px 7px
-  );
+  background-image: var(--owl-hatch);
 }
 
 /* ------------------------------------------------------------- calendar */
@@ -286,7 +299,6 @@ html:lang(ja) body {
 
 .cal-cell[data-kind='past'] {
   color: var(--owl-muted);
-  background: var(--owl-sunken);
   opacity: 0.6;
 }
 
@@ -303,11 +315,7 @@ html:lang(ja) body {
 .cal-cell[data-state='maybe'] {
   background-color: var(--owl-maybe);
   color: var(--owl-maybe-ink);
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.34) 0 3px,
-    transparent 3px 7px
-  );
+  background-image: var(--owl-hatch);
 }
 
 .cal-cell[data-state='off'] {
@@ -425,4 +433,13 @@ button.cal-cell:not(:disabled):active {
 
 dialog::backdrop {
   background: rgb(20 15 10 / 0.45);
+}
+
+/*
+ * A modal dialog makes the page inert but does not stop it scrolling. The
+ * gutter stays, so the page does not shift sideways when its scrollbar goes.
+ */
+html:has(dialog[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }

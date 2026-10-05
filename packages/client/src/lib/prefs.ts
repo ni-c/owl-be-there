@@ -46,7 +46,6 @@ export function writeLanguage(language: Language): void {
 const SessionSchema = z.object({
   participantId: z.string().refine(isId),
   token: z.string(),
-  name: z.string(),
 });
 
 export type Session = z.infer<typeof SessionSchema>;
@@ -63,6 +62,12 @@ export function clearSession(eventId: string): void {
   store.remove(`owl.session.${eventId}`);
 }
 
+/** Keep this device's session for an event, or forget it for `null`. */
+export function storeSession(eventId: string, session: Session | null): void {
+  if (session) writeSession(eventId, session);
+  else clearSession(eventId);
+}
+
 export function readAdminToken(eventId: string): string | null {
   return store.read(`owl.admin.${eventId}`, z.string().min(20).max(128));
 }
@@ -76,10 +81,12 @@ const MyEventSchema = z.object({
   title: z.string(),
   emoji: z.enum(EMOJI_KEYS),
   role: z.enum(['organiser', 'participant']),
-  seenAt: z.number(),
 });
 
 export type MyEvent = z.infer<typeof MyEventSchema>;
+
+/** How many events the list on the start page keeps. */
+const MAX_MY_EVENTS = 50;
 
 /**
  * The events on this device, most recently seen first. Entries are checked
@@ -99,8 +106,7 @@ export function readMyEvents(): MyEvent[] {
  */
 export function rememberEvent(
   event: { id: string; title: string; emoji: EmojiKey },
-  role: MyEvent['role'],
-  now: number = Date.now()
+  role: MyEvent['role']
 ): void {
   const existing = readMyEvents();
   const previous = existing.find((entry) => entry.id === event.id);
@@ -109,12 +115,17 @@ export function rememberEvent(
     title: event.title,
     emoji: event.emoji,
     role: previous?.role === 'organiser' ? 'organiser' : role,
-    seenAt: now,
   };
-  store.write(
-    'owl.events',
-    [entry, ...existing.filter((other) => other.id !== event.id)].slice(0, 50)
-  );
+  const list = [entry, ...existing.filter((other) => other.id !== event.id)];
+  store.write('owl.events', list.slice(0, MAX_MY_EVENTS));
+  // An entry pushed off the end can no longer be forgotten from the list, so
+  // its session and organiser key go with it.
+  for (const dropped of list.slice(MAX_MY_EVENTS)) dropKeys(dropped.id);
+}
+
+function dropKeys(eventId: string): void {
+  clearSession(eventId);
+  store.remove(`owl.admin.${eventId}`);
 }
 
 /** Forget an event entirely: the list entry, the session and the organiser key. */
@@ -123,6 +134,5 @@ export function forgetEvent(eventId: string): void {
     'owl.events',
     readMyEvents().filter((entry) => entry.id !== eventId)
   );
-  clearSession(eventId);
-  store.remove(`owl.admin.${eventId}`);
+  dropKeys(eventId);
 }

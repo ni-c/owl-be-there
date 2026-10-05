@@ -25,7 +25,10 @@ permissions:
 
 jobs:
   auto-merge:
-    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && !github.event.repository.private }}
+    # Actions bumps never get this job: their pull request runs the proposed
+    # workflow code, and this job holds a write token. (A pull request can edit
+    # this line too, but not without a diff a reviewer sees.)
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && !github.event.repository.private && !startsWith(github.head_ref, 'dependabot/github_actions/') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

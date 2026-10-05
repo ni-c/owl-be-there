@@ -1,10 +1,12 @@
-import { EMOJIS, encodeQr, type EventViewData } from '@owl/shared';
-import { useMemo, useState } from 'react';
+import { EMOJIS, type EventViewData } from '@owl/shared';
+import { useId, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { CopyIcon, ShareIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
 import { Button, Dialog, Notice } from './ui.tsx';
 import { eventLink } from '../lib/links.ts';
+import { qrPath } from '../lib/qrPath.ts';
+import { shareData } from '../lib/shareData.ts';
 
 /** Copy text, falling back to selecting it where the clipboard is refused. */
 async function copy(text: string): Promise<boolean> {
@@ -19,7 +21,15 @@ async function copy(text: string): Promise<boolean> {
 function CopyField({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  const id = `copy-${label.replace(/\W/g, '')}`;
+  const id = useId();
+  const copyValue = async () => {
+    if (await copy(value)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      (document.getElementById(id) as HTMLInputElement | null)?.select();
+    }
+  };
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="font-bold">
@@ -34,16 +44,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
           className="min-h-11 min-w-0 flex-1 rounded-2xl border-2 border-line bg-sunken px-3 text-sm"
         />
         <Button
-          onClick={async () => {
-            if (await copy(value)) {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            } else {
-              (
-                document.getElementById(id) as HTMLInputElement | null
-              )?.select();
-            }
-          }}
+          onClick={() => void copyValue()}
           aria-label={`${t('share.copy')}: ${label}`}
         >
           <CopyIcon size={18} />
@@ -56,32 +57,34 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** The event link as a QR code, drawn as one SVG path. */
+/**
+ * The event link as a QR code with its caption, the code drawn as one SVG
+ * path. Nothing when the link is too long for a code: the link beside it still
+ * works.
+ */
 export function QrCode({ text, size = 200 }: { text: string; size?: number }) {
-  const path = useMemo(() => {
-    const matrix = encodeQr(text);
-    let d = '';
-    matrix.modules.forEach((row, y) =>
-      row.forEach((dark, x) => {
-        if (dark) d += `M${x + 4} ${y + 4}h1v1h-1z`;
-      })
-    );
-    return { d, size: matrix.size + 8 };
-  }, [text]);
+  const { t } = useI18n();
+  const path = useMemo(() => qrPath(text), [text]);
+  if (!path) return null;
   return (
-    <svg
-      viewBox={`0 0 ${path.size} ${path.size}`}
-      width={size}
-      height={size}
-      role="img"
-      aria-label={text}
-      shapeRendering="crispEdges"
-      className="rounded-2xl"
-    >
-      {/* A QR code needs dark on light in every theme. */}
-      <rect width={path.size} height={path.size} fill="#ffffff" />
-      <path d={path.d} fill="#1b140d" />
-    </svg>
+    <figure className="flex flex-col items-center gap-2">
+      <svg
+        viewBox={`0 0 ${path.size} ${path.size}`}
+        width={size}
+        height={size}
+        role="img"
+        aria-label={text}
+        shapeRendering="crispEdges"
+        className="rounded-2xl"
+      >
+        {/* A QR code needs dark on light in every theme. */}
+        <rect width={path.size} height={path.size} fill="#ffffff" />
+        <path d={path.d} fill="#1b140d" />
+      </svg>
+      <figcaption className="text-sm font-bold text-muted">
+        {t('share.qr')}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -123,7 +126,7 @@ export function ShareDialog({
             size="lg"
             onClick={() => {
               navigator
-                .share({ title: event.title, text: invitation, url })
+                .share(shareData(event.title, invitation, url))
                 .catch(() => undefined);
             }}
           >
@@ -132,12 +135,7 @@ export function ShareDialog({
           </Button>
         )}
         <CopyField label={t('share.link')} value={url} />
-        <figure className="flex flex-col items-center gap-2">
-          <QrCode text={url} />
-          <figcaption className="text-sm font-bold text-muted">
-            {t('share.qr')}
-          </figcaption>
-        </figure>
+        <QrCode text={url} />
         {adminToken && (
           <div className="flex flex-col gap-3 rounded-2xl border-2 border-dashed border-line-strong p-4">
             <CopyField

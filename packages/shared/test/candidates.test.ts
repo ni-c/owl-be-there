@@ -76,14 +76,6 @@ describe('checkCandidateDays', () => {
   });
 
   it('names each problem', () => {
-    expect(checkCandidateDays([], today)).toBe('empty');
-    expect(checkCandidateDays(['2026-02-30'], today)).toBe('invalid');
-    expect(checkCandidateDays(['2026-10-09', '2026-10-09'], today)).toBe(
-      'duplicate'
-    );
-    expect(checkCandidateDays(['2026-10-09', '2026-10-08'], today)).toBe(
-      'unsorted'
-    );
     expect(checkCandidateDays(['2026-10-01', '2026-10-09'], today)).toBe(
       'past'
     );
@@ -92,15 +84,19 @@ describe('checkCandidateDays', () => {
     );
   });
 
-  it('allows past days when editing', () => {
-    expect(checkCandidateDays(['2020-01-01', '2020-01-02'], null)).toBeNull();
+  it('allows the earliest day and the longest span, refuses one more', () => {
+    expect(checkCandidateDays([today], today)).toBeNull();
+    const start = '2027-01-01';
+    expect(
+      checkCandidateDays([start, addDays(start, LIMITS.span - 1)], today)
+    ).toBeNull();
+    expect(
+      checkCandidateDays([start, addDays(start, LIMITS.span)], today)
+    ).toBe('span');
   });
 
-  it('caps the number of days', () => {
-    const days = expandRange('2027-01-01', addDays('2027-01-01', LIMITS.days));
-    expect(days).toHaveLength(LIMITS.days + 1);
-    expect(checkCandidateDays(days.slice(0, LIMITS.days), today)).toBeNull();
-    expect(checkCandidateDays(days, today)).toBe('too_many');
+  it('allows past days when editing', () => {
+    expect(checkCandidateDays(['2020-01-01', '2020-01-02'], null)).toBeNull();
   });
 });
 
@@ -136,5 +132,20 @@ describe('checkCandidateDays with a latest day', () => {
   it('reaches about five years ahead', () => {
     expect(LIMITS.horizon).toBeGreaterThanOrEqual(5 * 365);
     expect(addDays('2027-03-01', LIMITS.horizon) > '2032-02-28').toBe(true);
+  });
+});
+
+describe('expandRange with days that are no dates', () => {
+  it('throws for an invalid day, whichever bound it is and however it sorts', () => {
+    expect(() => expandRange('2027-03-01', '2027-02-30')).toThrow(RangeError);
+    expect(() => expandRange('2027-02-30', '2027-03-05')).toThrow(RangeError);
+    expect(() => expandRange('zzzz', '2027-03-05')).toThrow(RangeError);
+    expect(() => expandRange('2027-03-05', 'zzzz')).toThrow(RangeError);
+    expect(() => expandRange('', '')).toThrow(RangeError);
+  });
+
+  it('still gives one day for equal bounds and nothing for a reversed range', () => {
+    expect(expandRange('2027-03-05', '2027-03-05')).toEqual(['2027-03-05']);
+    expect(expandRange('2027-03-05', '2027-03-01')).toEqual([]);
   });
 });

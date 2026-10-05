@@ -1,14 +1,17 @@
 import {
   addDays,
   compareISODate,
+  dayFormatter,
   formatDay,
   utcDateOf,
   type ISODate,
 } from './dates.js';
+import { normalizeDays } from './candidates.js';
 import { buildWeeks } from './grid.js';
-import { heatLevel, heatOf, tally, type Respondent } from './ranking.js';
+import { heatLevel, heatOf, respondentOf, tally } from './ranking.js';
 import type { EventSnapshotData } from './schemas.js';
-import { formatDayRange, LOCALES, SERVER_TEXTS } from './texts.js';
+import { escapeMarkup } from './text.js';
+import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
 
 /**
  * The picture link previews show for an event: its title, the state of the
@@ -22,14 +25,13 @@ import { formatDayRange, LOCALES, SERVER_TEXTS } from './texts.js';
 export const PREVIEW_WIDTH = 1200;
 export const PREVIEW_HEIGHT = 630;
 
-/** At most this many week rows; a longer poll shows its first weeks. */
+/** At most this many week rows; a longer poll shows this many weeks around its best day. */
 export const PREVIEW_MAX_WEEKS = 6;
 
-/** The light theme's colours, as in the client's stylesheet. */
-const COLOURS = {
+/** The light theme's colours; a test ties them to the client's stylesheet. */
+export const PREVIEW_COLOURS = {
   bg: '#fbf6ee',
   surface: '#ffffff',
-  sunken: '#f4ece0',
   line: '#e6dac6',
   ink: '#2a2118',
   muted: '#6b5b4a',
@@ -40,7 +42,7 @@ const COLOURS = {
 } as const;
 
 /** The font stack the server loads; CJK only falls in where Nunito has no glyph. */
-export const PREVIEW_FONTS = "Nunito, 'Noto Sans CJK JP'";
+const PREVIEW_FONTS = "Nunito, 'Noto Sans CJK JP'";
 
 export interface PreviewOptions {
   /** Shown at the bottom, e.g. `owlbethere.app`. */
@@ -76,13 +78,7 @@ export interface PreviewCalendar {
 export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   const { event } = data;
   const candidates = new Set(event.days);
-  const people: Respondent[] = data.participants.map((p) => ({
-    id: p.id,
-    answered: p.answered,
-    yes: new Set(p.yes),
-    maybe: new Set(p.maybe),
-    unseen: new Set(p.unseen),
-  }));
+  const people = data.participants.map(respondentOf);
   const heat = new Map(
     [...candidates].map((day) => [day, heatOf(tally(people, [day]))])
   );
@@ -93,7 +89,7 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
     compareISODate(day, event.finalStart) >= 0 &&
     compareISODate(day, event.finalEnd) <= 0;
   const rows = buildWeeks(event.days, firstWeekday);
-  const sorted = [...candidates].sort();
+  const sorted = normalizeDays(candidates);
 
   let from = 0;
   if (rows.length > PREVIEW_MAX_WEEKS) {
@@ -122,21 +118,20 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   };
 }
 
-export function escapeXml(text: string): string {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-/** Rough width of a character in em: SVG has no text measuring. */
+/**
+ * Rough width of a character in em: SVG has no text measuring. The four wide
+ * letters are measured from the rendered font at weight 800; the rest of the
+ * alphabet sits close to one average.
+ */
 function charWidth(char: string): number {
   const code = char.codePointAt(0)!;
   if (code >= 0x2e80) return 1; // CJK and other full-width scripts
   if (char === ' ') return 0.26;
-  if (/[A-ZÄÖÜÉÈÀ0-9MW@#%&]/.test(char)) return 0.68;
+  if (char === 'W') return 1.1;
+  if (char === 'M') return 0.95;
+  if (char === 'm') return 0.9;
+  if (char === 'w') return 0.8;
+  if (/[A-ZÄÖÜÉÈÀ0-9@#%&]/.test(char)) return 0.68;
   return 0.54;
 }
 
@@ -154,36 +149,35 @@ export function wrapText(
   const limit = maxWidth / fontSize;
   const chars = [...text.trim().replace(/\s+/g, ' ')];
   const lines: string[] = [];
-  let line: string[] = [];
+  // The line being filled starts at `start`; when a character does not fit,
+  // the word it is in moves to the next line and is measured again from there.
+  let start = 0;
   let width = 0;
   let lastSpace = -1;
-  for (const char of chars) {
+  let i = 0;
+  while (i < chars.length) {
+    const char = chars[i]!;
     const w = charWidth(char);
-    if (width + w > limit && line.length > 0) {
-      let rest: string[] = [];
-      if (char !== ' ' && lastSpace > 0) {
-        rest = line.slice(lastSpace + 1);
-        line = line.slice(0, lastSpace);
-      }
-      lines.push(line.join('').trimEnd());
-      line = char === ' ' ? [...rest] : [...rest, char];
-      width = line.reduce((sum, c) => sum + charWidth(c), 0);
-      lastSpace = line.lastIndexOf(' ');
+    if (width + w > limit && i > start) {
+      const wordBreak = char !== ' ' && lastSpace > start;
+      const end = wordBreak ? lastSpace : i;
+      lines.push(chars.slice(start, end).join('').trimEnd());
+      start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : i;
+      width = 0;
+      lastSpace = -1;
+      i = start;
       continue;
     }
-    if (char === ' ') lastSpace = line.length;
-    line.push(char);
+    if (char === ' ') lastSpace = i;
     width += w;
+    i += 1;
   }
-  if (line.length > 0) lines.push(line.join('').trim());
+  if (start < chars.length) lines.push(chars.slice(start).join('').trim());
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
   const last = [...kept[maxLines - 1]!];
   const ellipsis = charWidth('…');
-  while (
-    last.length > 0 &&
-    last.reduce((sum, c) => sum + charWidth(c), 0) + ellipsis > limit
-  )
+  while (last.length > 0 && textWidth(last.join(''), 1) + ellipsis > limit)
     last.pop();
   kept[maxLines - 1] = `${last.join('').trimEnd()}…`;
   return kept;
@@ -197,14 +191,8 @@ export function previewSvg(
   const { event } = data;
   const texts = SERVER_TEXTS[event.language];
   const locale = LOCALES[event.language];
-  const e = escapeXml;
-  const answers = data.participants.filter((p) => p.answered).length;
-  const status =
-    event.finalStart !== null && event.finalEnd !== null
-      ? texts.previewDecided(
-          formatDayRange(event.finalStart, event.finalEnd, locale)
-        )
-      : texts.previewOpen(answers);
+  const e = escapeMarkup;
+  const status = previewStatus(texts, data, locale);
 
   const left = 72;
   const columnWidth = 590;
@@ -216,7 +204,7 @@ export function previewSvg(
       `<image href="${e(options.owl)}" x="${left}" y="56" width="68" height="70"/>`
     );
   parts.push(
-    `<text x="${options.owl ? left + 84 : left}" y="104" font-size="34" font-weight="800" fill="${COLOURS.brand}">${e(texts.appName)}</text>`
+    `<text x="${options.owl ? left + 84 : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}">${e(texts.appName)}</text>`
   );
 
   // Title, up to three lines, then the state of the poll.
@@ -225,19 +213,19 @@ export function previewSvg(
   let y = 214;
   for (const line of titleLines) {
     parts.push(
-      `<text x="${left}" y="${y}" font-size="${titleSize}" font-weight="800" fill="${COLOURS.ink}">${e(line)}</text>`
+      `<text x="${left}" y="${y}" font-size="${titleSize}" font-weight="800" fill="${PREVIEW_COLOURS.ink}">${e(line)}</text>`
     );
     y += 70;
   }
   y += 8;
   for (const line of wrapText(status, columnWidth, 30, 3)) {
     parts.push(
-      `<text x="${left}" y="${y}" font-size="30" fill="${COLOURS.muted}">${e(line)}</text>`
+      `<text x="${left}" y="${y}" font-size="30" fill="${PREVIEW_COLOURS.muted}">${e(line)}</text>`
     );
     y += 42;
   }
   parts.push(
-    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${COLOURS.muted}">${e(options.host)}</text>`
+    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${PREVIEW_COLOURS.muted}">${e(options.host)}</text>`
   );
 
   // The calendar panel.
@@ -252,7 +240,7 @@ export function previewSvg(
   const gridW = 7 * cell + 6 * gap;
   const gridX = panelX + (panelW - gridW) / 2;
   parts.push(
-    `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="36" fill="${COLOURS.surface}" stroke="${COLOURS.line}" stroke-width="2"/>`
+    `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="36" fill="${PREVIEW_COLOURS.surface}" stroke="${PREVIEW_COLOURS.line}" stroke-width="2"/>`
   );
   // The calendar block — month line, weekday letters, rows — centred in
   // the panel, however many weeks it has.
@@ -268,7 +256,7 @@ export function previewSvg(
       Math.floor((gridW / textWidth(months, 1)) * 0.95)
     );
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${COLOURS.ink}">${e(months)}</text>`
+      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.ink}">${e(months)}</text>`
     );
   }
   const headY = top + 84;
@@ -279,7 +267,7 @@ export function previewSvg(
       weekday: 'narrow',
     });
     parts.push(
-      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(name)}</text>`
+      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
     );
   }
   weeks.forEach((row, rowIndex) => {
@@ -292,16 +280,17 @@ export function previewSvg(
       );
       if (c.level === null) {
         parts.push(
-          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" text-anchor="middle" fill="${COLOURS.line}">${e(number)}</text>`
+          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" text-anchor="middle" fill="${PREVIEW_COLOURS.line}">${e(number)}</text>`
         );
         return;
       }
-      const fill = COLOURS.heat[c.level]!;
-      const ink = c.level >= 3 ? COLOURS.heatInkHigh : COLOURS.heatInkLow;
+      const fill = PREVIEW_COLOURS.heat[c.level]!;
+      const ink =
+        c.level >= 3 ? PREVIEW_COLOURS.heatInkHigh : PREVIEW_COLOURS.heatInkLow;
       const stroke = c.chosen
-        ? ` stroke="${COLOURS.brand}" stroke-width="5"`
+        ? ` stroke="${PREVIEW_COLOURS.brand}" stroke-width="5"`
         : c.level === 0
-          ? ` stroke="${COLOURS.line}" stroke-width="2"`
+          ? ` stroke="${PREVIEW_COLOURS.line}" stroke-width="2"`
           : '';
       parts.push(
         `<rect x="${cx}" y="${cy}" width="${cell}" height="${cell}" rx="14" fill="${fill}"${stroke}/>`,
@@ -311,12 +300,12 @@ export function previewSvg(
   });
   if (calendar.hidden > 0)
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
+      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
     );
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" viewBox="0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}" font-family="${PREVIEW_FONTS}">`,
-    `<rect width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" fill="${COLOURS.bg}"/>`,
+    `<rect width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" fill="${PREVIEW_COLOURS.bg}"/>`,
     ...parts,
     '</svg>',
   ].join('\n');
@@ -332,7 +321,7 @@ export function monthRange(
   locale: string
 ): string {
   const format = (options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+    dayFormatter(locale, options);
   const full = format({ month: 'long', year: 'numeric' });
   if (!locale.startsWith('ja'))
     return full.formatRange(utcDateOf(first), utcDateOf(last));
@@ -348,10 +337,26 @@ export function textWidth(text: string, fontSize: number): number {
   return [...text].reduce((sum, char) => sum + charWidth(char), 0) * fontSize;
 }
 
+/**
+ * Whether a code point is one the CJK font draws: ideographs and the scripts
+ * around them, Hangul, compatibility ideographs, the full-width forms and the
+ * supplementary ideograph planes. Emoji and symbols are not — that font has no
+ * glyph for them, and loading it for one costs over a hundred megabytes.
+ */
+function isCjk(code: number): boolean {
+  return (
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef) ||
+    (code >= 0x20000 && code <= 0x3ffff)
+  );
+}
+
 /** Whether the title or the language needs the CJK font. */
 export function previewNeedsCjk(data: EventSnapshotData): boolean {
   return (
     data.event.language === 'ja' ||
-    [...data.event.title].some((char) => char.codePointAt(0)! >= 0x2e80)
+    [...data.event.title].some((char) => isCjk(char.codePointAt(0)!))
   );
 }

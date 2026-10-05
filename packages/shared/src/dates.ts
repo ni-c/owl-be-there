@@ -75,7 +75,7 @@ export function parseISODate(value: ISODate): CivilDate {
 
 const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
 
-export function formatISODate(date: CivilDate): ISODate {
+function formatISODate(date: CivilDate): ISODate {
   return `${String(date.year).padStart(4, '0')}-${pad2(date.month)}-${pad2(date.day)}`;
 }
 
@@ -115,11 +115,22 @@ export function dayNumber(date: ISODate): number {
   return daysFromCivil(parseISODate(date));
 }
 
-/** The ISO date of a day number. */
+const FIRST_DAY_NUMBER = daysFromCivil({ year: 0, month: 1, day: 1 });
+const LAST_DAY_NUMBER = daysFromCivil({ year: 9999, month: 12, day: 31 });
+
+/**
+ * The ISO date of a day number. Throws outside 0000-01-01 to 9999-12-31: a
+ * year with fewer or more than four digits is no ISO date, and nothing would
+ * parse it back.
+ */
 export function isoFromDayNumber(days: number): ISODate {
+  if (!(days >= FIRST_DAY_NUMBER && days <= LAST_DAY_NUMBER)) {
+    throw new RangeError(`Day number out of range: ${days}`);
+  }
   return formatISODate(civilFromDays(days));
 }
 
+/** `days` after `date` (before, when negative); throws past either end of the calendar. */
 export function addDays(date: ISODate, days: number): ISODate {
   return isoFromDayNumber(dayNumber(date) + days);
 }
@@ -200,7 +211,36 @@ export function basicDate(date: ISODate): string {
  */
 export function utcDateOf(date: ISODate): Date {
   const { year, month, day } = parseISODate(date);
-  return new Date(Date.UTC(year, month - 1, day));
+  // `Date.UTC` would read the years 0 to 99 as 1900 to 1999.
+  const result = new Date(0);
+  result.setUTCFullYear(year, month - 1, day);
+  return result;
+}
+
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * A formatter for days, in UTC. Building one is the expensive part of
+ * formatting a day and the calendar formats every cell on every render, so
+ * they are kept.
+ */
+export function dayFormatter(
+  locale: string,
+  options: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let formatter = formatters.get(key);
+  if (formatter === undefined) {
+    // A handful of locales and option sets are ever used; the cap is for the
+    // day somebody passes a stream of them.
+    if (formatters.size >= 64) formatters.clear();
+    formatter = new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: 'UTC',
+    });
+    formatters.set(key, formatter);
+  }
+  return formatter;
 }
 
 /** A day formatted for people, in any language, on the same day everywhere. */
@@ -209,8 +249,5 @@ export function formatDay(
   locale: string,
   options: Intl.DateTimeFormatOptions
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    ...options,
-    timeZone: 'UTC',
-  }).format(utcDateOf(date));
+  return dayFormatter(locale, options).format(utcDateOf(date));
 }

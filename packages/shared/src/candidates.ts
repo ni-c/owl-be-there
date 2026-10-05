@@ -15,7 +15,7 @@ import { LIMITS } from './limits.js';
  * This is how an organiser's "from … to …, only Fridays to Sundays" becomes a
  * list of candidate days. An empty or null weekday set allows every weekday —
  * picking no weekdays at all is not a way to ask for nothing. A reversed range
- * yields nothing; a range longer than the span limit is refused outright,
+ * yields nothing; a day that is no date throws, whichever bound it is; a range longer than the span limit is refused outright,
  * because the loop below would otherwise run for as long as someone's typo
  * reaches into the future.
  */
@@ -24,6 +24,9 @@ export function expandRange(
   end: ISODate,
   weekdays: ReadonlySet<Weekday> | null = null
 ): ISODate[] {
+  if (!isValidISODate(start) || !isValidISODate(end)) {
+    throw new RangeError(`Not an ISO date: ${start} to ${end}`);
+  }
   if (compareISODate(start, end) > 0) return [];
   const length = diffDays(start, end) + 1;
   if (length > LIMITS.span) {
@@ -40,38 +43,23 @@ export function expandRange(
   return days;
 }
 
-export type CandidateProblem =
-  | 'empty'
-  | 'too_many'
-  | 'invalid'
-  | 'duplicate'
-  | 'unsorted'
-  | 'past'
-  | 'too_far'
-  | 'span';
+export type CandidateProblem = 'past' | 'too_far' | 'span';
 
 /**
  * What is wrong with a list of candidate days, or null when nothing is.
  *
- * The list must be valid dates in strictly ascending order, at most
- * `LIMITS.days` of them, spanning at most `LIMITS.span` days. With `earliest`
- * given, the first day may not lie before it; editing an event passes null,
- * because days that have since passed are allowed to stay. With `latest`
- * given, the last day may not lie after it.
+ * The list must already be what the request schema and `normalizeDays` make of
+ * it: at least one valid day, sorted ascending, without duplicates. Given
+ * that, the first day may not lie before `earliest` (editing an event passes
+ * null, because days that have since passed are allowed to stay), the last day
+ * may not lie after `latest`, and the two may not be further apart than
+ * `LIMITS.span` days.
  */
 export function checkCandidateDays(
-  days: readonly string[],
+  days: readonly ISODate[],
   earliest: ISODate | null,
   latest: ISODate | null = null
 ): CandidateProblem | null {
-  if (days.length === 0) return 'empty';
-  if (days.length > LIMITS.days) return 'too_many';
-  for (const day of days) if (!isValidISODate(day)) return 'invalid';
-  for (let index = 1; index < days.length; index += 1) {
-    const order = compareISODate(days[index - 1]!, days[index]!);
-    if (order === 0) return 'duplicate';
-    if (order > 0) return 'unsorted';
-  }
   const first = days[0]!;
   const last = days[days.length - 1]!;
   if (earliest !== null && compareISODate(first, earliest) < 0) return 'past';

@@ -46,7 +46,19 @@ export default defineConfig({
       RATE_LIMIT_MULTIPLIER: '1000',
       LOG_LEVEL: 'warn',
       OPERATOR_NAME: 'Example Organisation',
+      // Fictional: the legal notice needs name, address and contact.
+      OPERATOR_ADDRESS: 'Musterstraße 1, 12345 Musterstadt, Germany',
+      OPERATOR_CONTACT: 'privacy@example.org',
       LOG_RETENTION_DAYS: '7',
+      // Playwright merges this over the caller's whole environment, so every
+      // other setting the server reads is pinned: a blank value counts as unset.
+      CREATION_ENABLED: 'true',
+      MAX_EVENTS: '10000',
+      OWL_SECRET: '',
+      TRUST_PROXY: '',
+      IMPRINT_URL: '',
+      BACKUP_RETENTION_DAYS: '',
+      MAX_DB_BYTES: '',
     },
   },
   projects: [

@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
-import { isAbsolute, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { parseAddress } from '@owl/shared';
 
 /**
  * Everything the process reads from its environment, parsed once at start-up.
@@ -24,8 +25,15 @@ export interface Config {
   trustProxy: string[] | false;
   /** Off is the emergency switch: existing events keep working. */
   creationEnabled: boolean;
-  /** A ceiling on stored events, so a flood cannot fill the disk. */
+  /** A ceiling on the number of stored events. */
   maxEvents: number;
+  /**
+   * A ceiling on the size of the database, so a flood of full events cannot
+   * fill the disk: past it no new event is taken. Null for none. Events are
+   * not equal — a full one (150 people on 186 days) takes about 2.8 MB — so
+   * the number of events alone does not bound the size.
+   */
+  maxDbBytes: number | null;
   /** Scales every rate limit; the end-to-end suite raises it, nothing else should. */
   rateLimitMultiplier: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
@@ -33,7 +41,13 @@ export interface Config {
   secret: string | null;
   /** Shown on the privacy page, so a reader knows who runs this instance. */
   operatorName: string | null;
+  /**
+   * The operator's postal address for the legal notice, in its stored form:
+   * one line, the parts joined by ", ".
+   */
+  operatorAddress: string | null;
   operatorContact: string | null;
+  /** A legal notice elsewhere; it replaces the built-in page's link. */
   imprintUrl: string | null;
   /** What the operator's reverse proxy and backups keep; null when not stated. */
   logRetentionDays: number | null;
@@ -115,12 +129,7 @@ export function loadConfig(env: Env = process.env): Config {
 
   const dataDir = resolve(read(env, 'DATA_DIR') ?? 'data');
   const clientDirRaw = read(env, 'CLIENT_DIR');
-  const clientDir =
-    clientDirRaw === null
-      ? null
-      : isAbsolute(clientDirRaw)
-        ? clientDirRaw
-        : resolve(clientDirRaw);
+  const clientDir = clientDirRaw === null ? null : resolve(clientDirRaw);
 
   const logLevelRaw = read(env, 'LOG_LEVEL') ?? 'info';
   const logLevel = (LOG_LEVELS as readonly string[]).includes(logLevelRaw)
@@ -138,6 +147,14 @@ export function loadConfig(env: Env = process.env): Config {
     problems.push('IMPRINT_URL must be an http(s) URL');
   }
 
+  let operatorAddress: string | null = null;
+  const addressRaw = read(env, 'OPERATOR_ADDRESS');
+  if (addressRaw !== null) {
+    const parsed = parseAddress(addressRaw);
+    if (parsed.ok) operatorAddress = parsed.value;
+    else problems.push(`OPERATOR_ADDRESS ${parsed.reason}`);
+  }
+
   const trustProxy = parseTrustProxy(read(env, 'TRUST_PROXY'), problems);
 
   const config: Config = {
@@ -149,10 +166,12 @@ export function loadConfig(env: Env = process.env): Config {
     trustProxy,
     creationEnabled: boolean('CREATION_ENABLED', true),
     maxEvents: integer('MAX_EVENTS', 10_000, 1, 10_000_000),
+    maxDbBytes: optionalInteger('MAX_DB_BYTES', 1, 2 ** 50),
     rateLimitMultiplier: integer('RATE_LIMIT_MULTIPLIER', 1, 1, 100_000),
     logLevel,
     secret,
     operatorName: read(env, 'OPERATOR_NAME'),
+    operatorAddress,
     operatorContact: read(env, 'OPERATOR_CONTACT'),
     imprintUrl,
     logRetentionDays: optionalInteger('LOG_RETENTION_DAYS', 0, 3650),
@@ -222,5 +241,7 @@ function isProxyEntry(entry: string): boolean {
   if (version === 0) return false;
   if (bits === undefined) return true;
   if (!/^\d{1,3}$/.test(bits)) return false;
-  return Number(bits) <= (version === 4 ? 32 : 128);
+  // A /0 is refused by proxy-addr, and would trust every address anyway.
+  const length = Number(bits);
+  return length >= 1 && length <= (version === 4 ? 32 : 128);
 }

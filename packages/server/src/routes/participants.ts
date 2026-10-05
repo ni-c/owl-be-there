@@ -1,16 +1,22 @@
 import { randomInt } from 'node:crypto';
 import {
+  charCount,
   isId,
   LIMITS,
   makeId,
   MarksBody,
   nameKey,
+  normalizeDays,
   SessionBody,
   UpdateParticipantBody,
 } from '@owl/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { isAdmin, isParticipant } from '../auth/access.js';
-import { hashPassword, verifyPassword } from '../auth/passwords.js';
+import {
+  assertPasswordCapacity,
+  hashPassword,
+  verifyPassword,
+} from '../auth/passwords.js';
 import { signParticipantToken } from '../auth/tokens.js';
 import { limit, type AppContext } from '../context.js';
 import {
@@ -21,26 +27,45 @@ import {
   getEvent,
   getParticipant,
   insertParticipant,
+  participantViewOf,
   replaceMarks,
-  snapshot,
   statusOf,
   updateParticipant,
   type EventRow,
   type ParticipantRow,
 } from '../db/repo.js';
-import { ApiError, networkKey, notFound, parseBody } from '../http.js';
+import {
+  ApiError,
+  closed,
+  nameTaken,
+  networkKey,
+  notFound,
+  parseBody,
+} from '../http.js';
 import { eventOr404, published } from './events.js';
 
 type ParticipantParams = { Params: { id: string; pid: string } };
 
+/** Counted in code points, like every other length limit; three emoji are three. */
 function checkPasswordLength(password: string): void {
-  if (password.length < LIMITS.passwordMin) {
+  if (charCount(password) < LIMITS.passwordMin) {
     throw new ApiError(
       400,
       'password_too_short',
       `Passwords need at least ${LIMITS.passwordMin} characters`
     );
   }
+}
+
+/** Refuse a name another participant of the event already has. */
+function assertNameFree(
+  ctx: AppContext,
+  eventId: string,
+  key: string,
+  selfId: string
+): void {
+  const other = findParticipantByKey(ctx.db, eventId, key);
+  if (other && other.id !== selfId) throw nameTaken();
 }
 
 function participantOr404(
@@ -69,9 +94,7 @@ function authorize(
   if (!isParticipant(request, ctx.secret, event, participant)) {
     throw new ApiError(403, 'forbidden', 'Not your entry');
   }
-  if (statusOf(event) !== 'open') {
-    throw new ApiError(409, 'closed', 'The poll is closed');
-  }
+  if (statusOf(event) !== 'open') throw closed();
   return 'self';
 }
 
@@ -88,6 +111,17 @@ export function registerParticipantRoutes(
       participant.token_gen
     );
 
+  /** The answer to a login: who the person is, and the token that proves it. */
+  const joined = (
+    event: EventRow,
+    participant: ParticipantRow,
+    created: boolean
+  ) => ({
+    participantId: participant.id,
+    token: token(event, participant),
+    created,
+  });
+
   /** Refuse a password check while this name or network has to wait. */
   const brake = (eventId: string, key: string, ip: string): void => {
     const wait = ctx.throttle.attempt(eventId, key, networkKey(ip));
@@ -98,6 +132,20 @@ export function registerParticipantRoutes(
         `Too many tries; wait ${Math.ceil(wait / 1000)} seconds`
       );
     }
+  };
+
+  /** Hash a new password, within this network's budget for hashing. */
+  const hashFor = async (password: string, ip: string): Promise<string> => {
+    assertPasswordCapacity();
+    const wait = ctx.throttle.chargeHash(networkKey(ip));
+    if (wait > 0) {
+      throw new ApiError(
+        429,
+        'slow_down',
+        `Too many passwords set; wait ${Math.ceil(wait / 1000)} seconds`
+      );
+    }
+    return hashPassword(password);
   };
 
   const checkRoom = (eventId: string): void => {
@@ -134,9 +182,13 @@ export function registerParticipantRoutes(
             'This name is protected'
           );
         }
+        assertPasswordCapacity();
         brake(event.id, key, request.ip);
+        // The miss is counted before the check and cleared by a right password:
+        // guesses sent together must not all pass the wait that only the first
+        // misses would have started.
+        ctx.throttle.failed(event.id, key);
         if (!(await verifyPassword(body.password, existing.password_hash))) {
-          ctx.throttle.failed(event.id, key);
           throw new ApiError(
             401,
             'wrong_password',
@@ -144,23 +196,29 @@ export function registerParticipantRoutes(
           );
         }
         ctx.throttle.succeeded(event.id, key);
-        return {
-          participantId: existing.id,
-          token: token(event, existing),
-          created: false,
-        };
+        // The password may have been changed or reset while it was checked; a
+        // token for the row as it was then would already be dead.
+        const current = getParticipant(ctx.db, event.id, existing.id);
+        if (
+          !current ||
+          current.password_hash !== existing.password_hash ||
+          current.token_gen !== existing.token_gen
+        ) {
+          throw new ApiError(
+            409,
+            'changed',
+            'This entry was changed just now; try again'
+          );
+        }
+        return joined(event, existing, false);
       }
 
       const open = statusOf(event) === 'open';
       if (existing && (body.password === undefined || !open)) {
-        return {
-          participantId: existing.id,
-          token: token(event, existing),
-          created: false,
-        };
+        return joined(event, existing, false);
       }
       if (!existing) {
-        if (!open) throw new ApiError(409, 'closed', 'The poll is closed');
+        if (!open) throw closed();
         checkRoom(event.id);
       }
       if (body.password !== undefined) checkPasswordLength(body.password);
@@ -169,23 +227,17 @@ export function registerParticipantRoutes(
       // asynchronous may happen inside one. So everything checked above is
       // checked again inside it — another request may have come between.
       const passwordHash =
-        body.password === undefined ? null : await hashPassword(body.password);
+        body.password === undefined
+          ? null
+          : await hashFor(body.password, request.ip);
       const result = ctx.db.tx(() => {
         const now = getEvent(ctx.db, event.id);
         if (!now) throw notFound();
-        if (statusOf(now) !== 'open') {
-          throw new ApiError(409, 'closed', 'The poll is closed');
-        }
+        if (statusOf(now) !== 'open') throw closed();
         const current = findParticipantByKey(ctx.db, event.id, key);
         if (current) {
           // Someone else protected the name, or created it, meanwhile.
-          if (current.password_hash !== null || !existing) {
-            throw new ApiError(
-              409,
-              'name_taken',
-              'Someone already has that name'
-            );
-          }
+          if (current.password_hash !== null || !existing) throw nameTaken();
           return {
             participant: updateParticipant(
               ctx.db,
@@ -216,11 +268,7 @@ export function registerParticipantRoutes(
         };
       });
       published(ctx, event.id);
-      return {
-        participantId: result.participant.id,
-        token: token(event, result.participant),
-        created: result.created,
-      };
+      return joined(event, result.participant, result.created);
     }
   );
 
@@ -235,17 +283,18 @@ export function registerParticipantRoutes(
       const candidates = new Set(
         getDays(ctx.db, event.id).map((row) => row.day)
       );
-      const yes = [...new Set(body.yes)].sort();
-      const maybe = [...new Set(body.maybe)].sort();
+      // A day the organiser has just removed is dropped, not refused: a save
+      // that still carries it must reach the revision check and get the
+      // current marks back with a 409, not a 400 that discards the whole save.
+      const onCandidate = (day: string): boolean => candidates.has(day);
+      const yes = normalizeDays(body.yes.filter(onCandidate));
+      const maybe = normalizeDays(body.maybe.filter(onCandidate));
       const both = new Set(yes);
-      if (
-        [...yes, ...maybe].some((day) => !candidates.has(day)) ||
-        maybe.some((day) => both.has(day))
-      ) {
+      if (maybe.some((day) => both.has(day))) {
         throw new ApiError(
           400,
           'invalid_marks',
-          'Marks must be on candidate days, each once'
+          'A day can be marked yes or maybe, not both'
         );
       }
       const result = replaceMarks(
@@ -281,14 +330,7 @@ export function registerParticipantRoutes(
       let name: { name: string; nameKey: string } | undefined;
       if (body.name !== undefined) {
         const key = nameKey(body.name);
-        const other = findParticipantByKey(ctx.db, event.id, key);
-        if (other && other.id !== participant.id) {
-          throw new ApiError(
-            409,
-            'name_taken',
-            'Someone already has that name'
-          );
-        }
+        assertNameFree(ctx, event.id, key, participant.id);
         name = { name: body.name, nameKey: key };
       }
       const passwordHash =
@@ -296,26 +338,19 @@ export function registerParticipantRoutes(
           ? undefined
           : body.password === null
             ? null
-            : await hashPassword(body.password);
+            : await hashFor(body.password, request.ip);
       const updated = ctx.db.tx(() => {
         // Checked again after the hash: the poll may have closed, the person
         // been removed or the name taken while scrypt ran.
         const now = getEvent(ctx.db, event.id);
         if (!now) throw notFound();
-        if (actor === 'self' && statusOf(now) !== 'open') {
-          throw new ApiError(409, 'closed', 'The poll is closed');
+        if (actor === 'self' && statusOf(now) !== 'open') throw closed();
+        const current = participantOr404(ctx, now, participant.id);
+        // A token revoked while the password was hashed must not still write.
+        if (actor === 'self' && current.token_gen !== participant.token_gen) {
+          throw new ApiError(403, 'forbidden', 'Not your entry');
         }
-        participantOr404(ctx, now, participant.id);
-        if (name) {
-          const other = findParticipantByKey(ctx.db, event.id, name.nameKey);
-          if (other && other.id !== participant.id) {
-            throw new ApiError(
-              409,
-              'name_taken',
-              'Someone already has that name'
-            );
-          }
-        }
+        if (name) assertNameFree(ctx, event.id, name.nameKey, participant.id);
         return updateParticipant(
           ctx.db,
           event.id,
@@ -329,11 +364,8 @@ export function registerParticipantRoutes(
         );
       });
       published(ctx, event.id);
-      const view = snapshot(ctx.db, event.id)!.participants.find(
-        (p) => p.id === updated.id
-      )!;
       return {
-        participant: view,
+        participant: participantViewOf(ctx.db, event.id, updated),
         // A changed password revokes the old token; the person who changed it
         // gets the new one. The organiser resetting someone's password does not.
         token:

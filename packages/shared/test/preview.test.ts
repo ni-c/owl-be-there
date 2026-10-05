@@ -5,7 +5,11 @@ import {
   PREVIEW_MAX_WEEKS,
   previewCalendar,
   previewNeedsCjk,
+  previewStatus,
   previewSvg,
+  LANGUAGES,
+  LOCALES,
+  SERVER_TEXTS,
   textWidth,
   wrapText,
   type EventSnapshotData,
@@ -13,7 +17,12 @@ import {
   type Language,
 } from '../src/index.js';
 
-type Person = { name: string; yes?: string[]; maybe?: string[] };
+type Person = {
+  name: string;
+  yes?: string[];
+  maybe?: string[];
+  unseen?: string[];
+};
 
 function snapshot(
   options: {
@@ -22,6 +31,7 @@ function snapshot(
     days?: string[];
     people?: Person[];
     final?: [string, string];
+    closed?: boolean;
     description?: string;
   } = {}
 ): EventSnapshotData {
@@ -37,10 +47,9 @@ function snapshot(
       language: options.language ?? 'en',
       durationDays: 1,
       minCount: null,
-      status: options.final ? 'finalized' : 'open',
+      status: options.final ? 'finalized' : options.closed ? 'closed' : 'open',
       finalStart: options.final?.[0] ?? null,
       finalEnd: options.final?.[1] ?? null,
-      createdAt: 0,
       expiresOn: '2027-03-01',
       version: 3,
       days,
@@ -55,7 +64,7 @@ function snapshot(
       rev: 1,
       yes: person.yes ?? [],
       maybe: person.maybe ?? [],
-      unseen: [],
+      unseen: person.unseen ?? [],
     })),
   };
 }
@@ -95,6 +104,16 @@ describe('previewCalendar', () => {
     expect(cells.get('2026-11-07')).toBe(4); // one yes, one maybe: 0.75
     expect(cells.get('2026-11-08')).toBe(0); // nobody
     expect(cells.get('2026-11-02')).toBeNull(); // Monday, not a candidate
+  });
+
+  it('leaves a day nobody has seen yet at no heat, even when it is in yes', () => {
+    const weeks = previewWeeks(
+      snapshot({
+        people: [{ name: 'Anna', yes: ['2026-11-06'], unseen: ['2026-11-06'] }],
+      })
+    );
+    const cells = new Map(weeks[0]!.map((c) => [c.day, c.level]));
+    expect(cells.get('2026-11-06')).toBe(0);
   });
 
   it('starts the week on Monday, and on Sunday in Japanese', () => {
@@ -232,6 +251,43 @@ describe('wrapText', () => {
     expect(textWidth(lines[1]!, 30)).toBeLessThanOrEqual(300);
   });
 
+  it('keeps titles heavy in wide letters inside the column', () => {
+    for (const title of [
+      'Wimmelbuchwanderung Mummenschanz',
+      'Mammutwanderung Wümme Wasserwerk',
+      'W'.repeat(30),
+      'm'.repeat(30),
+      'a ' + 'A'.repeat(13) + '忘',
+    ]) {
+      for (const line of wrapText(title, 590, 60, 10)) {
+        expect(textWidth(line, 60), line).toBeLessThanOrEqual(590);
+      }
+    }
+  });
+
+  it('counts the wide letters wider than the rest', () => {
+    expect(textWidth('W', 1)).toBeGreaterThan(textWidth('A', 1));
+    expect(textWidth('M', 1)).toBeGreaterThan(textWidth('A', 1));
+    expect(textWidth('m', 1)).toBeGreaterThan(textWidth('n', 1) * 1.3);
+    expect(textWidth('w', 1)).toBeGreaterThan(textWidth('n', 1) * 1.3);
+    expect(textWidth('n', 1)).toBe(textWidth('e', 1));
+  });
+
+  it('measures a word again after carrying it to the next line', () => {
+    // The carried word plus the character that broke the line may itself be too
+    // long, and has to be broken again.
+    for (const text of [
+      'ab ' + 'W'.repeat(9),
+      'a ' + 'm'.repeat(20) + ' b',
+      'x ' + 'MW'.repeat(12),
+    ]) {
+      const lines = wrapText(text, 300, 30, 20);
+      expect(lines.join('').replaceAll(' ', '')).toBe(text.replaceAll(' ', ''));
+      for (const line of lines)
+        expect(textWidth(line, 30)).toBeLessThanOrEqual(300);
+    }
+  });
+
   it('collapses white space and gives nothing for an empty text', () => {
     expect(wrapText('  a \n\t b  ', 500, 30, 2)).toEqual(['a b']);
     expect(wrapText('', 500, 30, 2)).toEqual([]);
@@ -334,6 +390,25 @@ describe('previewSvg of a long poll', () => {
     expect(visible(previewSvg(snapshot(), options))).not.toContain('more');
   });
 
+  it('counts one hidden day in the singular, in German too', () => {
+    const days = daysFrom('2026-11-02', 43);
+    const german = visible(
+      previewSvg(snapshot({ language: 'de', days }), options)
+    );
+    expect(german).toContain('+ 1 weiterer Tag');
+    expect(german).not.toContain('weitere Tag');
+    const plural = visible(
+      previewSvg(
+        snapshot({ language: 'de', days: daysFrom('2026-11-02', 44) }),
+        options
+      )
+    );
+    expect(plural).toContain('+ 2 weitere Tage');
+    expect(
+      visible(previewSvg(snapshot({ language: 'de' }), options))
+    ).not.toContain('weiter');
+  });
+
   it('counts one hidden day in the singular', () => {
     const svg = previewSvg(
       snapshot({ days: daysFrom('2026-11-02', 43) }),
@@ -349,5 +424,102 @@ describe('previewNeedsCjk', () => {
     expect(previewNeedsCjk(snapshot({ title: 'Grillabend Ü' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ language: 'ja' }))).toBe(true);
     expect(previewNeedsCjk(snapshot({ title: '忘年会' }))).toBe(true);
+  });
+
+  it('keeps emoji and symbols on the Latin font', () => {
+    for (const title of [
+      '',
+      '🎉',
+      '👍',
+      '☕',
+      '🦉 Party',
+      '\u2764\uFE0F',
+      '€ 5',
+    ]) {
+      expect(previewNeedsCjk(snapshot({ title }))).toBe(false);
+    }
+  });
+
+  it('asks for it at both ends of every range it covers', () => {
+    const edge = (code: number) =>
+      previewNeedsCjk(snapshot({ title: String.fromCodePoint(code) }));
+    for (const code of [
+      0x2e80, 0x3042, 0x9fff, 0xac00, 0xd7af, 0xf900, 0xfaff, 0xff21, 0xffef,
+      0x20bb7, 0x3ffff,
+    ]) {
+      expect(edge(code)).toBe(true);
+    }
+    for (const code of [
+      0x2e7f, 0xa000, 0xabff, 0xd7b0, 0xf8ff, 0xfb00, 0xfeff, 0xfff0, 0x1f389,
+      0x1faff, 0x40000,
+    ]) {
+      expect(edge(code)).toBe(false);
+    }
+  });
+
+  it('finds a CJK character among other text', () => {
+    expect(previewNeedsCjk(snapshot({ title: 'Party 🎉 忘年会' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ title: '안녕' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ title: '𠮷' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'ja', title: 'Party' }))).toBe(
+      true
+    );
+  });
+});
+
+describe('the state sentence of a poll', () => {
+  const sentence = (data: EventSnapshotData): string =>
+    previewStatus(
+      SERVER_TEXTS[data.event.language],
+      data,
+      LOCALES[data.event.language]
+    );
+
+  it.each(LANGUAGES)(
+    'says a poll without a date is closed, in %s, in the picture too',
+    (language) => {
+      const data = snapshot({ language, closed: true });
+      const texts = SERVER_TEXTS[language];
+      expect(sentence(data)).toBe(texts.previewClosed);
+      const text = visible(previewSvg(data, options));
+      expect(text).not.toContain(texts.previewOpen(0));
+      expect(
+        text
+          .replace(/\s+/g, '')
+          .includes(texts.previewClosed.replace(/\s+/g, ''))
+      ).toBe(true);
+    }
+  );
+
+  it('prefers the date over the closed state', () => {
+    const data = snapshot({ final: ['2026-11-07', '2026-11-07'] });
+    data.event.status = 'closed';
+    expect(sentence(data)).toMatch(/^The date is set: /);
+  });
+
+  it('invites answers again once reopened, with none, one or several', () => {
+    const open = snapshot();
+    expect(sentence(open)).toBe(SERVER_TEXTS.en.previewOpen(0));
+    expect(sentence(open)).toBe(
+      'Add the days you can make it. No sign-up needed.'
+    );
+    expect(
+      sentence(snapshot({ people: [{ name: 'A', yes: ['2026-11-06'] }] }))
+    ).toContain('1 answer so far');
+    expect(
+      sentence(
+        snapshot({
+          people: [
+            { name: 'A', yes: ['2026-11-06'] },
+            { name: 'B', maybe: ['2026-11-07'] },
+          ],
+        })
+      )
+    ).toContain('2 answers so far');
+  });
+
+  it('does not count people who have not answered', () => {
+    const data = snapshot({ people: [{ name: 'A' }] });
+    expect(sentence(data)).toBe(SERVER_TEXTS.en.previewOpen(0));
   });
 });

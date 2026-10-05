@@ -4,16 +4,23 @@
 
 services:
   owl:
-    image: ghcr.io/ni-c/owl-be-there:0.1.5
+    # Pin the release you run and move the tag on purpose: only the latest
+    # release gets security fixes, and the tag below follows each release.
+    image: ghcr.io/ni-c/owl-be-there:0.2.1
     restart: unless-stopped
     environment:
       # 1. The public address, without a trailing slash.
       PUBLIC_URL: https://owl.example.org
       # The proxy reaches the container from the network's gateway; trust
-      # exactly that network and nothing else.
-      TRUST_PROXY: 172.31.255.0/24
-      # 2. Shown on the privacy page. All optional.
+      # exactly that address and nothing else, so no other container on the
+      # network can choose its own client address.
+      TRUST_PROXY: 172.31.255.1
+      # 2. Shown on the privacy page and the legal notice. All optional; the
+      # legal notice (/imprint, linked in the footer) appears once name,
+      # address and contact are all set. The address is one line, its parts
+      # separated by commas. IMPRINT_URL links to a notice elsewhere instead.
       OPERATOR_NAME: Example Organisation
+      OPERATOR_ADDRESS: Musterstraße 1, 12345 Musterstadt, Germany
       OPERATOR_CONTACT: privacy@example.org
       LOG_RETENTION_DAYS: '7'
       BACKUP_RETENTION_DAYS: '7'
@@ -30,7 +37,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    mem_limit: 256m
+    # The link-preview renderer and the Japanese font need the room: about
+    # 230 MiB resident under Japanese load.
+    mem_limit: 512m
     cpus: 1.0
     networks:
       - owl
@@ -40,3 +49,4 @@ networks:
     ipam:
       config:
         - subnet: 172.31.255.0/24
+          gateway: 172.31.255.1

@@ -105,6 +105,36 @@ describe('foldIcsLine', () => {
   });
 });
 
+describe('buildIcs with control characters in uid or url', () => {
+  const properties = (ics: string) =>
+    ics
+      .split('\r\n')
+      .filter(Boolean)
+      .map((line) => line.split(/[:;]/)[0]);
+
+  it('refuses a line break, a bare CR or LF and other controls', () => {
+    for (const bad of [
+      '\r\nATTENDEE:x',
+      'a\nb',
+      'a\rb',
+      'a\u0000b',
+      'a\u007Fb',
+    ]) {
+      expect(() => buildIcs({ ...entry, uid: bad }, now)).toThrow(RangeError);
+      expect(() => buildIcs({ ...entry, url: bad }, now)).toThrow(RangeError);
+    }
+  });
+
+  it('writes a normal uid and url unchanged, and no url line without one', () => {
+    const ics = buildIcs(entry, now);
+    expect(ics).toContain(`UID:${entry.uid}\r\n`);
+    expect(ics).toContain(`URL:${entry.url}\r\n`);
+    expect(properties(ics)).not.toContain('ATTENDEE');
+    expect(buildIcs({ ...entry, url: null }, now)).not.toContain('URL:');
+    expect(buildIcs({ ...entry, url: '' }, now)).not.toContain('URL:');
+  });
+});
+
 describe('googleCalendarUrl', () => {
   it('fills in the event with an exclusive end', () => {
     const url = new URL(
@@ -123,6 +153,27 @@ describe('googleCalendarUrl', () => {
       `Bring a ball\n\n${entry.url}`
     );
     expect(url.searchParams.get('location')).toBe('North field');
+  });
+
+  it('keeps markup in the description from reaching Google as markup', () => {
+    const details = (description: string | null, link: string | null = null) =>
+      new URL(
+        googleCalendarUrl({ ...entry, description, url: link })
+      ).searchParams.get('details');
+    const hostile = '<a href="https://evil.example/login">Re-confirm</a>';
+    const text = details(hostile, entry.url)!;
+    expect(text).not.toMatch(/[<>]/);
+    expect(text).toContain('Re-confirm');
+    expect(text.endsWith(`\n\n${entry.url}`)).toBe(true);
+    // Nothing else is touched: ampersands, hashes and line breaks round-trip.
+    expect(details('Tom & Jerry #1\nline two')).toBe(
+      'Tom & Jerry #1\nline two'
+    );
+    // Only a link, only a description, neither.
+    expect(details(null, entry.url)).toBe(entry.url);
+    expect(details('<b>x</b>')).toBe('\u2039b\u203Ax\u2039/b\u203A');
+    expect(details('')).toBeNull();
+    expect(details(null)).toBeNull();
   });
 
   it('leaves out what is not there', () => {

@@ -1,10 +1,16 @@
 import { fileURLToPath } from 'node:url';
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { ADMIN_HEADER } from '@owl/shared';
+import type {
+  FastifyInstance,
+  InjectOptions,
+  LightMyRequestResponse,
+} from 'fastify';
 import { buildApp } from '../src/app.js';
 import { loadConfig, type Config } from '../src/config.js';
 import type { Clock } from '../src/context.js';
 import { migrate } from '../src/db/migrations.js';
 import { Db } from '../src/db/sqlite.js';
+import type { ThrottleLimits } from '../src/auth/throttle.js';
 import type { StreamLimits } from '../src/sse.js';
 
 export const CLIENT_DIR = fileURLToPath(
@@ -34,6 +40,7 @@ export interface TestAppOptions {
   env?: Record<string, string>;
   site?: boolean;
   streamLimits?: StreamLimits;
+  throttleLimits?: Partial<ThrottleLimits>;
 }
 
 export async function testApp(options: TestAppOptions = {}): Promise<TestApp> {
@@ -55,6 +62,7 @@ export async function testApp(options: TestAppOptions = {}): Promise<TestApp> {
     clock,
     logStream: { write: (line: string) => void logs.push(line) },
     ...(options.streamLimits && { streamLimits: options.streamLimits }),
+    ...(options.throttleLimits && { throttleLimits: options.throttleLimits }),
     heartbeatMs: 60_000,
   });
   return { app, db, clock, config, logs };
@@ -130,3 +138,36 @@ export async function getSnapshot(app: FastifyInstance, id: string) {
     throw new Error(`get failed: ${response.statusCode}`);
   return response.json();
 }
+
+/** The header that carries the organiser key. */
+export const adminHeaders = (token: string): Record<string, string> => ({
+  [ADMIN_HEADER]: token,
+});
+
+/** `PUT /status` as the organiser: close, reopen or choose a date. */
+export const setStatus = (
+  app: FastifyInstance,
+  id: string,
+  token: string,
+  payload: Record<string, unknown>
+): Promise<LightMyRequestResponse> =>
+  app.inject({
+    method: 'PUT',
+    url: `/api/events/${id}/status`,
+    headers: adminHeaders(token),
+    payload,
+  });
+
+/** `POST /session`, answered as it is; `extra` adds a remote address or headers. */
+export const sessionRequest = (
+  app: FastifyInstance,
+  id: string,
+  payload: Record<string, unknown>,
+  extra: Pick<InjectOptions, 'headers' | 'remoteAddress'> = {}
+): Promise<LightMyRequestResponse> =>
+  app.inject({
+    method: 'POST',
+    url: `/api/events/${id}/session`,
+    payload,
+    ...extra,
+  });

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { limit, type AppContext } from '../context.js';
-import { ApiError, clientKey } from '../http.js';
+import { ApiError, networkKey } from '../http.js';
 import { eventOr404 } from './events.js';
 
 /**
@@ -16,10 +16,16 @@ export function registerLiveRoutes(
 ): void {
   app.get<{ Params: { id: string } }>(
     '/api/events/:id/stream',
-    { config: limit(ctx.config, 60, '1 minute') },
+    {
+      config: limit(ctx.config, 60, '1 minute'),
+      // Fastify's HEAD twin would run this handler too: it hijacks the response
+      // and never answers a HEAD, which Node writes no body for, while holding
+      // a stream slot until the lifetime ends.
+      exposeHeadRoute: false,
+    },
     async (request, reply) => {
       const event = eventOr404(ctx, request.params.id);
-      const key = clientKey(request.ip);
+      const key = networkKey(request.ip);
       if (!ctx.hub.hasRoom(event.id, key)) {
         throw new ApiError(
           429,

@@ -4,6 +4,7 @@ import {
   day,
   dayFromNow,
   daysFromNow,
+  isMobile,
   joinAs,
   myCalendar,
   saved,
@@ -161,10 +162,7 @@ test.describe('painting days', () => {
     page,
     request,
   }, testInfo) => {
-    test.skip(
-      testInfo.project.name.endsWith('mobile'),
-      'keyboards are a desktop thing'
-    );
+    test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
     const { id } = await createEvent(request);
     await page.goto(`/e/${id}`);
     await joinAs(page, 'Finn');
@@ -211,9 +209,10 @@ test.describe('painting days', () => {
   test('a long calendar still scrolls under a finger on the week column', async ({
     page,
     request,
+    browserName,
   }, testInfo) => {
     test.skip(
-      testInfo.project.name !== 'chromium-mobile',
+      !isMobile(testInfo) || browserName !== 'chromium',
       'real touch input exists in Chromium only'
     );
     const { id } = await createEvent(request, { days: daysFromNow(3, 80) });
@@ -229,5 +228,35 @@ test.describe('painting days', () => {
       .toBeGreaterThan(before + 100);
     // Nothing was painted on the way.
     await expect(grid.locator('[data-state="yes"]')).toHaveCount(0);
+  });
+
+  test('a keyboard selection ends with a click elsewhere, and brush shortcuts ignore modifier keys', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Ida');
+    const grid = myCalendar(page);
+    await day(grid, D(4)).focus();
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(grid.locator('[data-preview="true"]')).not.toHaveCount(0);
+    // A click starts something new: the half-made selection is gone, and a
+    // later Space toggles the one day only.
+    await day(grid, D(8)).click();
+    await expect(day(grid, D(8))).toHaveAttribute('data-state', 'yes');
+    await expect(grid.locator('[data-preview="true"]')).toHaveCount(0);
+    await page.keyboard.press('Space');
+    await expect(day(grid, D(8))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(5))).toHaveAttribute('data-state', 'none');
+    // Control and Alt belong to the browser and the system, not to the brush.
+    await page.keyboard.press('m');
+    const maybe = page.getByRole('radio', { name: 'Maybe' });
+    await expect(maybe).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Control+y');
+    await page.keyboard.press('Alt+y');
+    await expect(maybe).toHaveAttribute('aria-checked', 'true');
   });
 });

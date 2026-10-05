@@ -138,11 +138,12 @@ export function exampleSnapshot(options: {
       status: 'open',
       finalStart: null,
       finalEnd: null,
-      createdAt: 0,
       expiresOn: expiresOn({
         lastWriteDay: options.today,
         lastCandidateDay: last,
         finalEnd: null,
+        // The sample people have answered.
+        answered: true,
       }),
       version: 1,
       days,

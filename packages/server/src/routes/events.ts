@@ -4,10 +4,8 @@ import {
   buildIcs,
   candidateBlocks,
   checkCandidateDays,
-  compareISODate,
   CreateEventBody,
   isId,
-  isLanguage,
   LIMITS,
   makeId,
   nameKey,
@@ -61,13 +59,17 @@ function requireAdmin(request: FastifyRequest, event: EventRow): void {
  * not know the organiser's time zone; one day of slack covers everyone from
  * UTC-12 to UTC+14.
  */
-export function earliestDay(ctx: AppContext): ISODate {
+function earliestDay(ctx: AppContext): ISODate {
   return addDays(todayUTC(new Date(ctx.clock.now())), -1);
 }
 
-/** The last day a new candidate day may be: about five years ahead. */
-export function latestDay(ctx: AppContext): ISODate {
-  return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon);
+/**
+ * The last day a new candidate day may be: about five years ahead. The client
+ * counts the horizon from its local date, which is a day ahead of UTC in
+ * UTC+14, so the server allows one day more than the limit says.
+ */
+function latestDay(ctx: AppContext): ISODate {
+  return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon + 1);
 }
 
 function checkDays(
@@ -94,7 +96,7 @@ function sameDays(a: readonly ISODate[], b: readonly ISODate[]): boolean {
 }
 
 /** Roster names, without duplicates by name key, as new participants. */
-export function rosterEntries(names: readonly string[]): NewParticipant[] {
+function rosterEntries(names: readonly string[]): NewParticipant[] {
   const seen = new Set<string>();
   const entries: NewParticipant[] = [];
   for (const name of names) {
@@ -107,7 +109,7 @@ export function rosterEntries(names: readonly string[]): NewParticipant[] {
 }
 
 /** Answer with the event as everyone sees it now. */
-export function sendSnapshot(
+function sendSnapshot(
   ctx: AppContext,
   reply: FastifyReply,
   id: string
@@ -136,7 +138,9 @@ export class HourlyCeiling {
   private readonly perNetwork = new Map<string, number>();
 
   allow(now: number, max: number, network: string): boolean {
-    if (now - this.windowStart >= 3_600_000) {
+    // A clock stepped back (now < windowStart) would keep the window shut for
+    // as long as the step, so it counts as an expired window too.
+    if (now < this.windowStart || now - this.windowStart >= 3_600_000) {
       this.windowStart = now;
       this.count = 0;
       this.perNetwork.clear();
@@ -184,7 +188,10 @@ export function registerEventRoutes(
           'Too many new events right now'
         );
       }
-      if (countEvents(ctx.db) >= config.maxEvents) {
+      if (
+        countEvents(ctx.db) >= config.maxEvents ||
+        (config.maxDbBytes !== null && ctx.db.sizeBytes() >= config.maxDbBytes)
+      ) {
         throw new ApiError(503, 'capacity', 'This instance is full');
       }
       const id = makeId(randomInt);
@@ -246,11 +253,15 @@ export function registerEventRoutes(
         // not too far.
         const existing = new Set(current);
         const added = days.filter((day) => !existing.has(day));
-        if (added.some((day) => compareISODate(day, earliestDay(ctx)) < 0)) {
-          throw new ApiError(400, 'invalid_days', 'past');
-        }
-        if (added.some((day) => compareISODate(day, latestDay(ctx)) > 0)) {
-          throw new ApiError(400, 'invalid_days', 'too_far');
+        if (added.length > 0) {
+          const problem = checkCandidateDays(
+            added,
+            earliestDay(ctx),
+            latestDay(ctx)
+          );
+          if (problem !== null) {
+            throw new ApiError(400, 'invalid_days', problem);
+          }
         }
       }
       checkDays(days, null, null, duration);
@@ -379,9 +390,7 @@ export function registerEventRoutes(
         {
           uid: `${event.id}@owl-be-there`,
           title: event.title,
-          description:
-            SERVER_TEXTS[isLanguage(event.language) ? event.language : 'en']
-              .calendarNote,
+          description: SERVER_TEXTS[event.language].calendarNote,
           location: event.location,
           start: event.final_start,
           end: event.final_end,

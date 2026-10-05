@@ -1,4 +1,6 @@
 import {
+  charCount,
+  cleanLine,
   joinMarks,
   onCandidates,
   othersOnDays,
@@ -20,25 +22,13 @@ import {
   type FormEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import {
-  api,
-  ApiFailure,
-  NetworkFailure,
-  type Credentials,
-} from '../lib/api.ts';
-import { errorMessage } from '../lib/errors.ts';
+import { api, ApiFailure, type Credentials } from '../lib/api.ts';
+import { errorMessage, sessionRevoked } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
-import {
-  clearSession,
-  rememberEvent,
-  writeSession,
-  type Session,
-} from '../lib/prefs.ts';
-import {
-  PermanentSaveError,
-  SaveQueue,
-  type SaveStatus,
-} from '../lib/saveQueue.ts';
+import { marksSender } from '../lib/marksSender.ts';
+import { noteChange } from '../lib/note.ts';
+import type { Session } from '../lib/prefs.ts';
+import { SaveQueue, type SaveStatus } from '../lib/saveQueue.ts';
 import { CheckIcon, LockIcon } from './icons.tsx';
 import { MarksEditor } from './MarksEditor.tsx';
 import { Button, Chip, Field, Notice, TextInput } from './ui.tsx';
@@ -72,20 +62,25 @@ export function MyDays(props: MyDaysProps) {
     new Set<string>(session && !editingFor ? [session.participantId] : [])
   );
   if (participant) seen.current.add(participant.id);
-  const { store, onSession } = props;
+  const { store, onSession, onStopEditing } = props;
   useEffect(() => {
-    if (editingFor || !session) return;
+    if (editingFor) {
+      // The person the organiser is filling in for is gone: nothing is left
+      // to edit, and the banner with its way back is gone with them.
+      if (!data.participants.some((p) => p.id === editingFor)) onStopEditing();
+      return;
+    }
+    if (!session) return;
     const present = data.participants.some(
       (p) => p.id === session.participantId
     );
     if (present) return;
     if (seen.current.has(session.participantId)) {
-      clearSession(data.event.id);
       onSession(null);
     } else {
       void store.refresh();
     }
-  }, [data, session, editingFor, store, onSession]);
+  }, [data, session, editingFor, store, onSession, onStopEditing]);
 
   if (!participant) {
     if (session && !editingFor && !seen.current.has(session.participantId)) {
@@ -159,10 +154,7 @@ function WhoAreYou({
       const session = {
         participantId: result.participantId,
         token: result.token,
-        name: who.trim(),
       };
-      writeSession(data.event.id, session);
-      rememberEvent(data.event, 'participant');
       onSession(session);
     } catch (failure) {
       if (
@@ -203,7 +195,6 @@ function WhoAreYou({
             {roster.map((person) => (
               <Chip
                 key={person.id}
-                pressed={false}
                 disabled={busy}
                 onClick={() => {
                   if (person.hasPassword) {
@@ -221,7 +212,7 @@ function WhoAreYou({
               </Chip>
             ))}
             {!closed && (
-              <Chip pressed={false} onClick={() => setMode('type')}>
+              <Chip onClick={() => setMode('type')}>
                 {t('who.someoneElse')}
               </Chip>
             )}
@@ -245,7 +236,7 @@ function WhoAreYou({
               />
             )}
           </Field>
-          {!needPassword && (
+          {!needPassword && !closed && (
             <div className="flex items-start gap-3">
               <input
                 id={`${formId}-protect`}
@@ -335,16 +326,27 @@ function Greeting({
       );
       const next = {
         ...session,
-        name: result.participant.name,
         ...(result.token && { token: result.token }),
       };
-      writeSession(data.event.id, next);
       onSession(next);
       setPassword('');
       setMessage({ tone: 'success', text: t('admin.saved') });
       void store.refresh();
     } catch (failure) {
       setMessage({ tone: 'error', text: errorMessage(failure, t) });
+    }
+  };
+
+  const deleteEntry = async () => {
+    try {
+      await api.deleteParticipant(data.event.id, participant.id, credentials);
+      onSession(null);
+      void store.refresh();
+    } catch (failure) {
+      setMessage({
+        tone: 'error',
+        text: errorMessage(failure, t),
+      });
     }
   };
 
@@ -365,14 +367,7 @@ function Greeting({
               {t('mine.entry')}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              clearSession(data.event.id);
-              onSession(null);
-            }}
-          >
+          <Button size="sm" variant="ghost" onClick={() => onSession(null)}>
             {t('mine.notYou')}
           </Button>
         </div>
@@ -383,8 +378,9 @@ function Greeting({
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
-              if (name.trim() && name.trim() !== participant.name)
-                void update({ name });
+              const cleaned = cleanLine(name);
+              if (cleaned && cleaned !== participant.name)
+                void update({ name: cleaned });
             }}
           >
             <div className="min-w-48 flex-1">
@@ -405,7 +401,7 @@ function Greeting({
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
-              if (password.length >= LIMITS.passwordMin)
+              if (charCount(password) >= LIMITS.passwordMin)
                 void update({ password });
               else
                 setMessage({
@@ -447,26 +443,7 @@ function Greeting({
                 <span className="self-center font-bold">
                   {t('mine.deleteConfirm')}
                 </span>
-                <Button
-                  variant="danger"
-                  onClick={async () => {
-                    try {
-                      await api.deleteParticipant(
-                        data.event.id,
-                        participant.id,
-                        credentials
-                      );
-                      clearSession(data.event.id);
-                      onSession(null);
-                      void store.refresh();
-                    } catch (failure) {
-                      setMessage({
-                        tone: 'error',
-                        text: errorMessage(failure, t),
-                      });
-                    }
-                  }}
-                >
+                <Button variant="danger" onClick={() => void deleteEntry()}>
                   {t('mine.deleteEntry')}
                 </Button>
                 <Button onClick={() => setConfirmDelete(false)}>
@@ -502,16 +479,29 @@ function Painter(
     joinMarks(participant.yes, participant.maybe)
   );
   const [status, setStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<unknown>(null);
   const [note, setNote] = useState(participant.note ?? '');
+  const [noteFailed, setNoteFailed] = useState(false);
+  const noteFocused = useRef(false);
+  // The note as the server holds it, to tell a change from a mere blur.
+  const savedNote = useRef(participant.note);
   const credentialsRef = useRef(credentials);
   credentialsRef.current = credentials;
+  const onSessionRef = useRef(props.onSession);
+  onSessionRef.current = props.onSession;
+
+  // The organiser may remove days after marks were made; the queue sends only
+  // the days that are candidates when a request goes out.
+  const candidates = useMemo(() => new Set(data.event.days), [data.event.days]);
+  const candidatesRef = useRef(candidates);
+  candidatesRef.current = candidates;
 
   const queue = useMemo(
     () =>
       new SaveQueue({
         baseRev: participant.rev,
-        send: async (request, keepalive) => {
-          try {
+        send: marksSender({
+          put: async (request, keepalive) => {
             const result = await api.putMarks(
               eventId,
               participant.id,
@@ -520,19 +510,22 @@ function Painter(
               keepalive
             );
             return result.ok ? { ok: true, rev: result.rev } : result;
-          } catch (failure) {
-            if (failure instanceof NetworkFailure) throw failure;
-            if (
-              failure instanceof ApiFailure &&
-              (failure.status === 429 || failure.status >= 500)
-            )
-              throw failure;
-            throw new PermanentSaveError(
-              failure instanceof ApiFailure ? failure.code : 'unknown'
-            );
+          },
+          candidates: () => candidatesRef.current,
+          refresh: () => void store.refresh(),
+        }),
+        onStatus: (next, error) => {
+          setStatus(next);
+          setSaveError(next === 'failed' ? error : null);
+          // The token was revoked, say by a new password set elsewhere:
+          // nothing can be saved with it any more, so ask who this is again.
+          if (
+            next === 'failed' &&
+            sessionRevoked(error, credentialsRef.current)
+          ) {
+            onSessionRef.current(null);
           }
         },
-        onStatus: (next) => setStatus(next),
         onSaved: () => void store.refresh(),
       }),
     // One queue per participant; the credentials are read through the ref.
@@ -540,14 +533,9 @@ function Painter(
     [eventId, participant.id]
   );
 
-  useEffect(() => {
-    const leave = () => queue.flushOnLeave();
-    window.addEventListener('pagehide', leave);
-    return () => {
-      window.removeEventListener('pagehide', leave);
-      queue.dispose();
-    };
-  }, [queue]);
+  // Wires the page's leaving to the queue; unmounting the panel sends what is
+  // still unsent before the queue is disposed of.
+  useEffect(() => queue.attach(), [queue]);
 
   // Another device saved: take its marks, unless we have unsaved changes.
   useEffect(() => {
@@ -558,9 +546,6 @@ function Painter(
     }
   }, [participant, queue]);
 
-  // The organiser may have removed days since these marks were made; the
-  // server refuses marks on days that are no longer candidates.
-  const candidates = useMemo(() => new Set(data.event.days), [data.event.days]);
   const save = useCallback(
     (next: Marks) => {
       const kept = onCandidates(next, candidates);
@@ -585,22 +570,32 @@ function Painter(
     saving: t('mine.saving'),
     saved: t('mine.saved'),
     retrying: t('mine.retrying'),
-    failed: t('mine.failed'),
+    failed: errorMessage(saveError, t),
   };
 
+  // The note changed elsewhere — another device, the organiser: show it, unless
+  // it is being typed in, and compare against it from now on.
+  useEffect(() => {
+    savedNote.current = participant.note;
+    if (!noteFocused.current) setNote(participant.note ?? '');
+  }, [participant.note]);
+
   const saveNote = async () => {
-    const trimmed = note.trim();
-    if (trimmed === (participant.note ?? '')) return;
+    const change = noteChange(note, savedNote.current);
+    setNote(change.cleaned);
+    if (!change.send) return;
     try {
       await api.updateParticipant(
         eventId,
         participant.id,
-        { note: trimmed === '' ? null : trimmed },
+        { note: change.value },
         credentials
       );
+      savedNote.current = change.value;
+      setNoteFailed(false);
       void store.refresh();
     } catch {
-      setStatus('failed');
+      setNoteFailed(true);
     }
   };
 
@@ -633,19 +628,36 @@ function Painter(
           </Button>
         </div>
       )}
-      {!locked && marks.size === 0 && participant.answered && (
-        <p className="text-sm text-muted">{t('mine.noneSaved')}</p>
-      )}
+      {!locked &&
+        marks.size === 0 &&
+        participant.answered &&
+        (status === 'idle' || status === 'saved') && (
+          <p className="text-sm text-muted">{t('mine.noneSaved')}</p>
+        )}
       {!locked && (
-        <Field label={t('mine.note')}>
-          {({ id }) => (
+        <Field
+          label={t('mine.note')}
+          error={noteFailed ? t('mine.failed') : null}
+        >
+          {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
               value={note}
               maxLength={LIMITS.note}
               placeholder={t('mine.notePlaceholder')}
-              onChange={(event) => setNote(event.target.value)}
-              onBlur={() => void saveNote()}
+              onChange={(event) => {
+                setNote(event.target.value);
+                setNoteFailed(false);
+              }}
+              onFocus={() => {
+                noteFocused.current = true;
+              }}
+              onBlur={() => {
+                noteFocused.current = false;
+                void saveNote();
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter')
                   (event.target as HTMLInputElement).blur();

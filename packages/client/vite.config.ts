@@ -15,7 +15,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // The API runs beside the dev server; see `npm run dev`.
+    // The API runs beside the dev server; see `npm run dev`. Share links are
+    // built on the API's PUBLIC_URL (http://localhost:8080 by default), which
+    // serves no pages in development: put PUBLIC_URL=http://localhost:5173 in
+    // the .env at the repository root to make them open the dev server.
     proxy: { '/api': 'http://127.0.0.1:8080' },
   },
   build: {

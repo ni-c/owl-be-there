@@ -2,7 +2,6 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   applyStroke,
-  cellAt,
   cellsInRect,
   joinMarks,
   onCandidates,
@@ -11,39 +10,8 @@ import {
   splitMarks,
   strokeModeFor,
   tapDay,
-  type GridGeometry,
   type Mark,
 } from '../src/index.js';
-
-const grid: GridGeometry = {
-  left: 100,
-  top: 50,
-  width: 700,
-  height: 400,
-  rows: 4,
-  cols: 7,
-};
-
-describe('cellAt', () => {
-  it('finds the cell under a point', () => {
-    expect(cellAt(grid, 150, 60)).toEqual({ row: 0, col: 0 });
-    expect(cellAt(grid, 799, 449)).toEqual({ row: 3, col: 6 });
-    expect(cellAt(grid, 450, 250)).toEqual({ row: 2, col: 3 });
-  });
-
-  it('clamps points outside the grid to its edge', () => {
-    expect(cellAt(grid, -500, -500)).toEqual({ row: 0, col: 0 });
-    expect(cellAt(grid, 5000, 5000)).toEqual({ row: 3, col: 6 });
-    expect(cellAt(grid, 450, 9000)).toEqual({ row: 3, col: 3 });
-  });
-
-  it('survives a grid with no size yet', () => {
-    expect(cellAt({ ...grid, width: 0, height: 0 }, 10, 10)).toEqual({
-      row: 0,
-      col: 0,
-    });
-  });
-});
 
 describe('cellsInRect', () => {
   it('spans the rectangle row by row', () => {
@@ -210,8 +178,9 @@ describe('othersOnDays', () => {
     id: string,
     yes: string[],
     maybe: string[] = [],
-    answered = true
-  ) => ({ id, answered, yes, maybe });
+    answered = true,
+    unseen: string[] = []
+  ) => ({ id, answered, yes, maybe, unseen });
   const days = ['2027-03-06', '2027-03-07'];
 
   it('counts the others who can and who might, per day', () => {
@@ -246,5 +215,47 @@ describe('othersOnDays', () => {
   it('counts a day in both lists as yes', () => {
     const map = othersOnDays(days, [person('a', days, days)], 'me');
     expect(map.get('2027-03-06')).toEqual({ yes: 1, maybe: 0, total: 1 });
+  });
+
+  it('leaves those who have not seen a day out of that day', () => {
+    // 03-07 was added after Ben last saved: Anna said yes, Ben could not.
+    const map = othersOnDays(
+      days,
+      [
+        person('me', ['2027-03-06']),
+        person('anna', days),
+        person('ben', ['2027-03-06'], [], true, ['2027-03-07']),
+      ],
+      'me'
+    );
+    expect(map.get('2027-03-06')).toEqual({ yes: 2, maybe: 0, total: 2 });
+    expect(map.get('2027-03-07')).toEqual({ yes: 1, maybe: 0, total: 1 });
+  });
+
+  it('has no entry for a day nobody has seen', () => {
+    const map = othersOnDays(
+      days,
+      [
+        person('anna', ['2027-03-06'], [], true, ['2027-03-07']),
+        person('ben', ['2027-03-06'], [], true, ['2027-03-07']),
+      ],
+      'me'
+    );
+    expect(map.has('2027-03-07')).toBe(false);
+    expect(map.get('2027-03-06')).toEqual({ yes: 2, maybe: 0, total: 2 });
+  });
+
+  it('has no entry for a day the only other person has not seen', () => {
+    const map = othersOnDays(days, [person('anna', [], [], true, days)], 'me');
+    expect(map.size).toBe(0);
+  });
+
+  it('ignores what oneself has not seen', () => {
+    const map = othersOnDays(
+      days,
+      [person('me', [], [], true, days), person('anna', days)],
+      'me'
+    );
+    expect(map.get('2027-03-07')).toEqual({ yes: 1, maybe: 0, total: 1 });
   });
 });
