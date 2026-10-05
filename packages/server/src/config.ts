@@ -1,5 +1,5 @@
 import { isIP } from 'node:net';
-import { isAbsolute, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
 /**
  * Everything the process reads from its environment, parsed once at start-up.
@@ -122,12 +122,7 @@ export function loadConfig(env: Env = process.env): Config {
 
   const dataDir = resolve(read(env, 'DATA_DIR') ?? 'data');
   const clientDirRaw = read(env, 'CLIENT_DIR');
-  const clientDir =
-    clientDirRaw === null
-      ? null
-      : isAbsolute(clientDirRaw)
-        ? clientDirRaw
-        : resolve(clientDirRaw);
+  const clientDir = clientDirRaw === null ? null : resolve(clientDirRaw);
 
   const logLevelRaw = read(env, 'LOG_LEVEL') ?? 'info';
   const logLevel = (LOG_LEVELS as readonly string[]).includes(logLevelRaw)

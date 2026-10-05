@@ -48,15 +48,16 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'json-summary'],
+      reporter: ['text', 'html'],
       reportsDirectory: 'coverage',
       include: [
         'packages/shared/src/**',
         'packages/server/src/**',
         'packages/client/src/lib/**',
       ],
-      // The process entry point and the operator command line are run, not
-      // imported; the end-to-end suite and the container check cover them.
+      // The process entry points are run, not imported: the end-to-end suite
+      // starts index.ts, and cli.ts only hands over to commands.ts, which the
+      // server tests cover.
       exclude: ['packages/server/src/index.ts', 'packages/server/src/cli.ts'],
       // A floor, never lowered: set just below what the suites reach, so a
       // change that adds untested code is noticed in the pull request.

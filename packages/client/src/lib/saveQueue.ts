@@ -1,10 +1,8 @@
-import { joinMarks, splitMarks, type Marks } from '@owl/shared';
+import { splitMarks, type Marks } from '@owl/shared';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'retrying' | 'failed';
 
-export type SendResult =
-  | { ok: true; rev: number }
-  | { ok: false; rev: number; yes: string[]; maybe: string[] };
+export type SendResult = { ok: true; rev: number } | { ok: false; rev: number };
 
 export interface SaveRequest {
   baseRev: number;
@@ -53,7 +51,6 @@ export class SaveQueue {
   private retry: unknown = null;
   private attempt = 0;
   private disposed = false;
-  private status: SaveStatus = 'idle';
   baseRev: number;
 
   private readonly sendFn: (
@@ -209,12 +206,7 @@ export class SaveQueue {
   }
 
   private setStatus(status: SaveStatus, error?: unknown): void {
-    this.status = status;
     this.onStatus(status, error);
-  }
-
-  get currentStatus(): SaveStatus {
-    return this.status;
   }
 
   private async flush(): Promise<void> {
@@ -270,7 +262,3 @@ export class SaveQueue {
     }, delay);
   }
 }
-
-/** The marks a conflict carried, for adopting them when nothing is pending. */
-export const marksOf = (yes: string[], maybe: string[]): Marks =>
-  joinMarks(yes, maybe);

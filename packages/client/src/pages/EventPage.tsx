@@ -197,7 +197,7 @@ interface EventViewProps {
 
 function EventView(props: EventViewProps) {
   const { data, stale, store, adminToken, session, onSession } = props;
-  const { t, tn, locale } = useI18n();
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState<'mine' | 'group'>('mine');
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
@@ -295,9 +295,6 @@ function EventView(props: EventViewProps) {
         justCreated={props.justCreated}
         publicUrl={props.publicUrl}
       />
-      <span className="sr-only">
-        {tn('event.duration', event.durationDays)}
-      </span>
     </div>
   );
 }

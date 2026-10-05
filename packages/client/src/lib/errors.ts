@@ -26,8 +26,6 @@ type Translate = (key: TranslationKey, params?: Params) => string;
 const BY_DAYS_PROBLEM: Partial<Record<string, TranslationKey>> = {
   past: 'error.past',
   too_far: 'error.tooFar',
-  too_many: 'error.tooManyDays',
-  empty: 'error.noDays',
   span: 'error.rangeTooLong',
 };
 

@@ -164,7 +164,7 @@ function Footer({
     writeTheme(next);
   };
   const selectClass =
-    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus focus:outline-none';
+    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus';
   return (
     <footer className="border-t border-line bg-sunken/60">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm sm:px-6">

@@ -193,11 +193,12 @@ function codewordsFor(data: Uint8Array, version: number): number[] {
   for (const byte of data) buffer.append(byte, 8);
 
   const capacity = dataCodewords(version) * 8;
-  // Up to four zero bits saying "nothing follows", or fewer if there is not
-  // room — the specification allows the terminator to be cut short at the end.
-  buffer.append(0, Math.min(4, capacity - buffer.bits.length));
-  // Then to a whole byte, and then alternating pad bytes to the end.
-  buffer.append(0, (8 - (buffer.bits.length % 8)) % 8);
+  // Four zero bits saying "nothing follows". The header is 12 or 20 bits and
+  // the data a whole number of bytes, so the length is 4 mod 8 while the
+  // capacity is a multiple of 8: the room left is at least four bits, and a
+  // full terminator ends on a byte boundary. Then alternating pad bytes to
+  // the end.
+  buffer.append(0, 4);
   for (let i = 0; buffer.bits.length < capacity; i += 1) {
     buffer.append(PAD_BYTES[i % 2]!, 8);
   }

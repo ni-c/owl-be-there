@@ -97,7 +97,7 @@ export function GroupView(props: GroupViewProps) {
     [event, people, hidden, today]
   );
   const best = ranked.slice(0, BEST_SHOWN);
-  const highlighted = useMemo(() => new Set(best[0]?.days ?? []), [best]);
+  const highlighted = useMemo(() => new Set(ranked[0]?.days ?? []), [ranked]);
   const selected = liveSelection(selectedBlock, best);
   const selectedDays = useMemo(() => new Set(selected?.days ?? []), [selected]);
   const answeredCount = visible.filter((p) => p.answered).length;

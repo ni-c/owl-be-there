@@ -59,7 +59,7 @@ export class PageTemplate {
  * allowance, and an injected one is not on the list. Only meta, title and link
  * tags are ever put into the page, so the hashes stay valid.
  */
-export function inlineScriptHashes(html: string): string[] {
+function inlineScriptHashes(html: string): string[] {
   const hashes: string[] = [];
   for (const match of html.matchAll(
     /<script(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi

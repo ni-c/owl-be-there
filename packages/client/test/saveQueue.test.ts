@@ -1,7 +1,6 @@
 import { joinMarks, type Marks } from '@owl/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  marksOf,
   PermanentSaveError,
   RETRY_DELAYS_MS,
   SaveQueue,
@@ -40,7 +39,7 @@ class FakeServer {
   answer(): void {
     const next = this.waiting.shift()!;
     if (next.request.baseRev !== this.rev) {
-      next.resolve({ ok: false, rev: this.rev, ...this.marks });
+      next.resolve({ ok: false, rev: this.rev });
       return;
     }
     this.rev += 1;
@@ -104,7 +103,6 @@ describe('SaveQueue', () => {
     expect(statuses).toEqual(['saving', 'saved']);
     expect(saved).toEqual([1]);
     expect(queue.busy).toBe(false);
-    expect(queue.currentStatus).toBe('saved');
   });
 
   it('keeps one request in flight and sends only the newest state after it', async () => {
@@ -260,7 +258,6 @@ describe('SaveQueue', () => {
     await tick();
     expect(queue.busy).toBe(false);
     expect(queue.baseRev).toBe(1);
-    expect(queue.currentStatus).toBe('saved');
   });
 
   it('sends every save with keepalive, so one under way outlives the page', async () => {
@@ -385,12 +382,6 @@ describe('SaveQueue', () => {
     server.answer();
     await tick();
     expect(server.requests[0]).toEqual({ baseRev: 0, yes: [], maybe: [] });
-  });
-
-  it('turns lists back into marks', () => {
-    expect(marksOf(['2027-03-06'], ['2027-03-07']).get('2027-03-07')).toBe(
-      'maybe'
-    );
   });
 
   it('schedules a retry on the real timers, and cancels it on dispose', async () => {

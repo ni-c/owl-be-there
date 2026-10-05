@@ -157,13 +157,13 @@ export async function registerSite(
           ? snapshot(ctx.db, request.params.id)
           : null;
         reply.header('x-robots-tag', 'noindex, nofollow');
-        if (!data || !ctx.preview)
+        if (!data)
           return reply
             .code(404)
             .send({ error: 'not_found', message: 'No such event' });
         let png;
         try {
-          png = await ctx.preview.render(data);
+          png = await ctx.preview!.render(data);
         } catch (error) {
           if (!(error instanceof PreviewBusy)) throw error;
           return reply

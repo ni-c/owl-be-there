@@ -26,7 +26,6 @@ const snapshot = {
     status: 'open',
     finalStart: null,
     finalEnd: null,
-    createdAt: 1,
     expiresOn: '2027-05-30',
     version: 3,
     days: ['2027-03-06'],
@@ -150,12 +149,7 @@ describe('api', () => {
     );
     expect(
       await api.putMarks(ID, PID, { baseRev: 0, yes: [], maybe: [] }, {})
-    ).toEqual({
-      ok: false,
-      rev: 2,
-      yes: ['2027-03-06'],
-      maybe: [],
-    });
+    ).toEqual({ ok: false, rev: 2 });
     await expect(
       api.putMarks(ID, PID, { baseRev: 0, yes: [], maybe: [] }, {})
     ).rejects.toMatchObject({ code: 'closed' });

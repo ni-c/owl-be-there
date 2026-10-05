@@ -109,6 +109,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `npm run dev` compiles the server and recompiles it on every edit.
 - Release tags must match the version of all four package manifests, only the highest stable release moves `latest`, pre-releases are marked as such, and CI can be started by hand.
 
+### Removed
+
+- The event's creation time is no longer part of the event responses; nothing used it.
+
 ## [0.2.1] - 2026-10-05
 
 ### Changed

@@ -76,14 +76,6 @@ describe('checkCandidateDays', () => {
   });
 
   it('names each problem', () => {
-    expect(checkCandidateDays([], today)).toBe('empty');
-    expect(checkCandidateDays(['2026-02-30'], today)).toBe('invalid');
-    expect(checkCandidateDays(['2026-10-09', '2026-10-09'], today)).toBe(
-      'duplicate'
-    );
-    expect(checkCandidateDays(['2026-10-09', '2026-10-08'], today)).toBe(
-      'unsorted'
-    );
     expect(checkCandidateDays(['2026-10-01', '2026-10-09'], today)).toBe(
       'past'
     );
@@ -92,15 +84,19 @@ describe('checkCandidateDays', () => {
     );
   });
 
-  it('allows past days when editing', () => {
-    expect(checkCandidateDays(['2020-01-01', '2020-01-02'], null)).toBeNull();
+  it('allows the earliest day and the longest span, refuses one more', () => {
+    expect(checkCandidateDays([today], today)).toBeNull();
+    const start = '2027-01-01';
+    expect(
+      checkCandidateDays([start, addDays(start, LIMITS.span - 1)], today)
+    ).toBeNull();
+    expect(
+      checkCandidateDays([start, addDays(start, LIMITS.span)], today)
+    ).toBe('span');
   });
 
-  it('caps the number of days', () => {
-    const days = expandRange('2027-01-01', addDays('2027-01-01', LIMITS.days));
-    expect(days).toHaveLength(LIMITS.days + 1);
-    expect(checkCandidateDays(days.slice(0, LIMITS.days), today)).toBeNull();
-    expect(checkCandidateDays(days, today)).toBe('too_many');
+  it('allows past days when editing', () => {
+    expect(checkCandidateDays(['2020-01-01', '2020-01-02'], null)).toBeNull();
   });
 });
 

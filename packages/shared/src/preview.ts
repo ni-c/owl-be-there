@@ -21,7 +21,7 @@ import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
  */
 
 export const PREVIEW_WIDTH = 1200;
-export const PREVIEW_HEIGHT = 630;
+const PREVIEW_HEIGHT = 630;
 
 /** At most this many week rows; a longer poll shows its first weeks. */
 export const PREVIEW_MAX_WEEKS = 6;
@@ -30,7 +30,6 @@ export const PREVIEW_MAX_WEEKS = 6;
 const COLOURS = {
   bg: '#fbf6ee',
   surface: '#ffffff',
-  sunken: '#f4ece0',
   line: '#e6dac6',
   ink: '#2a2118',
   muted: '#6b5b4a',
@@ -41,7 +40,7 @@ const COLOURS = {
 } as const;
 
 /** The font stack the server loads; CJK only falls in where Nunito has no glyph. */
-export const PREVIEW_FONTS = "Nunito, 'Noto Sans CJK JP'";
+const PREVIEW_FONTS = "Nunito, 'Noto Sans CJK JP'";
 
 export interface PreviewOptions {
   /** Shown at the bottom, e.g. `owlbethere.app`. */
@@ -123,7 +122,7 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   };
 }
 
-export function escapeXml(text: string): string {
+function escapeXml(text: string): string {
   return text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

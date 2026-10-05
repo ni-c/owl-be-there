@@ -12,38 +12,6 @@ export interface Cell {
   col: number;
 }
 
-/** Where the day cells sit on screen, in the coordinates pointer events use. */
-export interface GridGeometry {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  rows: number;
-  cols: number;
-}
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
-
-/**
- * The cell under a point, clamped to the grid.
- *
- * Geometry rather than the event's target, because a touch pointer is captured
- * by the element it went down on: for the whole drag, `event.target` stays the
- * start cell and `pointerenter` never fires on the others. Clamped, so a finger
- * that slides past the edge keeps extending the selection along that edge
- * instead of dropping it.
- */
-export function cellAt(geometry: GridGeometry, x: number, y: number): Cell {
-  const { left, top, width, height, rows, cols } = geometry;
-  const col = Math.floor(((x - left) / width) * cols);
-  const row = Math.floor(((y - top) / height) * rows);
-  return {
-    row: clamp(Number.isFinite(row) ? row : 0, 0, rows - 1),
-    col: clamp(Number.isFinite(col) ? col : 0, 0, cols - 1),
-  };
-}
-
 /**
  * Every cell of the rectangle two corners span, row by row.
  *

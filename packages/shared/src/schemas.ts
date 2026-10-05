@@ -167,7 +167,6 @@ export const EventView = z.object({
   status: EventStatus,
   finalStart: IsoDay.nullable(),
   finalEnd: IsoDay.nullable(),
-  createdAt: z.int(),
   expiresOn: IsoDay,
   version: z.int(),
   days: z.array(IsoDay),
@@ -222,6 +221,7 @@ export type CreateEventInput = z.input<typeof CreateEventBody>;
 export type UpdateEventInput = z.input<typeof UpdateEventBody>;
 export type StatusInput = z.input<typeof StatusBody>;
 export type EventSnapshotData = z.infer<typeof EventSnapshot>;
+export type EventStatusData = z.infer<typeof EventStatus>;
 export type EventViewData = z.infer<typeof EventView>;
 export type ParticipantViewData = z.infer<typeof ParticipantView>;
 export type InstanceInfoData = z.infer<typeof InstanceInfo>;

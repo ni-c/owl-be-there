@@ -16,7 +16,7 @@ import { isMobile } from './helpers.ts';
  * Only the coordinates change. That is precisely the situation the paint
  * engine's geometry-based hit test exists for.
  */
-export async function touchDrag(
+async function touchDrag(
   page: Page,
   from: Locator,
   to: Locator
@@ -95,7 +95,7 @@ export async function touchDrag(
 }
 
 /** A mouse drag, for the desktop projects. */
-export async function mouseDrag(
+async function mouseDrag(
   page: Page,
   from: Locator,
   to: Locator

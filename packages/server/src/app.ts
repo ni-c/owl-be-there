@@ -54,6 +54,14 @@ declare module 'fastify' {
   }
 }
 
+/** The server's own version, from its manifest. */
+function readVersion(): string {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+  ) as { version: string };
+  return manifest.version;
+}
+
 /** How long a request may take to arrive in full, headers and body. */
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -75,14 +83,6 @@ export function serializeError(error: Error): {
     message: error.message,
     stack: error.stack ?? '',
   };
-}
-
-/** The server's own version, from its manifest. */
-export function readVersion(): string {
-  const manifest = JSON.parse(
-    readFileSync(new URL('../package.json', import.meta.url), 'utf8')
-  ) as { version: string };
-  return manifest.version;
 }
 
 /**
@@ -114,10 +114,7 @@ export function contentSecurityPolicy(scriptHashes: readonly string[]): string {
  * before it reaches Fastify — a malformed request line — is answered by Node
  * alone and carries none.
  */
-export function securityHeaders(
-  csp: string,
-  https: boolean
-): Record<string, string> {
+function securityHeaders(csp: string, https: boolean): Record<string, string> {
   return {
     'x-content-type-options': 'nosniff',
     // Event links are access keys; they must not travel on in a Referer.
@@ -193,7 +190,7 @@ export async function buildApp(
             : { error: 'bad_request', message: 'Malformed URL' }
         );
     },
-    trustProxy: config.trustProxy === false ? false : config.trustProxy,
+    trustProxy: config.trustProxy,
     bodyLimit: 32 * 1024,
     // A body that stops arriving must not hold its connection, and with it
     // the shutdown, forever. A live stream is a response, not a request: it

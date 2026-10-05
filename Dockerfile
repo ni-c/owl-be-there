@@ -37,10 +37,9 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 COPY packages/client packages/client
-# Shared, then server, then client; the order is in the script. Source maps
-# would be a publicly fetchable copy of the sources, so none are kept.
+# Shared, then server, then client; the order is in the script. The client
+# build emits no source maps (a publicly fetchable copy of the sources).
 RUN npm run build \
-  && rm -f packages/client/dist/assets/*.map \
   && mkdir /data-template
 
 # ---------------------------------------------------------- production deps
@@ -77,7 +76,6 @@ ENV NODE_ENV=production \
     CLIENT_DIR=/app/packages/client/dist
 
 WORKDIR /app
-COPY package.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/server/package.json packages/server/package.json
 COPY --from=deps /app/node_modules node_modules

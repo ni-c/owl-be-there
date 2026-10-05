@@ -65,7 +65,7 @@ interface AdminPanelProps {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details className="group rounded-2xl border border-line bg-surface open:bg-surface">
+    <details className="group rounded-2xl border border-line bg-surface">
       <summary className="flex min-h-12 items-center justify-between rounded-2xl px-4 font-extrabold select-none">
         {title}
         <span aria-hidden="true" className="transition group-open:rotate-180">
@@ -211,7 +211,9 @@ export function AdminPanel(props: AdminPanelProps) {
         <DaysEditor
           // Days changed elsewhere start a fresh edit from the new list.
           key={event.days.join()}
-          {...props}
+          data={data}
+          firstWeekday={props.firstWeekday}
+          today={props.today}
           busy={busy}
           onEdit={clearMessage}
           onSave={(days, baseDays) =>
@@ -224,13 +226,12 @@ export function AdminPanel(props: AdminPanelProps) {
       </Section>
       <Section title={t('admin.people')}>
         <People
-          {...props}
+          data={data}
+          adminToken={adminToken}
+          onFillIn={props.onFillIn}
           busy={busy}
           onEdit={clearMessage}
           run={(action) => run('people', action)}
-          onAdd={(names) =>
-            run('people', () => api.addRoster(event.id, names, adminToken))
-          }
         />
         {noticeAt('people')}
       </Section>
@@ -467,7 +468,7 @@ function DetailsForm({
 }
 
 function DaysEditor(
-  props: AdminPanelProps & {
+  props: Pick<AdminPanelProps, 'data' | 'firstWeekday' | 'today'> & {
     busy: boolean;
     onEdit(): void;
     onSave(days: ISODate[], baseDays: ISODate[]): Promise<boolean>;
@@ -571,11 +572,10 @@ function DaysEditor(
 }
 
 function People(
-  props: AdminPanelProps & {
+  props: Pick<AdminPanelProps, 'data' | 'adminToken' | 'onFillIn'> & {
     busy: boolean;
     onEdit(): void;
     run(action: () => Promise<EventSnapshotData | void>): Promise<boolean>;
-    onAdd(names: string[]): Promise<boolean>;
   }
 ) {
   const { data, adminToken, run, busy } = props;
@@ -645,9 +645,11 @@ function People(
           setRosterProblem(problem);
           if (problem || list.length === 0) return;
           // What was typed stays when the add fails, so it can be corrected.
-          void props.onAdd(list).then((ok) => {
-            if (ok) setNames('');
-          });
+          void run(() => api.addRoster(data.event.id, list, adminToken)).then(
+            (ok) => {
+              if (ok) setNames('');
+            }
+          );
         }}
       >
         <Field

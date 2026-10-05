@@ -1,9 +1,10 @@
 {
   // Everything that tests the application but is not part of it.
   //
-  // The per-package configs cover `src` only — they exist to build. Vitest and
-  // Playwright both transpile rather than typecheck, so without this file a test
-  // could pass a number where a string belongs and nobody would hear about it.
+  // The server and shared configs cover `src` only — they exist to build; the
+  // client's also covers its own `test` directory. Vitest and Playwright both
+  // transpile rather than typecheck, so without this file a test could pass a
+  // number where a string belongs and nobody would hear about it.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "module": "NodeNext",

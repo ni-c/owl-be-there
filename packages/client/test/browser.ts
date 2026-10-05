@@ -26,7 +26,6 @@ export function installBrowser() {
     pathname: '/',
     search: '',
     hash: '',
-    origin: 'https://owl.example.org',
   };
   /** Split a path into the parts of `location`, as the browser does. */
   const setAddress = (path: string): void => {
@@ -84,11 +83,9 @@ export function installBrowser() {
       return documentListeners.get(type)?.size ?? 0;
     },
     documentElement: {
-      lang: 'en',
       setAttribute: (name: string, value: string) =>
         attributes.set(name, value),
       removeAttribute: (name: string) => attributes.delete(name),
-      getAttribute: (name: string) => attributes.get(name) ?? null,
     },
   };
   vi.stubGlobal('window', window);
@@ -100,7 +97,6 @@ export function installBrowser() {
 export class FakeEventSource {
   static readonly CLOSED = 2;
   static instances: FakeEventSource[] = [];
-  readonly url: string;
   readyState = 1;
   closed = false;
   private readonly handlers = new Map<
@@ -108,8 +104,7 @@ export class FakeEventSource {
     ((event: { data: string }) => void)[]
   >();
 
-  constructor(url: string) {
-    this.url = url;
+  constructor(_url: string) {
     FakeEventSource.instances.push(this);
   }
 

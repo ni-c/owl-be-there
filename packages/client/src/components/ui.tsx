@@ -107,7 +107,7 @@ export function Field({ label, hint, error, children }: FieldProps) {
 }
 
 const inputClass =
-  'w-full rounded-2xl border-2 border-line bg-surface px-4 py-2.5 text-ink placeholder:text-muted focus:border-focus focus:outline-none aria-[invalid=true]:border-danger';
+  'w-full rounded-2xl border-2 border-line bg-surface px-4 py-2.5 text-ink placeholder:text-muted focus:border-focus aria-[invalid=true]:border-danger';
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -327,8 +327,4 @@ export function Notice({
       {children}
     </div>
   );
-}
-
-export function VisuallyHidden({ children }: { children: ReactNode }) {
-  return <span className="sr-only">{children}</span>;
 }

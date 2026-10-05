@@ -48,11 +48,10 @@ describe('prefs', () => {
   });
 
   it('keeps one session per event and ignores a malformed one', () => {
-    prefs.writeSession(ID, { participantId: OTHER, token: 't', name: 'Max' });
+    prefs.writeSession(ID, { participantId: OTHER, token: 't' });
     expect(prefs.readSession(ID)).toEqual({
       participantId: OTHER,
       token: 't',
-      name: 'Max',
     });
     expect(prefs.readSession(OTHER)).toBeNull();
     browser.storage.setItem(
@@ -72,17 +71,12 @@ describe('prefs', () => {
   });
 
   it('lists events newest first, keeps an organiser an organiser, and caps the list', () => {
-    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser', 1);
+    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
     prefs.rememberEvent(
       { id: OTHER, title: 'B', emoji: 'soccer' },
-      'participant',
-      2
+      'participant'
     );
-    prefs.rememberEvent(
-      { id: ID, title: 'A2', emoji: 'owl' },
-      'participant',
-      3
-    );
+    prefs.rememberEvent({ id: ID, title: 'A2', emoji: 'owl' }, 'participant');
     expect(prefs.readMyEvents().map((e) => [e.id, e.title, e.role])).toEqual([
       [ID, 'A2', 'organiser'],
       [OTHER, 'B', 'participant'],
@@ -93,18 +87,14 @@ describe('prefs', () => {
       (_, i) =>
         `${'1'.repeat(10)}${alphabet[i % 24]}${alphabet[Math.floor(i / 24)]}`
     );
-    ids.forEach((id, i) =>
-      prefs.rememberEvent(
-        { id, title: id, emoji: 'owl' },
-        'participant',
-        10 + i
-      )
+    ids.forEach((id) =>
+      prefs.rememberEvent({ id, title: id, emoji: 'owl' }, 'participant')
     );
     expect(prefs.readMyEvents()).toHaveLength(50);
   });
 
   it('drops a damaged entry and keeps the rest', () => {
-    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser', 1);
+    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
     const stored = JSON.parse(
       browser.storage.getItem('owl.events')!
     ) as unknown[];
@@ -117,7 +107,7 @@ describe('prefs', () => {
 
   it('forgets an event with its session and key', () => {
     prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
-    prefs.writeSession(ID, { participantId: OTHER, token: 't', name: 'Max' });
+    prefs.writeSession(ID, { participantId: OTHER, token: 't' });
     prefs.writeAdminToken(ID, 'k'.repeat(43));
     prefs.forgetEvent(ID);
     expect(prefs.readMyEvents()).toEqual([]);
@@ -134,8 +124,8 @@ describe('prefs', () => {
       role: 'organiser' | 'participant' = 'participant'
     ) => {
       const id = idAt(i);
-      prefs.rememberEvent({ id, title: id, emoji: 'owl' }, role, 100 + i);
-      prefs.writeSession(id, { participantId: OTHER, token: 't', name: 'x' });
+      prefs.rememberEvent({ id, title: id, emoji: 'owl' }, role);
+      prefs.writeSession(id, { participantId: OTHER, token: 't' });
       prefs.writeAdminToken(id, 'k'.repeat(43));
       return id;
     };
@@ -167,8 +157,7 @@ describe('prefs', () => {
       const ids = Array.from({ length: 50 }, (_, i) => remember(i));
       prefs.rememberEvent(
         { id: ids[0]!, title: 'again', emoji: 'owl' },
-        'participant',
-        999
+        'participant'
       );
       expect(prefs.readMyEvents()).toHaveLength(50);
       expect(prefs.readMyEvents()[0]!.id).toBe(ids[0]);
@@ -183,13 +172,12 @@ describe('prefs', () => {
       }[];
       const extra = [idAt(60), idAt(61)];
       for (const id of extra) {
-        prefs.writeSession(id, { participantId: OTHER, token: 't', name: 'x' });
+        prefs.writeSession(id, { participantId: OTHER, token: 't' });
         stored.push({
           id,
           title: id,
           emoji: 'owl',
           role: 'participant',
-          seenAt: 1,
         } as never);
       }
       browser.storage.setItem('owl.events', JSON.stringify(stored));

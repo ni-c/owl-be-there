@@ -18,7 +18,6 @@ const snapshot = (version: number) => ({
     status: 'open',
     finalStart: null,
     finalEnd: null,
-    createdAt: 1,
     expiresOn: '2027-05-30',
     version,
     days: ['2027-03-06'],

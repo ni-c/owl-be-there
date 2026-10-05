@@ -1,10 +1,12 @@
 import {
+  ADMIN_HEADER,
   ApiErrorBody,
   CreateEventResponse,
   EventSnapshot,
   InstanceInfo,
   MarksConflict,
   MarksResponse,
+  PARTICIPANT_HEADER,
   SessionResponse,
   UpdateParticipantResponse,
   type CreateEventInput,
@@ -49,9 +51,9 @@ function headersFor(
 ): Record<string, string> {
   const headers: Record<string, string> = {};
   if (json) headers['content-type'] = 'application/json';
-  if (credentials?.admin) headers['x-admin-token'] = credentials.admin;
+  if (credentials?.admin) headers[ADMIN_HEADER] = credentials.admin;
   if (credentials?.participant)
-    headers['x-participant-token'] = credentials.participant;
+    headers[PARTICIPANT_HEADER] = credentials.participant;
   return headers;
 }
 
@@ -212,7 +214,7 @@ export const api = {
 
   /**
    * Save a complete set of marks. A conflict is an answer, not an error: it
-   * carries the server's current revision and marks.
+   * carries the server's current revision.
    */
   async putMarks(
     id: string,
@@ -221,8 +223,7 @@ export const api = {
     credentials: Credentials,
     keepalive = false
   ): Promise<
-    | { ok: true; rev: number; version: number }
-    | { ok: false; rev: number; yes: string[]; maybe: string[] }
+    { ok: true; rev: number; version: number } | { ok: false; rev: number }
   > {
     return exchange(
       'PUT',
@@ -233,12 +234,7 @@ export const api = {
           const json = await readJson(response);
           const conflict = MarksConflict.safeParse(json);
           if (conflict.success)
-            return {
-              ok: false as const,
-              rev: conflict.data.rev,
-              yes: conflict.data.yes,
-              maybe: conflict.data.maybe,
-            };
+            return { ok: false as const, rev: conflict.data.rev };
           throw new ApiFailure(
             409,
             ApiErrorBody.safeParse(json).data?.error ?? 'conflict',

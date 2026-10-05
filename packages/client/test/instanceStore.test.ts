@@ -8,7 +8,11 @@ import {
 } from '../src/lib/instanceStore.ts';
 
 const info = (creationEnabled = true): InstanceInfoData =>
-  ({ creationEnabled, publicUrl: 'https://owl.example.org' }) as never;
+  ({
+    version: '0.2.1',
+    creationEnabled,
+    publicUrl: 'https://owl.example.org',
+  }) as never;
 
 beforeEach(() => {
   vi.useFakeTimers();

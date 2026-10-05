@@ -137,11 +137,9 @@
 @layer base {
   a[href],
   button:not(:disabled),
-  [role='button']:not([aria-disabled='true']),
   select:not(:disabled),
   summary,
-  input[type='checkbox']:not(:disabled),
-  input[type='radio']:not(:disabled) {
+  input[type='checkbox']:not(:disabled) {
     cursor: pointer;
   }
 }
@@ -299,7 +297,6 @@ html:lang(ja) body {
 
 .cal-cell[data-kind='past'] {
   color: var(--owl-muted);
-  background: var(--owl-sunken);
   opacity: 0.6;
 }
 

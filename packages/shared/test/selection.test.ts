@@ -2,7 +2,6 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   applyStroke,
-  cellAt,
   cellsInRect,
   joinMarks,
   onCandidates,
@@ -11,39 +10,8 @@ import {
   splitMarks,
   strokeModeFor,
   tapDay,
-  type GridGeometry,
   type Mark,
 } from '../src/index.js';
-
-const grid: GridGeometry = {
-  left: 100,
-  top: 50,
-  width: 700,
-  height: 400,
-  rows: 4,
-  cols: 7,
-};
-
-describe('cellAt', () => {
-  it('finds the cell under a point', () => {
-    expect(cellAt(grid, 150, 60)).toEqual({ row: 0, col: 0 });
-    expect(cellAt(grid, 799, 449)).toEqual({ row: 3, col: 6 });
-    expect(cellAt(grid, 450, 250)).toEqual({ row: 2, col: 3 });
-  });
-
-  it('clamps points outside the grid to its edge', () => {
-    expect(cellAt(grid, -500, -500)).toEqual({ row: 0, col: 0 });
-    expect(cellAt(grid, 5000, 5000)).toEqual({ row: 3, col: 6 });
-    expect(cellAt(grid, 450, 9000)).toEqual({ row: 3, col: 3 });
-  });
-
-  it('survives a grid with no size yet', () => {
-    expect(cellAt({ ...grid, width: 0, height: 0 }, 10, 10)).toEqual({
-      row: 0,
-      col: 0,
-    });
-  });
-});
 
 describe('cellsInRect', () => {
   it('spans the rectangle row by row', () => {

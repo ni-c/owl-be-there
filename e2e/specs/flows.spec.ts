@@ -68,7 +68,7 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   await expect(
     page.getByRole('heading', { name: 'Five-a-side' })
   ).toBeVisible();
-  await expect(page.getByText('2 days in a row').first()).toBeVisible();
+  await expect(page.getByText('2 days in a row')).toBeVisible();
   expect(new URL(page.url()).hash).toBe('');
   await showView(page, 'mine');
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();

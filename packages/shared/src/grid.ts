@@ -18,8 +18,9 @@ export interface WeekRow {
   /** ISO week number of the row's Monday-based week, for the row label. */
   weekNumber: number;
   /**
-   * The month whose name belongs beside this row: the month of the row's first
-   * candidate day when the row is the first one shown or a month begins in it.
+   * The month whose name belongs beside this row: the first month among the
+   * row's candidate days that no earlier row names, or null when every month
+   * in the row is already named.
    */
   monthLabel: MonthKey | null;
   /** True when weeks without any candidate day were left out above this row. */

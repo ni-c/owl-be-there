@@ -1,6 +1,7 @@
 import {
   addDays,
   compareISODate,
+  DEFAULT_EMOJI,
   diffDays,
   EMOJI_KEYS,
   EMOJIS,
@@ -41,7 +42,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState('');
-  const [emoji, setEmoji] = useState<EmojiKey>('owl');
+  const [emoji, setEmoji] = useState<EmojiKey>(DEFAULT_EMOJI);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [creatorName, setCreatorName] = useState('');

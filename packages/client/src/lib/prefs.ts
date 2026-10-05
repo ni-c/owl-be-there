@@ -46,7 +46,6 @@ export function writeLanguage(language: Language): void {
 const SessionSchema = z.object({
   participantId: z.string().refine(isId),
   token: z.string(),
-  name: z.string(),
 });
 
 export type Session = z.infer<typeof SessionSchema>;
@@ -76,7 +75,6 @@ const MyEventSchema = z.object({
   title: z.string(),
   emoji: z.enum(EMOJI_KEYS),
   role: z.enum(['organiser', 'participant']),
-  seenAt: z.number(),
 });
 
 export type MyEvent = z.infer<typeof MyEventSchema>;
@@ -102,8 +100,7 @@ export function readMyEvents(): MyEvent[] {
  */
 export function rememberEvent(
   event: { id: string; title: string; emoji: EmojiKey },
-  role: MyEvent['role'],
-  now: number = Date.now()
+  role: MyEvent['role']
 ): void {
   const existing = readMyEvents();
   const previous = existing.find((entry) => entry.id === event.id);
@@ -112,7 +109,6 @@ export function rememberEvent(
     title: event.title,
     emoji: event.emoji,
     role: previous?.role === 'organiser' ? 'organiser' : role,
-    seenAt: now,
   };
   const list = [entry, ...existing.filter((other) => other.id !== event.id)];
   store.write('owl.events', list.slice(0, MAX_MY_EVENTS));

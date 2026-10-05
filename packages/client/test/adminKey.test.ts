@@ -83,8 +83,8 @@ describe('takeAdminTokenFromFragment', () => {
 describe('clearAdminToken', () => {
   it('removes the key and the organiser label, and keeps entry and session', () => {
     prefs.writeAdminToken(ID, KEY);
-    prefs.writeSession(ID, { participantId: OTHER, token: 't', name: 'Max' });
-    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser', 1);
+    prefs.writeSession(ID, { participantId: OTHER, token: 't' });
+    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
     adminKey.clearAdminToken(ID);
     expect(prefs.readAdminToken(ID)).toBeNull();
     expect(prefs.readSession(ID)).not.toBeNull();
@@ -92,16 +92,12 @@ describe('clearAdminToken', () => {
       [ID, 'participant'],
     ]);
     // The label does not come back with the next visit.
-    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'participant', 2);
+    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'participant');
     expect(prefs.readMyEvents()[0]!.role).toBe('participant');
   });
 
   it('is a no-op for an absent key and an event that is not listed', () => {
-    prefs.rememberEvent(
-      { id: OTHER, title: 'B', emoji: 'owl' },
-      'participant',
-      1
-    );
+    prefs.rememberEvent({ id: OTHER, title: 'B', emoji: 'owl' }, 'participant');
     const before = browser.storage.getItem('owl.events');
     adminKey.clearAdminToken(ID);
     adminKey.clearAdminToken(OTHER);
@@ -111,12 +107,8 @@ describe('clearAdminToken', () => {
 
   it('leaves the other events alone', () => {
     prefs.writeAdminToken(OTHER, KEY);
-    prefs.rememberEvent(
-      { id: OTHER, title: 'B', emoji: 'owl' },
-      'organiser',
-      1
-    );
-    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser', 2);
+    prefs.rememberEvent({ id: OTHER, title: 'B', emoji: 'owl' }, 'organiser');
+    prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
     adminKey.clearAdminToken(ID);
     expect(prefs.readAdminToken(OTHER)).toBe(KEY);
     expect(prefs.readMyEvents().map((e) => [e.id, e.role])).toEqual([

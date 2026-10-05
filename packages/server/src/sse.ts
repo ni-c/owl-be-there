@@ -7,7 +7,7 @@ export interface StreamLimits {
   total: number;
 }
 
-export const DEFAULT_STREAM_LIMITS: StreamLimits = {
+const DEFAULT_STREAM_LIMITS: StreamLimits = {
   perClient: 20,
   perEvent: 200,
   total: 2000,

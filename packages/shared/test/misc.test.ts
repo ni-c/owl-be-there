@@ -9,7 +9,6 @@ import {
   expiresOn,
   formatDayRange,
   ID_LENGTH,
-  isExpired,
   isId,
   isLanguage,
   LANGUAGE_NAMES,
@@ -395,12 +394,6 @@ describe('retention', () => {
         answered: true,
       })
     ).toBe('2027-10-01');
-  });
-
-  it('expires on the day after its last day, not on it', () => {
-    expect(isExpired('2027-04-01', '2027-04-01')).toBe(false);
-    expect(isExpired('2027-04-01', '2027-04-02')).toBe(true);
-    expect(isExpired('2027-04-01', '2027-03-31')).toBe(false);
   });
 });
 

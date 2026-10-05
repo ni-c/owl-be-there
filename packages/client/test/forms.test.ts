@@ -190,7 +190,6 @@ describe('detailsOf', () => {
       status: 'open' as const,
       finalStart: null,
       finalEnd: null,
-      createdAt: 0,
       expiresOn: '2027-06-01',
       version: 1,
       days,

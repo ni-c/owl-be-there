@@ -66,10 +66,6 @@ describe('errorMessage for the codes the server sends', () => {
     const days = (message: string) => failure(400, 'invalid_days', message);
     expect(errorMessage(days('past'), t)).toBe(en['error.past']);
     expect(errorMessage(days('too_far'), t)).toBe(en['error.tooFar']);
-    expect(errorMessage(days('too_many'), t)).toBe(
-      `At most ${LIMITS.days} days.`
-    );
-    expect(errorMessage(days('empty'), t)).toBe(en['error.noDays']);
     expect(errorMessage(days('span'), t)).toBe(en['error.rangeTooLong']);
     // Problems a person cannot cause through the screens.
     expect(errorMessage(days('unsorted'), t)).toBe(en['error.invalid']);

@@ -2,6 +2,7 @@ import {
   addDays,
   applyStroke,
   buildWeeks,
+  cellsInRect,
   compareISODate,
   formatDay,
   strokeModeFor,
@@ -9,6 +10,7 @@ import {
   toggleDays,
   weekdayOf,
   WEEKDAYS,
+  type Cell,
   type ISODate,
   type Mark,
   type Marks,
@@ -71,15 +73,10 @@ interface HeatProps extends BaseProps {
 
 export type CalendarGridProps = PaintProps | HeatProps;
 
-interface Position {
-  row: number;
-  col: number;
-}
-
 interface Stroke {
   pointerId: number;
-  start: Position;
-  current: Position;
+  start: Cell;
+  current: Cell;
   mode: StrokeMode;
   moved: boolean;
 }
@@ -108,7 +105,7 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   // Where each day sits in the grid, for the rectangle.
   const positions = useMemo(() => {
-    const map = new Map<ISODate, Position>();
+    const map = new Map<ISODate, Cell>();
     rows.forEach((row, rowIndex) =>
       row.days.forEach((day, col) => map.set(day, { row: rowIndex, col }))
     );
@@ -116,24 +113,10 @@ export function CalendarGrid(props: CalendarGridProps) {
   }, [rows]);
 
   const daysInRect = useCallback(
-    (a: Position, b: Position): ISODate[] => {
-      const result: ISODate[] = [];
-      for (
-        let row = Math.min(a.row, b.row);
-        row <= Math.max(a.row, b.row);
-        row += 1
-      ) {
-        for (
-          let col = Math.min(a.col, b.col);
-          col <= Math.max(a.col, b.col);
-          col += 1
-        ) {
-          const day = rows[row]?.days[col];
-          if (day && selectable(day)) result.push(day);
-        }
-      }
-      return result;
-    },
+    (a: Cell, b: Cell): ISODate[] =>
+      cellsInRect(a, b)
+        .map(({ row, col }) => rows[row]?.days[col])
+        .filter((day): day is ISODate => day !== undefined && selectable(day)),
     [rows, selectable]
   );
 
@@ -180,7 +163,7 @@ export function CalendarGrid(props: CalendarGridProps) {
   };
 
   const positionAt = useCallback(
-    (x: number, y: number): Position | null => {
+    (x: number, y: number): Cell | null => {
       const element = document
         .elementFromPoint(x, y)
         ?.closest<HTMLElement>('[data-day]');
@@ -496,11 +479,8 @@ export function CalendarGrid(props: CalendarGridProps) {
   // 2024-01-01 was a Monday: a fixed week to take weekday names from.
   const weekdayName = (weekday: Weekday, style: 'short' | 'long') =>
     formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
-  const monthName = (monthKey: string, style: 'short' | 'long') =>
-    formatDay(`${monthKey}-01`, locale, {
-      month: style,
-      ...(style === 'long' && { year: 'numeric' }),
-    });
+  const monthName = (monthKey: string) =>
+    formatDay(`${monthKey}-01`, locale, { month: 'short' });
 
   const stateLabel = (day: ISODate): string => {
     if (props.mode === 'heat') {
@@ -589,7 +569,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                   )}
                   {row.monthLabel && (
                     <span className="font-extrabold text-ink">
-                      {monthName(row.monthLabel, 'short')}
+                      {monthName(row.monthLabel)}
                     </span>
                   )}
                   {paint && !disabled && weekTargets.length > 0 ? (
@@ -618,11 +598,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                   if (!inSet) {
                     return (
                       <div role="gridcell" key={day} aria-hidden="true">
-                        <div
-                          className="cal-cell text-sm"
-                          data-kind="outside"
-                          data-month-start={monthStart}
-                        >
+                        <div className="cal-cell text-sm" data-kind="outside">
                           {number}
                         </div>
                       </div>

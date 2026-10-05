@@ -22,6 +22,7 @@ export interface AppContext {
   template: PageTemplate | null;
   /** Link-preview pictures of events; null without a client to serve. */
   preview: PreviewRenderer | null;
+  /** The server's own version, from its manifest; `/api/instance` names it. */
   version: string;
   /** The security headers every response carries. */
   headers: Record<string, string>;

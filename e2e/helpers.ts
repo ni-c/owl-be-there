@@ -30,7 +30,7 @@ export function daysFromNow(from: number, to: number): string[] {
   return days;
 }
 
-export interface CreatedEvent {
+interface CreatedEvent {
   id: string;
   adminToken: string;
 }
@@ -112,8 +112,6 @@ export function day(grid: Locator, iso: string): Locator {
 /** Say who you are with a name typed in. */
 export async function joinAs(page: Page, name: string): Promise<void> {
   await showView(page, 'mine');
-  const someoneElse = page.getByRole('button', { name: 'Someone else' });
-  if (await someoneElse.isVisible()) await someoneElse.click();
   await page.getByLabel('Your name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText(`Hi ${name}!`)).toBeVisible();

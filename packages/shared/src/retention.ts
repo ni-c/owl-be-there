@@ -1,10 +1,4 @@
-import {
-  addDays,
-  compareISODate,
-  diffDays,
-  maxISODate,
-  type ISODate,
-} from './dates.js';
+import { addDays, diffDays, maxISODate, type ISODate } from './dates.js';
 import { RETENTION_DAYS } from './limits.js';
 
 /** The last day an ISO date can name. */
@@ -56,9 +50,4 @@ export function expiresOn({
  */
 function later(day: ISODate, days: number): ISODate {
   return diffDays(day, LAST_DAY) < days ? LAST_DAY : addDays(day, days);
-}
-
-/** Whether an event whose last day is `expires` is gone by `today`. */
-export function isExpired(expires: ISODate, today: ISODate): boolean {
-  return compareISODate(today, expires) > 0;
 }

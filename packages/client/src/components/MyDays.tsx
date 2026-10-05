@@ -160,7 +160,6 @@ function WhoAreYou({
       const session = {
         participantId: result.participantId,
         token: result.token,
-        name: who.trim(),
       };
       writeSession(data.event.id, session);
       rememberEvent(data.event, 'participant');
@@ -335,7 +334,6 @@ function Greeting({
       );
       const next = {
         ...session,
-        name: result.participant.name,
         ...(result.token && { token: result.token }),
       };
       writeSession(data.event.id, next);

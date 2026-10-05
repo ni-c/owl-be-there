@@ -7,7 +7,6 @@ import {
   compareISODate,
   CreateEventBody,
   isId,
-  isLanguage,
   LIMITS,
   makeId,
   nameKey,
@@ -18,6 +17,7 @@ import {
   todayUTC,
   UpdateEventBody,
   type ISODate,
+  type Language,
 } from '@owl/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isAdmin } from '../auth/access.js';
@@ -61,7 +61,7 @@ function requireAdmin(request: FastifyRequest, event: EventRow): void {
  * not know the organiser's time zone; one day of slack covers everyone from
  * UTC-12 to UTC+14.
  */
-export function earliestDay(ctx: AppContext): ISODate {
+function earliestDay(ctx: AppContext): ISODate {
   return addDays(todayUTC(new Date(ctx.clock.now())), -1);
 }
 
@@ -70,7 +70,7 @@ export function earliestDay(ctx: AppContext): ISODate {
  * counts the horizon from its local date, which is a day ahead of UTC in
  * UTC+14, so the server allows one day more than the limit says.
  */
-export function latestDay(ctx: AppContext): ISODate {
+function latestDay(ctx: AppContext): ISODate {
   return addDays(todayUTC(new Date(ctx.clock.now())), LIMITS.horizon + 1);
 }
 
@@ -98,7 +98,7 @@ function sameDays(a: readonly ISODate[], b: readonly ISODate[]): boolean {
 }
 
 /** Roster names, without duplicates by name key, as new participants. */
-export function rosterEntries(names: readonly string[]): NewParticipant[] {
+function rosterEntries(names: readonly string[]): NewParticipant[] {
   const seen = new Set<string>();
   const entries: NewParticipant[] = [];
   for (const name of names) {
@@ -111,7 +111,7 @@ export function rosterEntries(names: readonly string[]): NewParticipant[] {
 }
 
 /** Answer with the event as everyone sees it now. */
-export function sendSnapshot(
+function sendSnapshot(
   ctx: AppContext,
   reply: FastifyReply,
   id: string
@@ -388,9 +388,7 @@ export function registerEventRoutes(
         {
           uid: `${event.id}@owl-be-there`,
           title: event.title,
-          description:
-            SERVER_TEXTS[isLanguage(event.language) ? event.language : 'en']
-              .calendarNote,
+          description: SERVER_TEXTS[event.language as Language].calendarNote,
           location: event.location,
           start: event.final_start,
           end: event.final_end,

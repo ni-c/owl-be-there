@@ -75,7 +75,7 @@ export function parseISODate(value: ISODate): CivilDate {
 
 const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
 
-export function formatISODate(date: CivilDate): ISODate {
+function formatISODate(date: CivilDate): ISODate {
   return `${String(date.year).padStart(4, '0')}-${pad2(date.month)}-${pad2(date.day)}`;
 }
 

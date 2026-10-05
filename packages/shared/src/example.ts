@@ -138,7 +138,6 @@ export function exampleSnapshot(options: {
       status: 'open',
       finalStart: null,
       finalEnd: null,
-      createdAt: 0,
       expiresOn: expiresOn({
         lastWriteDay: options.today,
         lastCandidateDay: last,

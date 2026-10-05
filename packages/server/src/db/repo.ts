@@ -5,6 +5,7 @@ import {
   expiresOn,
   todayUTC,
   type EmojiKey,
+  type EventStatusData,
   type EventSnapshotData,
   type ISODate,
   type Language,
@@ -62,11 +63,9 @@ interface MarkRow {
   state: 'yes' | 'maybe';
 }
 
-export type EventStatus = 'open' | 'closed' | 'finalized';
-
 export function statusOf(
   row: Pick<EventRow, 'closed_at' | 'final_start'>
-): EventStatus {
+): EventStatusData {
   if (row.final_start !== null) return 'finalized';
   return row.closed_at !== null ? 'closed' : 'open';
 }
@@ -134,7 +133,7 @@ function marksOf(
 }
 
 /** A participant as the API shows them. */
-export function participantView(
+function participantView(
   row: ParticipantRow,
   days: readonly DayRow[],
   marks: { yes: string[]; maybe: string[] }
@@ -238,7 +237,6 @@ export function buildSnapshot(db: Db, event: EventRow): EventSnapshotData {
       status: statusOf(event),
       finalStart: event.final_start,
       finalEnd: event.final_end,
-      createdAt: event.created_at,
       expiresOn: event.expires_on,
       version: event.version,
       days: days.map((day) => day.day),
@@ -271,6 +269,8 @@ function touch(db: Db, eventId: string, now: number): number {
     finalEnd: event.final_end,
     answered,
   });
+  // Nothing reads last_write_at (expires_on carries the retention date), but
+  // the column is NOT NULL and an applied migration is never edited: it stays.
   db.run(
     'UPDATE events SET version = version + 1, last_write_at = ?, expires_on = ? WHERE id = ?',
     now,
@@ -578,11 +578,7 @@ export function updateEvent(
     ][]) {
       const value = patch[key];
       if (value === undefined) continue;
-      db.run(
-        `UPDATE events SET ${column} = ? WHERE id = ?`,
-        value === '' ? null : value,
-        eventId
-      );
+      db.run(`UPDATE events SET ${column} = ? WHERE id = ?`, value, eventId);
     }
     if (patch.days) {
       const wanted = new Set(patch.days);
@@ -717,7 +713,10 @@ export function deleteEvent(db: Db, eventId: string): boolean {
  */
 const DELETE_CHUNK = 200;
 
-/** Delete every event whose last day has passed; return their ids. */
+/**
+ * Delete every event whose last day has passed (`expires_on < today`: on the
+ * last day itself it still exists); return their ids.
+ */
 export function sweepExpired(db: Db, today: ISODate): string[] {
   const deleted: string[] = [];
   for (;;) {

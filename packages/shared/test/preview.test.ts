@@ -45,7 +45,6 @@ function snapshot(
       status: options.final ? 'finalized' : options.closed ? 'closed' : 'open',
       finalStart: options.final?.[0] ?? null,
       finalEnd: options.final?.[1] ?? null,
-      createdAt: 0,
       expiresOn: '2027-03-01',
       version: 3,
       days,
