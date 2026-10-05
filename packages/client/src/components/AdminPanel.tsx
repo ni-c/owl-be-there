@@ -29,6 +29,7 @@ import {
   Dialog,
   Field,
   Notice,
+  Select,
   TextArea,
   TextInput,
 } from './ui.tsx';
@@ -242,18 +243,18 @@ function DetailsForm({
       </Field>
       <Field label={t('create.emoji')}>
         {({ id }) => (
-          <select
+          <Select
             id={id}
             value={emoji}
             onChange={(e) => setEmoji(e.target.value as EmojiKey)}
-            className="min-h-11 rounded-2xl border-2 border-line bg-surface px-3"
+            className="min-h-11 rounded-2xl border-2 border-line bg-surface pl-3"
           >
             {EMOJI_KEYS.map((key) => (
               <option key={key} value={key}>
                 {EMOJIS[key]} {t(`emoji.${key}`)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </Field>
       <Field label={t('create.description')} hint={t('create.descriptionHint')}>

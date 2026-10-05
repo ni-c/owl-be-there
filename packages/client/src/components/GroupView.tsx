@@ -340,25 +340,22 @@ function DayDetails({
 function Legend() {
   const { t } = useI18n();
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2 text-sm font-bold">
-        <span>{t('group.legendFew')}</span>
-        <div
-          className="flex flex-1 gap-0.5 overflow-hidden rounded-full"
-          role="img"
-          aria-label={t('group.legend')}
-        >
-          {[0, 1, 2, 3, 4, 5].map((level) => (
-            <span
-              key={level}
-              className="legend-step"
-              style={{ background: `var(--owl-heat-${level})` }}
-            />
-          ))}
-        </div>
-        <span>{t('group.legendAll')}</span>
+    <div className="flex items-center gap-2 text-sm font-bold">
+      <span>{t('group.legendFew')}</span>
+      <div
+        className="flex flex-1 gap-0.5 overflow-hidden rounded-full"
+        role="img"
+        aria-label={t('group.legend')}
+      >
+        {[0, 1, 2, 3, 4, 5].map((level) => (
+          <span
+            key={level}
+            className="legend-step"
+            style={{ background: `var(--owl-heat-${level})` }}
+          />
+        ))}
       </div>
-      <p className="text-xs text-muted">{t('group.maybeHalf')}</p>
+      <span>{t('group.legendAll')}</span>
     </div>
   );
 }

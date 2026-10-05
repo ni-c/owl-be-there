@@ -80,7 +80,7 @@ export async function showView(
   view: 'mine' | 'group'
 ): Promise<void> {
   const tab = page.getByRole('tab', {
-    name: view === 'mine' ? 'My days' : /^Everyone/,
+    name: view === 'mine' ? 'My days' : /^Group/,
   });
   if (await tab.isVisible()) await tab.click();
 }
@@ -91,7 +91,7 @@ export function myCalendar(page: Page): Locator {
 }
 
 export function groupCalendar(page: Page): Locator {
-  return page.getByRole('grid', { name: 'Everyone' });
+  return page.getByRole('grid', { name: 'Group' });
 }
 
 export function day(grid: Locator, iso: string): Locator {
