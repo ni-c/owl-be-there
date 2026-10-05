@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   monthRange,
   PREVIEW_MAX_WEEKS,
+  previewCalendar,
   previewNeedsCjk,
   previewSvg,
-  previewWeeks,
   textWidth,
   wrapText,
   type EventSnapshotData,
+  weekdayOf,
   type Language,
 } from '../src/index.js';
 
@@ -69,7 +71,15 @@ const visible = (svg: string): string =>
 /** ICU puts thin spaces around the dash of a range. */
 const plain = (text: string): string => text.replace(/\s/g, ' ');
 
-describe('previewWeeks', () => {
+const previewWeeks = (data: EventSnapshotData) => previewCalendar(data).weeks;
+
+/** Every day from `start`, `count` of them. */
+const daysFrom = (start: string, count: number): string[] =>
+  Array.from({ length: count }, (_, i) => {
+    return addDays(start, i);
+  });
+
+describe('previewCalendar', () => {
   it('colours candidate days by heat and leaves the others blank', () => {
     const weeks = previewWeeks(
       snapshot({
@@ -104,14 +114,75 @@ describe('previewWeeks', () => {
     ]);
   });
 
-  it('shows at most the first weeks of a long poll', () => {
-    const days = Array.from({ length: 70 }, (_, i) => {
-      const date = new Date(Date.UTC(2026, 10, 1 + i));
-      return date.toISOString().slice(0, 10);
-    });
-    const weeks = previewWeeks(snapshot({ days }));
-    expect(weeks).toHaveLength(PREVIEW_MAX_WEEKS);
-    expect(weeks[0]![6]!.day).toBe('2026-11-01');
+  it('shows a poll of up to six weeks whole', () => {
+    const calendar = previewCalendar(
+      snapshot({ days: daysFrom('2026-11-02', 42) })
+    );
+    expect(calendar.weeks).toHaveLength(PREVIEW_MAX_WEEKS);
+    expect(calendar.hidden).toBe(0);
+    expect(calendar.first).toBe('2026-11-02');
+    expect(calendar.last).toBe('2026-12-13');
+  });
+
+  it('shows the first weeks of a long poll nobody has answered', () => {
+    const calendar = previewCalendar(
+      snapshot({ days: daysFrom('2026-11-02', 91) })
+    );
+    expect(calendar.weeks).toHaveLength(PREVIEW_MAX_WEEKS);
+    expect(calendar.weeks[0]![0]!.day).toBe('2026-11-02');
+    expect(calendar.hidden).toBe(91 - 42);
+    expect(calendar.last).toBe('2027-01-31');
+  });
+
+  it('shows the weeks around the best day of a long poll', () => {
+    // Week 9 of 13 is the one everybody can make.
+    const calendar = previewCalendar(
+      snapshot({
+        days: daysFrom('2026-11-02', 91),
+        people: [
+          { name: 'A', yes: ['2026-12-31'] },
+          { name: 'B', yes: ['2026-12-31', '2026-11-03'] },
+        ],
+      })
+    );
+    const rows = calendar.weeks.map((row) => row[0]!.day);
+    expect(rows[2]).toBe('2026-12-28'); // the best week third from the top
+    expect(rows).toHaveLength(PREVIEW_MAX_WEEKS);
+    const best = calendar.weeks.flat().find((c) => c.day === '2026-12-31')!;
+    expect(best.level).toBe(5);
+  });
+
+  it('keeps six weeks when the best day is near either end', () => {
+    const days = daysFrom('2026-11-02', 91);
+    const at = (day: string) =>
+      previewCalendar(
+        snapshot({ days, people: [{ name: 'A', yes: [day] }] })
+      ).weeks.map((row) => row[0]!.day);
+    expect(at('2026-11-02')[0]).toBe('2026-11-02');
+    const end = at('2027-01-31');
+    expect(end).toHaveLength(PREVIEW_MAX_WEEKS);
+    expect(end[PREVIEW_MAX_WEEKS - 1]).toBe('2027-01-25');
+  });
+
+  it('centres a long poll on the chosen date once there is one', () => {
+    const rows = previewCalendar(
+      snapshot({
+        days: daysFrom('2026-11-02', 91),
+        people: [{ name: 'A', yes: ['2026-11-03'] }],
+        final: ['2026-12-17', '2026-12-18'],
+      })
+    ).weeks.map((row) => row[0]!.day);
+    expect(rows[2]).toBe('2026-12-14');
+  });
+
+  it('skips weeks without a candidate day when counting', () => {
+    // Weekends over three months: thirteen rows, six shown.
+    const days = daysFrom('2026-11-02', 91).filter(
+      (day) => weekdayOf(day) >= 5
+    );
+    const calendar = previewCalendar(snapshot({ days }));
+    expect(calendar.weeks).toHaveLength(PREVIEW_MAX_WEEKS);
+    expect(calendar.hidden).toBe(days.length - 12);
   });
 
   it('counts people who never answered as neither yes nor no', () => {
@@ -236,6 +307,30 @@ describe('previewSvg', () => {
       'Add the days you can make it. No sign-up needed.'
     );
     expect(svg.match(/<rect /g)!.length).toBe(2 + 3); // ground, panel, 3 days
+  });
+});
+
+describe('previewSvg of a long poll', () => {
+  it('names the whole period and counts the days left out', () => {
+    const svg = previewSvg(
+      snapshot({ language: 'de', days: daysFrom('2026-11-02', 91) }),
+      options
+    );
+    const text = plain(visible(svg));
+    expect(text).toContain('November 2026 – Januar 2027');
+    expect(text).toContain('+ 49 weitere Tage');
+  });
+
+  it('says nothing about more days when the poll fits', () => {
+    expect(visible(previewSvg(snapshot(), options))).not.toContain('more');
+  });
+
+  it('counts one hidden day in the singular', () => {
+    const svg = previewSvg(
+      snapshot({ days: daysFrom('2026-11-02', 43) }),
+      options
+    );
+    expect(visible(svg)).toContain('+ 1 more day');
   });
 });
 

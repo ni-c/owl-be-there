@@ -57,8 +57,23 @@ export interface PreviewCell {
   chosen: boolean;
 }
 
-/** The calendar rows of the picture, each seven days long. */
-export function previewWeeks(data: EventSnapshotData): PreviewCell[][] {
+export interface PreviewCalendar {
+  /** The rows shown, each seven days long. */
+  weeks: PreviewCell[][];
+  /** Candidate days left out of a long poll. */
+  hidden: number;
+  /** The first and last candidate day of the whole poll. */
+  first: ISODate;
+  last: ISODate;
+}
+
+/**
+ * The calendar of the picture. A poll of up to six weeks is shown whole; a
+ * longer one shows the six weeks around its best day — the chosen date once
+ * there is one, else the day most can make (the earliest of equals, so a poll
+ * nobody has answered shows its first weeks).
+ */
+export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   const { event } = data;
   const candidates = new Set(event.days);
   const people: Respondent[] = data.participants.map((p) => ({
@@ -68,23 +83,43 @@ export function previewWeeks(data: EventSnapshotData): PreviewCell[][] {
     maybe: new Set(p.maybe),
     unseen: new Set(p.unseen),
   }));
+  const heat = new Map(
+    [...candidates].map((day) => [day, heatOf(tally(people, [day]))])
+  );
   const firstWeekday = event.language === 'ja' ? 6 : 0;
   const chosen = (day: ISODate): boolean =>
     event.finalStart !== null &&
     event.finalEnd !== null &&
     compareISODate(day, event.finalStart) >= 0 &&
     compareISODate(day, event.finalEnd) <= 0;
-  return buildWeeks(event.days, firstWeekday)
-    .slice(0, PREVIEW_MAX_WEEKS)
-    .map((row) =>
-      row.days.map((day) => ({
-        day,
-        level: candidates.has(day)
-          ? heatLevel(heatOf(tally(people, [day])))
-          : null,
-        chosen: chosen(day),
-      }))
-    );
+  const rows = buildWeeks(event.days, firstWeekday);
+  const sorted = [...candidates].sort();
+
+  let from = 0;
+  if (rows.length > PREVIEW_MAX_WEEKS) {
+    let best = event.finalStart;
+    if (best === null)
+      for (const day of sorted)
+        if (best === null || heat.get(day)! > heat.get(best)!) best = day;
+    const bestRow = rows.findIndex((row) => row.days.includes(best!));
+    // The best week second or third from the top, with weeks before it for
+    // context — unless the poll begins or ends there.
+    from = Math.min(Math.max(0, bestRow - 2), rows.length - PREVIEW_MAX_WEEKS);
+  }
+  const weeks = rows.slice(from, from + PREVIEW_MAX_WEEKS).map((row) =>
+    row.days.map((day) => ({
+      day,
+      level: candidates.has(day) ? heatLevel(heat.get(day)!) : null,
+      chosen: chosen(day),
+    }))
+  );
+  const shown = weeks.flat().filter((cell) => cell.level !== null).length;
+  return {
+    weeks,
+    hidden: candidates.size - shown,
+    first: sorted[0]!,
+    last: sorted[sorted.length - 1]!,
+  };
 }
 
 export function escapeXml(text: string): string {
@@ -206,7 +241,8 @@ export function previewSvg(
   );
 
   // The calendar panel.
-  const weeks = previewWeeks(data);
+  const calendar = previewCalendar(data);
+  const { weeks } = calendar;
   const panelX = 696;
   const panelY = 48;
   const panelW = 456;
@@ -220,15 +256,12 @@ export function previewSvg(
   );
   // The calendar block — month line, weekday letters, rows — centred in
   // the panel, however many weeks it has.
-  const blockH = 64 + 48 + weeks.length * (cell + gap);
-  const top = panelY + Math.max(36, (panelH - blockH) / 2);
-  const shown = weeks.flat().filter((c) => c.level !== null);
-  if (shown.length > 0) {
-    const months = monthRange(
-      shown[0]!.day,
-      shown[shown.length - 1]!.day,
-      locale
-    );
+  const more = calendar.hidden > 0 ? 44 : 0;
+  const blockH = 52 + 40 + weeks.length * (cell + gap) + more;
+  const top = panelY + Math.max(28, (panelH - blockH) / 2);
+  {
+    // The whole poll, even when only part of it is drawn.
+    const months = monthRange(calendar.first, calendar.last, locale);
     // Smaller rather than cut off: "October 2026 – January 2027" is long.
     const size = Math.min(
       30,
@@ -238,7 +271,7 @@ export function previewSvg(
       `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${COLOURS.ink}">${e(months)}</text>`
     );
   }
-  const headY = top + 96;
+  const headY = top + 84;
   const rowStart = weeks[0]?.[0]?.day;
   if (rowStart)
     for (let index = 0; index < 7; index += 1) {
@@ -276,6 +309,10 @@ export function previewSvg(
       );
     });
   });
+  if (calendar.hidden > 0)
+    parts.push(
+      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
+    );
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" viewBox="0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}" font-family="${PREVIEW_FONTS}">`,

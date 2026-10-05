@@ -93,6 +93,9 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Eine Eule mit einem Kalender',
     previewCalendarAlt:
       'Die möglichen Tage im Kalender, gefärbt danach, wie viele können',
+    /** Below the preview's calendar when a long poll is cut. */
+    previewMoreDays: (days: number): string =>
+      `+ ${days} weitere ${days === 1 ? 'Tag' : 'Tage'}`,
     calendarNote: 'Ausgewählt mit Owl Be There',
   },
   en: {
@@ -108,6 +111,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'An owl holding a calendar',
     previewCalendarAlt:
       'The days to choose from on a calendar, coloured by how many can make it',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} more ${days === 1 ? 'day' : 'days'}`,
     calendarNote: 'Chosen with Owl Be There',
   },
   es: {
@@ -123,6 +128,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Un búho con un calendario',
     previewCalendarAlt:
       'Los días posibles en un calendario, coloreados según cuántos pueden',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'día más' : 'días más'}`,
     calendarNote: 'Fecha elegida con Owl Be There',
   },
   fr: {
@@ -138,6 +145,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Un hibou avec un calendrier',
     previewCalendarAlt:
       'Les jours possibles sur un calendrier, colorés selon le nombre de personnes libres',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'autre jour' : 'autres jours'}`,
     calendarNote: 'Date choisie avec Owl Be There',
   },
   it: {
@@ -153,6 +162,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Un gufo con un calendario',
     previewCalendarAlt:
       'I giorni possibili su un calendario, colorati in base a quanti ci sono',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'altro giorno' : 'altri giorni'}`,
     calendarNote: 'Data scelta con Owl Be There',
   },
   ja: {
@@ -167,6 +178,7 @@ export const SERVER_TEXTS = {
     previewDecided: (when: string): string => `日程決定：${when}`,
     previewImageAlt: 'カレンダーを持つフクロウ',
     previewCalendarAlt: '候補日のカレンダー。行ける人の数で色分け',
+    previewMoreDays: (days: number): string => `ほか${days}日`,
     calendarNote: 'Owl Be Thereで決めた日程',
   },
   nl: {
@@ -182,6 +194,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Een uil met een kalender',
     previewCalendarAlt:
       'De mogelijke dagen op een kalender, gekleurd naar hoeveel mensen kunnen',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'andere dag' : 'andere dagen'}`,
     calendarNote: 'Datum gekozen met Owl Be There',
   },
   pt: {
@@ -197,6 +211,8 @@ export const SERVER_TEXTS = {
     previewImageAlt: 'Uma coruja com um calendário',
     previewCalendarAlt:
       'Os dias possíveis num calendário, coloridos conforme quantos podem',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'outro dia' : 'outros dias'}`,
     calendarNote: 'Data escolhida com Owl Be There',
   },
 } as const satisfies Record<Language, unknown>;
