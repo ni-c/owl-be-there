@@ -277,7 +277,7 @@ export const es: Dictionary = {
   'footer.theme': 'Apariencia',
   'footer.privacy': 'Privacidad',
   'footer.imprint': 'Aviso legal',
-  'footer.source': 'Código abierto',
+  'footer.source': 'Código abierto de Willi Thiel',
   'theme.system': 'Sistema',
   'theme.light': 'Claro',
   'theme.dark': 'Oscuro',

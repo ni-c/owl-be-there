@@ -280,7 +280,7 @@ export const nl: Dictionary = {
   'footer.theme': 'Weergave',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Colofon',
-  'footer.source': 'Broncode',
+  'footer.source': 'Open source van Willi Thiel',
   'theme.system': 'Systeem',
   'theme.light': 'Licht',
   'theme.dark': 'Donker',

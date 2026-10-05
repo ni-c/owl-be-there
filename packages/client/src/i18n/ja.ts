@@ -266,7 +266,7 @@ export const ja: Dictionary = {
   'footer.theme': '表示',
   'footer.privacy': 'プライバシー',
   'footer.imprint': '運営者情報',
-  'footer.source': 'ソースコード',
+  'footer.source': 'Willi Thiel のオープンソース',
   'theme.system': '端末の設定',
   'theme.light': 'ライト',
   'theme.dark': 'ダーク',

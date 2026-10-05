@@ -281,7 +281,7 @@ export const de: Dictionary = {
   'footer.theme': 'Darstellung',
   'footer.privacy': 'Datenschutz',
   'footer.imprint': 'Impressum',
-  'footer.source': 'Open Source',
+  'footer.source': 'Open Source von Willi Thiel',
   'theme.system': 'System',
   'theme.light': 'Hell',
   'theme.dark': 'Dunkel',

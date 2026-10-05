@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An event's description uses the full width of the page instead of breaking early.
 - Event pages carry the event's language in `<html lang>`, for crawlers that build link previews.
 - The note at the bottom of an event page says that the event is deleted automatically: "This event will be deleted automatically on … unless something changes by then."
+- The footer names the author: "Open source by Willi Thiel", in every language.
 - Link-preview pictures may be embedded by other sites (`Cross-Origin-Resource-Policy: cross-origin`); everything else stays `same-origin`.
 - New candidate days may lie one day further ahead, so people east of UTC can pick the last allowed day.
 - Marks on days that are not candidate days are dropped instead of refusing the whole save.

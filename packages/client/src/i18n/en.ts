@@ -274,7 +274,7 @@ export const en = {
   'footer.theme': 'Theme',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Imprint',
-  'footer.source': 'Open source',
+  'footer.source': 'Open source by Willi Thiel',
   'theme.system': 'System',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
