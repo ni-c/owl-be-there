@@ -4,6 +4,7 @@ import {
   heatLevel,
   heatOf,
   rankBlocks,
+  respondentOf,
   tally,
   type EventSnapshotData,
   type ISODate,
@@ -43,14 +44,7 @@ export function GroupView(props: GroupViewProps) {
   const [error, setError] = useState<string | null>(null);
 
   const people: Respondent[] = useMemo(
-    () =>
-      data.participants.map((p) => ({
-        id: p.id,
-        answered: p.answered,
-        yes: new Set(p.yes),
-        maybe: new Set(p.maybe),
-        unseen: new Set(p.unseen),
-      })),
+    () => data.participants.map(respondentOf),
     [data.participants]
   );
   const names = useMemo(
@@ -102,6 +96,11 @@ export function GroupView(props: GroupViewProps) {
   const selectedDays = useMemo(() => new Set(selected?.days ?? []), [selected]);
   const answeredCount = visible.filter((p) => p.answered).length;
   const waiting = data.participants.filter((p) => !p.answered);
+  const waitingNote = waiting.length > 0 && (
+    <p className="text-sm [overflow-wrap:anywhere] text-muted">
+      {t('group.waiting', { names: waiting.map((p) => p.name).join(', ') })}
+    </p>
+  );
   const anyAnswered = data.participants.some((p) => p.answered);
   const openDay = liveOpenDay(openDayState, event.days, anyAnswered);
   // A day sheet that closed because its day or every answer went must not
@@ -115,13 +114,7 @@ export function GroupView(props: GroupViewProps) {
         <Owl mood="sleeping" size={110} />
         <p className="text-lg font-extrabold">{t('group.empty.title')}</p>
         <p className="max-w-sm text-muted">{t('group.empty.text')}</p>
-        {waiting.length > 0 && (
-          <p className="text-sm [overflow-wrap:anywhere] text-muted">
-            {t('group.waiting', {
-              names: waiting.map((p) => p.name).join(', '),
-            })}
-          </p>
-        )}
+        {waitingNote}
       </div>
     );
   }
@@ -265,13 +258,7 @@ export function GroupView(props: GroupViewProps) {
             </Button>
           )}
         </div>
-        {waiting.length > 0 && (
-          <p className="text-sm [overflow-wrap:anywhere] text-muted">
-            {t('group.waiting', {
-              names: waiting.map((p) => p.name).join(', '),
-            })}
-          </p>
-        )}
+        {waitingNote}
       </section>
 
       <Dialog

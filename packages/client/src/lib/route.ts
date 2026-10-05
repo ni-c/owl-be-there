@@ -1,4 +1,4 @@
-import { isLanguage, type Language } from '@owl/shared';
+import { isId, isLanguage, type Language } from '@owl/shared';
 
 /**
  * Four pages need no router library: the path, a way to change it, and a
@@ -16,8 +16,8 @@ export function parseRoute(pathname: string): Route {
   if (pathname === '/privacy') return { page: 'privacy' };
   const home = /^\/([a-z]{2})\/?$/.exec(pathname);
   if (home && isLanguage(home[1]!)) return { page: 'home', language: home[1] };
-  const event = /^\/e\/([1-9A-HJ-NP-Za-km-z]{12})\/?$/.exec(pathname);
-  if (event) return { page: 'event', id: event[1]! };
+  const event = /^\/e\/([^/]+)\/?$/.exec(pathname);
+  if (event && isId(event[1]!)) return { page: 'event', id: event[1]! };
   return { page: 'not-found' };
 }
 

@@ -1,29 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventStore } from '../src/lib/eventStore.ts';
-import { FakeEventSource, installBrowser, jsonResponse } from './browser.ts';
-
-const ID = '7gT4kPq2Wx9Z';
-
-const snapshot = (version: number) => ({
-  event: {
-    id: ID,
-    title: 'T',
-    description: null,
-    location: null,
-    emoji: 'owl',
-    creatorName: null,
-    language: 'en',
-    durationDays: 1,
-    minCount: null,
-    status: 'open',
-    finalStart: null,
-    finalEnd: null,
-    expiresOn: '2027-05-30',
-    version,
-    days: ['2027-03-06'],
-  },
-  participants: [],
-});
+import {
+  EVENT_ID,
+  eventSnapshot,
+  FakeEventSource,
+  installBrowser,
+  jsonResponse,
+} from './browser.ts';
 
 let responses: (Response | Error)[];
 let requests: RequestInit[];
@@ -57,8 +40,8 @@ const flush = async () => {
 
 describe('EventStore', () => {
   it('loads the event and tells subscribers', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     const seen: string[] = [];
     store.subscribe(() => seen.push(store.getState().status));
     store.start();
@@ -70,15 +53,15 @@ describe('EventStore', () => {
   });
 
   it('refetches after a newer version is announced, and only then', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     const source = FakeEventSource.instances[0]!;
     source.emit('changed', '{"version":1}');
     await vi.advanceTimersByTimeAsync(1000);
     expect(requests).toHaveLength(1);
-    responses.push(jsonResponse(200, snapshot(2), { etag: '"v2"' }));
+    responses.push(jsonResponse(200, eventSnapshot(2), { etag: '"v2"' }));
     source.emit('changed', '{"version":2}');
     source.emit('changed', '{"version":2}');
     source.emit('changed', 'not json');
@@ -94,17 +77,17 @@ describe('EventStore', () => {
   });
 
   it('applies a newer snapshot from a write and ignores an older one', async () => {
-    responses.push(jsonResponse(200, snapshot(3), { etag: '"v3"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(3), { etag: '"v3"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
-    store.apply(snapshot(2) as never);
+    store.apply(eventSnapshot(2));
     expect(
       store.getState().status === 'ready' &&
         (store.getState() as { data: { event: { version: number } } }).data
           .event.version
     ).toBe(3);
-    store.apply(snapshot(4) as never);
+    store.apply(eventSnapshot(4));
     expect(
       (store.getState() as { data: { event: { version: number } } }).data.event
         .version
@@ -114,13 +97,13 @@ describe('EventStore', () => {
 
   it('says not found for an unknown event, and deleted for one that goes away', async () => {
     responses.push(jsonResponse(404, { error: 'not_found' }));
-    const missing = new EventStore(ID);
+    const missing = new EventStore(EVENT_ID);
     missing.start();
     await flush();
     expect(missing.getState().status).toBe('not-found');
 
-    responses.push(jsonResponse(200, snapshot(1)));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1)));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     FakeEventSource.instances.at(-1)!.emit('deleted');
@@ -128,8 +111,8 @@ describe('EventStore', () => {
   });
 
   it('keeps the last state but marks it stale when a refetch fails, and recovers', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     responses.push(new TypeError('offline'));
@@ -143,7 +126,7 @@ describe('EventStore', () => {
 
   it('reports an error when the first load fails', async () => {
     responses.push(new TypeError('offline'));
-    const store = new EventStore(ID);
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     expect(store.getState().status).toBe('error');
@@ -151,8 +134,8 @@ describe('EventStore', () => {
   });
 
   it('falls back to polling when the stream is refused', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     const source = FakeEventSource.instances[0]!;
@@ -164,8 +147,8 @@ describe('EventStore', () => {
   });
 
   it('tries the stream again after polling for a while, and polls no more once it is back', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     const first = FakeEventSource.instances[0]!;
@@ -182,8 +165,8 @@ describe('EventStore', () => {
   });
 
   it('does not retry the stream after stop', async () => {
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     const source = FakeEventSource.instances[0]!;
@@ -196,8 +179,8 @@ describe('EventStore', () => {
 
   it('keeps a newer snapshot when an older GET lands after it', async () => {
     let answer: (response: Response) => void = () => undefined;
-    responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     vi.stubGlobal(
@@ -211,8 +194,8 @@ describe('EventStore', () => {
     );
     const refreshing = store.refresh();
     // A write answers with version 3 while the GET is still travelling.
-    store.apply(snapshot(3) as never);
-    answer(jsonResponse(200, snapshot(2), { etag: '"v2"' }));
+    store.apply(eventSnapshot(3));
+    answer(jsonResponse(200, eventSnapshot(2), { etag: '"v2"' }));
     await refreshing;
     const state = store.getState();
     expect(state.status === 'ready' && state.data.event.version).toBe(3);
@@ -221,8 +204,8 @@ describe('EventStore', () => {
 
   it('polls where there is no EventSource at all', async () => {
     vi.stubGlobal('EventSource', undefined);
-    responses.push(jsonResponse(200, snapshot(1)));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1)));
+    const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
     await vi.advanceTimersByTimeAsync(30_000);
@@ -231,8 +214,8 @@ describe('EventStore', () => {
   });
 
   it('shares one fetch between overlapping refreshes and ignores answers after stop', async () => {
-    responses.push(jsonResponse(200, snapshot(1)));
-    const store = new EventStore(ID);
+    responses.push(jsonResponse(200, eventSnapshot(1)));
+    const store = new EventStore(EVENT_ID);
     const first = store.refresh();
     const second = store.refresh();
     expect(first).toBe(second);
@@ -267,9 +250,9 @@ describe('EventStore', () => {
 
     async function startAt(first: number) {
       responses.push(
-        jsonResponse(200, snapshot(first), { etag: `"v${first}"` })
+        jsonResponse(200, eventSnapshot(first), { etag: `"v${first}"` })
       );
-      const store = new EventStore(ID);
+      const store = new EventStore(EVENT_ID);
       store.start();
       await flush();
       return store;
@@ -282,12 +265,12 @@ describe('EventStore', () => {
       FakeEventSource.instances[0]!.emit('changed', '{"version":3}');
       await vi.advanceTimersByTimeAsync(400); // the timer's refresh merges
       expect(requests).toHaveLength(2);
-      held[0]!(jsonResponse(200, snapshot(2), { etag: '"v2"' }));
+      held[0]!(jsonResponse(200, eventSnapshot(2), { etag: '"v2"' }));
       await running;
       expect(version(store)).toBe(2);
       await vi.advanceTimersByTimeAsync(400);
       expect(held).toHaveLength(2);
-      held[1]!(jsonResponse(200, snapshot(3), { etag: '"v3"' }));
+      held[1]!(jsonResponse(200, eventSnapshot(3), { etag: '"v3"' }));
       await vi.advanceTimersByTimeAsync(0);
       expect(version(store)).toBe(3);
       await vi.advanceTimersByTimeAsync(60_000);
@@ -302,7 +285,7 @@ describe('EventStore', () => {
       await vi.advanceTimersByTimeAsync(400);
       expect(store.getState()).toMatchObject({ status: 'ready', stale: true });
       expect(requests).toHaveLength(2);
-      responses.push(jsonResponse(200, snapshot(2), { etag: '"v2"' }));
+      responses.push(jsonResponse(200, eventSnapshot(2), { etag: '"v2"' }));
       await vi.advanceTimersByTimeAsync(1000);
       expect(requests).toHaveLength(3);
       expect(store.getState()).toMatchObject({ status: 'ready', stale: false });
@@ -348,7 +331,7 @@ describe('EventStore', () => {
       responses.push(new TypeError('offline'));
       FakeEventSource.instances[0]!.emit('changed', '{"version":2}');
       await vi.advanceTimersByTimeAsync(400);
-      store.apply(snapshot(2) as never);
+      store.apply(eventSnapshot(2));
       await vi.advanceTimersByTimeAsync(60_000);
       expect(requests).toHaveLength(2);
       store.stop();
@@ -373,12 +356,12 @@ describe('EventStore', () => {
 
     it('chases an announcement the first load missed, too', async () => {
       responses.push(new TypeError('offline'));
-      const store = new EventStore(ID);
+      const store = new EventStore(EVENT_ID);
       store.start();
       await flush();
       expect(store.getState().status).toBe('error');
       FakeEventSource.instances[0]!.emit('changed', '{"version":4}');
-      responses.push(jsonResponse(200, snapshot(4), { etag: '"v4"' }));
+      responses.push(jsonResponse(200, eventSnapshot(4), { etag: '"v4"' }));
       await vi.advanceTimersByTimeAsync(400);
       expect(version(store)).toBe(4);
       store.stop();
@@ -392,8 +375,8 @@ describe('EventStore', () => {
     });
 
     async function started() {
-      responses.push(jsonResponse(200, snapshot(1), { etag: '"v1"' }));
-      const store = new EventStore(ID);
+      responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+      const store = new EventStore(EVENT_ID);
       store.start();
       await flush();
       return store;

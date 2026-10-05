@@ -1,8 +1,9 @@
+import { APP_NAME, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
-  'app.name': 'Owl Be There',
-  'app.tagline': 'Findet einen Tag, an dem alle können.',
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.de,
 
   'home.lead':
     'Wann könnt ihr alle? Markiert eure Tage im Kalender und findet es heraus. Ohne Anmeldung und Tracking.',

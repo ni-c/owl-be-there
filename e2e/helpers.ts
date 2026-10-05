@@ -87,9 +87,10 @@ export async function showView(
   page: Page,
   view: 'mine' | 'group'
 ): Promise<void> {
-  // The page shows a loading state first; the tabs (or, on wide screens, the
-  // calendars) exist only once the event is in, and `isVisible` does not wait.
-  await page.getByRole('tablist').or(page.getByRole('grid')).first().waitFor();
+  // The page shows a loading state first; the event's heading exists only once
+  // the event is in (on every width, before anyone has joined and with a modal
+  // open), and `isVisible` does not wait.
+  await page.getByRole('heading', { level: 1, includeHidden: true }).waitFor();
   const tab = page.getByRole('tab', {
     name: view === 'mine' ? 'My days' : /^Group/,
   });

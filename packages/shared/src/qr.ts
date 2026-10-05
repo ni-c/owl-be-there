@@ -358,31 +358,11 @@ function drawFunctionPatterns(canvas: Canvas, version: number): void {
   // it to tell a code from its own negative.
   set(canvas, 8, size - 8, true);
 
-  // The format information goes in twice, so both areas are held back now and
-  // written once the mask is known.
-  for (let i = 0; i <= 8; i += 1) {
-    if (i !== 6) {
-      set(canvas, i, 8, false);
-      set(canvas, 8, i, false);
-    }
-  }
-  // Eight along the bottom right of the top-right finder, but only *seven*
-  // going up from the bottom left — the eighth position, `(8, size - 8)`, is
-  // the dark module set above and not part of the format at all. Reserving
-  // eight there quietly overwrote it, which cost one module in every symbol
-  // this produced and is exactly the kind of thing a reader tolerates and a
-  // comparison against another implementation does not.
-  for (let i = 0; i < 8; i += 1) set(canvas, size - 1 - i, 8, false);
-  for (let i = 0; i < 7; i += 1) set(canvas, 8, size - 1 - i, false);
-
-  if (version >= 7) {
-    for (let i = 0; i < 18; i += 1) {
-      const a = size - 11 + (i % 3);
-      const b = Math.floor(i / 3);
-      set(canvas, a, b, false);
-      set(canvas, b, a, false);
-    }
-  }
+  // The format and version areas are held back by drawing them now. The format
+  // bits are a placeholder (mask 0): they are overwritten once the mask is
+  // known. Neither draws the dark module above, which is not part of the format.
+  drawFormat(canvas, 0);
+  drawVersion(canvas, version);
 }
 
 /**
@@ -637,7 +617,6 @@ export function encodeQr(text: string): QrMatrix {
   for (let mask = 0; mask < MASKS.length; mask += 1) {
     const canvas = blankCanvas(sizeOf(version));
     drawFunctionPatterns(canvas, version);
-    drawVersion(canvas, version);
     drawCodewords(canvas, codewords);
     applyMask(canvas, mask);
     drawFormat(canvas, mask);

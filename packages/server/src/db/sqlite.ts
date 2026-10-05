@@ -34,7 +34,6 @@ export class Db {
     // answers `memory` instead, which is fine.
     this.db.exec('PRAGMA journal_mode = WAL');
     this.db.exec('PRAGMA synchronous = NORMAL');
-    this.db.exec('PRAGMA foreign_keys = ON');
     this.db.exec('PRAGMA busy_timeout = 5000');
     // Deleted rows are overwritten rather than left in free pages: when an
     // event is deleted, its names should really be gone from the file.

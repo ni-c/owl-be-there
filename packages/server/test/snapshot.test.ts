@@ -14,6 +14,8 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
+  setStatus,
 } from './helpers.js';
 
 let t: TestApp;
@@ -97,7 +99,7 @@ describe('the snapshot cache', () => {
           t.app.inject({
             method: 'POST',
             url: `/api/events/${id}/participants`,
-            headers: { 'x-admin-token': adminToken },
+            headers: adminHeaders(adminToken),
             payload: { names: ['Zoe'] },
           }),
       ],
@@ -116,7 +118,7 @@ describe('the snapshot cache', () => {
           t.app.inject({
             method: 'PATCH',
             url: `/api/events/${id}`,
-            headers: { 'x-admin-token': adminToken },
+            headers: adminHeaders(adminToken),
             payload: { title: 'Winter tournament' },
           }),
       ],
@@ -126,28 +128,21 @@ describe('the snapshot cache', () => {
           t.app.inject({
             method: 'PATCH',
             url: `/api/events/${id}`,
-            headers: { 'x-admin-token': adminToken },
+            headers: adminHeaders(adminToken),
             payload: { days: WEEKEND, baseDays: DAYS },
           }),
       ],
       [
         'closing',
         ({ id, adminToken }) =>
-          t.app.inject({
-            method: 'PUT',
-            url: `/api/events/${id}/status`,
-            headers: { 'x-admin-token': adminToken },
-            payload: { status: 'closed' },
-          }),
+          setStatus(t.app, id, adminToken, { status: 'closed' }),
       ],
       [
         'finalizing',
         ({ id, adminToken }) =>
-          t.app.inject({
-            method: 'PUT',
-            url: `/api/events/${id}/status`,
-            headers: { 'x-admin-token': adminToken },
-            payload: { status: 'finalized', start: '2027-03-06' },
+          setStatus(t.app, id, adminToken, {
+            status: 'finalized',
+            start: '2027-03-06',
           }),
       ],
     ];
@@ -174,12 +169,7 @@ describe('the snapshot cache', () => {
     it('reopening', async () => {
       const { id, adminToken } = await createEvent(t.app);
       const put = (status: string) =>
-        t.app.inject({
-          method: 'PUT',
-          url: `/api/events/${id}/status`,
-          headers: { 'x-admin-token': adminToken },
-          payload: { status },
-        });
+        setStatus(t.app, id, adminToken, { status });
       await put('closed');
       const closed = snapshot(t.db, id)!;
       expect(closed.event.status).toBe('closed');
@@ -232,7 +222,7 @@ describe('the snapshot cache', () => {
     const gone = await t.app.inject({
       method: 'DELETE',
       url: `/api/events/${again.id}`,
-      headers: { 'x-admin-token': again.adminToken },
+      headers: adminHeaders(again.adminToken),
     });
     expect(gone.statusCode).toBe(204);
     for (const url of [

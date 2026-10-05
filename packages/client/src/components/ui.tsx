@@ -9,7 +9,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import { arrowTarget } from '../lib/roving.ts';
+import { rovingKeyDown } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -173,19 +173,14 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={checked}
             onClick={() => onChange(option.value)}
-            onKeyDown={(event) => {
-              const index = options.findIndex((o) => o.value === value);
-              const next = arrowTarget(event.key, index, options.length);
-              if (next === null) return;
-              event.preventDefault();
-              onChange(options[next]!.value);
-              // The focus follows the choice, as in a native radio group.
-              const radios =
-                event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(
-                  '[role=radio]'
-                );
-              radios?.[next]?.focus();
-            }}
+            onKeyDown={(event) =>
+              rovingKeyDown(
+                event,
+                options.findIndex((o) => o.value === value),
+                options.length,
+                (next) => onChange(options[next]!.value)
+              )
+            }
             tabIndex={checked ? 0 : -1}
             className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 font-bold transition ${
               checked

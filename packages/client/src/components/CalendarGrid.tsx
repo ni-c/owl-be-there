@@ -1,5 +1,4 @@
 import {
-  addDays,
   applyStroke,
   buildWeeks,
   cellsInRect,
@@ -9,7 +8,6 @@ import {
   tapDay,
   toggleDays,
   weekdayOf,
-  WEEKDAYS,
   type Cell,
   type ISODate,
   type Mark,
@@ -28,6 +26,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { weekdayName, weekdayOrder } from '../lib/locale.ts';
 
 export interface HeatInfo {
   level: 0 | 1 | 2 | 3 | 4 | 5;
@@ -473,12 +472,6 @@ export function CalendarGrid(props: CalendarGridProps) {
 
   const shownMarks = preview?.marks ?? keyboardPreview?.marks ?? marks;
   const previewDays = preview?.days ?? keyboardPreview?.days ?? null;
-  const weekdayOrder = WEEKDAYS.map(
-    (offset) => ((firstWeekday + offset) % 7) as Weekday
-  );
-  // 2024-01-01 was a Monday: a fixed week to take weekday names from.
-  const weekdayName = (weekday: Weekday, style: 'short' | 'long') =>
-    formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
   const monthName = (monthKey: string) =>
     formatDay(`${monthKey}-01`, locale, { month: 'short' });
 
@@ -514,7 +507,7 @@ export function CalendarGrid(props: CalendarGridProps) {
       >
         <div role="row" className="cal-head mb-1">
           <span role="columnheader" aria-hidden="true" />
-          {weekdayOrder.map((weekday) => (
+          {weekdayOrder(firstWeekday).map((weekday) => (
             <span
               role="columnheader"
               key={weekday}
@@ -526,19 +519,19 @@ export function CalendarGrid(props: CalendarGridProps) {
                   className="min-h-9 w-full rounded-lg text-sm font-bold text-muted hover:bg-sunken hover:text-ink"
                   onClick={() => toggleTargets(weekdayTargets(weekday))}
                   aria-label={t('cal.weekdayAll', {
-                    weekday: weekdayName(weekday, 'long'),
+                    weekday: weekdayName(weekday, locale, 'long'),
                   })}
                   tabIndex={-1}
                 >
-                  {weekdayName(weekday, 'short')}
+                  {weekdayName(weekday, locale, 'short')}
                 </button>
               ) : (
                 <span className="text-sm font-bold text-muted">
                   <abbr
-                    title={weekdayName(weekday, 'long')}
+                    title={weekdayName(weekday, locale, 'long')}
                     className="no-underline"
                   >
-                    {weekdayName(weekday, 'short')}
+                    {weekdayName(weekday, locale, 'short')}
                   </abbr>
                 </span>
               )}

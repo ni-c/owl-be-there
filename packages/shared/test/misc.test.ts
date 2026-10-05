@@ -20,6 +20,9 @@ import {
   NewPassword,
   RETENTION_DAYS,
   SERVER_TEXTS,
+  APP_NAME,
+  DESCRIPTION_EN,
+  TAGLINES,
   SessionBody,
   StatusBody,
   UpdateEventBody,
@@ -397,6 +400,22 @@ describe('retention', () => {
   });
 });
 
+describe('the name and tagline', () => {
+  it('have an entry for every language and nothing else', () => {
+    expect(Object.keys(TAGLINES).sort()).toEqual([...LANGUAGES].sort());
+    expect(Object.keys(SERVER_TEXTS).sort()).toEqual([...LANGUAGES].sort());
+  });
+
+  it('are what the server texts say, in every language', () => {
+    for (const language of LANGUAGES) {
+      expect(SERVER_TEXTS[language].appName, language).toBe(APP_NAME);
+      expect(SERVER_TEXTS[language].tagline, language).toBe(TAGLINES[language]);
+      expect(TAGLINES[language].trim(), language).not.toBe('');
+    }
+    expect(SERVER_TEXTS.en.description).toBe(DESCRIPTION_EN);
+  });
+});
+
 describe('texts', () => {
   it('formats a day and a block of days', () => {
     expect(formatDayRange('2027-03-06', '2027-03-06', 'en-GB')).toMatch(
@@ -514,7 +533,10 @@ describe('texts', () => {
       const texts = SERVER_TEXTS[language];
       expect(Object.keys(texts).sort(), language).toEqual(keys);
       for (const value of Object.values(texts)) {
-        const text = typeof value === 'function' ? value(0) : value;
+        const text =
+          typeof value === 'function'
+            ? (value as (argument: unknown) => string)(0)
+            : value;
         expect(text.trim(), language).not.toBe('');
       }
       expect(texts.previewOpen(2), language).toMatch(/2/);

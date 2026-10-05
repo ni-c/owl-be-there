@@ -6,9 +6,11 @@ import {
   utcDateOf,
   type ISODate,
 } from './dates.js';
+import { normalizeDays } from './candidates.js';
 import { buildWeeks } from './grid.js';
-import { heatLevel, heatOf, tally, type Respondent } from './ranking.js';
+import { heatLevel, heatOf, respondentOf, tally } from './ranking.js';
 import type { EventSnapshotData } from './schemas.js';
+import { escapeMarkup } from './text.js';
 import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
 
 /**
@@ -21,13 +23,13 @@ import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
  */
 
 export const PREVIEW_WIDTH = 1200;
-const PREVIEW_HEIGHT = 630;
+export const PREVIEW_HEIGHT = 630;
 
-/** At most this many week rows; a longer poll shows its first weeks. */
+/** At most this many week rows; a longer poll shows this many weeks around its best day. */
 export const PREVIEW_MAX_WEEKS = 6;
 
-/** The light theme's colours, as in the client's stylesheet. */
-const COLOURS = {
+/** The light theme's colours; a test ties them to the client's stylesheet. */
+export const PREVIEW_COLOURS = {
   bg: '#fbf6ee',
   surface: '#ffffff',
   line: '#e6dac6',
@@ -76,13 +78,7 @@ export interface PreviewCalendar {
 export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   const { event } = data;
   const candidates = new Set(event.days);
-  const people: Respondent[] = data.participants.map((p) => ({
-    id: p.id,
-    answered: p.answered,
-    yes: new Set(p.yes),
-    maybe: new Set(p.maybe),
-    unseen: new Set(p.unseen),
-  }));
+  const people = data.participants.map(respondentOf);
   const heat = new Map(
     [...candidates].map((day) => [day, heatOf(tally(people, [day]))])
   );
@@ -93,7 +89,7 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
     compareISODate(day, event.finalStart) >= 0 &&
     compareISODate(day, event.finalEnd) <= 0;
   const rows = buildWeeks(event.days, firstWeekday);
-  const sorted = [...candidates].sort();
+  const sorted = normalizeDays(candidates);
 
   let from = 0;
   if (rows.length > PREVIEW_MAX_WEEKS) {
@@ -120,15 +116,6 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
     first: sorted[0]!,
     last: sorted[sorted.length - 1]!,
   };
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 /**
@@ -204,7 +191,7 @@ export function previewSvg(
   const { event } = data;
   const texts = SERVER_TEXTS[event.language];
   const locale = LOCALES[event.language];
-  const e = escapeXml;
+  const e = escapeMarkup;
   const status = previewStatus(texts, data, locale);
 
   const left = 72;
@@ -217,7 +204,7 @@ export function previewSvg(
       `<image href="${e(options.owl)}" x="${left}" y="56" width="68" height="70"/>`
     );
   parts.push(
-    `<text x="${options.owl ? left + 84 : left}" y="104" font-size="34" font-weight="800" fill="${COLOURS.brand}">${e(texts.appName)}</text>`
+    `<text x="${options.owl ? left + 84 : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}">${e(texts.appName)}</text>`
   );
 
   // Title, up to three lines, then the state of the poll.
@@ -226,19 +213,19 @@ export function previewSvg(
   let y = 214;
   for (const line of titleLines) {
     parts.push(
-      `<text x="${left}" y="${y}" font-size="${titleSize}" font-weight="800" fill="${COLOURS.ink}">${e(line)}</text>`
+      `<text x="${left}" y="${y}" font-size="${titleSize}" font-weight="800" fill="${PREVIEW_COLOURS.ink}">${e(line)}</text>`
     );
     y += 70;
   }
   y += 8;
   for (const line of wrapText(status, columnWidth, 30, 3)) {
     parts.push(
-      `<text x="${left}" y="${y}" font-size="30" fill="${COLOURS.muted}">${e(line)}</text>`
+      `<text x="${left}" y="${y}" font-size="30" fill="${PREVIEW_COLOURS.muted}">${e(line)}</text>`
     );
     y += 42;
   }
   parts.push(
-    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${COLOURS.muted}">${e(options.host)}</text>`
+    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${PREVIEW_COLOURS.muted}">${e(options.host)}</text>`
   );
 
   // The calendar panel.
@@ -253,7 +240,7 @@ export function previewSvg(
   const gridW = 7 * cell + 6 * gap;
   const gridX = panelX + (panelW - gridW) / 2;
   parts.push(
-    `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="36" fill="${COLOURS.surface}" stroke="${COLOURS.line}" stroke-width="2"/>`
+    `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="36" fill="${PREVIEW_COLOURS.surface}" stroke="${PREVIEW_COLOURS.line}" stroke-width="2"/>`
   );
   // The calendar block — month line, weekday letters, rows — centred in
   // the panel, however many weeks it has.
@@ -269,7 +256,7 @@ export function previewSvg(
       Math.floor((gridW / textWidth(months, 1)) * 0.95)
     );
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${COLOURS.ink}">${e(months)}</text>`
+      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.ink}">${e(months)}</text>`
     );
   }
   const headY = top + 84;
@@ -280,7 +267,7 @@ export function previewSvg(
       weekday: 'narrow',
     });
     parts.push(
-      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(name)}</text>`
+      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
     );
   }
   weeks.forEach((row, rowIndex) => {
@@ -293,16 +280,17 @@ export function previewSvg(
       );
       if (c.level === null) {
         parts.push(
-          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" text-anchor="middle" fill="${COLOURS.line}">${e(number)}</text>`
+          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" text-anchor="middle" fill="${PREVIEW_COLOURS.line}">${e(number)}</text>`
         );
         return;
       }
-      const fill = COLOURS.heat[c.level]!;
-      const ink = c.level >= 3 ? COLOURS.heatInkHigh : COLOURS.heatInkLow;
+      const fill = PREVIEW_COLOURS.heat[c.level]!;
+      const ink =
+        c.level >= 3 ? PREVIEW_COLOURS.heatInkHigh : PREVIEW_COLOURS.heatInkLow;
       const stroke = c.chosen
-        ? ` stroke="${COLOURS.brand}" stroke-width="5"`
+        ? ` stroke="${PREVIEW_COLOURS.brand}" stroke-width="5"`
         : c.level === 0
-          ? ` stroke="${COLOURS.line}" stroke-width="2"`
+          ? ` stroke="${PREVIEW_COLOURS.line}" stroke-width="2"`
           : '';
       parts.push(
         `<rect x="${cx}" y="${cy}" width="${cell}" height="${cell}" rx="14" fill="${fill}"${stroke}/>`,
@@ -312,12 +300,12 @@ export function previewSvg(
   });
   if (calendar.hidden > 0)
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
+      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
     );
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" viewBox="0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}" font-family="${PREVIEW_FONTS}">`,
-    `<rect width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" fill="${COLOURS.bg}"/>`,
+    `<rect width="${PREVIEW_WIDTH}" height="${PREVIEW_HEIGHT}" fill="${PREVIEW_COLOURS.bg}"/>`,
     ...parts,
     '</svg>',
   ].join('\n');

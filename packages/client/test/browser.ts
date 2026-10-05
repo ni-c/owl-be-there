@@ -3,7 +3,34 @@
  * with history and storage, a document element, and fetch and EventSource
  * fakes the tests control.
  */
+import type { EventSnapshotData } from '@owl/shared';
 import { vi } from 'vitest';
+
+export const EVENT_ID = '7gT4kPq2Wx9Z';
+
+/** A valid event snapshot with no participants, at `version`. */
+export function eventSnapshot(version = 3): EventSnapshotData {
+  return {
+    event: {
+      id: EVENT_ID,
+      title: 'T',
+      description: null,
+      location: null,
+      emoji: 'owl',
+      creatorName: null,
+      language: 'en',
+      durationDays: 1,
+      minCount: null,
+      status: 'open',
+      finalStart: null,
+      finalEnd: null,
+      expiresOn: '2027-05-30',
+      version,
+      days: ['2027-03-06'],
+    },
+    participants: [],
+  };
+}
 
 export class MemoryStorage {
   readonly map = new Map<string, string>();

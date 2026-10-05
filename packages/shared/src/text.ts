@@ -115,3 +115,16 @@ export function mixesScripts(name: string): boolean {
       /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(word)
   );
 }
+
+/**
+ * Text made safe for HTML and XML, in element content and in a quoted
+ * attribute alike: the five characters that markup gives a meaning.
+ */
+export function escapeMarkup(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}

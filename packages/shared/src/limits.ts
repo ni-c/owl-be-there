@@ -8,6 +8,11 @@
  * typing early for an emoji. Only a character that grows when cleaned — U+0958
  * becomes two code points under NFC — can pass the browser and still be too
  * long for the server.
+ *
+ * The text lengths, `durationDays` and the languages are repeated as CHECK
+ * constraints in the server's migrations, which never change once applied:
+ * raising one needs a rebuild migration like version 2 (`db.test.ts` fails
+ * until it exists).
  */
 export const LIMITS = {
   title: 80,

@@ -31,27 +31,7 @@ async function touchDrag(
   // The engine, not the project name: a renamed project must not silently
   // swap the real touch input for synthetic events.
   if (page.context().browser()?.browserType().name() === 'chromium') {
-    const cdp = await page.context().newCDPSession(page);
-    const send = (
-      type: 'touchStart' | 'touchMove' | 'touchEnd',
-      x: number,
-      y: number
-    ) =>
-      cdp.send('Input.dispatchTouchEvent', {
-        type,
-        touchPoints:
-          type === 'touchEnd'
-            ? []
-            : [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }],
-      });
-    await send('touchStart', start.x, start.y);
-    for (const point of points.slice(1)) {
-      await send('touchMove', point.x, point.y);
-      // One frame each, like a real finger: the engine samples per frame.
-      await page.waitForTimeout(20);
-    }
-    await send('touchEnd', end.x, end.y);
-    await cdp.detach();
+    await cdpTouch(page, points);
     return;
   }
 
@@ -92,6 +72,33 @@ async function touchDrag(
     },
     [...points, points[points.length - 1]!]
   );
+}
+
+/**
+ * One finger along `points` as real touch input through the DevTools protocol
+ * (Chromium only): down at the first point, a move to each of the others, one
+ * frame apart, then up.
+ */
+async function cdpTouch(page: Page, points: Point[]): Promise<void> {
+  const cdp = await page.context().newCDPSession(page);
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', point?: Point) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: point
+        ? [{ x: point.x, y: point.y, id: 1, radiusX: 4, radiusY: 4, force: 1 }]
+        : [],
+    });
+  try {
+    await send('touchStart', points[0]!);
+    for (const point of points.slice(1)) {
+      await send('touchMove', point);
+      // One frame each, like a real finger: the engine samples per frame.
+      await page.waitForTimeout(20);
+    }
+    await send('touchEnd');
+  } finally {
+    await cdp.detach();
+  }
 }
 
 /** A mouse drag, for the desktop projects. */
@@ -173,24 +180,11 @@ export async function touchSwipeUp(
   distance: number
 ): Promise<void> {
   const start = await centre(from);
-  const cdp = await page.context().newCDPSession(page);
-  const point = (y: number) => [
-    { x: start.x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 },
-  ];
-  await cdp.send('Input.dispatchTouchEvent', {
-    type: 'touchStart',
-    touchPoints: point(start.y),
-  });
-  for (let step = 1; step <= 10; step += 1) {
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: point(start.y - (distance * step) / 10),
-    });
-    await page.waitForTimeout(20);
-  }
-  await cdp.send('Input.dispatchTouchEvent', {
-    type: 'touchEnd',
-    touchPoints: [],
-  });
-  await cdp.detach();
+  await cdpTouch(page, [
+    start,
+    ...Array.from({ length: 10 }, (_, i) => ({
+      x: start.x,
+      y: start.y - (distance * (i + 1)) / 10,
+    })),
+  ]);
 }

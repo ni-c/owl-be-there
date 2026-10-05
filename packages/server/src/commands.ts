@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from './config.js';
 import { MigrationError, pendingMigrations } from './db/migrations.js';
 import {
   deleteEvent,
+  emptyEventIds,
   listEvents,
   purgeEmpty,
   stats,
@@ -135,9 +136,7 @@ export function run(
       default: {
         // purge
         if (args[2] !== '--yes') {
-          const ids = listEvents(db, argument!)
-            .filter((event) => event.participants === 0)
-            .map((event) => event.id);
+          const ids = emptyEventIds(db, argument!);
           io.out(
             `Would delete ${ids.length} event(s) nobody answered; add --yes to do it.`
           );

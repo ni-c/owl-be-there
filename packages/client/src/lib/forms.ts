@@ -167,21 +167,3 @@ export function parseRoster(text: string): Roster {
     problem = { key: 'error.rosterLine', params: { max: LIMITS.name } };
   return { names, problem };
 }
-
-/**
- * Where an arrow key moves the choice in a radio group: the next or previous
- * item, wrapping at both ends, or null for any other key.
- */
-export function radioTarget<T>(
-  items: readonly T[],
-  current: T,
-  key: string
-): T | null {
-  const index = items.indexOf(current);
-  if (index < 0 || items.length === 0) return null;
-  if (key === 'ArrowRight' || key === 'ArrowDown')
-    return items[(index + 1) % items.length]!;
-  if (key === 'ArrowLeft' || key === 'ArrowUp')
-    return items[(index - 1 + items.length) % items.length]!;
-  return null;
-}

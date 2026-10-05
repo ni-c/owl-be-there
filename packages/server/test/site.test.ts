@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon, LANGUAGES, SERVER_TEXTS } from '@owl/shared';
+import { emojiIcon, escapeMarkup, LANGUAGES, SERVER_TEXTS } from '@owl/shared';
 import { snapshot } from '../src/db/repo.js';
-import { escapeHtml, PageTemplate } from '../src/pages.js';
+import { PageTemplate } from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
   CLIENT_DIR,
@@ -17,6 +17,9 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
+  setStatus,
+  sessionRequest,
 } from './helpers.js';
 
 let t: TestApp | undefined;
@@ -119,11 +122,9 @@ describe('pages', () => {
     expect(
       (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body
     ).toContain('bisher 1 Antwort');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     expect(
       (await t.app.inject({ method: 'GET', url: `/e/${id}` })).body
@@ -135,11 +136,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'es' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Marca los días que te vienen bien');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('Ya hay fecha: sáb, 6 de marzo de 2027');
@@ -150,11 +149,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'fr' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Indique les jours où tu es libre');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('La date est fixée : sam. 6 mars 2027');
@@ -165,11 +162,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'pt' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Marca os dias em que podes');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain(
@@ -182,11 +177,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'it' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Segna i giorni in cui ci sei');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('La data è decisa: sab 6 marzo 2027');
@@ -197,11 +190,9 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'ja' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('行ける日を選んでね');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('日程決定：2027年3月6日(土)');
@@ -212,24 +203,15 @@ describe('pages', () => {
     const { id, adminToken } = await createEvent(t.app, { language: 'nl' });
     const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(open.body).toContain('Vul in wanneer je kunt');
-    await t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': adminToken },
-      payload: { status: 'finalized', start: '2027-03-06' },
+    await setStatus(t.app, id, adminToken, {
+      status: 'finalized',
+      start: '2027-03-06',
     });
     const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
     expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
   });
 
   describe('the preview of a closed poll', () => {
-    const setStatus = (id: string, adminToken: string, payload: object) =>
-      t!.app.inject({
-        method: 'PUT',
-        url: `/api/events/${id}/status`,
-        headers: { 'x-admin-token': adminToken },
-        payload,
-      });
     const description = async (id: string): Promise<string> => {
       const body = (await t!.app.inject({ method: 'GET', url: `/e/${id}` }))
         .body;
@@ -246,26 +228,26 @@ describe('pages', () => {
         t = await testApp();
         const { id, adminToken } = await createEvent(t.app, { language });
         const texts = SERVER_TEXTS[language];
-        expect(await description(id)).toBe(escapeHtml(texts.previewOpen(0)));
-        await setStatus(id, adminToken, { status: 'closed' });
+        expect(await description(id)).toBe(escapeMarkup(texts.previewOpen(0)));
+        await setStatus(t!.app, id, adminToken, { status: 'closed' });
         const closed = await description(id);
-        expect(closed).toBe(escapeHtml(texts.previewClosed));
-        expect(closed).not.toBe(escapeHtml(texts.previewOpen(0)));
+        expect(closed).toBe(escapeMarkup(texts.previewClosed));
+        expect(closed).not.toBe(escapeMarkup(texts.previewOpen(0)));
       }
     );
 
     it('still announces the date of a decided poll, and goes back to the invitation when reopened', async () => {
       t = await testApp();
       const { id, adminToken } = await createEvent(t.app);
-      await setStatus(id, adminToken, { status: 'closed' });
-      await setStatus(id, adminToken, {
+      await setStatus(t!.app, id, adminToken, { status: 'closed' });
+      await setStatus(t!.app, id, adminToken, {
         status: 'finalized',
         start: '2027-03-06',
       });
       expect(await description(id)).toMatch(/^The date is set: /);
-      await setStatus(id, adminToken, { status: 'closed' });
+      await setStatus(t!.app, id, adminToken, { status: 'closed' });
       expect(await description(id)).toBe(SERVER_TEXTS.en.previewClosed);
-      await setStatus(id, adminToken, { status: 'open' });
+      await setStatus(t!.app, id, adminToken, { status: 'open' });
       expect(await description(id)).toBe(
         'Add the days you can make it. No sign-up needed.'
       );
@@ -652,7 +634,7 @@ describe('preview pictures', () => {
     await t.app.inject({
       method: 'DELETE',
       url: `/api/events/${id}`,
-      headers: { 'x-admin-token': adminToken },
+      headers: adminHeaders(adminToken),
     });
     for (const url of [`/e/${id}`, `/e/${id}/og.png`]) {
       for (let i = 0; i < 2; i += 1) {
@@ -701,7 +683,7 @@ describe('preview pictures', () => {
 
 describe('page helpers', () => {
   it('escape everything that could end an attribute or a tag', () => {
-    expect(escapeHtml(`<a href="x" title='y'>&</a>`)).toBe(
+    expect(escapeMarkup(`<a href="x" title='y'>&</a>`)).toBe(
       '&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;'
     );
   });
@@ -776,12 +758,7 @@ describe('rate limits', () => {
     t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
     const { id } = await createEvent(t.app);
     const sessionFrom = (remoteAddress: string, name: string) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        remoteAddress,
-      });
+      sessionRequest(t!.app, id, { name }, { remoteAddress });
     for (let i = 0; i < 10; i += 1) {
       expect((await sessionFrom('203.0.113.1', `A${i}`)).statusCode).toBe(200);
     }
@@ -804,13 +781,12 @@ describe('rate limits', () => {
       name: string,
       remoteAddress = '127.0.0.1'
     ) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        headers: { 'x-forwarded-for': forwardedFor },
-        remoteAddress,
-      });
+      sessionRequest(
+        t!.app,
+        id,
+        { name },
+        { headers: { 'x-forwarded-for': forwardedFor }, remoteAddress }
+      );
     for (let i = 0; i < 10; i += 1) await session('203.0.113.9', `A${i}`);
     expect((await session('203.0.113.9', 'A10')).statusCode).toBe(429);
     expect((await session('203.0.113.10', 'B')).statusCode).toBe(200);

@@ -106,7 +106,12 @@ export function Owl({ mood = 'happy', size = 120, bob = false }: OwlProps) {
 }
 
 function Eyes({ mood }: { mood: OwlMood }) {
-  if (mood === 'sleeping') {
+  if (mood === 'sleeping' || mood === 'celebrating') {
+    // Closed eyes: the lids sag when asleep and arch when celebrating.
+    const [left, right] =
+      mood === 'sleeping'
+        ? ['M33 52 Q42 58 51 52', 'M69 52 Q78 58 87 52']
+        : ['M34 54 Q42 44 50 54', 'M70 54 Q78 44 86 54'];
     return (
       <g
         fill="none"
@@ -116,23 +121,8 @@ function Eyes({ mood }: { mood: OwlMood }) {
       >
         <circle cx="42" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
         <circle cx="78" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <path d="M33 52 Q42 58 51 52" />
-        <path d="M69 52 Q78 58 87 52" />
-      </g>
-    );
-  }
-  if (mood === 'celebrating') {
-    return (
-      <g
-        fill="none"
-        stroke="var(--owl-feather-dark)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      >
-        <circle cx="42" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <circle cx="78" cy="50" r="15" fill="var(--owl-eye)" stroke="none" />
-        <path d="M34 54 Q42 44 50 54" />
-        <path d="M70 54 Q78 44 86 54" />
+        <path d={left} />
+        <path d={right} />
       </g>
     );
   }

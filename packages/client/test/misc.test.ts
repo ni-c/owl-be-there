@@ -10,7 +10,11 @@ import { pt } from '../src/i18n/pt.ts';
 import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
-import { firstWeekdayFor } from '../src/lib/locale.ts';
+import {
+  firstWeekdayFor,
+  weekdayName,
+  weekdayOrder,
+} from '../src/lib/locale.ts';
 import { navigate, parseRoute, subscribeToRoute } from '../src/lib/route.ts';
 import { installBrowser } from './browser.ts';
 
@@ -139,6 +143,29 @@ describe('firstWeekdayFor', () => {
   });
 });
 
+describe('weekdayOrder', () => {
+  it('starts on the first weekday and wraps, with every weekday once', () => {
+    expect(weekdayOrder(0)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(weekdayOrder(6)).toEqual([6, 0, 1, 2, 3, 4, 5]);
+    expect(weekdayOrder(3)).toEqual([3, 4, 5, 6, 0, 1, 2]);
+    for (const first of [0, 1, 2, 3, 4, 5, 6] as const)
+      expect([...weekdayOrder(first)].sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});
+
+describe('weekdayName', () => {
+  it('names Monday as 0 and Sunday as 6, short and long', () => {
+    expect(weekdayName(0, 'en', 'short')).toBe('Mon');
+    expect(weekdayName(0, 'en', 'long')).toBe('Monday');
+    expect(weekdayName(6, 'en', 'long')).toBe('Sunday');
+  });
+
+  it('follows the locale', () => {
+    expect(weekdayName(0, 'de', 'short')).toBe('Mo');
+    expect(weekdayName(2, 'de', 'long')).toBe('Mittwoch');
+  });
+});
+
 describe('routes', () => {
   it('knows the four pages', () => {
     expect(parseRoute('/')).toEqual({ page: 'home' });
@@ -164,6 +191,12 @@ describe('routes', () => {
   it('refuses malformed event ids and unknown paths', () => {
     for (const path of [
       '/e/short',
+      '/e/7gT4kPq2Wx9',
+      '/e/7gT4kPq2Wx9Za',
+      '/e/',
+      '/e//',
+      '/e/7gT4kPq2Wx9Z//',
+      '/e/7gT4kPq2Wx9%20',
       '/e/0OIl00000000',
       '/e/7gT4kPq2Wx9Z/x',
       '/nope',

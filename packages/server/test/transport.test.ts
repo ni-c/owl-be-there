@@ -4,7 +4,12 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { migrate } from '../src/db/migrations.js';
 import { Db } from '../src/db/sqlite.js';
-import { createEvent, testApp, type TestApp } from './helpers.js';
+import {
+  createEvent,
+  sessionRequest,
+  testApp,
+  type TestApp,
+} from './helpers.js';
 
 let t: TestApp | undefined;
 afterEach(async () => {
@@ -37,12 +42,7 @@ describe('rate limits by network', () => {
     t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
     const { id } = await createEvent(t.app);
     const session = (name: string, remoteAddress: string) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        remoteAddress,
-      });
+      sessionRequest(t!.app, id, { name }, { remoteAddress });
     for (let i = 0; i < 10; i += 1) {
       expect((await session(`A${i}`, '::ffff:203.0.113.1')).statusCode).toBe(
         200
@@ -57,12 +57,7 @@ describe('rate limits by network', () => {
     t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
     const { id } = await createEvent(t.app);
     const session = (name: string, remoteAddress: string) =>
-      t!.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name },
-        remoteAddress,
-      });
+      sessionRequest(t!.app, id, { name }, { remoteAddress });
     for (let i = 0; i < 10; i += 1) {
       expect((await session(`A${i}`, `2001:db8:3:${i}::1`)).statusCode).toBe(
         200

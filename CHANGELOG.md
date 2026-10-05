@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Event pages, link previews and their pictures reuse the event's state as long as it is unchanged, instead of rebuilding every participant and mark per request.
 - The operator's `list` and `purge` commands count only people who marked days, so names typed into a list no longer keep an unanswered event from being purged.
 - Addresses a proxy reports with a port are rate limited like the address alone.
+- An IPv4 address written in hexadecimal IPv6 form (`::ffff:cb00:7107`) is rate limited as that IPv4 address.
 - Marks painted just before switching tabs on a phone, resizing the window or filling in for someone else are saved instead of dropped, saves survive closing the tab, and pending changes are sent when the page goes into the background.
 - A save that still contains a day the organiser just removed is saved without that day instead of failing.
 - A request that stops answering no longer freezes saving and refreshing; requests give up after 20 seconds and are retried. A dropped connection or a captive-portal page during a save is retried instead of failing for good.

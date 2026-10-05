@@ -26,7 +26,7 @@ export interface EventRow {
   location: string | null;
   emoji: string;
   creator_name: string | null;
-  language: string;
+  language: Language;
   duration_days: number;
   min_count: number | null;
   closed_at: number | null;
@@ -156,6 +156,19 @@ function participantView(
   };
 }
 
+/** One participant as the API shows them, without building the whole snapshot. */
+export function participantViewOf(
+  db: Db,
+  eventId: string,
+  row: ParticipantRow
+): ParticipantViewData {
+  return participantView(
+    row,
+    getDays(db, eventId),
+    marksOf(db, eventId, row.id)
+  );
+}
+
 /** How many events keep their last snapshot in memory. */
 const SNAPSHOT_CACHE_SIZE = 32;
 
@@ -231,7 +244,7 @@ export function buildSnapshot(db: Db, event: EventRow): EventSnapshotData {
       location: event.location,
       emoji: event.emoji as EmojiKey,
       creatorName: event.creator_name,
-      language: event.language as Language,
+      language: event.language,
       durationDays: event.duration_days,
       minCount: event.min_count,
       status: statusOf(event),
@@ -762,11 +775,16 @@ export function listEvents(db: Db, since: ISODate | null): EventListing[] {
   );
 }
 
-/** Delete events created on or after a day that nobody answered; return their ids. */
-export function purgeEmpty(db: Db, since: ISODate): string[] {
-  const candidates = listEvents(db, since)
+/** The events created on or after a day that nobody has joined, by id. */
+export function emptyEventIds(db: Db, since: ISODate): string[] {
+  return listEvents(db, since)
     .filter((event) => event.participants === 0)
     .map((event) => event.id);
+}
+
+/** Delete events created on or after a day that nobody answered; return their ids. */
+export function purgeEmpty(db: Db, since: ISODate): string[] {
+  const candidates = emptyEventIds(db, since);
   const deleted: string[] = [];
   for (let from = 0; from < candidates.length; from += DELETE_CHUNK) {
     db.tx(() => {

@@ -1,7 +1,11 @@
 /**
  * Renders the pictures of the example in the README: the start page's live
  * example — next month's team dinner — in its browser window, as a desktop
- * browser shows it, once light and once dark. Then renews `og.png` too.
+ * browser shows it, once light and once dark. Then renews `og.png`, the
+ * default link-preview picture of the start pages and the privacy page (an
+ * event link draws its own, see `packages/server/src/preview.ts`): 1200 × 630,
+ * the owl and the name. This is the only way `og.png` is made; run it after
+ * changing the owl, the name or the heatmap colours.
  *
  *     npm run build
  *     npm run screenshot                    # docs/ and packages/client/public
@@ -9,15 +13,23 @@
  *
  * The start page builds the example itself, so this only has to look: it runs
  * the built server on a temporary data directory and Playwright's Chromium,
- * which the end-to-end suite installs.
+ * which the end-to-end suite installs. The `og.png` picture needs no server.
  */
-import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
 import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { chromium, type Page } from '@playwright/test';
+import { chromium, type Browser, type Page } from '@playwright/test';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -117,6 +129,87 @@ async function shoot(page: Page, theme: 'light' | 'dark'): Promise<void> {
   console.log(`screenshot-${theme}.png: ${statSync(path).size} bytes`);
 }
 
+// The picture is typeset in the bundled Nunito, like the app and the per-event
+// pictures, not in whatever font the machine running this happens to have.
+const require = createRequire(import.meta.url);
+const font = (weight: 400 | 800) =>
+  readFileSync(
+    require.resolve(
+      `@fontsource/nunito/files/nunito-latin-${weight}-normal.woff2`
+    )
+  ).toString('base64');
+const fontFace = (weight: 400 | 800) =>
+  `@font-face { font-family: 'Nunito'; font-weight: ${weight}; src: url(data:font/woff2;base64,${font(weight)}) format('woff2'); }`;
+
+/** The default link-preview picture: the owl, the name and a strip of heat. */
+async function shootOg(browser: Browser): Promise<void> {
+  const owl = readFileSync(
+    join(root, 'packages/client/public/favicon.svg'),
+    'utf8'
+  );
+  // The empty cell and the steps of the heatmap ramp (`PREVIEW_COLOURS.heat` in
+  // shared/preview.ts), as a strip of calendar days.
+  const cells = [
+    '#f1e8da',
+    '#6fbc9f',
+    '#f1e8da',
+    '#4aa685',
+    '#268262',
+    '#0e5441',
+    '#1a7055',
+  ];
+  const html = `<!doctype html><html><head><style>
+  ${fontFace(400)}
+  ${fontFace(800)}
+  html, body { margin: 0; width: 1200px; height: 630px; }
+  body { display: flex; align-items: center; justify-content: center; gap: 64px;
+    background: #fbf6ee; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; color: #2a2118; }
+  .owl { width: 340px; height: 352px; }
+  h1 { font-size: 92px; margin: 0; font-weight: 800; letter-spacing: -2px; }
+  p { font-size: 40px; margin: 16px 0 0; color: #6b5b4a; font-weight: 400; max-width: 640px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 46px); gap: 8px; margin-top: 36px; }
+  .cal span { height: 46px; border-radius: 12px; }
+</style></head><body>
+  <div class="owl">${owl}</div>
+  <div>
+    <h1>Owl Be There</h1>
+    <p>Find a day everyone can make.</p>
+    <div class="cal">${cells
+      .map((c) => `<span style="background:${c}"></span>`)
+      .join('')}</div>
+  </div>
+</body></html>`;
+
+  const page = await browser.newPage({
+    viewport: { width: 1200, height: 630 },
+  });
+  try {
+    await page.setContent(html);
+    await page.evaluate(() =>
+      Promise.all([
+        document.fonts.load('800 92px Nunito'),
+        document.fonts.load('400 40px Nunito'),
+      ])
+    );
+    if (
+      !(await page.evaluate(
+        () =>
+          document.fonts.check('800 92px Nunito') &&
+          document.fonts.check('400 40px Nunito')
+      ))
+    )
+      throw new Error('The bundled Nunito did not load');
+    await page.locator('.owl svg').evaluate((svg) => {
+      svg.setAttribute('width', '340');
+      svg.setAttribute('height', '352');
+    });
+    await page.screenshot({ path: ogPath, type: 'png' });
+  } finally {
+    await page.close();
+  }
+  console.log(`og.png: ${statSync(ogPath).size} bytes`);
+}
+
 const dataDir = mkdtempSync(join(tmpdir(), 'owl-screenshot-'));
 const server = spawn('node', ['packages/server/dist/index.js'], {
   cwd: root,
@@ -143,12 +236,11 @@ server.once('exit', (code, signal) => {
   );
 });
 
-const children: ChildProcess[] = [server];
 // An interrupted run still stops the server and removes its data directory;
 // the `finally` below does not run on a signal.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
-    for (const child of children) child.kill();
+    server.kill();
     rmSync(dataDir, { recursive: true, force: true });
     process.exit(signal === 'SIGINT' ? 130 : 143);
   });
@@ -173,6 +265,7 @@ try {
       await shoot(await context.newPage(), theme);
       await context.close();
     }
+    await shootOg(browser);
   } finally {
     await browser.close();
   }
@@ -180,12 +273,3 @@ try {
   server.kill();
   rmSync(dataDir, { recursive: true, force: true });
 }
-
-// The link preview picture belongs to the same set of pictures.
-const og = spawn('node', ['scripts/make-og-image.ts', ogPath], {
-  cwd: root,
-  stdio: 'inherit',
-});
-children.push(og);
-const code = await new Promise<number | null>((done) => og.on('exit', done));
-process.exit(code ?? 1);

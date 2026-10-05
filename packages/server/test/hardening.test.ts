@@ -11,6 +11,9 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
+  sessionRequest,
+  setStatus,
 } from './helpers.js';
 
 const DAYS = ['2027-03-05', ...WEEKEND];
@@ -24,18 +27,13 @@ afterEach(async () => {
   await t.app.close();
 });
 
-const admin = (token: string) => ({ 'x-admin-token': token });
-
 const patch = (id: string, token: string, payload: Record<string, unknown>) =>
   t.app.inject({
     method: 'PATCH',
     url: `/api/events/${id}`,
-    headers: admin(token),
+    headers: adminHeaders(token),
     payload,
   });
-
-const session = (id: string, payload: Record<string, unknown>) =>
-  t.app.inject({ method: 'POST', url: `/api/events/${id}/session`, payload });
 
 describe('editing the days', () => {
   it('needs the days the edit started from', async () => {
@@ -100,12 +98,7 @@ describe('editing the days', () => {
 
 describe('a chosen date and a new duration', () => {
   const finalize = (id: string, token: string, start: string) =>
-    t.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: admin(token),
-      payload: { status: 'finalized', start },
-    });
+    setStatus(t.app, id, token, { status: 'finalized', start });
 
   it('moves the end with the duration while the block still fits', async () => {
     const { id, adminToken } = await createEvent(t.app);
@@ -219,7 +212,7 @@ describe('the organiser list', () => {
     t.app.inject({
       method: 'POST',
       url: `/api/events/${id}/participants`,
-      headers: admin(token),
+      headers: adminHeaders(token),
       payload: { names },
     });
   const names = (from: number, to: number) =>
@@ -247,7 +240,7 @@ describe('checking an organiser key', () => {
       t.app.inject({
         method: 'GET',
         url: `/api/events/${id}/admin`,
-        ...(token !== undefined && { headers: admin(token) }),
+        ...(token !== undefined && { headers: adminHeaders(token) }),
       });
     expect((await check(adminToken)).statusCode).toBe(204);
     expect((await check('A'.repeat(43))).statusCode).toBe(403);
@@ -258,7 +251,7 @@ describe('checking an organiser key', () => {
     const response = await t.app.inject({
       method: 'GET',
       url: '/api/events/AAAAAAAAAAAA/admin',
-      headers: admin('x'.repeat(43)),
+      headers: adminHeaders('x'.repeat(43)),
     });
     expect(response.statusCode).toBe(404);
   });
@@ -269,22 +262,32 @@ describe('guessing passwords', () => {
     const { id } = await createEvent(t.app);
     await join(t.app, id, 'Max', 'secret-1');
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const wrong = await session(id, { name: 'Max', password: 'guess' });
+      const wrong = await sessionRequest(t.app, id, {
+        name: 'Max',
+        password: 'guess',
+      });
       expect(wrong.json().error).toBe('wrong_password');
     }
     // Now even the right password has to wait.
-    const waiting = await session(id, { name: 'max', password: 'secret-1' });
+    const waiting = await sessionRequest(t.app, id, {
+      name: 'max',
+      password: 'secret-1',
+    });
     expect(waiting.statusCode).toBe(429);
     expect(waiting.json().error).toBe('slow_down');
     t.clock.time += 30_000;
-    const right = await session(id, { name: 'Max', password: 'secret-1' });
+    const right = await sessionRequest(t.app, id, {
+      name: 'Max',
+      password: 'secret-1',
+    });
     expect(right.statusCode).toBe(200);
     // Getting it right starts the count afresh.
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      await session(id, { name: 'Max', password: 'guess' });
+      await sessionRequest(t.app, id, { name: 'Max', password: 'guess' });
     }
     expect(
-      (await session(id, { name: 'Max', password: 'secret-1' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Max', password: 'secret-1' }))
+        .statusCode
     ).toBe(200);
   });
 
@@ -292,18 +295,20 @@ describe('guessing passwords', () => {
     const { id } = await createEvent(t.app);
     await join(t.app, id, 'Max', 'secret-1');
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await session(id, { name: 'Max', password: 'guess' });
+      await sessionRequest(t.app, id, { name: 'Max', password: 'guess' });
     }
     t.clock.time += 30_000;
     // The sixth miss: the next wait is a minute.
-    await session(id, { name: 'Max', password: 'guess' });
+    await sessionRequest(t.app, id, { name: 'Max', password: 'guess' });
     t.clock.time += 30_000;
     expect(
-      (await session(id, { name: 'Max', password: 'secret-1' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Max', password: 'secret-1' }))
+        .statusCode
     ).toBe(429);
     t.clock.time += 30_000;
     expect(
-      (await session(id, { name: 'Max', password: 'secret-1' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Max', password: 'secret-1' }))
+        .statusCode
     ).toBe(200);
   });
 
@@ -314,14 +319,19 @@ describe('guessing passwords', () => {
     await join(t.app, id, 'Ann', 'secret-2');
     await join(t.app, other.id, 'Max', 'secret-3');
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await session(id, { name: 'Max', password: 'guess' });
+      await sessionRequest(t.app, id, { name: 'Max', password: 'guess' });
     }
     expect(
-      (await session(id, { name: 'Ann', password: 'secret-2' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Ann', password: 'secret-2' }))
+        .statusCode
     ).toBe(200);
     expect(
-      (await session(other.id, { name: 'Max', password: 'secret-3' }))
-        .statusCode
+      (
+        await sessionRequest(t.app, other.id, {
+          name: 'Max',
+          password: 'secret-3',
+        })
+      ).statusCode
     ).toBe(200);
   });
 });
@@ -329,12 +339,16 @@ describe('guessing passwords', () => {
 describe('password length', () => {
   it('needs six characters for a new password', async () => {
     const { id } = await createEvent(t.app);
-    const short = await session(id, { name: 'Max', password: 'abcde' });
+    const short = await sessionRequest(t.app, id, {
+      name: 'Max',
+      password: 'abcde',
+    });
     expect(short.statusCode).toBe(400);
     expect(short.json().error).toBe('password_too_short');
     expect(short.json().message).toContain(String(LIMITS.passwordMin));
     expect(
-      (await session(id, { name: 'Max', password: 'abcdef' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Max', password: 'abcdef' }))
+        .statusCode
     ).toBe(200);
   });
 
@@ -352,7 +366,8 @@ describe('password length', () => {
       t.clock.now()
     );
     expect(
-      (await session(id, { name: 'Old', password: 'abcd' })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Old', password: 'abcd' }))
+        .statusCode
     ).toBe(200);
   });
 });
@@ -361,8 +376,8 @@ describe('two requests for one name at once', () => {
   it('creates the name once and tells the other it is taken', async () => {
     const { id } = await createEvent(t.app);
     const [a, b] = await Promise.all([
-      session(id, { name: 'Max', password: 'secret-1' }),
-      session(id, { name: 'max', password: 'secret-2' }),
+      sessionRequest(t.app, id, { name: 'Max', password: 'secret-1' }),
+      sessionRequest(t.app, id, { name: 'max', password: 'secret-2' }),
     ]);
     expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
     expect([a, b].find((r) => r.statusCode === 409)!.json().error).toBe(
@@ -375,13 +390,14 @@ describe('two requests for one name at once', () => {
     const { id } = await createEvent(t.app);
     await join(t.app, id, 'Max');
     const [a, b] = await Promise.all([
-      session(id, { name: 'Max', password: 'secret-1' }),
-      session(id, { name: 'Max', password: 'secret-2' }),
+      sessionRequest(t.app, id, { name: 'Max', password: 'secret-1' }),
+      sessionRequest(t.app, id, { name: 'Max', password: 'secret-2' }),
     ]);
     expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
     const winner = a.statusCode === 200 ? 'secret-1' : 'secret-2';
     expect(
-      (await session(id, { name: 'Max', password: winner })).statusCode
+      (await sessionRequest(t.app, id, { name: 'Max', password: winner }))
+        .statusCode
     ).toBe(200);
   });
 });
@@ -465,12 +481,12 @@ describe('the hourly ceiling on new events', () => {
 describe('guesses sent all at once', () => {
   // One /48 each, so that only the brake on the name can stop them.
   const guessFrom = (id: string, n: number, password = 'guess') =>
-    t.app.inject({
-      method: 'POST',
-      url: `/api/events/${id}/session`,
-      payload: { name: 'Alice', password },
-      remoteAddress: `2001:db8:${n.toString(16)}::1`,
-    });
+    sessionRequest(
+      t.app,
+      id,
+      { name: 'Alice', password },
+      { remoteAddress: `2001:db8:${n.toString(16)}::1` }
+    );
   const outcomes = (responses: { json(): { error?: string } }[]) =>
     responses.reduce<Record<string, number>>((count, response) => {
       const error = response.json().error ?? 'ok';
@@ -528,7 +544,7 @@ describe('hashing passwords', () => {
     t.app.inject({
       method: 'PATCH',
       url: `/api/events/${id}/participants/${pid}`,
-      headers: admin(adminToken),
+      headers: adminHeaders(adminToken),
       payload: { password },
       remoteAddress,
     });
@@ -581,12 +597,12 @@ describe('hashing passwords', () => {
     ).toBe(200);
     expect(
       (
-        await t.app.inject({
-          method: 'POST',
-          url: `/api/events/${id}/session`,
-          payload: { name: 'Ann', password: 'abcdef' },
-          remoteAddress: '203.0.113.1',
-        })
+        await sessionRequest(
+          t.app,
+          id,
+          { name: 'Ann', password: 'abcdef' },
+          { remoteAddress: '203.0.113.1' }
+        )
       ).statusCode
     ).toBe(429);
     t.clock.time += 5 * 60_000;
@@ -655,12 +671,12 @@ describe('an address with a port in the forwarded header', () => {
     const { id } = await createEvent(t.app);
     const statuses: number[] = [];
     for (let i = 0; i < 12; i += 1) {
-      const response = await t.app.inject({
-        method: 'POST',
-        url: `/api/events/${id}/session`,
-        payload: { name: `P${i}` },
-        headers: { 'x-forwarded-for': `203.0.113.77:${50_000 + i}` },
-      });
+      const response = await sessionRequest(
+        t.app,
+        id,
+        { name: `P${i}` },
+        { headers: { 'x-forwarded-for': `203.0.113.77:${50_000 + i}` } }
+      );
       statuses.push(response.statusCode);
     }
     expect(statuses).toEqual([...Array<number>(10).fill(200), 429, 429]);

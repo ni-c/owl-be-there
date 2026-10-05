@@ -11,6 +11,7 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  adminHeaders,
 } from './helpers.js';
 
 let t: TestApp;
@@ -80,7 +81,7 @@ describe('live updates', () => {
     await t.app.inject({
       method: 'DELETE',
       url: `/api/events/${id}`,
-      headers: { 'x-admin-token': adminToken },
+      headers: adminHeaders(adminToken),
     });
     const events = await reading;
     expect(events.at(-1)).toBe('event: deleted\ndata: {}');

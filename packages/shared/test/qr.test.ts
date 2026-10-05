@@ -152,6 +152,32 @@ describe('the furniture a reader looks for', () => {
     }
     expect(bits >>> 12).toBe(versionOf(big));
   });
+
+  it('writes both copies of the version block, from version 7 on', () => {
+    // 106 bytes are the most version 6 holds at level M; one more is version 7.
+    expect(versionOf(encodeQr('a'.repeat(106)))).toBe(6);
+    const seven = encodeQr('a'.repeat(107));
+    expect(versionOf(seven)).toBe(7);
+    // The block above the bottom-left finder and its transpose beside the
+    // top-right one carry the same eighteen bits.
+    let bits = 0;
+    let transposed = 0;
+    for (let i = 0; i < 18; i += 1) {
+      const a = seven.size - 11 + (i % 3);
+      const b = Math.floor(i / 3);
+      bits |= (seven.modules[b]![a]! ? 1 : 0) << i;
+      transposed |= (seven.modules[a]![b]! ? 1 : 0) << i;
+    }
+    expect(bits >>> 12).toBe(7);
+    expect(transposed).toBe(bits);
+  });
+
+  it('keeps the dark module in the smallest, a middle and the largest symbol', () => {
+    for (const bytes of [1, 107, 2331]) {
+      const matrix = encodeQr('a'.repeat(bytes));
+      expect(matrix.modules[matrix.size - 8]![8], `${bytes} bytes`).toBe(true);
+    }
+  });
 });
 
 describe('the format information', () => {

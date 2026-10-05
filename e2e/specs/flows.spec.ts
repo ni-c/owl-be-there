@@ -353,7 +353,7 @@ test('the organiser removes a password only after confirming it', async ({
     (await snapshot(request, id)).participants[0].hasPassword;
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await page.getByText('People', { exact: true }).click();
+  await page.locator('summary', { hasText: 'People' }).click();
   await page.getByRole('button', { name: 'Remove password' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Anyone with the event link');

@@ -17,7 +17,12 @@ import {
   type Language,
 } from '../src/index.js';
 
-type Person = { name: string; yes?: string[]; maybe?: string[] };
+type Person = {
+  name: string;
+  yes?: string[];
+  maybe?: string[];
+  unseen?: string[];
+};
 
 function snapshot(
   options: {
@@ -59,7 +64,7 @@ function snapshot(
       rev: 1,
       yes: person.yes ?? [],
       maybe: person.maybe ?? [],
-      unseen: [],
+      unseen: person.unseen ?? [],
     })),
   };
 }
@@ -99,6 +104,16 @@ describe('previewCalendar', () => {
     expect(cells.get('2026-11-07')).toBe(4); // one yes, one maybe: 0.75
     expect(cells.get('2026-11-08')).toBe(0); // nobody
     expect(cells.get('2026-11-02')).toBeNull(); // Monday, not a candidate
+  });
+
+  it('leaves a day nobody has seen yet at no heat, even when it is in yes', () => {
+    const weeks = previewWeeks(
+      snapshot({
+        people: [{ name: 'Anna', yes: ['2026-11-06'], unseen: ['2026-11-06'] }],
+      })
+    );
+    const cells = new Map(weeks[0]!.map((c) => [c.day, c.level]));
+    expect(cells.get('2026-11-06')).toBe(0);
   });
 
   it('starts the week on Monday, and on Sunday in Japanese', () => {

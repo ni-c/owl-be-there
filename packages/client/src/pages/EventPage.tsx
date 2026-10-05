@@ -7,9 +7,15 @@ import {
   todayLocal,
   type EventSnapshotData,
 } from '@owl/shared';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AdminPanel } from '../components/AdminPanel.tsx';
-import { EventViews } from '../components/EventViews.tsx';
+import { EventViews, type EventTab } from '../components/EventViews.tsx';
 import { GroupView } from '../components/GroupView.tsx';
 import {
   CalendarIcon,
@@ -41,9 +47,14 @@ import {
   readAdminToken,
   readSession,
   rememberEvent,
+  storeSession,
   writeAdminToken,
   type Session,
 } from '../lib/prefs.ts';
+
+/** The look of the calendar-file and Google links under a decided event. */
+const RAISED_PILL =
+  'inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card';
 
 export function EventPage({
   id,
@@ -91,6 +102,14 @@ export function EventPage({
     };
   }, [id, candidate]);
   const [session, setSession] = useState<Session | null>(() => readSession(id));
+  // Every change of the session is kept on this device and shown at once.
+  const changeSession = useCallback(
+    (next: Session | null) => {
+      storeSession(id, next);
+      setSession(next);
+    },
+    [id]
+  );
   const [shareOpen, setShareOpen] = useState(() =>
     Boolean((window.history.state as { created?: boolean } | null)?.created)
   );
@@ -167,7 +186,7 @@ export function EventPage({
       }}
       adminRefused={adminRefused}
       session={session}
-      onSession={setSession}
+      onSession={changeSession}
       shareOpen={shareOpen}
       onShare={(open) => {
         setShareOpen(open);
@@ -198,7 +217,7 @@ interface EventViewProps {
 function EventView(props: EventViewProps) {
   const { data, stale, store, adminToken, session, onSession } = props;
   const { t, locale } = useI18n();
-  const [tab, setTab] = useState<'mine' | 'group'>('mine');
+  const [tab, setTab] = useState<EventTab>('mine');
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
   const today = todayLocal();
@@ -397,7 +416,7 @@ function StatusBanner({
         <a
           href={calendarFileUrl(event.id)}
           download="owl-be-there.ics"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card"
+          className={RAISED_PILL}
         >
           <CalendarIcon /> {t('event.icsFile')}
         </a>
@@ -405,7 +424,7 @@ function StatusBanner({
           href={google}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 font-bold shadow-card"
+          className={RAISED_PILL}
         >
           {t('event.google')}
         </a>

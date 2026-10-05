@@ -6,11 +6,9 @@ import {
   EMOJI_KEYS,
   EMOJIS,
   expandRange,
-  formatDay,
   isValidISODate,
   LIMITS,
   todayLocal,
-  WEEKDAYS,
   type EmojiKey,
   type ISODate,
   type Mark,
@@ -21,14 +19,16 @@ import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
 import { daysProblem, type Problem } from '../lib/dayEdit.ts';
 import { errorMessage } from '../lib/errors.ts';
-import { checkMinCount, parseRoster, radioTarget } from '../lib/forms.ts';
-import { firstWeekdayFor } from '../lib/locale.ts';
+import { checkMinCount, parseRoster } from '../lib/forms.ts';
+import { rovingKeyDown } from '../lib/roving.ts';
+import { firstWeekdayFor, weekdayName, weekdayOrder } from '../lib/locale.ts';
 import { rememberEvent, writeAdminToken } from '../lib/prefs.ts';
 import { navigate } from '../lib/route.ts';
 import { CalendarGrid } from './CalendarGrid.tsx';
 import { Button, Card, Field, Notice, TextArea, TextInput } from './ui.tsx';
 
 const STEPS = 3;
+const STEP_NUMBERS = Array.from({ length: STEPS }, (_, i) => i + 1);
 
 /**
  * Three steps: what, when, who. The days are chosen as a range and a set of
@@ -145,12 +145,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
     }
   };
 
-  const weekdayOrder = WEEKDAYS.map(
-    (offset) => ((firstWeekday + offset) % 7) as Weekday
-  );
-  const weekdayName = (weekday: Weekday, style: 'short' | 'long') =>
-    formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
-
   return (
     <Card>
       <form
@@ -165,7 +159,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
           </p>
         </div>
         <div className="flex gap-2" aria-hidden="true">
-          {[1, 2, 3].map((n) => (
+          {STEP_NUMBERS.map((n) => (
             <span
               key={n}
               className={`h-1.5 flex-1 rounded-full ${n <= step ? 'bg-brand' : 'bg-line'}`}
@@ -213,15 +207,14 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     // One stop in the tab order; the arrow keys move within.
                     tabIndex={emoji === key ? 0 : -1}
                     onClick={() => setEmoji(key)}
-                    onKeyDown={(event) => {
-                      const target = radioTarget(EMOJI_KEYS, emoji, event.key);
-                      if (!target) return;
-                      event.preventDefault();
-                      setEmoji(target);
-                      event.currentTarget.parentElement
-                        ?.querySelector<HTMLElement>(`[data-emoji="${target}"]`)
-                        ?.focus();
-                    }}
+                    onKeyDown={(event) =>
+                      rovingKeyDown(
+                        event,
+                        EMOJI_KEYS.indexOf(emoji),
+                        EMOJI_KEYS.length,
+                        (next) => setEmoji(EMOJI_KEYS[next]!)
+                      )
+                    }
                     className={`grid size-11 place-items-center rounded-2xl text-2xl transition ${
                       emoji === key
                         ? 'bg-brand-soft ring-2 ring-brand'
@@ -325,14 +318,14 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                 aria-labelledby="weekdays-label"
                 className="flex flex-wrap gap-1.5"
               >
-                {weekdayOrder.map((weekday) => {
+                {weekdayOrder(firstWeekday).map((weekday) => {
                   const on = weekdays.has(weekday);
                   return (
                     <button
                       key={weekday}
                       type="button"
                       aria-pressed={on}
-                      aria-label={weekdayName(weekday, 'long')}
+                      aria-label={weekdayName(weekday, locale, 'long')}
                       onClick={() => {
                         const next = new Set(weekdays);
                         if (on) next.delete(weekday);
@@ -346,7 +339,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                           : 'border-line bg-surface text-muted'
                       }`}
                     >
-                      {weekdayName(weekday, 'short')}
+                      {weekdayName(weekday, locale, 'short')}
                     </button>
                   );
                 })}

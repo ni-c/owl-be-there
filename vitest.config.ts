@@ -1,15 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
-// Test the sources, never a stale build of them.
-const alias = {
-  '@owl/shared': fileURLToPath(
-    new URL('./packages/shared/src/index.ts', import.meta.url)
-  ),
-};
-
 /**
- * One project per package, all in Node and all in-process: the server tests
+ * One project per package, plus one for the scripts, all in Node and all in-process: the server tests
  * open SQLite in memory and talk to Fastify through `inject`, so the whole
  * suite needs nothing installed and nothing running.
  *
@@ -18,11 +11,18 @@ const alias = {
  * reached from React — which runs in Node like everything else.
  */
 export default defineConfig({
-  resolve: { alias },
+  // Test the sources, never a stale build of them. The projects extend this
+  // config; an alias of their own would only give each its own Vite server.
+  resolve: {
+    alias: {
+      '@owl/shared': fileURLToPath(
+        new URL('./packages/shared/src/index.ts', import.meta.url)
+      ),
+    },
+  },
   test: {
     projects: [
       {
-        resolve: { alias },
         test: {
           name: 'shared',
           environment: 'node',
@@ -30,7 +30,6 @@ export default defineConfig({
         },
       },
       {
-        resolve: { alias },
         test: {
           name: 'server',
           environment: 'node',
@@ -38,11 +37,17 @@ export default defineConfig({
         },
       },
       {
-        resolve: { alias },
         test: {
           name: 'client',
           environment: 'node',
           include: ['packages/client/test/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'scripts',
+          environment: 'node',
+          include: ['scripts/**/*.test.ts'],
         },
       },
     ],

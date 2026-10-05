@@ -27,12 +27,7 @@ import { errorMessage, sessionRevoked } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { marksSender } from '../lib/marksSender.ts';
 import { noteChange } from '../lib/note.ts';
-import {
-  clearSession,
-  rememberEvent,
-  writeSession,
-  type Session,
-} from '../lib/prefs.ts';
+import type { Session } from '../lib/prefs.ts';
 import { SaveQueue, type SaveStatus } from '../lib/saveQueue.ts';
 import { CheckIcon, LockIcon } from './icons.tsx';
 import { MarksEditor } from './MarksEditor.tsx';
@@ -81,7 +76,6 @@ export function MyDays(props: MyDaysProps) {
     );
     if (present) return;
     if (seen.current.has(session.participantId)) {
-      clearSession(data.event.id);
       onSession(null);
     } else {
       void store.refresh();
@@ -161,8 +155,6 @@ function WhoAreYou({
         participantId: result.participantId,
         token: result.token,
       };
-      writeSession(data.event.id, session);
-      rememberEvent(data.event, 'participant');
       onSession(session);
     } catch (failure) {
       if (
@@ -336,7 +328,6 @@ function Greeting({
         ...session,
         ...(result.token && { token: result.token }),
       };
-      writeSession(data.event.id, next);
       onSession(next);
       setPassword('');
       setMessage({ tone: 'success', text: t('admin.saved') });
@@ -349,7 +340,6 @@ function Greeting({
   const deleteEntry = async () => {
     try {
       await api.deleteParticipant(data.event.id, participant.id, credentials);
-      clearSession(data.event.id);
       onSession(null);
       void store.refresh();
     } catch (failure) {
@@ -377,14 +367,7 @@ function Greeting({
               {t('mine.entry')}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              clearSession(data.event.id);
-              onSession(null);
-            }}
-          >
+          <Button size="sm" variant="ghost" onClick={() => onSession(null)}>
             {t('mine.notYou')}
           </Button>
         </div>
@@ -540,7 +523,6 @@ function Painter(
             next === 'failed' &&
             sessionRevoked(error, credentialsRef.current)
           ) {
-            clearSession(eventId);
             onSessionRef.current(null);
           }
         },

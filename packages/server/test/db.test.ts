@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { nameKey, utcDateOf } from '@owl/shared';
+import { LANGUAGES, LIMITS, nameKey, utcDateOf } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import {
   MIGRATIONS,
@@ -11,6 +11,7 @@ import {
 } from '../src/db/migrations.js';
 import {
   blockFits,
+  emptyEventIds,
   findParticipantByKey,
   listEvents,
   purgeEmpty,
@@ -183,6 +184,65 @@ describe('migrate', () => {
     // A chosen date needs a closed poll.
     expect(() => insert('ok', '2027-03-06', null)).toThrow();
     expect(insert('ok', '2027-03-06', 1)).toBe(1);
+  });
+
+  it('keeps the CHECK limits of the schema equal to LIMITS', () => {
+    // Migrations are applied history and never change: raising a limit needs
+    // a rebuild migration like version 2, and this is what notices when it
+    // is forgotten. A value of the limit is stored, one more is refused.
+    const db = fresh();
+    let n = 0;
+    const event = (column: string, value: string | number): number => {
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days,
+           created_at, last_write_at, expires_on)
+         VALUES (?, 'h', 't', 'owl', 'en', 1, 0, 0, '2027-01-01')`,
+        `e${++n}`
+      );
+      return db.run(
+        `UPDATE events SET ${column} = ? WHERE id = ?`,
+        value,
+        `e${n}`
+      );
+    };
+    const participant = (column: string, value: string): number => {
+      db.run(
+        `INSERT INTO participants (id, event_id, name, name_key, source, created_at)
+         VALUES (?, (SELECT id FROM events LIMIT 1), 'n', ?, 'self', 0)`,
+        `p${++n}`,
+        `k${n}`
+      );
+      return db.run(
+        `UPDATE participants SET ${column} = ? WHERE id = ?`,
+        value,
+        `p${n}`
+      );
+    };
+    const bound = (
+      write: (text: string) => number,
+      limit: number,
+      name: string
+    ): void => {
+      expect(write('x'.repeat(limit)), `${name} at the limit`).toBe(1);
+      expect(() => write('x'.repeat(limit + 1)), `${name} over it`).toThrow();
+    };
+    bound((text) => event('title', text), LIMITS.title, 'title');
+    expect(() => event('title', ''), 'empty title').toThrow();
+    bound(
+      (text) => event('description', text),
+      LIMITS.description,
+      'description'
+    );
+    bound((text) => event('location', text), LIMITS.location, 'location');
+    bound((text) => event('creator_name', text), LIMITS.creatorName, 'creator');
+    expect(event('duration_days', LIMITS.durationDays)).toBe(1);
+    expect(() => event('duration_days', LIMITS.durationDays + 1)).toThrow();
+    expect(() => event('duration_days', 0)).toThrow();
+    for (const code of LANGUAGES) expect(event('language', code), code).toBe(1);
+    expect(() => event('language', 'xx')).toThrow();
+    bound((text) => participant('name', text), LIMITS.name, 'name');
+    expect(() => participant('name', ''), 'empty name').toThrow();
+    bound((text) => participant('note', text), LIMITS.note, 'note');
   });
 
   it('refuses a mark on a day that is not a candidate', () => {
@@ -422,6 +482,8 @@ describe('listing and purging new events', () => {
     person(db, 'b', 'rostered', 'roster', 1);
     person(db, 'c', 'joined', 'self', 1);
     person(db, 'd', 'old', 'roster', null);
+    // What the dry run counts is what the purge deletes.
+    expect(emptyEventIds(db, '2027-03-01').sort()).toEqual(['empty', 'roster']);
     expect(purgeEmpty(db, '2027-03-01').sort()).toEqual(['empty', 'roster']);
     expect(
       db
@@ -434,8 +496,11 @@ describe('listing and purging new events', () => {
   it('purges nothing from an empty database or from after the last event', () => {
     const db = fresh();
     expect(purgeEmpty(db, '2027-03-01')).toEqual([]);
+    expect(emptyEventIds(db, '2027-03-01')).toEqual([]);
     expect(listEvents(db, null)).toEqual([]);
     event(db, 'empty', day('2027-03-01'));
+    expect(emptyEventIds(db, '2027-03-02')).toEqual([]);
+    expect(emptyEventIds(db, '2027-03-01')).toEqual(['empty']);
     expect(purgeEmpty(db, '2027-03-02')).toEqual([]);
     expect(purgeEmpty(db, '2027-03-01')).toEqual(['empty']);
   });

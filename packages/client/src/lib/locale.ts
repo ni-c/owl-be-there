@@ -1,4 +1,4 @@
-import type { Weekday } from '@owl/shared';
+import { addDays, formatDay, WEEKDAYS, type Weekday } from '@owl/shared';
 
 /**
  * The first day of the week where the reader lives: Monday almost everywhere,
@@ -21,4 +21,19 @@ export function firstWeekdayFor(tag: string): Weekday {
     // An odd tag: fall through.
   }
   return 0;
+}
+
+/** The seven weekdays in the order a calendar shows them, from `firstWeekday`. */
+export function weekdayOrder(firstWeekday: Weekday): Weekday[] {
+  return WEEKDAYS.map((offset) => ((firstWeekday + offset) % 7) as Weekday);
+}
+
+/** The name of a weekday in a locale: "Mon" or "Monday". */
+export function weekdayName(
+  weekday: Weekday,
+  locale: string,
+  style: 'short' | 'long'
+): string {
+  // 2024-01-01 was a Monday: a fixed week to take weekday names from.
+  return formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
 }

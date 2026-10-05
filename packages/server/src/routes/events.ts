@@ -4,7 +4,6 @@ import {
   buildIcs,
   candidateBlocks,
   checkCandidateDays,
-  compareISODate,
   CreateEventBody,
   isId,
   LIMITS,
@@ -17,7 +16,6 @@ import {
   todayUTC,
   UpdateEventBody,
   type ISODate,
-  type Language,
 } from '@owl/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isAdmin } from '../auth/access.js';
@@ -255,11 +253,15 @@ export function registerEventRoutes(
         // not too far.
         const existing = new Set(current);
         const added = days.filter((day) => !existing.has(day));
-        if (added.some((day) => compareISODate(day, earliestDay(ctx)) < 0)) {
-          throw new ApiError(400, 'invalid_days', 'past');
-        }
-        if (added.some((day) => compareISODate(day, latestDay(ctx)) > 0)) {
-          throw new ApiError(400, 'invalid_days', 'too_far');
+        if (added.length > 0) {
+          const problem = checkCandidateDays(
+            added,
+            earliestDay(ctx),
+            latestDay(ctx)
+          );
+          if (problem !== null) {
+            throw new ApiError(400, 'invalid_days', problem);
+          }
         }
       }
       checkDays(days, null, null, duration);
@@ -388,7 +390,7 @@ export function registerEventRoutes(
         {
           uid: `${event.id}@owl-be-there`,
           title: event.title,
-          description: SERVER_TEXTS[event.language as Language].calendarNote,
+          description: SERVER_TEXTS[event.language].calendarNote,
           location: event.location,
           start: event.final_start,
           end: event.final_end,

@@ -14,6 +14,13 @@ concurrency:
 permissions:
   contents: read
 
+# The Trivy release every scan runs. Dependabot bumps `uses:` references only,
+# never this, so it is a manual bump with two companions: the same version in
+# `ci.yml` and in the `scan:secrets` image of `package.json`
+# (`aquasec/trivy:<version without the v>`).
+env:
+  TRIVY_VERSION: v0.73.0
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -75,10 +82,9 @@ jobs:
       - name: The CHANGELOG has a section for this version
         run: |
           version="${GITHUB_REF_NAME#v}"
-          if ! awk -v ver="$version" \
-            '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/ {flag=0} /^\[.*\]: / {flag=0} flag' \
-            CHANGELOG.md | grep -q .; then
-            echo "No CHANGELOG section found for $version" >&2
+          # A section of headings only has no release notes either.
+          if ! bash scripts/changelog-section.sh "$version" | grep -q '^[^#[:space:]]'; then
+            echo "No CHANGELOG section with content found for $version" >&2
             exit 1
           fi
 
@@ -138,7 +144,7 @@ jobs:
           build-args: APK_SECURITY_EPOCH=${{ steps.epoch.outputs.day }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.73.0
+          version: ${{ env.TRIVY_VERSION }}
           image-ref: owl-be-there:release-scan
           severity: HIGH,CRITICAL
           ignore-unfixed: true
@@ -152,7 +158,6 @@ jobs:
           build-args: APK_SECURITY_EPOCH=${{ steps.epoch.outputs.day }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.73.0
           image-ref: owl-be-there:release-scan-arm64
           severity: HIGH,CRITICAL
           ignore-unfixed: true
@@ -186,9 +191,8 @@ jobs:
       - name: Extract the release notes from the CHANGELOG
         run: |
           version="${GITHUB_REF_NAME#v}"
-          awk -v ver="$version" \
-            '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/ {flag=0} /^\[.*\]: / {flag=0} flag' \
-            CHANGELOG.md > release-notes.md
+          bash scripts/changelog-section.sh "$version" > release-notes.md
+          test -s release-notes.md
           {
             echo
             echo "**Container image:** \`ghcr.io/ni-c/owl-be-there:${version}\` (amd64, arm64)"

@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigError } from '../src/config.js';
-import { CLIENT_DIR, createEvent, testApp, type TestApp } from './helpers.js';
+import {
+  CLIENT_DIR,
+  createEvent,
+  testApp,
+  type TestApp,
+  setStatus,
+} from './helpers.js';
 
 let t: TestApp | undefined;
 const scratch: string[] = [];
@@ -127,12 +133,7 @@ describe('finalising at the end of the calendar', () => {
   const finalize = (id: string, token: string, start: string, duration = 2) => {
     // A block of the event's duration cannot be asked for beyond 9999-12-31.
     t!.db.run('UPDATE events SET duration_days = ? WHERE id = ?', duration, id);
-    return t!.app.inject({
-      method: 'PUT',
-      url: `/api/events/${id}/status`,
-      headers: { 'x-admin-token': token },
-      payload: { status: 'finalized', start },
-    });
+    return setStatus(t!.app, id, token, { status: 'finalized', start });
   };
 
   it('answers 400 for a block that would run past the last day, not 500', async () => {

@@ -4,6 +4,7 @@ import {
   charCount,
   cleanLine,
   cleanText,
+  escapeMarkup,
   mixesScripts,
   nameKey,
 } from '../src/index.js';
@@ -230,5 +231,25 @@ describe('charCount', () => {
     expect(charCount('😀😀😀')).toBe(3);
     expect('😀😀😀'.length).toBe(6);
     expect(charCount('\ud800')).toBe(1);
+  });
+});
+
+describe('escapeMarkup', () => {
+  it('escapes the five characters markup gives a meaning', () => {
+    expect(escapeMarkup(`<a href="x" title='y'>&</a>`)).toBe(
+      '&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;'
+    );
+  });
+
+  it('escapes an ampersand once, not again in what it produces', () => {
+    expect(escapeMarkup('&lt;')).toBe('&amp;lt;');
+    expect(escapeMarkup('&&')).toBe('&amp;&amp;');
+  });
+
+  it('leaves empty text and plain text alone', () => {
+    expect(escapeMarkup('')).toBe('');
+    expect(escapeMarkup('Sommerturnier ⚽ 日本語')).toBe(
+      'Sommerturnier ⚽ 日本語'
+    );
   });
 });

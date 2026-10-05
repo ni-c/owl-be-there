@@ -7,7 +7,6 @@ import {
   detailsOf,
   inputOf,
   parseRoster,
-  radioTarget,
   type DetailsInput,
   type DetailsValues,
 } from '../src/lib/forms.ts';
@@ -255,28 +254,5 @@ describe('parseRoster', () => {
       params: { max: LIMITS.roster },
     });
     expect(over.names).toHaveLength(LIMITS.roster + 1);
-  });
-});
-
-describe('radioTarget', () => {
-  const items = ['a', 'b', 'c'];
-
-  it('moves to the next and previous item', () => {
-    expect(radioTarget(items, 'a', 'ArrowRight')).toBe('b');
-    expect(radioTarget(items, 'b', 'ArrowDown')).toBe('c');
-    expect(radioTarget(items, 'c', 'ArrowLeft')).toBe('b');
-    expect(radioTarget(items, 'b', 'ArrowUp')).toBe('a');
-  });
-
-  it('wraps at both ends', () => {
-    expect(radioTarget(items, 'c', 'ArrowRight')).toBe('a');
-    expect(radioTarget(items, 'a', 'ArrowLeft')).toBe('c');
-  });
-
-  it('ignores other keys, an unknown current item and an empty group', () => {
-    expect(radioTarget(items, 'a', 'Enter')).toBeNull();
-    expect(radioTarget(items, 'z', 'ArrowRight')).toBeNull();
-    expect(radioTarget([], 'a', 'ArrowRight')).toBeNull();
-    expect(radioTarget(['a'], 'a', 'ArrowRight')).toBe('a');
   });
 });

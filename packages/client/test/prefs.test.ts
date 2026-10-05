@@ -63,6 +63,19 @@ describe('prefs', () => {
     expect(prefs.readSession(ID)).toBeNull();
   });
 
+  it('stores a session, replaces it, and forgets it for null', () => {
+    prefs.storeSession(ID, { participantId: OTHER, token: 'a' });
+    expect(prefs.readSession(ID)).toEqual({ participantId: OTHER, token: 'a' });
+    prefs.storeSession(ID, { participantId: OTHER, token: 'b' });
+    expect(prefs.readSession(ID)?.token).toBe('b');
+    prefs.storeSession(ID, null);
+    expect(prefs.readSession(ID)).toBeNull();
+    expect(browser.storage.getItem(`owl.session.${ID}`)).toBeNull();
+    // Nothing stored, nothing to forget: no error, no entry.
+    expect(() => prefs.storeSession(OTHER, null)).not.toThrow();
+    expect(prefs.readSession(OTHER)).toBeNull();
+  });
+
   it('keeps the organiser key, refusing implausible ones', () => {
     prefs.writeAdminToken(ID, 'k'.repeat(43));
     expect(prefs.readAdminToken(ID)).toBe('k'.repeat(43));

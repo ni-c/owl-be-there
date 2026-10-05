@@ -50,6 +50,7 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - Public repository with the ni-c settings canon: ruleset `protect-main` with the CI jobs as required checks and an admin bypass. Merge pull requests with `gh pr merge --squash --admin` once CI is green.
 - The CI job names are the required checks. Adding a job is safe; renaming or removing one blocks every pull request until the ruleset is updated.
 - Dependabot auto-merges patch and minor updates once CI passes; GitHub Actions bumps stay manual.
+- The Trivy version is pinned in `TRIVY_VERSION` at the top of `ci.yml` and of `release.yml`, and in the `scan:secrets` image of `package.json`. Dependabot bumps none of them; change all three together.
 - Releases: a signed tag `vX.Y.Z` on `main` runs `release.yml`, which checks the tag against `package.json` and the CHANGELOG, publishes the multi-arch image to GHCR and creates the GitHub release. Steps in CONTRIBUTING.
 
 ## Traps

@@ -71,6 +71,33 @@ export function formatDayRange(
     : format.formatRange(utcDateOf(start), utcDateOf(end));
 }
 
+/** The app's name. It is not translated, and every surface spells it alike. */
+export const APP_NAME = 'Owl Be There';
+
+/**
+ * The line under the name, one per language. The client's dictionaries and the
+ * server's texts both read it from here, so the browser tab and the link
+ * preview cannot drift apart.
+ */
+export const TAGLINES: Record<Language, string> = {
+  de: 'Findet einen Tag, an dem alle können.',
+  en: 'Find a day everyone can make.',
+  es: 'Encontrad un día que os venga bien a todos.',
+  fr: 'Trouvez une date qui convient à tout le monde.',
+  it: 'Trova un giorno che vada bene a tutti.',
+  ja: 'みんなが集まれる日を見つけよう。',
+  nl: 'Vind een dag waarop iedereen kan.',
+  pt: 'Encontrem um dia em que todos possam.',
+};
+
+/**
+ * The English start page description, for search results and link previews.
+ * The client's English lead is the same sentence; the other languages word the
+ * lead for people and the description for search engines, so they differ.
+ */
+export const DESCRIPTION_EN =
+  'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.';
+
 /**
  * The texts the server writes itself: link previews and calendar files.
  *
@@ -80,8 +107,8 @@ export function formatDayRange(
  */
 export const SERVER_TEXTS = {
   de: {
-    appName: 'Owl Be There',
-    tagline: 'Findet einen Tag, an dem alle können.',
+    appName: APP_NAME,
+    tagline: TAGLINES.de,
     /** The start page's description for search results and link previews. */
     description:
       'Wann können alle? Trag deine Tage im Kalender ein und finde es heraus. Ohne Anmeldung und ohne Tracking.',
@@ -100,10 +127,9 @@ export const SERVER_TEXTS = {
     calendarNote: 'Ausgewählt mit Owl Be There',
   },
   en: {
-    appName: 'Owl Be There',
-    tagline: 'Find a day everyone can make.',
-    description:
-      'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.',
+    appName: APP_NAME,
+    tagline: TAGLINES.en,
+    description: DESCRIPTION_EN,
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Add the days you can make it. No sign-up needed.'
@@ -118,8 +144,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Chosen with Owl Be There',
   },
   es: {
-    appName: 'Owl Be There',
-    tagline: 'Encontrad un día que os venga bien a todos.',
+    appName: APP_NAME,
+    tagline: TAGLINES.es,
     description:
       '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni rastreo.',
     previewOpen: (answers: number): string =>
@@ -136,8 +162,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Fecha elegida con Owl Be There',
   },
   fr: {
-    appName: 'Owl Be There',
-    tagline: 'Trouvez une date qui convient à tout le monde.',
+    appName: APP_NAME,
+    tagline: TAGLINES.fr,
     description:
       'Quand tout le monde est-il libre ? Indique tes jours sur le calendrier et découvre-le. Sans inscription ni pistage.',
     previewOpen: (answers: number): string =>
@@ -154,8 +180,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Date choisie avec Owl Be There',
   },
   it: {
-    appName: 'Owl Be There',
-    tagline: 'Trova un giorno che vada bene a tutti.',
+    appName: APP_NAME,
+    tagline: TAGLINES.it,
     description:
       'Quando ci sono tutti? Segna i tuoi giorni sul calendario e scoprilo. Senza registrazione né tracciamento.',
     previewOpen: (answers: number): string =>
@@ -172,8 +198,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Data scelta con Owl Be There',
   },
   ja: {
-    appName: 'Owl Be There',
-    tagline: 'みんなが集まれる日を見つけよう。',
+    appName: APP_NAME,
+    tagline: TAGLINES.ja,
     description:
       'みんなが集まれるのはいつ？カレンダーで行ける日を選ぶだけ。登録もトラッキングもなし。',
     previewOpen: (answers: number): string =>
@@ -188,8 +214,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Owl Be Thereで決めた日程',
   },
   nl: {
-    appName: 'Owl Be There',
-    tagline: 'Vind een dag waarop iedereen kan.',
+    appName: APP_NAME,
+    tagline: TAGLINES.nl,
     description:
       'Wanneer kan iedereen? Vul je dagen in op de kalender en ontdek het. Zonder aanmelden of tracking.',
     previewOpen: (answers: number): string =>
@@ -206,8 +232,8 @@ export const SERVER_TEXTS = {
     calendarNote: 'Datum gekozen met Owl Be There',
   },
   pt: {
-    appName: 'Owl Be There',
-    tagline: 'Encontrem um dia em que todos possam.',
+    appName: APP_NAME,
+    tagline: TAGLINES.pt,
     description:
       'Quando é que todos podem? Marca os teus dias no calendário e descobre. Sem registo nem rastreio.',
     previewOpen: (answers: number): string =>

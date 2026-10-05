@@ -1,14 +1,15 @@
+import { APP_NAME, DESCRIPTION_EN, TAGLINES } from '@owl/shared';
+
 /**
  * The English texts, and the type every other language must match: a key
  * missing in `de.ts` is a build error. Placeholders are `{name}`; counted
  * texts come in `_one` / `_other` pairs, chosen by `Intl.PluralRules`.
  */
 export const en = {
-  'app.name': 'Owl Be There',
-  'app.tagline': 'Find a day everyone can make.',
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.en,
 
-  'home.lead':
-    'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.',
+  'home.lead': DESCRIPTION_EN,
   'home.cta': 'Plan an event',
   'home.feature.heat.title': 'See what works',
   'home.feature.heat.text':

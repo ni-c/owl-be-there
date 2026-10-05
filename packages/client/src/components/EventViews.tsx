@@ -1,8 +1,10 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { rovingKeyDown } from '../lib/roving.ts';
 import { Card } from './ui.tsx';
 
 export type EventTab = 'mine' | 'group';
+const TABS: readonly EventTab[] = ['mine', 'group'];
 
 /** Wide enough for the two views side by side (56rem). */
 function useWide(): boolean {
@@ -66,7 +68,7 @@ export function EventViews(props: {
         aria-label={t('event.tabs')}
         className="grid grid-cols-2 rounded-full border-2 border-line bg-sunken p-1"
       >
-        {(['mine', 'group'] as const).map((value) => (
+        {TABS.map((value) => (
           <button
             key={value}
             type="button"
@@ -76,17 +78,15 @@ export function EventViews(props: {
             aria-controls={`${id}-panel`}
             tabIndex={tab === value ? 0 : -1}
             onClick={() => onTab(value)}
-            onKeyDown={(keyEvent) => {
-              if (
-                keyEvent.key === 'ArrowRight' ||
-                keyEvent.key === 'ArrowLeft'
-              ) {
-                keyEvent.preventDefault();
-                const next = value === 'mine' ? 'group' : 'mine';
-                onTab(next);
-                document.getElementById(tabId(next))?.focus();
-              }
-            }}
+            onKeyDown={(keyEvent) =>
+              rovingKeyDown(
+                keyEvent,
+                TABS.indexOf(value),
+                TABS.length,
+                (next) => onTab(TABS[next]!),
+                false
+              )
+            }
             className={`min-h-11 rounded-full font-extrabold transition ${tab === value ? 'bg-surface shadow-card' : 'text-muted'}`}
           >
             {value === 'mine' ? (

@@ -2,8 +2,11 @@ import { createHash } from 'node:crypto';
 import {
   EMOJIS,
   emojiIcon,
+  escapeMarkup,
   LANGUAGES,
   LOCALES,
+  PREVIEW_HEIGHT,
+  PREVIEW_WIDTH,
   previewStatus,
   SERVER_TEXTS,
   type EventSnapshotData,
@@ -72,15 +75,6 @@ function inlineScriptHashes(html: string): string[] {
   return hashes;
 }
 
-export function escapeHtml(text: string): string {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 interface HeadOptions {
   publicUrl: string;
   path: string;
@@ -106,7 +100,7 @@ export function homePath(language: Language | null): string {
 }
 
 function head(options: HeadOptions): string {
-  const e = escapeHtml;
+  const e = escapeMarkup;
   const image = options.image ?? `${options.publicUrl}/og.png`;
   return [
     `<title>${e(options.title)}</title>`,
@@ -118,8 +112,8 @@ function head(options: HeadOptions): string {
     `<meta property="og:description" content="${e(options.description)}" />`,
     `<meta property="og:url" content="${e(options.publicUrl + options.path)}" />`,
     `<meta property="og:image" content="${e(image)}" />`,
-    `<meta property="og:image:width" content="1200" />`,
-    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:width" content="${PREVIEW_WIDTH}" />`,
+    `<meta property="og:image:height" content="${PREVIEW_HEIGHT}" />`,
     `<meta property="og:image:alt" content="${e(options.imageAlt)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<link rel="icon" href="${e(options.icon)}" />`,
@@ -162,7 +156,7 @@ export function defaultHead(
  * the privacy page. Event pages are private and never listed.
  */
 export function sitemap(publicUrl: string): string {
-  const e = escapeHtml;
+  const e = escapeMarkup;
   const alternates = [
     ...LANGUAGES.map(
       (language) =>

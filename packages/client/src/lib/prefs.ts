@@ -62,6 +62,12 @@ export function clearSession(eventId: string): void {
   store.remove(`owl.session.${eventId}`);
 }
 
+/** Keep this device's session for an event, or forget it for `null`. */
+export function storeSession(eventId: string, session: Session | null): void {
+  if (session) writeSession(eventId, session);
+  else clearSession(eventId);
+}
+
 export function readAdminToken(eventId: string): string | null {
   return store.read(`owl.admin.${eventId}`, z.string().min(20).max(128));
 }
