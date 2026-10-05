@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Prints the CHANGELOG section of one version, without its "## [x.y.z]" heading:
+# Prints the CHANGELOG section of one version, without its "## [x.y.z] - date"
+# heading (the date is optional):
 #
 #     bash scripts/changelog-section.sh <version> [<changelog>]
 #
@@ -13,7 +14,7 @@ version="${1:?usage: changelog-section.sh <version> [<changelog>]}"
 changelog="${2:-CHANGELOG.md}"
 
 awk -v heading="## [${version}]" '
-  index($0, heading) == 1 && length($0) == length(heading) { found = 1; flag = 1; next }
+  $0 == heading || index($0, heading " ") == 1 { found = 1; flag = 1; next }
   /^## \[/ || /^\[.*\]: / { flag = 0 }
   flag
   END { exit found ? 0 : 1 }

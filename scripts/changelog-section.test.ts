@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -15,13 +15,13 @@ const CHANGELOG = `# Changelog
 
 - Something new.
 
-## [0.1.1]
+## [0.1.1] - 2026-10-02
 
 ### Fixed
 
 - A fix.
 
-## [0.1.0]
+## [0.1.0] - 2026-10-01
 
 ### Added
 
@@ -81,6 +81,27 @@ describe('changelog-section.sh', () => {
     );
     expect(status).toBe(0);
     expect(out.split('\n').filter((line) => /^[^#\s]/.test(line))).toEqual([]);
+  });
+
+  it('finds a heading with and without a date, and no longer version', () => {
+    const changelog =
+      '## [0.1.10] - 2026-10-05\n\n- Ten.\n\n## [0.1.1]\n\n- One.\n';
+    expect(section('0.1.10', changelog).out).toContain('- Ten.');
+    expect(section('0.1.1', changelog).out).toContain('- One.');
+    expect(section('0.1.1', changelog).out).not.toContain('Ten');
+  });
+
+  it("finds the repository's own section for the current version", () => {
+    const root = join(import.meta.dirname, '..');
+    const { version } = JSON.parse(
+      readFileSync(join(root, 'package.json'), 'utf8')
+    ) as { version: string };
+    const { status, out } = section(
+      version,
+      readFileSync(join(root, 'CHANGELOG.md'), 'utf8')
+    );
+    expect(status).toBe(0);
+    expect(out.split('\n').some((line) => /^[^#\s]/.test(line))).toBe(true);
   });
 
   it('exits 1 for an empty CHANGELOG', () => {

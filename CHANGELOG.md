@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-05
+
 ### Added
 
 - A built-in legal notice at `/imprint`, linked in the footer between "Privacy" and the source link, in all eight languages: provider identification under § 5 DDG and § 18(1) MStV, contact, and short statements on the project, consumer dispute resolution and liability. It appears when `OPERATOR_NAME`, the new `OPERATOR_ADDRESS` (one line with comma-separated parts, or one part per line) and `OPERATOR_CONTACT` are set, and is listed in `sitemap.xml`; `/api/instance` reports `operatorAddress`. `IMPRINT_URL` still wins as an external link.
@@ -226,7 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ni-c/owl-be-there/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ni-c/owl-be-there/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ni-c/owl-be-there/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/ni-c/owl-be-there/compare/v0.1.4...v0.1.5
