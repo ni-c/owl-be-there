@@ -6,7 +6,7 @@ services:
   owl:
     # Pin the release you run and move the tag on purpose: only the latest
     # release gets security fixes, and the tag below follows each release.
-    image: ghcr.io/ni-c/owl-be-there:0.3.0
+    image: ghcr.io/ni-c/owl-be-there:0.4.0
     restart: unless-stopped
     environment:
       # 1. The public address, without a trailing slash.

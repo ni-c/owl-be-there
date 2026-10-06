@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-06
+
 ### Added
 
 - The start page is readable without JavaScript: the server writes its heading, lead, features and questions into the HTML in the page's language, so search engines that run no scripts (Bing, DuckDuckGo, AI search) see more than the title. Browsers that run the app hide that text until the app replaces it, so nothing jumps. The start page also carries JSON-LD describing a free web application and its questions.
@@ -234,7 +236,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ni-c/owl-be-there/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ni-c/owl-be-there/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ni-c/owl-be-there/compare/v0.1.5...v0.2.0
