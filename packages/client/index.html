@@ -15,8 +15,10 @@
       /*
        * Stamp the theme before the first paint, so a dark-mode reader never
        * sees a flash of the light page. The choice lives in localStorage; the
-       * app rewrites it whenever it changes.
+       * app rewrites it whenever it changes. The `js` class hides the start
+       * page's text that the server writes for readers without scripts.
        */
+      document.documentElement.classList.add('js');
       (function () {
         try {
           var theme = localStorage.getItem('owl.theme');
@@ -33,7 +35,7 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--owl:root--></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

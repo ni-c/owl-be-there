@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The start page is readable without JavaScript: the server writes its heading, lead, features and questions into the HTML in the page's language, so search engines that run no scripts (Bing, DuckDuckGo, AI search) see more than the title. Browsers that run the app hide that text until the app replaces it, so nothing jumps. The start page also carries JSON-LD describing a free web application and its questions.
+- Three more questions on the start page, in all eight languages: looking for a whole weekend, inviting the group, and what happens to the data.
+- `cli.js weeks` counts per ISO week the events created, how many of them somebody answered, and the people who joined.
+
 ## [0.3.0] - 2026-10-05
 
 ### Added

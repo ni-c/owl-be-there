@@ -128,6 +128,57 @@ describe('a command that works', () => {
     });
   });
 
+  it('counts by ISO week, across the turn of the year, and only who answered', () => {
+    database().close();
+    // An empty database: the header alone.
+    expect(cli(['weeks'])).toEqual({
+      code: 0,
+      out: ['week      events  answered  people'],
+      err: [],
+    });
+
+    const at = (year: number, month: number, day: number): number =>
+      Date.UTC(year, month - 1, day, 12);
+    const filled = database();
+    const created = [
+      ['AAAAAAAAAAAA', at(2026, 12, 31)], // Thursday: 2026-W53
+      ['BBBBBBBBBBBB', at(2027, 1, 3)], // Sunday: still 2026-W53
+      ['CCCCCCCCCCCC', at(2027, 1, 4)], // Monday: 2027-W01
+    ] as const;
+    for (const [id, time] of created) {
+      event(filled, id);
+      filled.run('UPDATE events SET created_at = ? WHERE id = ?', time, id);
+    }
+    const participant = (
+      id: string,
+      eventId: string,
+      time: number,
+      answered: boolean
+    ): void => {
+      filled.run(
+        `INSERT INTO participants (id, event_id, name, name_key, source, marks_at, created_at)
+         VALUES (?, ?, ?, ?, 'self', ?, ?)`,
+        id,
+        eventId,
+        id,
+        id,
+        answered ? time : null,
+        time
+      );
+    };
+    participant('p1', 'AAAAAAAAAAAA', at(2027, 1, 1), true);
+    participant('p2', 'AAAAAAAAAAAA', at(2027, 1, 5), true);
+    // On the roster but never answered: no answer, no person.
+    participant('p3', 'BBBBBBBBBBBB', at(2027, 1, 3), false);
+    filled.close();
+
+    expect(cli(['weeks']).out).toEqual([
+      'week      events  answered  people',
+      '2026-W53       2         1       1',
+      '2027-W01       1         0       1',
+    ]);
+  });
+
   it('deletes one event, and says when there is none', () => {
     const db = database();
     event(db, 'AAAAAAAAAAAA');

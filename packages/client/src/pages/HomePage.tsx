@@ -1,4 +1,4 @@
-import { EMOJIS, type InstanceInfoData } from '@owl/shared';
+import { EMOJIS, FAQ_TOPICS, type InstanceInfoData } from '@owl/shared';
 import { useRef, useState } from 'react';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
@@ -178,8 +178,8 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-2xl font-extrabold">{t('home.faq.title')}</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {(['free', 'account', 'doodle'] as const).map((topic) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {FAQ_TOPICS.map((topic) => (
             <Card key={topic} className="flex flex-col gap-2">
               <h3 className="text-lg font-extrabold">
                 {t(`home.faq.${topic}.q`)}

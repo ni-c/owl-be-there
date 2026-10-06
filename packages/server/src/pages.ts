@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
 import {
+  APP_NAME,
   EMOJIS,
   emojiIcon,
   escapeMarkup,
+  FAQ_TOPICS,
+  HOME_TEXTS,
   LANGUAGES,
   LOCALES,
   PREVIEW_HEIGHT,
@@ -14,16 +17,19 @@ import {
 } from '@owl/shared';
 
 /**
- * The client's `index.html`, with a replaceable block of head tags.
+ * The client's `index.html`, with a replaceable block of head tags and a place
+ * for the page's content.
  *
  * Link previews in WhatsApp, Signal and the like are built by crawlers that
  * run no JavaScript, so an event's title has to be in the HTML the server
  * sends. The block between `<!--owl:head-->` and `<!--/owl:head-->` sits right
  * after `<meta charset>`, well inside the first kilobytes a crawler reads, and
- * the server swaps it for every page.
+ * the server swaps it for every page. `<!--owl:root-->` inside `#root` takes
+ * the start page's text, for search engines that run no JavaScript either.
  */
 export class PageTemplate {
   private readonly before: string;
+  private readonly between: string;
   private readonly after: string;
   /** Hashes of the inline scripts, for the content security policy. */
   readonly scriptHashes: string[];
@@ -37,21 +43,28 @@ export class PageTemplate {
         'index.html has no <!--owl:head--> … <!--/owl:head--> block'
       );
     }
+    const rootMarker = '<!--owl:root-->';
+    const root = html.indexOf(rootMarker);
+    if (root < end || html.indexOf(rootMarker, root + 1) !== -1) {
+      throw new Error('index.html has no single <!--owl:root--> in its body');
+    }
     this.before = html.slice(0, start);
-    this.after = html.slice(end + endMarker.length);
+    this.between = html.slice(end + endMarker.length, root);
+    this.after = html.slice(root + rootMarker.length);
     this.scriptHashes = inlineScriptHashes(html);
   }
 
   /**
-   * The page with this head. `language` goes into `<html lang>`, so a search
-   * engine reading `/de` sees a German page before any script runs.
+   * The page with this head and content. `language` goes into `<html lang>`,
+   * so a search engine reading `/de` sees a German page before any script
+   * runs. The app replaces the content when it starts.
    */
-  render(head: string, language: Language = 'en'): string {
+  render(head: string, language: Language = 'en', content = ''): string {
     const before = this.before.replace(
       /<html lang="[^"]*"/,
       `<html lang="${language}"`
     );
-    return `${before}${head}${this.after}`;
+    return `${before}${head}${this.between}${content}${this.after}`;
   }
 }
 
@@ -60,7 +73,8 @@ export class PageTemplate {
  *
  * Read from the very file being served: an edited script changes its own
  * allowance, and an injected one is not on the list. Only meta, title and link
- * tags are ever put into the page, so the hashes stay valid.
+ * tags, JSON-LD (data, never run) and plain markup are ever put into the page,
+ * so the hashes stay valid.
  */
 function inlineScriptHashes(html: string): string[] {
   const hashes: string[] = [];
@@ -149,6 +163,80 @@ export function defaultHead(
     icon: '/favicon.svg',
     alternates: options.alternates ?? false,
   });
+}
+
+/**
+ * Structured data as a `<script>` element. Every `<` is escaped, so no text in
+ * it can close the element or open another.
+ */
+export function jsonLd(data: unknown): string {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
+/**
+ * The start page in one language, or `/` in English: the default head, the
+ * structured data search engines read, and the page's text as plain markup.
+ * The markup carries the texts the app shows, from the same dictionary, and
+ * the stylesheet hides it from browsers that run the app, so nothing jumps
+ * while the app starts.
+ */
+export function homePage(
+  publicUrl: string,
+  language: Language | null
+): { head: string; content: string; language: Language } {
+  const lang = language ?? 'en';
+  const path = homePath(language);
+  const texts = HOME_TEXTS[lang];
+  const e = escapeMarkup;
+  const data = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebApplication',
+        name: APP_NAME,
+        url: publicUrl + path,
+        description: SERVER_TEXTS[lang].description,
+        inLanguage: lang,
+        applicationCategory: 'LifestyleApplication',
+        operatingSystem: 'Any',
+        browserRequirements: 'Requires JavaScript.',
+        isAccessibleForFree: true,
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+      },
+      {
+        '@type': 'FAQPage',
+        inLanguage: lang,
+        mainEntity: FAQ_TOPICS.map((topic) => ({
+          '@type': 'Question',
+          name: texts[`home.faq.${topic}.q`],
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: texts[`home.faq.${topic}.a`],
+          },
+        })),
+      },
+    ],
+  };
+  const head = [
+    defaultHead(publicUrl, path, { language: lang, alternates: true }),
+    jsonLd(data),
+  ].join('\n    ');
+  const content = [
+    '<div data-static>',
+    `<h1>${e(SERVER_TEXTS[lang].tagline)}</h1>`,
+    `<p>${e(texts['home.lead'])}</p>`,
+    ...(['heat', 'private'] as const).flatMap((feature) => [
+      `<h2>${e(texts[`home.feature.${feature}.title`])}</h2>`,
+      `<p>${e(texts[`home.feature.${feature}.text`])}</p>`,
+    ]),
+    `<h2>${e(texts['home.faq.title'])}</h2>`,
+    ...FAQ_TOPICS.flatMap((topic) => [
+      `<h3>${e(texts[`home.faq.${topic}.q`])}</h3>`,
+      `<p>${e(texts[`home.faq.${topic}.a`])}</p>`,
+    ]),
+    '</div>',
+  ].join('');
+  return { head, content, language: lang };
 }
 
 /**

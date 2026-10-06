@@ -1,19 +1,12 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const nl: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.nl,
 
-  'home.lead':
-    'Wanneer kan iedereen? Zet je dagen in de kalender en ontdek het samen. Zonder aanmelding of tracking.',
+  ...HOME_TEXTS.nl,
   'home.cta': 'Plan een evenement',
-  'home.feature.heat.title': 'Zie welke dagen passen',
-  'home.feature.heat.text':
-    'De kalender wordt een heatmap. Zo zie je wanneer de meeste mensen kunnen. Ook handig voor weekenden of toernooien van meerdere dagen.',
-  'home.feature.private.title': 'Geen accounts',
-  'home.feature.private.text':
-    'Een naam is genoeg. Geen e-mail, cookies of tracking. Oude evenementen worden vanzelf verwijderd.',
   'home.example.title': 'Probeer het',
   'home.example.text':
     'Vul als Anna je dagen in en zie de kalender van de groep veranderen.',
@@ -21,16 +14,6 @@ export const nl: Dictionary = {
   'home.example.hint':
     'Een verzonnen evenement om uit te proberen – er wordt niets opgeslagen.',
   'home.example.reset': 'Opnieuw beginnen',
-  'home.faq.title': 'Vragen',
-  'home.faq.free.q': 'Kost het iets?',
-  'home.faq.free.a':
-    'Nee. Owl Be There is gratis en open source, en iedereen kan het op een eigen server draaien.',
-  'home.faq.account.q': 'Heb ik een account nodig?',
-  'home.faq.account.a':
-    'Nee. Iedereen kiest gewoon een naam. Wie het evenement plant, krijgt een privélink om het te beheren.',
-  'home.faq.doodle.q': 'Wat is het verschil met Doodle?',
-  'home.faq.doodle.a':
-    'Owl Be There is gemaakt voor hele dagen: iedereen markeert de dagen waarop hij kan, en de heatmap laat in één oogopslag zien welke dag het beste past. Geen accounts, geen tracking, en oude evenementen worden vanzelf verwijderd.',
   'event.planOwn.title': 'Zelf iets plannen?',
   'event.planOwn.text':
     'Maak in een minuut je eigen evenement, zonder account.',

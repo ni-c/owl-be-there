@@ -549,8 +549,36 @@ test('the start page answers the common questions', async ({ page }) => {
     'Does it cost anything?',
     'Do I need an account?',
     'How is it different from Doodle?',
+    'Can we look for a whole weekend?',
+    'How do I invite the group?',
+    'What happens to our data?',
   ])
-    await expect(page.getByText(question)).toBeVisible();
+    await expect(page.getByRole('heading', { name: question })).toBeVisible();
+  // The text the server wrote for readers without scripts is gone: one page,
+  // one main heading.
+  await expect(page.locator('[data-static]')).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+});
+
+test('without scripts the start page still says what the app is and answers the questions', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('/de');
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: 'Findet einen Tag, an dem alle können.',
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Brauche ich ein Konto?' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Was passiert mit unseren Daten?' })
+  ).toBeVisible();
+  await context.close();
 });
 
 test('who has answered is invited to plan their own; the organiser is not', async ({

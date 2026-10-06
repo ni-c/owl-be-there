@@ -1,4 +1,4 @@
-import { APP_NAME, DESCRIPTION_EN, TAGLINES } from '@owl/shared';
+import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
 
 /**
  * The English texts, and the type every other language must match: a key
@@ -9,30 +9,14 @@ export const en = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.en,
 
-  'home.lead': DESCRIPTION_EN,
+  ...HOME_TEXTS.en,
   'home.cta': 'Plan an event',
-  'home.feature.heat.title': 'See what works',
-  'home.feature.heat.text':
-    'The calendar becomes a heatmap and shows the days most people can make — even for weekends or multi-day tournaments.',
-  'home.feature.private.title': 'No accounts',
-  'home.feature.private.text':
-    'A name is enough. No email, cookies or tracking. Old events are deleted automatically.',
   'home.example.title': 'Try it out',
   'home.example.text':
     'Paint your days as Anna and watch the group’s calendar change.',
   'home.example.eventTitle': 'Team dinner',
   'home.example.hint': 'A made-up event to try out — nothing is saved.',
   'home.example.reset': 'Start over',
-  'home.faq.title': 'Questions',
-  'home.faq.free.q': 'Does it cost anything?',
-  'home.faq.free.a':
-    'No. Owl Be There is free and open source, and anyone can run it on their own server.',
-  'home.faq.account.q': 'Do I need an account?',
-  'home.faq.account.a':
-    'No. Everyone just picks a name. Whoever plans the event gets a private link to manage it.',
-  'home.faq.doodle.q': 'How is it different from Doodle?',
-  'home.faq.doodle.a':
-    'Owl Be There is made for whole days: everyone marks the days they can make it, and the heatmap shows at a glance which day works best. There are no accounts and no tracking, and old events are deleted automatically.',
   'event.planOwn.title': 'Planning something yourself?',
   'event.planOwn.text': 'Start your own event in a minute, no account needed.',
   'home.myEvents': 'Your events',

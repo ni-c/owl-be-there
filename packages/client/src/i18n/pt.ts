@@ -1,19 +1,12 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const pt: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.pt,
 
-  'home.lead':
-    'Quando é que todos podem? Marquem os vossos dias no calendário e descubram. Sem registo nem rastreio.',
+  ...HOME_TEXTS.pt,
   'home.cta': 'Planear um evento',
-  'home.feature.heat.title': 'Vejam os melhores dias',
-  'home.feature.heat.text':
-    'O calendário transforma-se num mapa de calor e mostra os dias em que mais pessoas podem. Também serve para fins de semana ou torneios de vários dias.',
-  'home.feature.private.title': 'Sem contas',
-  'home.feature.private.text':
-    'Basta o teu nome. Sem e-mail, cookies nem rastreio. Os eventos antigos são apagados automaticamente.',
   'home.example.title': 'Experimenta',
   'home.example.text':
     'Marca os teus dias como a Anna e vê o calendário do grupo mudar.',
@@ -21,16 +14,6 @@ export const pt: Dictionary = {
   'home.example.hint':
     'Um evento inventado para experimentar – nada é guardado.',
   'home.example.reset': 'Recomeçar',
-  'home.faq.title': 'Perguntas',
-  'home.faq.free.q': 'Custa alguma coisa?',
-  'home.faq.free.a':
-    'Não. O Owl Be There é gratuito e de código aberto, e qualquer pessoa o pode instalar no seu próprio servidor.',
-  'home.faq.account.q': 'Preciso de uma conta?',
-  'home.faq.account.a':
-    'Não. Cada pessoa escolhe só um nome. Quem organiza recebe um link privado para gerir o evento.',
-  'home.faq.doodle.q': 'Qual é a diferença para o Doodle?',
-  'home.faq.doodle.a':
-    'O Owl Be There foi feito para dias inteiros: cada pessoa marca os dias em que pode e o mapa de calor mostra num instante qual é o melhor dia. Não há contas nem rastreio, e os eventos antigos são apagados automaticamente.',
   'event.planOwn.title': 'Também queres organizar algo?',
   'event.planOwn.text': 'Cria o teu próprio evento num minuto, sem conta.',
   'home.myEvents': 'Os teus eventos',

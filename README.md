@@ -101,12 +101,13 @@ The application sets its own security headers (a strict Content Security Policy,
 
 ```sh
 docker compose exec owl node packages/server/dist/cli.js stats
+docker compose exec owl node packages/server/dist/cli.js weeks
 docker compose exec owl node packages/server/dist/cli.js delete <event id>
 docker compose exec owl node packages/server/dist/cli.js list 2027-03-01
 docker compose exec owl node packages/server/dist/cli.js purge 2027-03-01 --yes
 ```
 
-`stats` counts events, participants and marks; `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people answered (marked days), and `purge` deletes those among them that nobody answered — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
+`stats` counts events, participants and marks; `weeks` counts per ISO week the events created, how many of them somebody answered and the people who joined — numbers only, reaching back as far as retention keeps events. `delete` removes an event at once, for abuse reports. `list` shows the events created since a day with how many people answered (marked days), and `purge` deletes those among them that nobody answered — for cleaning up after a flood of new events; without `--yes` it only says how many it would delete. Expired events are swept on start and every hour.
 
 The CLI never creates or upgrades a database: the server must have started once on that data directory, and after an update of the image it has to be started once before the CLI works again.
 

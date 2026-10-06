@@ -10,6 +10,7 @@ import {
   purgeEmpty,
   stats,
   sweepExpired,
+  weeklyStats,
 } from './db/repo.js';
 import { Db } from './db/sqlite.js';
 
@@ -18,10 +19,15 @@ import { Db } from './db/sqlite.js';
  * browser:
  *
  *     node packages/server/dist/cli.js stats
+ *     node packages/server/dist/cli.js weeks
  *     node packages/server/dist/cli.js delete <event id>
  *     node packages/server/dist/cli.js sweep
  *     node packages/server/dist/cli.js list [<YYYY-MM-DD>]
  *     node packages/server/dist/cli.js purge <YYYY-MM-DD> [--yes]
+ *
+ * `weeks` counts per ISO week the events created, how many of them somebody
+ * answered, and the people who joined — numbers only, as far back as
+ * retention keeps events.
  *
  * `delete` is for abuse reports: it removes one event and everything in it,
  * the same way the organiser's own delete button does. It works against a
@@ -40,9 +46,9 @@ import { Db } from './db/sqlite.js';
  * upgrade.
  */
 export const USAGE =
-  'Usage: cli.js stats | delete <event id> | sweep | list [<YYYY-MM-DD>] | purge <YYYY-MM-DD> [--yes]';
+  'Usage: cli.js stats | weeks | delete <event id> | sweep | list [<YYYY-MM-DD>] | purge <YYYY-MM-DD> [--yes]';
 
-const COMMANDS = ['stats', 'delete', 'sweep', 'list', 'purge'];
+const COMMANDS = ['stats', 'weeks', 'delete', 'sweep', 'list', 'purge'];
 
 /** Where the output goes; the command line's own is the console. */
 export interface Output {
@@ -111,6 +117,20 @@ export function run(
     switch (command) {
       case 'stats': {
         io.out(JSON.stringify(stats(db)));
+        return 0;
+      }
+      case 'weeks': {
+        io.out('week      events  answered  people');
+        for (const week of weeklyStats(db)) {
+          io.out(
+            [
+              week.week.padEnd(8),
+              String(week.events).padStart(6),
+              String(week.answered).padStart(8),
+              String(week.participants).padStart(6),
+            ].join('  ')
+          );
+        }
         return 0;
       }
       case 'delete': {
