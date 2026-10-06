@@ -26,4 +26,12 @@ describe('index.html head block', () => {
   it('holds no description of its own', () => {
     expect(block).not.toContain('name="description"');
   });
+
+  it('has the place for the start page text inside #root, once, and stamps the js class first', () => {
+    expect(html.split('<!--owl:root-->')).toHaveLength(2);
+    expect(html).toContain('<div id="root"><!--owl:root--></div>');
+    expect(html.indexOf("classList.add('js')")).toBeLessThan(
+      html.indexOf('<body>')
+    );
+  });
 });

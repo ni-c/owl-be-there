@@ -195,6 +195,46 @@ footer {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/*
+ * The start page's text as the server writes it into `#root`, for search
+ * engines and readers without scripts. The app replaces it when it starts;
+ * until then a browser that runs scripts keeps it hidden, so the page does
+ * not jump from one layout to the other.
+ */
+.js [data-static] {
+  display: none;
+}
+
+[data-static] {
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 2rem 1rem 3rem;
+  line-height: 1.6;
+}
+
+[data-static] h1 {
+  font-size: 2.25rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+[data-static] h2 {
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+[data-static] h3 {
+  margin-top: 1.25rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+[data-static] p {
+  margin-top: 0.5rem;
+  color: var(--owl-muted);
+}
+
 @font-face {
   font-family: 'Noto Sans CJK JP UI';
   src: url('/fonts/noto-sans-cjk-jp-ui.woff2') format('woff2');

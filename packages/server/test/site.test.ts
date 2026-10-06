@@ -4,9 +4,16 @@ import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
-import { emojiIcon, escapeMarkup, LANGUAGES, SERVER_TEXTS } from '@owl/shared';
+import {
+  emojiIcon,
+  escapeMarkup,
+  FAQ_TOPICS,
+  HOME_TEXTS,
+  LANGUAGES,
+  SERVER_TEXTS,
+} from '@owl/shared';
 import { snapshot } from '../src/db/repo.js';
-import { PageTemplate } from '../src/pages.js';
+import { jsonLd, PageTemplate } from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
   CLIENT_DIR,
@@ -355,6 +362,84 @@ describe('pages', () => {
     // Only the start page has language versions.
     const privacy = await t.app.inject({ method: 'GET', url: '/privacy' });
     expect(privacy.body).not.toContain('hreflang');
+  });
+
+  it('writes the start page text into the HTML of every language version, for readers without scripts', async () => {
+    t = await testApp();
+    for (const [url, language] of [
+      ['/', 'en'],
+      ...LANGUAGES.map((language) => [`/${language}`, language] as const),
+    ] as const) {
+      const { body } = await t.app.inject({ method: 'GET', url });
+      const texts = HOME_TEXTS[language];
+      const root = body.slice(
+        body.indexOf('<div id="root">'),
+        body.indexOf('</body>')
+      );
+      expect(root, url).toContain('<div data-static>');
+      expect(root, url).toContain(
+        `<h1>${escapeMarkup(SERVER_TEXTS[language].tagline)}</h1>`
+      );
+      expect(root, url).toContain(`<p>${escapeMarkup(texts['home.lead'])}</p>`);
+      for (const topic of FAQ_TOPICS) {
+        expect(root, `${url} ${topic}`).toContain(
+          `<h3>${escapeMarkup(texts[`home.faq.${topic}.q`])}</h3>`
+        );
+        expect(root, `${url} ${topic}`).toContain(
+          `<p>${escapeMarkup(texts[`home.faq.${topic}.a`])}</p>`
+        );
+      }
+      expect(body, url).not.toContain('<!--owl:root-->');
+    }
+  });
+
+  it('describes the start page to search engines as a free web app with its questions, in its language', async () => {
+    t = await testApp();
+    for (const [url, language] of [
+      ['/', 'en'],
+      ['/de', 'de'],
+      ['/ja/', 'ja'],
+    ] as const) {
+      const { body } = await t.app.inject({ method: 'GET', url });
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g
+        ),
+      ];
+      expect(scripts, url).toHaveLength(1);
+      const graph = JSON.parse(scripts[0]![1]!)['@graph'];
+      expect(graph[0], url).toMatchObject({
+        '@type': 'WebApplication',
+        name: 'Owl Be There',
+        url: `https://owl.example.org${url === '/ja/' ? '/ja' : url}`,
+        inLanguage: language,
+        isAccessibleForFree: true,
+        description: SERVER_TEXTS[language].description,
+      });
+      expect(graph[1]['@type'], url).toBe('FAQPage');
+      expect(graph[1].mainEntity, url).toEqual(
+        FAQ_TOPICS.map((topic) => ({
+          '@type': 'Question',
+          name: HOME_TEXTS[language][`home.faq.${topic}.q`],
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: HOME_TEXTS[language][`home.faq.${topic}.a`],
+          },
+        }))
+      );
+    }
+  });
+
+  it('keeps the start page text and the structured data off every other page', async () => {
+    t = await testApp({ env: IMPRINT_ENV });
+    const { id } = await createEvent(t.app, { title: 'Quiet page' });
+    for (const url of [`/e/${id}`, '/privacy', '/imprint', '/nowhere']) {
+      const { body } = await t.app.inject({ method: 'GET', url });
+      expect(body, url).toContain('<div id="root"></div>');
+      expect(body, url).not.toContain('data-static');
+      expect(body, url).not.toContain('application/ld+json');
+      expect(body, url).not.toContain('<!--owl:root-->');
+    }
   });
 
   it('serves event pages in the language of the event', async () => {
@@ -775,6 +860,49 @@ describe('page helpers', () => {
     expect(() => new PageTemplate('<!--/owl:head--><!--owl:head-->')).toThrow(
       /owl:head/
     );
+  });
+
+  it('refuse an index.html without a single place for the content after the head', () => {
+    const head = '<head><!--owl:head--><!--/owl:head--></head>';
+    expect(
+      () => new PageTemplate(`<html>${head}<div id="root"></div></html>`)
+    ).toThrow(/owl:root/);
+    expect(
+      () =>
+        new PageTemplate(
+          `<html>${head}<div id="root"><!--owl:root--><!--owl:root--></div></html>`
+        )
+    ).toThrow(/owl:root/);
+    expect(
+      () =>
+        new PageTemplate(
+          '<html><!--owl:root--><head><!--owl:head--><!--/owl:head--></head></html>'
+        )
+    ).toThrow(/owl:root/);
+  });
+
+  it('put the head and the content in their places, and nothing in the content by default', () => {
+    const template = new PageTemplate(
+      '<html lang="en"><head><!--owl:head-->old<!--/owl:head--></head><body><div id="root"><!--owl:root--></div></body></html>'
+    );
+    expect(template.render('<title>T</title>', 'de', '<p>$& $1</p>')).toBe(
+      '<html lang="de"><head><title>T</title></head><body><div id="root"><p>$& $1</p></div></body></html>'
+    );
+    expect(template.render('')).toBe(
+      '<html lang="en"><head></head><body><div id="root"></div></body></html>'
+    );
+  });
+
+  it('escape every < in structured data, so no text can end the script', () => {
+    const script = jsonLd({ text: '</script><script>alert(1)</script> <!--' });
+    const inner = script.slice(
+      '<script type="application/ld+json">'.length,
+      -'</script>'.length
+    );
+    expect(inner).not.toContain('<');
+    expect(JSON.parse(inner)).toEqual({
+      text: '</script><script>alert(1)</script> <!--',
+    });
   });
 });
 

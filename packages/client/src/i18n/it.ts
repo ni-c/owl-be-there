@@ -1,19 +1,12 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const it: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.it,
 
-  'home.lead':
-    'Quando ci siete tutti? Segnate i vostri giorni sul calendario e scopritelo. Senza registrazione né tracciamento.',
+  ...HOME_TEXTS.it,
   'home.cta': 'Organizza un evento',
-  'home.feature.heat.title': 'Scopri i giorni migliori',
-  'home.feature.heat.text':
-    'Il calendario diventa una mappa di calore e mostra i giorni in cui più persone sono libere. Funziona anche per i weekend e i tornei di più giorni.',
-  'home.feature.private.title': 'Nessun account',
-  'home.feature.private.text':
-    'Basta un nome. Niente email, cookie o tracciamento. Gli eventi vecchi vengono eliminati automaticamente.',
   'home.example.title': 'Provalo',
   'home.example.text':
     'Segna i tuoi giorni come Anna e guarda il calendario del gruppo cambiare.',
@@ -21,16 +14,6 @@ export const it: Dictionary = {
   'home.example.hint':
     'Un evento inventato per provare: non viene salvato nulla.',
   'home.example.reset': 'Ricomincia',
-  'home.faq.title': 'Domande',
-  'home.faq.free.q': 'Costa qualcosa?',
-  'home.faq.free.a':
-    'No. Owl Be There è gratuito e open source, e chiunque può installarlo sul proprio server.',
-  'home.faq.account.q': 'Serve un account?',
-  'home.faq.account.a':
-    'No. Ognuno sceglie solo un nome. Chi organizza riceve un link privato per gestire l’evento.',
-  'home.faq.doodle.q': 'In cosa è diverso da Doodle?',
-  'home.faq.doodle.a':
-    'Owl Be There è pensato per giorni interi: ognuno segna i giorni in cui c’è e la heatmap mostra a colpo d’occhio il giorno migliore. Niente account, niente tracciamento, e gli eventi vecchi vengono cancellati da soli.',
   'event.planOwn.title': 'Organizzi qualcosa anche tu?',
   'event.planOwn.text': 'Crea il tuo evento in un minuto, senza account.',
   'home.myEvents': 'I tuoi eventi',

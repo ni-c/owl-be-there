@@ -1,35 +1,18 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
 import type { Dictionary } from './en.ts';
 
 export const ja: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.ja,
 
-  'home.lead':
-    'みんな、いつなら空いてる？ カレンダーに都合のいい日を入れてみよう。登録も追跡もなし。',
+  ...HOME_TEXTS.ja,
   'home.cta': '予定を立てる',
-  'home.feature.heat.title': '集まりやすい日がすぐわかる',
-  'home.feature.heat.text':
-    'カレンダーがヒートマップに。参加できる人が多い日がひと目でわかるよ。週末や数日間の大会にも使える。',
-  'home.feature.private.title': 'アカウント不要',
-  'home.feature.private.text':
-    '名前だけでOK。メールもCookieも追跡もなし。古い予定は自動で削除されるよ。',
   'home.example.title': '試してみてね',
   'home.example.text':
     'Annaになって都合のいい日を選ぶと、グループのカレンダーが変わります。',
   'home.example.eventTitle': 'チームの食事会',
   'home.example.hint': '試すための架空の予定だよ。何も保存されません。',
   'home.example.reset': '最初から',
-  'home.faq.title': 'よくある質問',
-  'home.faq.free.q': 'お金はかかる？',
-  'home.faq.free.a':
-    '無料だよ。Owl Be There はオープンソースで、自分のサーバーでも動かせます。',
-  'home.faq.account.q': 'アカウントは必要？',
-  'home.faq.account.a':
-    'いらないよ。名前を選ぶだけ。主催者は予定を管理するための専用リンクをもらえます。',
-  'home.faq.doodle.q': 'Doodle との違いは？',
-  'home.faq.doodle.a':
-    'Owl Be There は日にち単位の日程調整向け。みんなが行ける日に印をつけるだけで、どの日がいちばん良いかヒートマップでひと目でわかります。アカウントもトラッキングもなく、古い予定は自動で削除されます。',
   'event.planOwn.title': '自分でも何か計画する？',
   'event.planOwn.text': '1分で自分の予定を作れるよ。アカウントは不要。',
   'home.myEvents': '自分の予定',

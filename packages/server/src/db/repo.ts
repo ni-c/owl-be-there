@@ -814,3 +814,37 @@ export function stats(db: Db): {
             (SELECT count(*) FROM marks) AS marks`
   )!;
 }
+
+export interface WeekCounts {
+  /** The ISO week, in UTC: `2026-W40`. */
+  week: string;
+  /** Events created that week. */
+  events: number;
+  /** Of those, the ones somebody answered. */
+  answered: number;
+  /** People added that week who have marked their days. */
+  participants: number;
+}
+
+/**
+ * Counts per ISO week, oldest first, for an operator who wants to know whether
+ * anybody uses the instance: numbers only, never a title or a name. Deleted
+ * events take their counts with them, so the weeks reach back only as far as
+ * retention does.
+ */
+export function weeklyStats(db: Db): WeekCounts[] {
+  return db.all<WeekCounts>(
+    `WITH rows (week, events, answered, participants) AS (
+       SELECT strftime('%G-W%V', e.created_at / 1000, 'unixepoch'), 1,
+              EXISTS (SELECT 1 FROM participants p
+                      WHERE p.event_id = e.id AND p.marks_at IS NOT NULL), 0
+       FROM events e
+       UNION ALL
+       SELECT strftime('%G-W%V', created_at / 1000, 'unixepoch'), 0, 0, 1
+       FROM participants WHERE marks_at IS NOT NULL
+     )
+     SELECT week, sum(events) AS events, sum(answered) AS answered,
+            sum(participants) AS participants
+     FROM rows GROUP BY week ORDER BY week`
+  );
+}

@@ -15,6 +15,7 @@ import { PreviewBusy } from '../preview.js';
 import {
   defaultHead,
   eventHead,
+  homePage,
   homePath,
   robotsTxt,
   sitemap,
@@ -78,30 +79,33 @@ export async function registerSite(
     head: string,
     status = 200,
     language: Language = 'en',
-    cacheControl = 'no-cache'
+    cacheControl = 'no-cache',
+    content = ''
   ): FastifyReply =>
     reply
       .code(status)
       .header('content-type', 'text/html; charset=utf-8')
       .header('cache-control', cacheControl)
-      .send(template!.render(head, language));
+      .send(template!.render(head, language, content));
+  const home = (reply: FastifyReply, language: Language | null) => {
+    const start = homePage(config.publicUrl, language);
+    return page(
+      reply,
+      start.head,
+      200,
+      start.language,
+      'no-cache',
+      start.content
+    );
+  };
 
   if (template && config.clientDir) {
-    app.get('/', async (_request, reply) =>
-      page(reply, defaultHead(config.publicUrl, '/', { alternates: true }))
-    );
+    app.get('/', async (_request, reply) => home(reply, null));
     // The start page once per language, so search engines find each one.
     for (const language of LANGUAGES) {
       const path = homePath(language);
       for (const url of withSlash(path)) {
-        app.get(url, async (_request, reply) =>
-          page(
-            reply,
-            defaultHead(config.publicUrl, path, { language, alternates: true }),
-            200,
-            language
-          )
-        );
+        app.get(url, async (_request, reply) => home(reply, language));
       }
     }
     app.get('/robots.txt', async (_request, reply) =>
