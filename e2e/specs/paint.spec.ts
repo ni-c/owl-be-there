@@ -15,6 +15,23 @@ import { drag, touchSwipeUp } from '../touch.ts';
 
 const D = (offset: number) => dayFromNow(offset);
 
+/**
+ * The first offset from 3 to 8 that falls on a Tuesday or a Wednesday.
+ *
+ * Neither is the last column of a week that starts on Saturday, Sunday or
+ * Monday, so the day after it is always in the same row — and the six offsets
+ * always contain one of the two. Ending at 8 keeps offset + 8 inside the
+ * candidate days `createEvent` sets up (3 to 16).
+ */
+function midWeekOffset(): number {
+  const offset = [3, 4, 5, 6, 7, 8].find((o) =>
+    [2, 3].includes(utcDateOf(D(o)).getUTCDay())
+  );
+  if (offset === undefined)
+    throw new Error('no Tuesday or Wednesday in six days');
+  return offset;
+}
+
 async function myMarks(
   request: Parameters<typeof snapshot>[0],
   id: string,
@@ -58,24 +75,28 @@ test.describe('painting days', () => {
     await page.goto(`/e/${id}`);
     await joinAs(page, 'Ben');
     const grid = myCalendar(page);
-    // One row down and one column to the right: a 2 × 2 block.
-    await drag(page, day(grid, D(4)), day(grid, D(12)), testInfo);
-    for (const offset of [4, 5, 11, 12]) {
+    // A 2 × 2 block needs its first day and the next one in the same row. The
+    // offsets used to be fixed (4, 5, 11, 12), which put the block across a
+    // week break whenever D(4) was the last column — every Wednesday with
+    // weeks starting on Monday — and the drag rightly marked whole weeks.
+    const m = midWeekOffset();
+    await drag(page, day(grid, D(m)), day(grid, D(m + 8)), testInfo);
+    for (const offset of [m, m + 1, m + 7, m + 8]) {
       await expect(day(grid, D(offset))).toHaveAttribute('data-state', 'yes');
     }
-    await expect(day(grid, D(6))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(m + 2))).toHaveAttribute('data-state', 'none');
     await expect
       .poll(async () => (await myMarks(request, id, 'Ben')).yes)
-      .toEqual([D(4), D(5), D(11), D(12)]);
+      .toEqual([D(m), D(m + 1), D(m + 7), D(m + 8)]);
 
     // Upwards and to the left this time, starting on a marked day: erases.
-    await drag(page, day(grid, D(12)), day(grid, D(5)), testInfo);
-    await expect(day(grid, D(5))).toHaveAttribute('data-state', 'none');
-    await expect(day(grid, D(12))).toHaveAttribute('data-state', 'none');
-    await expect(day(grid, D(4))).toHaveAttribute('data-state', 'yes');
+    await drag(page, day(grid, D(m + 8)), day(grid, D(m + 1)), testInfo);
+    await expect(day(grid, D(m + 1))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(m + 8))).toHaveAttribute('data-state', 'none');
+    await expect(day(grid, D(m))).toHaveAttribute('data-state', 'yes');
     await expect
       .poll(async () => (await myMarks(request, id, 'Ben')).yes)
-      .toEqual([D(4), D(11)]);
+      .toEqual([D(m), D(m + 7)]);
   });
 
   test('the maybe brush, undo, and the weekday header', async ({
