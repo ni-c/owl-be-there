@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The OpenSSF Best Practices badge (passing) and the OpenSSF Scorecard badge in the README.
+- `SECURITY.md` promises a first response to a vulnerability report within 14 days.
+- A pull request template that asks for tests and a CHANGELOG entry.
+
 ## [0.4.0] - 2026-10-06
 
 ### Added

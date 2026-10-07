@@ -6,6 +6,11 @@
 
 **Find a day everyone can make.**
 
+<p>
+  <a href="https://www.bestpractices.dev/projects/15274"><img src="https://www.bestpractices.dev/projects/15274/badge" alt="OpenSSF Best Practices" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/ni-c/owl-be-there"><img src="https://api.scorecard.dev/projects/github.com/ni-c/owl-be-there/badge" alt="OpenSSF Scorecard" /></a>
+</p>
+
 Try it at **[owlbethere.app](https://owlbethere.app)**, no account needed, or [host it yourself](#self-hosting): one container, one SQLite file.
 
 Owl Be There helps a group pick a day — for a match, a tournament, a hike or a barbecue. The organiser picks the candidate days, everyone marks the days they can make it on a calendar, and the calendar turns into a heatmap that shows at a glance when the whole group is free.
