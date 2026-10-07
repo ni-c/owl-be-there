@@ -4,7 +4,7 @@
 
 Please use [GitHub private vulnerability reporting](https://github.com/ni-c/owl-be-there/security/advisories/new). Do not open a public issue for an unpatched vulnerability, and never include a real event link in a report: the link is the key to that event.
 
-Only the latest release and the current `main` branch receive security fixes.
+You get a first response within 14 days. Only the latest release and the current `main` branch receive security fixes.
 
 ## What the application stores
 
