@@ -41,7 +41,8 @@
   "overrides": {
     "eslint-plugin-jsx-a11y": {
       "eslint": "$eslint"
-    }
+    },
+    "shell-quote": "^1.11.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
