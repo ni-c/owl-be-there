@@ -72,3 +72,45 @@ export function checkCandidateDays(
 export function normalizeDays(days: Iterable<ISODate>): ISODate[] {
   return [...new Set(days)].sort(compareISODate);
 }
+
+/**
+ * The chosen days of `range` once the organiser has fine-tuned some of them.
+ *
+ * A day the organiser has already seen in the calendar (`seen`) keeps the state
+ * it was painted to (`chosen`); a day that has never been on screen follows the
+ * weekday rule (`automatic`). Changing the range therefore keeps every day both
+ * ranges share, and a day that left the range comes back as it was.
+ */
+export function keepChosenDays(
+  range: readonly ISODate[],
+  automatic: ReadonlySet<ISODate>,
+  chosen: ReadonlySet<ISODate>,
+  seen: ReadonlySet<ISODate>
+): ISODate[] {
+  return range.filter((day) =>
+    seen.has(day) ? chosen.has(day) : automatic.has(day)
+  );
+}
+
+/**
+ * The seen days whose weekday is allowed by both weekday sets alike.
+ *
+ * When the organiser changes the weekdays, the days whose weekday flips between
+ * allowed and not allowed follow the new rule again; every other day keeps
+ * what was painted. An empty set allows every weekday, so picking the first
+ * weekday or dropping the last one flips all the others.
+ */
+export function forgetChangedWeekdays(
+  seen: ReadonlySet<ISODate>,
+  before: ReadonlySet<Weekday>,
+  after: ReadonlySet<Weekday>
+): Set<ISODate> {
+  const allowed = (weekdays: ReadonlySet<Weekday>, weekday: Weekday) =>
+    weekdays.size === 0 || weekdays.has(weekday);
+  return new Set(
+    [...seen].filter((day) => {
+      const weekday = weekdayOf(day);
+      return allowed(before, weekday) === allowed(after, weekday);
+    })
+  );
+}
