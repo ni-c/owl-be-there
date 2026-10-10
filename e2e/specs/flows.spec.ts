@@ -74,6 +74,94 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
 });
 
+test('changing the range keeps the days the organiser already chose', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Plan an event' }).click();
+  await page.getByLabel('Title').fill('Book club');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const from = page.getByLabel('From', { exact: true });
+  const to = page.getByLabel('To', { exact: true });
+  const grid = page.getByRole('grid', { name: 'Calendar' });
+  const count = page.getByText(/days? to choose from/);
+
+  await from.fill(D(3));
+  await to.fill(D(10));
+  await expect(count).toHaveText('8 days to choose from');
+  // One day in the middle and the last day of the range taken away.
+  await day(grid, D(5)).click();
+  await day(grid, D(10)).click();
+  await expect(count).toHaveText('6 days to choose from');
+
+  // A longer range: the new days are candidates, the taken-away ones stay off.
+  await to.fill(D(14));
+  await expect(count).toHaveText('10 days to choose from');
+  await expect(day(grid, D(5))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(10))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(12))).toHaveAttribute('aria-pressed', 'true');
+
+  // A later start drops D(5) out of the range; moving back brings it back off.
+  await from.fill(D(7));
+  await expect(count).toHaveText('7 days to choose from');
+  await expect(day(grid, D(5))).toHaveCount(0);
+  await from.fill(D(3));
+  await expect(count).toHaveText('10 days to choose from');
+  await expect(day(grid, D(5))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(3))).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('changing the weekdays keeps the days the organiser already chose', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Plan an event' }).click();
+  await page.getByLabel('Title').fill('Book club');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const grid = page.getByRole('grid', { name: 'Calendar' });
+  const count = page.getByText(/days? to choose from/);
+  const weekday = (iso: string) =>
+    page.getByRole('button', {
+      name: new Intl.DateTimeFormat('en-GB', {
+        weekday: 'long',
+        timeZone: 'UTC',
+      }).format(utcDateOf(iso)),
+      exact: true,
+    });
+
+  // Two weeks, so every weekday is there twice.
+  await page.getByLabel('From', { exact: true }).fill(D(3));
+  await page.getByLabel('To', { exact: true }).fill(D(16));
+  await expect(count).toHaveText('14 days to choose from');
+  // A day left out by hand before any weekday is picked.
+  await day(grid, D(6)).click();
+  await expect(count).toHaveText('13 days to choose from');
+
+  // The first weekday leaves only its own days, and keeps what was painted on them.
+  await weekday(D(6)).click();
+  await expect(count).toHaveText('1 day to choose from');
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(13))).toHaveAttribute('aria-pressed', 'true');
+
+  // Another weekday adds its days and leaves D(6) alone.
+  await weekday(D(4)).click();
+  await expect(count).toHaveText('3 days to choose from');
+  await day(grid, D(11)).click();
+  await expect(count).toHaveText('2 days to choose from');
+  await weekday(D(5)).click();
+  await expect(count).toHaveText('4 days to choose from');
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(11))).toHaveAttribute('aria-pressed', 'false');
+
+  // Taking a weekday away removes only its days.
+  await weekday(D(5)).click();
+  await expect(count).toHaveText('2 days to choose from');
+  await expect(day(grid, D(4))).toHaveAttribute('aria-pressed', 'true');
+  await expect(day(grid, D(11))).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('the organiser link is taken from the fragment and removed from the address', async ({
   page,
   request,
