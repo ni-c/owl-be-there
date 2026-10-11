@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SECURITY.md` promises a first response to a vulnerability report within 14 days.
 - A pull request template that asks for tests and a CHANGELOG entry.
 
+### Fixed
+
+- Changing the range or the weekdays in the wizard no longer throws away the days left out or added in the calendar. A new range keeps every day both ranges share, and a weekday button changes only the days of that weekday.
+
 ## [0.4.0] - 2026-10-06
 
 ### Added

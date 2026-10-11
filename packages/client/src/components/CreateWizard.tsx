@@ -6,7 +6,9 @@ import {
   EMOJI_KEYS,
   EMOJIS,
   expandRange,
+  forgetChangedWeekdays,
   isValidISODate,
+  keepChosenDays,
   LIMITS,
   todayLocal,
   type EmojiKey,
@@ -49,7 +51,10 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const [from, setFrom] = useState(addDays(today, 1));
   const [to, setTo] = useState(addDays(today, 28));
   const [weekdays, setWeekdays] = useState<Set<Weekday>>(new Set());
-  const [manual, setManual] = useState<Map<ISODate, Mark> | null>(null);
+  const [manual, setManual] = useState<{
+    chosen: ReadonlySet<ISODate>;
+    seen: ReadonlySet<ISODate>;
+  } | null>(null);
   const [duration, setDuration] = useState(1);
   const [roster, setRoster] = useState('');
   const [minCount, setMinCount] = useState('');
@@ -77,15 +82,18 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
     () => (rangeProblem ? [] : expandRange(from, to, weekdays)),
     [from, to, weekdays, rangeProblem]
   );
-  const marks = useMemo(
-    () => manual ?? new Map(automatic.map((day) => [day, 'yes' as Mark])),
-    [manual, automatic]
-  );
+  const marks = useMemo(() => {
+    const days = manual
+      ? keepChosenDays(
+          rangeDays,
+          new Set(automatic),
+          manual.chosen,
+          manual.seen
+        )
+      : automatic;
+    return new Map(days.map((day) => [day, 'yes' as Mark]));
+  }, [manual, rangeDays, automatic]);
   const candidates = useMemo(() => [...marks.keys()].sort(), [marks]);
-
-  const resetDays = () => {
-    setManual(null);
-  };
 
   const dayProblem = (): string | null => {
     if (rangeProblem) return rangeProblem;
@@ -289,7 +297,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                       ) {
                         setTo(event.target.value);
                       }
-                      resetDays();
                     }}
                   />
                 )}
@@ -303,7 +310,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     min={from}
                     onChange={(event) => {
                       setTo(event.target.value);
-                      resetDays();
                     }}
                   />
                 )}
@@ -331,7 +337,17 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                         if (on) next.delete(weekday);
                         else next.add(weekday);
                         setWeekdays(next);
-                        resetDays();
+                        setManual(
+                          (current) =>
+                            current && {
+                              chosen: current.chosen,
+                              seen: forgetChangedWeekdays(
+                                current.seen,
+                                weekdays,
+                                next
+                              ),
+                            }
+                        );
                       }}
                       className={`min-h-11 min-w-12 rounded-full border-2 px-3 font-bold ${
                         on
@@ -388,7 +404,18 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                   days={rangeDays}
                   marks={marks}
                   brush="yes"
-                  onChange={(next) => setManual(next)}
+                  onChange={(next) => {
+                    const inRange = new Set(rangeDays);
+                    setManual((current) => ({
+                      chosen: new Set([
+                        ...[...(current?.chosen ?? [])].filter(
+                          (day) => !inRange.has(day)
+                        ),
+                        ...next.keys(),
+                      ]),
+                      seen: new Set([...(current?.seen ?? []), ...rangeDays]),
+                    }));
+                  }}
                   firstWeekday={firstWeekday}
                   today={today}
                   label={t('cal.label')}

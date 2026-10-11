@@ -1,8 +1,11 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
   checkCandidateDays,
   expandRange,
+  forgetChangedWeekdays,
+  keepChosenDays,
   LIMITS,
   normalizeDays,
   type Weekday,
@@ -147,5 +150,145 @@ describe('expandRange with days that are no dates', () => {
   it('still gives one day for equal bounds and nothing for a reversed range', () => {
     expect(expandRange('2027-03-05', '2027-03-05')).toEqual(['2027-03-05']);
     expect(expandRange('2027-03-05', '2027-03-01')).toEqual([]);
+  });
+});
+
+describe('keepChosenDays', () => {
+  const range = expandRange('2026-10-05', '2026-10-11');
+  const all = new Set(range);
+  const none = new Set<string>();
+
+  it('follows the weekday rule while nothing has been seen', () => {
+    const automatic = new Set(
+      expandRange('2026-10-05', '2026-10-11', FRI_TO_SUN)
+    );
+    expect(keepChosenDays(range, automatic, none, none)).toEqual([
+      '2026-10-09',
+      '2026-10-10',
+      '2026-10-11',
+    ]);
+  });
+
+  it('gives exactly the painted days for the range they were painted in', () => {
+    const chosen = new Set(['2026-10-05', '2026-10-08', '2026-10-11']);
+    expect(keepChosenDays(range, all, chosen, all)).toEqual([...chosen]);
+  });
+
+  it('keeps an empty painting empty', () => {
+    expect(keepChosenDays(range, all, none, all)).toEqual([]);
+  });
+
+  it('gives nothing for an empty range', () => {
+    expect(keepChosenDays([], all, all, all)).toEqual([]);
+  });
+
+  it('keeps the shared days and adds the new ones when the range grows at both ends', () => {
+    const chosen = new Set(['2026-10-05', '2026-10-11']);
+    const wider = expandRange('2026-10-03', '2026-10-13');
+    expect(keepChosenDays(wider, new Set(wider), chosen, all)).toEqual([
+      '2026-10-03',
+      '2026-10-04',
+      '2026-10-05',
+      '2026-10-11',
+      '2026-10-12',
+      '2026-10-13',
+    ]);
+  });
+
+  it('keeps the painting of what is left when the range shrinks', () => {
+    const chosen = new Set(['2026-10-05', '2026-10-07', '2026-10-09']);
+    const narrower = expandRange('2026-10-06', '2026-10-08');
+    expect(keepChosenDays(narrower, new Set(narrower), chosen, all)).toEqual([
+      '2026-10-07',
+    ]);
+  });
+
+  it('starts over by the weekday rule for a range that shares no day', () => {
+    const later = expandRange('2026-10-12', '2026-10-18');
+    expect(keepChosenDays(later, new Set(later), none, all)).toEqual(later);
+  });
+
+  it('keeps a seen day as painted and an unseen day by the rule, whatever the sets', () => {
+    const days = expandRange('2026-10-01', '2026-10-20');
+    const subset = fc.subarray(days).map((list) => new Set(list));
+    fc.assert(
+      fc.property(
+        fc.subarray(days),
+        subset,
+        subset,
+        subset,
+        (inRange, automatic, chosen, seen) => {
+          const result = keepChosenDays(inRange, automatic, chosen, seen);
+          expect(result).toEqual(
+            inRange.filter((day) =>
+              seen.has(day) ? chosen.has(day) : automatic.has(day)
+            )
+          );
+          expect([...result].sort()).toEqual(result);
+          for (const day of result) expect(inRange).toContain(day);
+        }
+      )
+    );
+  });
+});
+
+describe('forgetChangedWeekdays', () => {
+  // Monday 5 to Sunday 11 October 2026; weekday 0 is Monday.
+  const week = new Set(expandRange('2026-10-05', '2026-10-11'));
+  const FRIDAY = new Set<Weekday>([4]);
+  const FRI_SAT = new Set<Weekday>([4, 5]);
+
+  it('forgets only the days of a weekday that is added or taken away', () => {
+    expect([...forgetChangedWeekdays(week, FRIDAY, FRI_SAT)]).toEqual(
+      [...week].filter((day) => day !== '2026-10-10')
+    );
+    expect([...forgetChangedWeekdays(week, FRI_SAT, FRIDAY)]).toEqual(
+      [...week].filter((day) => day !== '2026-10-10')
+    );
+  });
+
+  it('keeps the picked weekday and forgets the rest when the first one is picked', () => {
+    expect([...forgetChangedWeekdays(week, new Set(), FRIDAY)]).toEqual([
+      '2026-10-09',
+    ]);
+  });
+
+  it('keeps the last weekday and forgets the rest when it is dropped', () => {
+    expect([...forgetChangedWeekdays(week, FRIDAY, new Set())]).toEqual([
+      '2026-10-09',
+    ]);
+  });
+
+  it('forgets nothing when the weekdays stay the same', () => {
+    expect(forgetChangedWeekdays(week, FRI_SAT, FRI_SAT)).toEqual(week);
+    expect(forgetChangedWeekdays(week, new Set(), new Set())).toEqual(week);
+  });
+
+  it('gives nothing for nothing seen', () => {
+    expect(forgetChangedWeekdays(new Set(), new Set(), FRIDAY).size).toBe(0);
+  });
+
+  it('keeps a day exactly when its weekday is allowed the same before and after', () => {
+    const days = expandRange('2026-10-01', '2026-10-28');
+    const weekdays = fc
+      .subarray<Weekday>([0, 1, 2, 3, 4, 5, 6])
+      .map((list) => new Set(list));
+    fc.assert(
+      fc.property(
+        fc.subarray(days),
+        weekdays,
+        weekdays,
+        (seen, before, after) => {
+          const kept = forgetChangedWeekdays(new Set(seen), before, after);
+          const automatic = (set: ReadonlySet<Weekday>) =>
+            new Set(expandRange('2026-10-01', '2026-10-28', set));
+          const was = automatic(before);
+          const is = automatic(after);
+          for (const day of seen)
+            expect(kept.has(day)).toBe(was.has(day) === is.has(day));
+          for (const day of kept) expect(seen).toContain(day);
+        }
+      )
+    );
   });
 });
