@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-11
+
 ### Added
 
 - The OpenSSF Best Practices badge (passing) and the OpenSSF Scorecard badge in the README.
@@ -246,7 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ni-c/owl-be-there/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ni-c/owl-be-there/compare/v0.2.0...v0.2.1
