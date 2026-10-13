@@ -1,4 +1,5 @@
 import type { InstanceInfoData } from '@owl/shared';
+import { Observable } from './observable.ts';
 
 export type InstanceState =
   | { status: 'loading'; info: null }
@@ -32,9 +33,7 @@ export const INSTANCE_RETRY_MS = [2000, 5000, 15_000, 30_000];
  * failed request must not leave them without it for the whole visit: a failed
  * fetch is tried again, and what was loaded once is never dropped.
  */
-export class InstanceStore {
-  private state: InstanceState = INSTANCE_LOADING;
-  private readonly listeners = new Set<() => void>();
+export class InstanceStore extends Observable<InstanceState> {
   private readonly load: () => Promise<InstanceInfoData>;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private attempt = 0;
@@ -42,19 +41,8 @@ export class InstanceStore {
   private loading = false;
 
   constructor(load: () => Promise<InstanceInfoData>) {
+    super(INSTANCE_LOADING);
     this.load = load;
-  }
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  };
-
-  getState = (): InstanceState => this.state;
-
-  private set(state: InstanceState): void {
-    this.state = state;
-    for (const listener of this.listeners) listener();
   }
 
   start(): void {

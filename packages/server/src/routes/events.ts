@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import {
   addDays,
+  blockFits,
   buildIcs,
   candidateBlocks,
   checkCandidateDays,
@@ -12,6 +13,7 @@ import {
   normalizeDays,
   RosterBody,
   SERVER_TEXTS,
+  snapshotEtag,
   StatusBody,
   todayUTC,
   UpdateEventBody,
@@ -23,7 +25,6 @@ import { hashAdminToken, newAdminToken } from '../auth/tokens.js';
 import { limit, type AppContext } from '../context.js';
 import {
   addRoster,
-  blockFits,
   countEvents,
   countParticipants,
   deleteEvent,
@@ -46,6 +47,13 @@ export function eventOr404(ctx: AppContext, id: string): EventRow {
   const event = isId(id) ? getEvent(ctx.db, id) : undefined;
   if (!event) throw notFound();
   return event;
+}
+
+/** A 409 `full` when `adding` more people would not fit into the event. */
+export function assertRoom(ctx: AppContext, eventId: string, adding = 1): void {
+  if (countParticipants(ctx.db, eventId) + adding > LIMITS.participants) {
+    throw new ApiError(409, 'full', 'This event has no room for more people');
+  }
 }
 
 function requireAdmin(request: FastifyRequest, event: EventRow): void {
@@ -223,7 +231,7 @@ export function registerEventRoutes(
     { config: limit(config, 600, '1 minute') },
     async (request, reply) => {
       const event = eventOr404(ctx, request.params.id);
-      const etag = `"v${event.version}"`;
+      const etag = snapshotEtag(event.version);
       reply.header('etag', etag).header('cache-control', 'private, no-cache');
       if (request.headers['if-none-match'] === etag)
         return reply.code(304).send();
@@ -316,7 +324,8 @@ export function registerEventRoutes(
       requireAdmin(request, event);
       const body = parseBody(StatusBody, request.body);
       if (body.status === 'finalized') {
-        if (!blockFits(ctx.db, event, body.start)) {
+        const days = getDays(ctx.db, event.id).map((row) => row.day);
+        if (!blockFits(days, body.start, event.duration_days)) {
           throw new ApiError(
             400,
             'invalid_block',
@@ -362,16 +371,7 @@ export function registerEventRoutes(
       const entries = rosterEntries(body.names).filter(
         (entry) => !findParticipantByKey(ctx.db, event.id, entry.nameKey)
       );
-      if (
-        countParticipants(ctx.db, event.id) + entries.length >
-        LIMITS.participants
-      ) {
-        throw new ApiError(
-          409,
-          'full',
-          'That is more people than an event can hold'
-        );
-      }
+      assertRoom(ctx, event.id, entries.length);
       addRoster(ctx.db, event.id, entries, ctx.clock.now());
       published(ctx, event.id);
       return sendSnapshot(ctx, reply, event.id);

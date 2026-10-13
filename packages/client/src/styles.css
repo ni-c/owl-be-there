@@ -411,7 +411,7 @@ html:lang(ja) body {
     0 0 0 4px var(--owl-focus);
 }
 
-button.cal-cell:not(:disabled):active {
+button.cal-cell:not([aria-disabled='true']):active {
   transform: scale(0.94);
 }
 

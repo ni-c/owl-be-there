@@ -1,8 +1,14 @@
-import { LIMITS } from '@owl/shared';
+import {
+  addDays,
+  checkCandidateDays,
+  LIMITS,
+  type CandidateProblem,
+} from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import { en } from '../src/i18n/en.ts';
 import { translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
+import { CANDIDATE_PROBLEM_KEY } from '../src/lib/dayEdit.ts';
 import {
   errorMessage,
   isForbidden,
@@ -142,6 +148,41 @@ describe('errorMessage for the codes the server sends', () => {
     );
     expect(errorMessage(null, t)).toBe(en['error.generic']);
     expect(errorMessage(undefined, t)).toBe(en['error.generic']);
+  });
+});
+
+describe('CANDIDATE_PROBLEM_KEY', () => {
+  const today = '2027-03-10';
+  const horizon = addDays(today, LIMITS.horizon);
+  // One day list for every problem checkCandidateDays can name.
+  const found: Record<CandidateProblem, [string[], string | null]> = {
+    past: [[addDays(today, -1)], today],
+    too_far: [[addDays(horizon, 1)], today],
+    span: [[today, addDays(today, LIMITS.span)], today],
+  };
+
+  it('has a text for every problem the shared check names, and no other', () => {
+    for (const [problem, [days, earliest]] of Object.entries(found)) {
+      expect(
+        checkCandidateDays(days, earliest, horizon),
+        `a list for ${problem}`
+      ).toBe(problem);
+      expect(en[CANDIDATE_PROBLEM_KEY[problem as CandidateProblem]]).toEqual(
+        expect.any(String)
+      );
+    }
+    expect(Object.keys(CANDIDATE_PROBLEM_KEY).sort()).toEqual(
+      Object.keys(found).sort()
+    );
+  });
+
+  it('is what an invalid_days answer is read by', () => {
+    for (const problem of Object.keys(found) as CandidateProblem[]) {
+      expect(
+        errorMessage(failure(400, 'invalid_days', problem), t),
+        problem
+      ).toBe(t(CANDIDATE_PROBLEM_KEY[problem]));
+    }
   });
 });
 

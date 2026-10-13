@@ -96,14 +96,13 @@ class Lru<V> {
 /**
  * The brake on guessing passwords.
  *
- * The rate limit per address does not stop someone with many addresses — an
- * IPv6 /48 holds 65,536 of the /64s the limiter counts. So wrong passwords are
- * also counted per name: after a few, that name answers only after a wait,
- * which doubles with every further miss and ends with a right password. It is
- * a wait, not a lock: whoever owns the name gets in once it has passed. On top
- * of that, a whole network may only ask for so many password checks, and have
- * so many new passwords hashed, which keeps scrypt from being used to tie up
- * the server.
+ * The rate limit per network does not stop someone with many networks. So
+ * wrong passwords are also counted per name: after a few, that name answers
+ * only after a wait, which doubles with every further miss and ends with a
+ * right password. It is a wait, not a lock: whoever owns the name gets in once
+ * it has passed. On top of that, a whole network may only ask for so many
+ * password checks, and have so many new passwords hashed, which keeps scrypt
+ * from being used to tie up the server.
  *
  * Everything lives in memory and is keyed by event and name, or by network
  * prefix; nothing is written anywhere.

@@ -1,7 +1,7 @@
 import {
   addDays,
+  blockFits,
   utcDateOf,
-  diffDays,
   expiresOn,
   todayUTC,
   type EmojiKey,
@@ -412,6 +412,25 @@ export function insertParticipant(
   });
 }
 
+/** Stamps before the first day the sender lacked, so it stays new; known days are a prefix by time. */
+function answeredAt(
+  db: Db,
+  eventId: string,
+  participant: ParticipantRow,
+  now: number,
+  known: readonly ISODate[] | undefined
+): number {
+  if (known === undefined) return now;
+  const knownSet = new Set(known);
+  const since = participant.marks_at ?? participant.created_at;
+  let stamp = now;
+  for (const { day, added_at } of getDays(db, eventId)) {
+    if (added_at > since && !knownSet.has(day))
+      stamp = Math.min(stamp, added_at - 1);
+  }
+  return stamp;
+}
+
 export type MarksResult =
   | { ok: true; rev: number; version: number }
   | { ok: false; rev: number; yes: string[]; maybe: string[] };
@@ -424,6 +443,8 @@ export type MarksResult =
  * `baseRev` makes a late or retried request harmless too: it carries an old
  * revision and is refused instead of overwriting something newer. The refusal
  * hands back the current state, so the client can decide what wins.
+ *
+ * `known` is the sender's candidate days; omitted, every day counts as seen.
  */
 export function replaceMarks(
   db: Db,
@@ -432,7 +453,8 @@ export function replaceMarks(
   baseRev: number,
   yes: readonly ISODate[],
   maybe: readonly ISODate[],
-  now: number
+  now: number,
+  known?: readonly ISODate[]
 ): MarksResult {
   return db.tx(() => {
     const participant = getParticipant(db, eventId, participantId)!;
@@ -464,7 +486,7 @@ export function replaceMarks(
     }
     db.run(
       'UPDATE participants SET rev = rev + 1, marks_at = ? WHERE id = ? AND event_id = ?',
-      now,
+      answeredAt(db, eventId, participant, now, known),
       participantId,
       eventId
     );
@@ -634,7 +656,8 @@ export function updateEvent(
     }
     const event = getEvent(db, eventId)!;
     if (event.final_start !== null) {
-      if (blockFits(db, event, event.final_start)) {
+      const days = getDays(db, eventId).map((row) => row.day);
+      if (blockFits(days, event.final_start, event.duration_days)) {
         // The block still fits, but its end follows the duration.
         db.run(
           'UPDATE events SET final_end = ? WHERE id = ?',
@@ -660,28 +683,6 @@ const TEXT_FIELDS = [
   'location',
   'creatorName',
 ] as const;
-
-/** The last day `addDays` can reach. */
-const LAST_DAY = '9999-12-31';
-
-/** Whether `start` begins a block of the event's duration made of candidate days. */
-export function blockFits(
-  db: Db,
-  event: Pick<EventRow, 'id' | 'duration_days'>,
-  start: ISODate
-): boolean {
-  // `addDays` throws past the end of the calendar; a block that would reach
-  // beyond it cannot be made of candidate days.
-  if (diffDays(start, LAST_DAY) < event.duration_days - 1) return false;
-  const end = addDays(start, event.duration_days - 1);
-  const count = db.get<{ n: number }>(
-    'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
-    event.id,
-    start,
-    end
-  )!.n;
-  return count === diffDays(start, end) + 1;
-}
 
 export function setStatus(
   db: Db,

@@ -1,4 +1,4 @@
-import { addressLines, hasImprint } from '@owl/shared';
+import { addressLines } from '@owl/shared';
 import { Card, Notice } from '../components/ui.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { useI18n } from '../i18n/index.tsx';
@@ -32,8 +32,7 @@ export function ImprintPage({ instance: state }: { instance: InstanceState }) {
   if (
     !instance?.operatorName ||
     !instance.operatorAddress ||
-    !instance.operatorContact ||
-    !hasImprint(instance)
+    !instance.operatorContact
   ) {
     return <NotFoundPage />;
   }

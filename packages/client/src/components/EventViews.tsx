@@ -38,6 +38,7 @@ export function EventViews(props: {
   const id = useId();
   const Heading = props.headingLevel === 3 ? 'h3' : 'h2';
   const tabId = (value: EventTab) => `${id}-tab-${value}`;
+  const panelId = (value: EventTab) => `${id}-panel-${value}`;
 
   if (wide) {
     return (
@@ -75,7 +76,7 @@ export function EventViews(props: {
             role="tab"
             id={tabId(value)}
             aria-selected={tab === value}
-            aria-controls={`${id}-panel`}
+            aria-controls={panelId(value)}
             tabIndex={tab === value ? 0 : -1}
             onClick={() => onTab(value)}
             onKeyDown={(keyEvent) =>
@@ -108,9 +109,19 @@ export function EventViews(props: {
           </button>
         ))}
       </div>
-      <div role="tabpanel" id={`${id}-panel`} aria-labelledby={tabId(tab)}>
-        <Card>{tab === 'mine' ? mine : group}</Card>
-      </div>
+      {/* Both stay mounted: "My days" owns the save queue, and a panel that
+          goes away takes a save that is still retrying with it. */}
+      {TABS.map((value) => (
+        <div
+          key={value}
+          role="tabpanel"
+          id={panelId(value)}
+          aria-labelledby={tabId(value)}
+          hidden={tab !== value}
+        >
+          <Card>{value === 'mine' ? mine : group}</Card>
+        </div>
+      ))}
     </div>
   );
 }

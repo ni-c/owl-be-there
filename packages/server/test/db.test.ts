@@ -1,8 +1,19 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LANGUAGES, LIMITS, nameKey, utcDateOf } from '@owl/shared';
+import {
+  addDays,
+  blockFits,
+  diffDays,
+  LANGUAGES,
+  LAST_DAY,
+  LIMITS,
+  nameKey,
+  utcDateOf,
+} from '@owl/shared';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { savingImpact } from '../../client/src/lib/dayEdit.ts';
 import {
   MIGRATIONS,
   migrate,
@@ -10,12 +21,17 @@ import {
   pendingMigrations,
 } from '../src/db/migrations.js';
 import {
-  blockFits,
   emptyEventIds,
   findParticipantByKey,
+  getDays,
+  getEvent,
+  getParticipant,
   listEvents,
+  participantViewOf,
   purgeEmpty,
+  replaceMarks,
   sweepExpired,
+  updateEvent,
 } from '../src/db/repo.js';
 import { NAME_KEY_VERSION, rekeyParticipants } from '../src/db/rekey.js';
 import { Db } from '../src/db/sqlite.js';
@@ -402,6 +418,141 @@ describe('Db.tx', () => {
   });
 });
 
+describe('replaceMarks and the days a save knew', () => {
+  const DAYS: [string, number][] = [
+    ['2027-03-05', 100],
+    ['2027-03-06', 100],
+    ['2027-03-07', 5000],
+    ['2027-03-08', 7000],
+  ];
+  const ALL = DAYS.map(([day]) => day);
+
+  /** One event with DAYS, one person created at 100 who last answered at `markedAt`. */
+  const setup = (markedAt: number | null) => {
+    const db = fresh();
+    db.run(
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+       VALUES ('e', 'h', 't', 'owl', 'en', 1, 100, 100, '2028-01-01')`
+    );
+    for (const [day, addedAt] of DAYS)
+      db.run(
+        'INSERT INTO event_days (event_id, day, added_at) VALUES (?, ?, ?)',
+        'e',
+        day,
+        addedAt
+      );
+    db.run(
+      `INSERT INTO participants (id, event_id, name, name_key, source, marks_at, created_at)
+       VALUES ('p', 'e', 'Max', 'max', 'self', ?, 100)`,
+      markedAt
+    );
+    const save = (
+      known: string[] | undefined,
+      now: number,
+      baseRev = 0,
+      yes: string[] = []
+    ) => replaceMarks(db, 'e', 'p', baseRev, yes, [], now, known);
+    const state = () => {
+      const row = db.get<{ marks_at: number | null; rev: number }>(
+        'SELECT marks_at, rev FROM participants WHERE id = ?',
+        'p'
+      )!;
+      return { markedAt: row.marks_at, rev: row.rev };
+    };
+    const unseen = () =>
+      participantViewOf(db, 'e', getParticipant(db, 'e', 'p')!).unseen;
+    return { db, save, state, unseen };
+  };
+
+  it('stamps the time of the save when no list comes with it', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(undefined, 9000).ok).toBe(true);
+    expect(state()).toEqual({ markedAt: 9000, rev: 1 });
+    expect(unseen()).toEqual([]);
+  });
+
+  it('stamps the time of the save when the list has every day added since', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(ALL, 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(9000);
+    expect(unseen()).toEqual([]);
+  });
+
+  it('stamps one millisecond before the first day added since that the list lacks', () => {
+    const { save, state, unseen } = setup(1000);
+    // Knows the day added at 5000, not the one added at 7000.
+    expect(save(ALL.slice(0, 3), 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(6999);
+    expect(unseen()).toEqual(['2027-03-08']);
+  });
+
+  it('lets the first lacking day decide, whichever the list holds after it', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(['2027-03-05', '2027-03-08'], 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+  });
+
+  it('counts a day added in the very millisecond of the last answer as seen', () => {
+    const { save, state } = setup(5000);
+    expect(save(['2027-03-05', '2027-03-06'], 9000).ok).toBe(true);
+    // Only the day added at 7000 is newer than 5000; 5000 itself is not.
+    expect(state().markedAt).toBe(6999);
+  });
+
+  it('never goes back past the last answer', () => {
+    const { save, state, unseen } = setup(4999);
+    // The day added at 5000 is the first new one: 4999 is as far as it goes.
+    expect(save([], 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+    expect(save([], 9500, 1).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+  });
+
+  it('never stamps a time later than the save itself', () => {
+    // A clock that stepped back: the lacking day looks younger than "now".
+    const { save, state } = setup(1000);
+    expect(save(ALL.slice(0, 3), 3000).ok).toBe(true);
+    expect(state().markedAt).toBe(3000);
+  });
+
+  it('counts from the creation of someone who never answered', () => {
+    const { save, state, unseen } = setup(null);
+    expect(save(['2027-03-05', '2027-03-06'], 9000).ok).toBe(true);
+    // Created at 100: the days added at 5000 and 7000 are both new to them.
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+    const second = setup(null);
+    expect(second.save(ALL, 9000).ok).toBe(true);
+    expect(second.state().markedAt).toBe(9000);
+    // The days added at creation are no news, whatever the list says.
+    const third = setup(null);
+    expect(third.save([], 9000).ok).toBe(true);
+    expect(third.state().markedAt).toBe(4999);
+  });
+
+  it('answers a save on an old revision without touching the answer time', () => {
+    const { save, state } = setup(1000);
+    expect(save(ALL, 2000).ok).toBe(true);
+    const refused = save([], 9000, 0);
+    expect(refused).toMatchObject({ ok: false, rev: 1 });
+    expect(state()).toEqual({ markedAt: 2000, rev: 1 });
+  });
+
+  it('keeps its marks, and ignores listed days that are no candidates', () => {
+    const { db, save, state } = setup(1000);
+    expect(
+      save(['2027-03-05', '2099-01-01', 'not a day'], 9000, 0, ['2027-03-05'])
+        .ok
+    ).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(
+      db.all('SELECT day, state FROM marks WHERE participant_id = ?', 'p')
+    ).toEqual([{ day: '2027-03-05', state: 'yes' }]);
+  });
+});
+
 describe('listing and purging new events', () => {
   const event = (db: Db, id: string, createdAt: number) =>
     db.run(
@@ -608,12 +759,25 @@ describe('deleting many events', () => {
   });
 });
 
-describe('blockFits', () => {
-  const eventWith = (db: Db, duration: number, days: string[]) => {
+describe('the block check behind a chosen date', () => {
+  const NOW = Date.UTC(2027, 2, 1);
+
+  /** Replaces the one event 'ev' with the given duration, days and chosen date. */
+  const seed = (
+    db: Db,
+    duration: number,
+    days: readonly string[],
+    chosen?: { start: string; end: string }
+  ) => {
+    db.run('DELETE FROM event_days');
+    db.run('DELETE FROM events');
     db.run(
-      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-       VALUES ('ev', 'h', 't', 'owl', 'en', ?, 0, 0, '9999-12-31')`,
-      duration
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on, closed_at, final_start, final_end)
+       VALUES ('ev', 'h', 't', 'owl', 'en', ?, 0, 0, '9999-12-31', ?, ?, ?)`,
+      duration,
+      chosen ? 0 : null,
+      chosen?.start ?? null,
+      chosen?.end ?? null
     );
     for (const day of days) {
       db.run(
@@ -621,26 +785,213 @@ describe('blockFits', () => {
         day
       );
     }
-    return { id: 'ev', duration_days: duration };
   };
 
-  it('is true for a run of candidate days and false for a gap', () => {
+  const daysOf = (db: Db) => getDays(db, 'ev').map((row) => row.day);
+  const finalOf = (db: Db) => {
+    const event = getEvent(db, 'ev')!;
+    return { start: event.final_start, end: event.final_end };
+  };
+
+  // The query the check used to be, kept as the reference for the shared one.
+  const byQuery = (db: Db, duration: number, start: string): boolean => {
+    if (diffDays(start, LAST_DAY) < duration - 1) return false;
+    const end = addDays(start, duration - 1);
+    const count = db.get<{ n: number }>(
+      'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
+      'ev',
+      start,
+      end
+    )!.n;
+    return count === diffDays(start, end) + 1;
+  };
+
+  it('gives the answer of the query it replaced, in the cases that matter', () => {
     const db = fresh();
-    const event = eventWith(db, 2, ['2027-03-05', '2027-03-06', '2027-03-08']);
-    expect(blockFits(db, event, '2027-03-05')).toBe(true);
-    expect(blockFits(db, event, '2027-03-06')).toBe(false);
-    expect(blockFits(db, event, '2027-03-07')).toBe(false);
+    const cases: [number, string[], string, boolean][] = [
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-05', true],
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-06', false],
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-07', false],
+      [1, ['2027-03-05'], '2027-03-05', true],
+      [1, ['2027-03-05'], '2027-03-06', false],
+      [3, ['2027-03-05', '2027-03-06'], '2027-03-05', false],
+      [2, ['2027-02-28', '2027-03-01'], '2027-02-28', true],
+      [2, ['9999-12-30', '9999-12-31'], '9999-12-31', false],
+      [2, ['9999-12-30', '9999-12-31'], '9999-12-30', true],
+      [1, ['9999-12-31'], '9999-12-31', true],
+      [14, ['9999-12-30', '9999-12-31'], '9999-12-30', false],
+    ];
+    for (const [duration, days, start, expected] of cases) {
+      seed(db, duration, days);
+      const label = `${duration} from ${start} in ${days.join(' ')}`;
+      expect(byQuery(db, duration, start), label).toBe(expected);
+      expect(blockFits(daysOf(db), start, duration), label).toBe(expected);
+    }
   });
 
-  it('answers false rather than throwing at the end of the calendar', () => {
+  it('agrees with that query for any days, start and duration', () => {
     const db = fresh();
-    const event = eventWith(db, 2, ['9999-12-30', '9999-12-31']);
-    expect(blockFits(db, event, '9999-12-31')).toBe(false);
-    expect(blockFits(db, event, '9999-12-30')).toBe(true);
-    const single = { id: 'ev', duration_days: 1 };
-    expect(blockFits(db, single, '9999-12-31')).toBe(true);
-    const long = { id: 'ev', duration_days: 14 };
-    expect(blockFits(db, long, '9999-12-30')).toBe(false);
+    seed(db, 1, []);
+    // Windows across a month, a year and the end of the calendar.
+    const bases = ['2027-02-20', '2026-12-25', '9999-12-15'];
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...bases),
+        fc.uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 17 }),
+        fc.integer({ min: 0, max: 16 }),
+        fc.integer({ min: 1, max: 14 }),
+        (base, offsets, start, duration) => {
+          seed(
+            db,
+            duration,
+            offsets.map((n) => addDays(base, n))
+          );
+          expect(blockFits(daysOf(db), addDays(base, start), duration)).toBe(
+            byQuery(db, duration, addDays(base, start))
+          );
+        }
+      ),
+      { numRuns: 300 }
+    );
+  });
+
+  describe('when the days or the duration of a poll with a chosen date change', () => {
+    const MARCH = ['2027-03-05', '2027-03-06', '2027-03-07', '2027-03-08'];
+    const chosen = { start: '2027-03-06', end: '2027-03-07' };
+    const edit = (
+      patch: { days?: string[]; durationDays?: number },
+      before = { days: MARCH, duration: 2, chosen }
+    ) => {
+      const db = fresh();
+      seed(db, before.duration, before.days, before.chosen);
+      updateEvent(db, 'ev', patch, NOW);
+      return finalOf(db);
+    };
+
+    it('keeps it when nothing it needs changes', () => {
+      expect(edit({ days: ['2027-03-06', '2027-03-07'] })).toEqual(chosen);
+      expect(edit({ durationDays: 2 })).toEqual(chosen);
+    });
+
+    it('lengthens it with the duration when the days are there', () => {
+      expect(edit({ durationDays: 3 })).toEqual({
+        start: '2027-03-06',
+        end: '2027-03-08',
+      });
+    });
+
+    it('shortens it with the duration', () => {
+      expect(edit({ durationDays: 1 })).toEqual({
+        start: '2027-03-06',
+        end: '2027-03-06',
+      });
+    });
+
+    it('drops it when a day of it goes, or the new duration has no room', () => {
+      const dropped = { start: null, end: null };
+      expect(
+        edit({ days: ['2027-03-05', '2027-03-06', '2027-03-08'] })
+      ).toEqual(dropped);
+      expect(
+        edit({ days: ['2027-03-05', '2027-03-07', '2027-03-08'] })
+      ).toEqual(dropped);
+      expect(edit({ durationDays: 4 })).toEqual(dropped);
+    });
+
+    it('does not throw at the end of the calendar', () => {
+      const before = {
+        days: ['9999-12-30', '9999-12-31'],
+        duration: 2,
+        chosen: { start: '9999-12-30', end: '9999-12-31' },
+      };
+      expect(edit({ durationDays: 3 }, before)).toEqual({
+        start: null,
+        end: null,
+      });
+      expect(edit({ durationDays: 1 }, before)).toEqual({
+        start: '9999-12-30',
+        end: '9999-12-30',
+      });
+      const last = {
+        days: ['9999-12-31'],
+        duration: 1,
+        chosen: { start: '9999-12-31', end: '9999-12-31' },
+      };
+      expect(edit({}, last)).toEqual(last.chosen);
+      expect(edit({ durationDays: 2 }, last)).toEqual({
+        start: null,
+        end: null,
+      });
+    });
+
+    it('tells the organiser what the server then does, whatever the days', () => {
+      const db = fresh();
+      const bases = ['2027-02-20', '9999-12-15'];
+      const days = (base: string) =>
+        fc
+          .oneof(
+            fc.uniqueArray(fc.integer({ min: 0, max: 16 }), {
+              minLength: 1,
+              maxLength: 17,
+            }),
+            // Nearly all of them, so a chosen date survives often enough.
+            fc
+              .uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 3 })
+              .map((holes) =>
+                Array.from({ length: 17 }, (_, n) => n).filter(
+                  (n) => !holes.includes(n)
+                )
+              )
+          )
+          .map((offsets) => offsets.map((n) => addDays(base, n)).toSorted());
+      fc.assert(
+        fc.property(
+          fc.constantFrom(...bases).chain((base) =>
+            fc.record({
+              base: fc.constant(base),
+              was: days(base),
+              next: days(base),
+            })
+          ),
+          fc.integer({ min: 1, max: 4 }),
+          fc.integer({ min: 1, max: 6 }),
+          ({ was, next }, wasDuration, nextDuration) => {
+            const start = was.find((day) => blockFits(was, day, wasDuration));
+            fc.pre(start !== undefined);
+            const end = addDays(start!, wasDuration - 1);
+            seed(db, wasDuration, was, { start: start!, end });
+            updateEvent(
+              db,
+              'ev',
+              { days: next, durationDays: nextDuration },
+              NOW
+            );
+            const after = finalOf(db);
+            const stored =
+              after.end === null
+                ? 'dropped'
+                : after.end < end
+                  ? 'shortened'
+                  : 'kept';
+            const told = savingImpact(
+              {
+                days: was,
+                durationDays: wasDuration,
+                finalStart: start!,
+                finalEnd: end,
+              },
+              [],
+              { days: next, durationDays: nextDuration }
+            ).date;
+            expect(told).toBe(stored);
+            if (after.end !== null) {
+              expect(after.end).toBe(addDays(start!, nextDuration - 1));
+            }
+          }
+        ),
+        { numRuns: 300 }
+      );
+    });
   });
 });
 
@@ -757,6 +1108,39 @@ describe('rekeyParticipants', () => {
     expect(version(db)).toBe(NAME_KEY_VERSION + 4);
   });
 
+  it('rekeys a database keyed by version 1, and skips a colliding pair instead of failing', () => {
+    expect(NAME_KEY_VERSION).toBeGreaterThanOrEqual(2);
+    const db = seeded();
+    db.exec('PRAGMA user_version = 1');
+    // Version 1 left the accent apart from its letter behind a joiner.
+    const V1_KEY = 'jose\u0301';
+    person(db, 'split', 'one', 'Jose\u200d\u0301', V1_KEY, 1);
+    person(db, 'plain', 'two', 'Jos\u00e9', 'jos\u00e9', 2);
+    person(db, 'split-two', 'two', 'Jose\u200d\u0301', V1_KEY, 3);
+    // A pair in one event: the older keeps the key, the younger is left alone.
+    person(db, 'old', 'one', 'Zo\u00eb', 'zo\u00eb', 4);
+    person(db, 'young', 'one', 'Zoe\u200c\u0308', 'zoe\u0308', 5);
+    expect(rekeyParticipants(db)).toEqual({ updated: 1, skipped: 2 });
+    expect(keyOf(db, 'split')).toBe('jos\u00e9');
+    expect(keyOf(db, 'split-two')).toBe(V1_KEY);
+    expect(keyOf(db, 'young')).toBe('zoe\u0308');
+    expect(version(db)).toBe(NAME_KEY_VERSION);
+    // The person typing the name the new way finds the rekeyed entry.
+    expect(
+      findParticipantByKey(db, 'one', nameKey('Jose\u200d\u0301'))?.id
+    ).toBe('split');
+    // A second start has nothing left to do.
+    expect(rekeyParticipants(db)).toEqual({ updated: 0, skipped: 0 });
+  });
+
+  it('leaves a database that is already at version 2 as it is', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    person(db, 'a', 'one', 'Jose\u200d\u0301', 'jose\u0301');
+    expect(rekeyParticipants(db, 2)).toEqual({ updated: 0, skipped: 0 });
+    expect(keyOf(db, 'a')).toBe('jose\u0301');
+  });
+
   it('records the version on an empty database, and rejects a bad one', () => {
     const db = seeded();
     expect(version(db)).toBe(0);
@@ -785,6 +1169,8 @@ describe('rekeyParticipants', () => {
       ['\u2800x', 'x'],
       ['\u000bz\u000c', 'z'],
       ['Stra\u00dfe', 'stra\u00dfe'],
+      ['Jose\u200d\u0301', 'jos\u00e9'],
+      ['a \u00a8b', 'a \u0308b'],
     ];
     for (const [name, key] of keys) {
       expect(nameKey(name), `raise NAME_KEY_VERSION: ${name}`).toBe(key);

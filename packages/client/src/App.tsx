@@ -1,10 +1,11 @@
 import {
+  hasImprint,
   isLanguage,
   LANGUAGE_NAMES,
   languagesByName,
   type InstanceInfoData,
 } from '@owl/shared';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Owl } from './components/Owl.tsx';
 import { Select } from './components/ui.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
@@ -18,7 +19,13 @@ import { OWL_ICON, setFavicon } from './lib/favicon.ts';
 import { readTheme, writeTheme, type ThemeChoice } from './lib/prefs.ts';
 import { usePathname } from './hooks/usePathname.ts';
 import { imprintLink } from './lib/imprint.ts';
-import { navigate, parseRoute, type Route } from './lib/route.ts';
+import {
+  headingKey,
+  navigate,
+  parseRoute,
+  placeOf,
+  type Route,
+} from './lib/route.ts';
 import { EventPage } from './pages/EventPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
@@ -66,12 +73,29 @@ function Shell() {
     if (pathLanguage && pathLanguage !== language) setLanguage(pathLanguage);
   }, [pathLanguage, language, setLanguage]);
 
+  // An imprint without its operator details renders the not-found page.
+  const heading =
+    route.page === 'imprint' && instance !== null && !hasImprint(instance)
+      ? 'notFound.title'
+      : headingKey(route);
   useEffect(() => {
     if (route.page !== 'event') {
-      document.title = `${t('app.name')} — ${t('app.tagline')}`;
+      document.title = heading
+        ? `${t(heading)} · ${t('app.name')}`
+        : `${t('app.name')} — ${t('app.tagline')}`;
       setFavicon(OWL_ICON);
     }
-  }, [route.page, t]);
+  }, [route.page, heading, t]);
+
+  // A link swaps the page under the focus: move it along (not on first render).
+  const mainRef = useRef<HTMLElement>(null);
+  const place = placeOf(route);
+  const lastPlace = useRef(place);
+  useEffect(() => {
+    if (lastPlace.current === place) return;
+    lastPlace.current = place;
+    mainRef.current?.focus({ preventScroll: true });
+  }, [place]);
 
   let page: ReactNode;
   switch (route.page) {
@@ -100,7 +124,11 @@ function Shell() {
   return (
     <div className="flex min-h-dvh flex-col">
       <Header />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-12 sm:px-6">
+      <main
+        ref={mainRef}
+        tabIndex={-1}
+        className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-12 outline-none! sm:px-6"
+      >
         {page}
       </main>
       <Footer instance={instance} route={route} />

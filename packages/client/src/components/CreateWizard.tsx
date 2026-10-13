@@ -2,7 +2,6 @@ import {
   addDays,
   compareISODate,
   DEFAULT_EMOJI,
-  diffDays,
   EMOJI_KEYS,
   EMOJIS,
   expandRange,
@@ -19,7 +18,7 @@ import {
 import { useMemo, useState, type FormEvent } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
-import { daysProblem, type Problem } from '../lib/dayEdit.ts';
+import { daysProblem, rangeProblemKey, type Problem } from '../lib/dayEdit.ts';
 import { errorMessage } from '../lib/errors.ts';
 import { checkMinCount, parseRoster } from '../lib/forms.ts';
 import { rovingKeyDown } from '../lib/roving.ts';
@@ -65,13 +64,8 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const rangeProblem = useMemo(() => {
-    if (!isValidISODate(from) || !isValidISODate(to)) return t('error.noDays');
-    if (compareISODate(from, today) < 0) return t('error.past');
-    if (compareISODate(to, addDays(today, LIMITS.horizon)) > 0)
-      return t('error.tooFar');
-    if (compareISODate(to, from) < 0) return t('error.range');
-    if (diffDays(from, to) + 1 > LIMITS.span) return t('error.rangeTooLong');
-    return null;
+    const key = rangeProblemKey(from, to, today);
+    return key && t(key);
   }, [from, to, today, t]);
 
   const rangeDays = useMemo(
@@ -211,7 +205,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     aria-checked={emoji === key}
                     aria-label={t(`emoji.${key}`)}
                     title={t(`emoji.${key}`)}
-                    data-emoji={key}
                     // One stop in the tab order; the arrow keys move within.
                     tabIndex={emoji === key ? 0 : -1}
                     onClick={() => setEmoji(key)}

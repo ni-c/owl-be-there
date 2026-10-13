@@ -20,7 +20,6 @@ import {
 import { signParticipantToken } from '../auth/tokens.js';
 import { limit, type AppContext } from '../context.js';
 import {
-  countParticipants,
   deleteParticipant,
   findParticipantByKey,
   getDays,
@@ -42,7 +41,7 @@ import {
   notFound,
   parseBody,
 } from '../http.js';
-import { eventOr404, published } from './events.js';
+import { assertRoom, eventOr404, published } from './events.js';
 
 type ParticipantParams = { Params: { id: string; pid: string } };
 
@@ -148,16 +147,6 @@ export function registerParticipantRoutes(
     return hashPassword(password);
   };
 
-  const checkRoom = (eventId: string): void => {
-    if (countParticipants(ctx.db, eventId) >= LIMITS.participants) {
-      throw new ApiError(
-        409,
-        'full',
-        'This event has as many people as it can hold'
-      );
-    }
-  };
-
   /**
    * "Who are you?" — a name, and a password if the name has one.
    *
@@ -219,7 +208,7 @@ export function registerParticipantRoutes(
       }
       if (!existing) {
         if (!open) throw closed();
-        checkRoom(event.id);
+        assertRoom(ctx, event.id);
       }
       if (body.password !== undefined) checkPasswordLength(body.password);
 
@@ -251,7 +240,7 @@ export function registerParticipantRoutes(
         }
         if (existing)
           throw new ApiError(404, 'not_found', 'No such participant');
-        checkRoom(event.id);
+        assertRoom(ctx, event.id);
         return {
           participant: insertParticipant(
             ctx.db,
@@ -304,7 +293,8 @@ export function registerParticipantRoutes(
         body.baseRev,
         yes,
         maybe,
-        ctx.clock.now()
+        ctx.clock.now(),
+        body.days
       );
       if (!result.ok) {
         return reply.code(409).send({
@@ -363,6 +353,8 @@ export function registerParticipantRoutes(
           ctx.clock.now()
         );
       });
+      // The old name or note must not outlive the change in the log.
+      if (name !== undefined || body.note !== undefined) ctx.db.checkpoint();
       published(ctx, event.id);
       return {
         participant: participantViewOf(ctx.db, event.id, updated),

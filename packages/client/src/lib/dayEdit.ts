@@ -1,6 +1,8 @@
 import {
   addDays,
+  blockFits,
   candidateBlocks,
+  checkCandidateDays,
   compareISODate,
   diffDays,
   expandRange,
@@ -8,11 +10,19 @@ import {
   LIMITS,
   maxISODate,
   minISODate,
+  type CandidateProblem,
   type ISODate,
   type Mark,
   type Marks,
 } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
+
+/** The text for each problem `checkCandidateDays` finds, here and on the server. */
+export const CANDIDATE_PROBLEM_KEY: Record<CandidateProblem, TranslationKey> = {
+  past: 'error.past',
+  too_far: 'error.tooFar',
+  span: 'error.rangeTooLong',
+};
 
 /** A text for the reader, as a dictionary key and its placeholders. */
 export interface Problem {
@@ -35,6 +45,26 @@ export function daysProblem(
   if (candidateBlocks(days, duration).length === 0)
     return { key: 'error.noBlock', params: { count: duration } };
   return null;
+}
+
+/**
+ * What is wrong with the wizard's "from … to …" range, as a dictionary key, or
+ * null. A reversed range is named before the limits are looked at; the limits
+ * are the server's own (`checkCandidateDays`), from `today` to the horizon.
+ */
+export function rangeProblemKey(
+  from: string,
+  to: string,
+  today: ISODate
+): TranslationKey | null {
+  if (!isValidISODate(from) || !isValidISODate(to)) return 'error.noDays';
+  if (compareISODate(to, from) < 0) return 'error.range';
+  const problem = checkCandidateDays(
+    [from, to],
+    today,
+    addDays(today, LIMITS.horizon)
+  );
+  return problem && CANDIDATE_PROBLEM_KEY[problem];
 }
 
 /**
@@ -63,7 +93,9 @@ export function visibleRange(
  * have passed (the server refuses them and the grid cannot switch them off),
  * never beyond what an event may span or how far ahead it may reach, and never
  * more than an event may hold. Whatever was added stays within those limits,
- * and a date at or before the last day adds nothing.
+ * and a date at or before the last day adds nothing. Days after the last one
+ * that the calendar already showed (`shownEnd`) are kept as they are, so one
+ * the organiser switched off stays off while the date moves on.
  */
 export function extendSelection(
   selection: Marks,
@@ -72,9 +104,11 @@ export function extendSelection(
     last: ISODate;
     until: string;
     today: ISODate;
+    /** The last day the calendar shows now; defaults to the last day. */
+    shownEnd?: ISODate;
   }
 ): Map<ISODate, Mark> {
-  const { first, last, until, today } = range;
+  const { first, last, until, today, shownEnd } = range;
   const shown = visibleRange(first, last, until);
   const end = shown[shown.length - 1]!;
   const next = new Map<ISODate, Mark>();
@@ -86,7 +120,12 @@ export function extendSelection(
     addDays(today, LIMITS.horizon)
   );
   const upTo = minISODate(until, limit);
-  for (const day of expandRange(maxISODate(addDays(last, 1), today), upTo)) {
+  // A date typed before the last day drops the added days; they return as chosen.
+  const shownLast = maxISODate(last, shownEnd ?? last);
+  for (const day of expandRange(
+    maxISODate(addDays(shownLast, 1), today),
+    upTo
+  )) {
     if (next.size >= LIMITS.days) break;
     next.set(day, 'yes');
   }
@@ -131,14 +170,10 @@ export function savingImpact(
   let date: SavingImpact['date'] = 'kept';
   if (current.finalStart !== null) {
     const start = current.finalStart;
-    const end = addDays(start, next.durationDays - 1);
-    let fits = true;
-    for (let day = start; compareISODate(day, end) <= 0; day = addDays(day, 1))
-      if (!wanted.has(day)) fits = false;
-    if (!fits) date = 'dropped';
+    if (!blockFits(wanted, start, next.durationDays)) date = 'dropped';
     else if (
       current.finalEnd !== null &&
-      compareISODate(end, current.finalEnd) < 0
+      diffDays(start, current.finalEnd) + 1 > next.durationDays
     )
       date = 'shortened';
   }

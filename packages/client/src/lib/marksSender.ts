@@ -8,38 +8,37 @@ import {
 /**
  * The send function of a participant's {@link SaveQueue}: the request goes out
  * with only the days that are candidates right now, and failures are sorted
- * into those worth retrying and those that are not.
+ * into those worth retrying and those that are not. It also names the
+ * candidate days it knows, so the server can keep a day added since as new.
  *
- * The organiser may remove a day between a stroke and its request. The server
- * refuses marks on a day that is no longer a candidate (`invalid_marks`), so
- * the days are filtered when the request is made, not when the stroke was. If
- * the server still refuses — the snapshot that removed the day has not arrived
- * yet — that is a matter of time, not a verdict on the marks: the snapshot is
- * fetched and the queue retries.
+ * The organiser may remove a day between a stroke and its request, so the days
+ * are filtered when the request is made, not when the stroke was. A day that
+ * gets through anyway — the snapshot that removed it has not arrived yet — is
+ * dropped by the server, not refused. A revision that has moved is no failure
+ * either: the server answers 409 `stale` with the current one, which the queue
+ * takes before it sends again.
  */
 export function marksSender(options: {
-  put(request: SaveRequest, keepalive: boolean): Promise<SendResult>;
+  put(request: SaveRequest): Promise<SendResult>;
   candidates(): ReadonlySet<string>;
-  refresh(): void;
-}): (request: SaveRequest, keepalive: boolean) => Promise<SendResult> {
-  return async (request, keepalive) => {
+}): (request: SaveRequest) => Promise<SendResult> {
+  return async (request) => {
     const candidates = options.candidates();
     const kept: SaveRequest = {
       baseRev: request.baseRev,
       yes: request.yes.filter((day) => candidates.has(day)),
       maybe: request.maybe.filter((day) => candidates.has(day)),
+      days: [...candidates].sort(),
     };
     try {
-      return await options.put(kept, keepalive);
+      return await options.put(kept);
     } catch (failure) {
       if (failure instanceof NetworkFailure) throw failure;
-      if (failure instanceof ApiFailure) {
-        if (failure.code === 'invalid_marks') {
-          options.refresh();
-          throw failure;
-        }
-        if (failure.status === 429 || failure.status >= 500) throw failure;
-      }
+      if (
+        failure instanceof ApiFailure &&
+        (failure.status === 429 || failure.status >= 500)
+      )
+        throw failure;
       throw new PermanentSaveError(
         failure instanceof ApiFailure ? failure.code : 'unknown'
       );

@@ -287,7 +287,7 @@ export const fr: Dictionary = {
     'Ton navigateur garde les événements que tu as ouverts sur cet appareil. Il mémorise aussi ton nom dans ces événements et tes réglages. Tu peux retirer des événements de la liste sur la page d’accueil.',
   'privacy.retention.title': 'Quand les données sont supprimées',
   'privacy.retention.text':
-    'Un événement est supprimé {days} jours après sa dernière modification. Jamais avant que son dernier jour soit passé. La personne qui l’organise peut le supprimer à tout moment.',
+    'Un événement est supprimé {days} jours après sa dernière modification. Dès que quelqu’un a répondu, il est conservé au moins jusqu’à ce que son dernier jour soit passé. La personne qui l’organise peut le supprimer à tout moment.',
   'privacy.logs_one':
     'Le serveur web conserve des journaux d’accès avec les adresses IP pour éviter les abus. Ces journaux sont supprimés après {count} jour.',
   'privacy.logs_other':

@@ -286,7 +286,7 @@ export const nl: Dictionary = {
     'Je browser bewaart geopende evenementen op dit apparaat. Ook je naam bij een evenement en je instellingen worden onthouden. Je kunt evenementen van de lijst op de startpagina verwijderen.',
   'privacy.retention.title': 'Wanneer we het verwijderen',
   'privacy.retention.text':
-    'We verwijderen een evenement {days} dagen na de laatste wijziging. Nooit voordat de laatste dag voorbij is. De organisator kan het op elk moment verwijderen.',
+    'We verwijderen een evenement {days} dagen na de laatste wijziging. Zodra iemand heeft geantwoord, blijft het minstens bewaard tot de laatste dag voorbij is. De organisator kan het op elk moment verwijderen.',
   'privacy.logs_one':
     'De webserver registreert bezoeken met IP-adressen om misbruik tegen te gaan. Deze logbestanden worden na {count} dag verwijderd.',
   'privacy.logs_other':

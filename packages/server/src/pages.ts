@@ -5,6 +5,7 @@ import {
   emojiIcon,
   escapeMarkup,
   FAQ_TOPICS,
+  FEATURES,
   HOME_TEXTS,
   LANGUAGES,
   LOCALES,
@@ -121,7 +122,7 @@ function head(options: HeadOptions): string {
     `<meta name="description" content="${e(options.description)}" />`,
     options.noindex ? '<meta name="robots" content="noindex, nofollow" />' : '',
     `<meta property="og:type" content="website" />`,
-    `<meta property="og:site_name" content="Owl Be There" />`,
+    `<meta property="og:site_name" content="${e(APP_NAME)}" />`,
     `<meta property="og:title" content="${e(options.ogTitle ?? options.title)}" />`,
     `<meta property="og:description" content="${e(options.description)}" />`,
     `<meta property="og:url" content="${e(options.publicUrl + options.path)}" />`,
@@ -225,7 +226,7 @@ export function homePage(
     '<div data-static>',
     `<h1>${e(SERVER_TEXTS[lang].tagline)}</h1>`,
     `<p>${e(texts['home.lead'])}</p>`,
-    ...(['heat', 'private'] as const).flatMap((feature) => [
+    ...FEATURES.flatMap((feature) => [
       `<h2>${e(texts[`home.feature.${feature}.title`])}</h2>`,
       `<p>${e(texts[`home.feature.${feature}.text`])}</p>`,
     ]),

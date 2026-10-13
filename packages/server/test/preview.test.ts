@@ -31,11 +31,42 @@ const REAL_CLIENT = fileURLToPath(
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+// Written as escapes: some of these are invisible or combine with their neighbour.
+const PARTY_POPPER = '\u{1F389}';
+const CAKE = '\u{1F382}';
+const FLAG_DE = '\u{1F1E9}\u{1F1EA}';
+const THUMBS_UP = '\u{1F44D}';
+const SKIN_TONE = '\u{1F3FD}';
+/** The digit, the emoji variation selector and the combining keycap. */
+const KEYCAP_ONE = '1\uFE0F\u20E3';
+/** Emoji no font has, not even the CJK one. */
+const PLANE_EMOJI = [PARTY_POPPER, CAKE, FLAG_DE, THUMBS_UP + SKIN_TONE];
+/** Symbols only the CJK font draws: sun, football, arrow, star, red heart. */
+const NUNITO_LACKS = ['\u2600', '\u26BD', '\u2192', '\u2605', '\u2764\uFE0F'];
+
 /** Width and height from the IHDR chunk. */
 const sizeOf = (png: Buffer): [number, number] => [
   png.readUInt32BE(16),
   png.readUInt32BE(20),
 ];
+
+/**
+ * The rightmost column of dark title ink in a picture. The title is drawn
+ * before the calendar panel at x=696, so a line wider than the column shows as
+ * ink running up to the panel's edge, cut off there.
+ */
+const titleInkRight = (pixels: Uint8Array): number => {
+  const width = 1200;
+  let right = -1;
+  for (let y = 150; y < 440; y += 1) {
+    for (let x = 72; x < 696; x += 1) {
+      const at = (y * width + x) * 4;
+      if (pixels[at]! < 90 && pixels[at + 1]! < 90 && pixels[at + 2]! < 90)
+        right = Math.max(right, x);
+    }
+  }
+  return right;
+};
 
 const versionOf = (
   data: NonNullable<ReturnType<typeof snapshot>>,
@@ -315,6 +346,19 @@ describe('titles in scripts the fonts may not cover', () => {
     const renderer = new PreviewRenderer(clientDir, host, 5, { budget: null });
     return renderer.render(snapshot(t!.db, id)!);
   };
+  /** Several titles through one renderer, so a font is unpacked once. */
+  const picturesOf = async (
+    titles: string[],
+    clientDir: string | null
+  ): Promise<Buffer[]> => {
+    const renderer = new PreviewRenderer(clientDir, host, 5, { budget: null });
+    const pictures: Buffer[] = [];
+    for (const title of titles) {
+      const { id } = await createEvent(t!.app, { title });
+      pictures.push(await renderer.render(snapshot(t!.db, id)!));
+    }
+    return pictures;
+  };
 
   it('draws Cyrillic with Nunito: the titles show, and differ', async () => {
     t = await testApp();
@@ -326,6 +370,36 @@ describe('titles in scripts the fonts may not cover', () => {
     expect(a.equals(b)).toBe(false);
     expect(ext.equals(name)).toBe(false);
     expect(ext.equals(a)).toBe(false);
+  });
+
+  it('wraps Cyrillic titles to the width it draws them in: nothing runs under the calendar panel', async () => {
+    t = await testApp();
+    let pixels = new Uint8Array();
+    const render = Resvg.prototype.render;
+    vi.spyOn(Resvg.prototype, 'render').mockImplementation(function (
+      this: InstanceType<typeof Resvg>
+    ) {
+      const image = render.call(this);
+      pixels = image.pixels.slice();
+      return image;
+    });
+    // Wide capitals, wide lowercase, mixed with Latin, and a title of three lines.
+    for (const title of [
+      'Мышиная ловля: ужин',
+      'ТУРНИР ПО ФУТБОЛУ',
+      'День рождения Ольги',
+      'ДЕНЬ РОЖДЕНИЯ ОЛЬГИ',
+      'Ужин у Жени и Миши',
+      'Щука, жук и шершень',
+      'Party Вечеринка у Юли',
+      'Годовщина свадьбы Жени и Юры и вся семья с друзьями приезжайте все',
+    ]) {
+      await pictureOf(title);
+      const right = titleInkRight(pixels);
+      // Something was drawn, and within the 590 px column that starts at x=72.
+      expect(right, title).toBeGreaterThan(300);
+      expect(right, title).toBeLessThan(72 + 590 + 12);
+    }
   });
 
   it('draws Vietnamese letters Latin Extended does not have', async () => {
@@ -359,11 +433,84 @@ describe('titles in scripts the fonts may not cover', () => {
     const mixed = await pictureOf('Привет שלום');
     expect(mixed.equals(await pictureOf('Привет …'))).toBe(true);
     expect(mixed.equals(await pictureOf('Owl Be There'))).toBe(false);
-    // Emoji and symbols are left as they were.
-    expect((await pictureOf('Party 🎉')).equals(await pictureOf('Party'))).toBe(
-      false
-    );
   });
+
+  it('leaves emoji and symbols out instead of drawing a hollow box for each', async () => {
+    t = await testApp();
+    const party = await pictureOf('Party');
+    // Nunito has none of these: the picture is that of the title without them.
+    for (const symbol of [
+      ...PLANE_EMOJI,
+      ...NUNITO_LACKS,
+      `${PARTY_POPPER}${CAKE}`,
+      `${PARTY_POPPER} ${CAKE}`,
+    ])
+      expect(
+        (await pictureOf(`Party ${symbol}`)).equals(party),
+        JSON.stringify(symbol)
+      ).toBe(true);
+    // The invisible selector of a keycap stays; the digit is the title's.
+    expect(
+      (await pictureOf(`Party ${KEYCAP_ONE}`)).equals(
+        await pictureOf('Party 1')
+      )
+    ).toBe(true);
+    // What Nunito does have is still drawn.
+    for (const drawn of ['\u00A9', '\u00AE', '\u2122', '\u2212'])
+      expect(
+        (await pictureOf(`Party ${drawn}`)).equals(party),
+        JSON.stringify(drawn)
+      ).toBe(false);
+  });
+
+  it('puts the app name where an emoji is all there is, and keeps the digits next to one', async () => {
+    t = await testApp();
+    const name = await pictureOf('Owl Be There');
+    for (const title of [
+      ...PLANE_EMOJI,
+      ...NUNITO_LACKS,
+      `${PARTY_POPPER} ${CAKE}`,
+      SKIN_TONE,
+    ])
+      expect((await pictureOf(title)).equals(name), JSON.stringify(title)).toBe(
+        true
+      );
+    const year = await pictureOf('2027');
+    expect((await pictureOf(`${PARTY_POPPER} 2027`)).equals(year)).toBe(true);
+    expect(year.equals(name)).toBe(false);
+    // Punctuation alone is no emoji: it stays.
+    expect((await pictureOf('!?')).equals(name)).toBe(false);
+  });
+
+  it('draws the symbols the CJK font has and still drops the emoji it has not', async () => {
+    t = await testApp();
+    const drawnByCjk = [
+      '\u2605',
+      '\u2665',
+      '\u2192',
+      '\u2713',
+      '\u2600',
+      '\u26BD',
+    ];
+    // The NEW and the free-of-charge buttons are squared letters it draws.
+    const squared = ['\u{1F195}', '\u{1F21A}'];
+    const [base, ...rest] = await picturesOf(
+      [
+        '忘年会',
+        ...[...drawnByCjk, ...squared].map((symbol) => `忘年会 ${symbol}`),
+        ...PLANE_EMOJI.map((emoji) => `忘年会 ${emoji}`),
+      ],
+      REAL_CLIENT
+    );
+    const kept = rest.slice(0, drawnByCjk.length + squared.length);
+    const dropped = rest.slice(kept.length);
+    expect(dropped).toHaveLength(PLANE_EMOJI.length);
+    for (const picture of kept) expect(picture.equals(base!)).toBe(false);
+    // Each is a glyph of its own, not the one box all of them would share.
+    const distinct = new Set(kept.map((picture) => picture.toString('base64')));
+    expect(distinct.size).toBe(kept.length);
+    for (const picture of dropped) expect(picture.equals(base!)).toBe(true);
+  }, 30_000);
 });
 
 describe('drawableTitle', () => {
@@ -379,10 +526,73 @@ describe('drawableTitle', () => {
       'Tiệc ạ',
       '2026',
       '…',
-      '🎉',
       '!?',
+      // Nunito draws the copyright sign, the trademark sign, the minus sign
+      // and the division slash.
+      '© 2026 ™',
+      '®',
+      'A−B',
+      'A∕B',
     ])
-      expect(drawn(title)).toBe(title);
+      expect(drawn(title), title).toBe(title);
+    expect(drawn('© 2026 ™', true)).toBe('© 2026 ™');
+  });
+
+  it('leaves emoji and symbols out, and nothing else', () => {
+    for (const [title, expected] of [
+      [`Party ${PARTY_POPPER}`, 'Party '],
+      [`${CAKE} Sarahs birthday`, ' Sarahs birthday'],
+      ['☀ Grillen', ' Grillen'],
+      ['⚽ Turnier', ' Turnier'],
+      ['A → B', 'A  B'],
+      ['★ 2027 ♥', ' 2027 '],
+      [`${FLAG_DE} Fest`, ' Fest'],
+      [`${THUMBS_UP}${SKIN_TONE} ok`, ' ok'],
+      // The variation selectors stay, and resvg draws nothing for them.
+      [`${KEYCAP_ONE} Platz`, '1\uFE0F Platz'],
+      ['\u2764\uFE0F Liebe', '\uFE0F Liebe'],
+    ] as const)
+      expect(drawn(title), title).toBe(expected);
+  });
+
+  it('takes the app name when an emoji was all there was', () => {
+    for (const title of [
+      PARTY_POPPER,
+      `${PARTY_POPPER} ${CAKE}`,
+      `${PARTY_POPPER}${CAKE}`,
+      FLAG_DE,
+      SKIN_TONE,
+      ...NUNITO_LACKS,
+      `${PARTY_POPPER}!?`,
+    ])
+      expect(drawn(title), title).toBe(app);
+    // A digit is still something to show, like next to Hebrew.
+    expect(drawn(`${PARTY_POPPER} 2027`)).toBe(' 2027');
+    expect(drawn(`2027${PARTY_POPPER}`)).toBe('2027');
+    expect(drawn(`${PARTY_POPPER} 2027`, true)).toBe(' 2027');
+  });
+
+  it('keeps one ellipsis for a run of lost letters that an emoji interrupts', () => {
+    expect(drawn(`Hi שלום${PARTY_POPPER}שלום`)).toBe('Hi …');
+    expect(drawn(`Hi שלום ${PARTY_POPPER} Hi`)).toBe('Hi …  Hi');
+  });
+
+  it('keeps the symbols the CJK font draws, and drops the emoji nothing draws', () => {
+    // Star, heart, arrow, check mark, sun, football.
+    const symbols = '★ ♥ → ✓ ☀ ⚽';
+    expect(drawn(symbols, true)).toBe(symbols);
+    expect(drawn(symbols)).toBe(app);
+    // The squared NEW and free-of-charge buttons.
+    const squared = '\u{1F195} \u{1F21A}';
+    expect(drawn(squared, true)).toBe(squared);
+    expect(drawn(squared)).toBe(app);
+    // Not these: flags, skin tones, keycaps and the emoji planes.
+    expect(drawn(`忘年会 ${PARTY_POPPER}`, true)).toBe('忘年会 ');
+    expect(drawn(`忘年会${FLAG_DE}`, true)).toBe('忘年会');
+    expect(drawn(`${THUMBS_UP}${SKIN_TONE} 忘年会`, true)).toBe(' 忘年会');
+    expect(drawn(KEYCAP_ONE, true)).toBe('1\uFE0F');
+    expect(drawn(PARTY_POPPER, true)).toBe(app);
+    expect(drawn(SKIN_TONE, true)).toBe(app);
   });
 
   it('replaces each run of letters no font has by one ellipsis', () => {

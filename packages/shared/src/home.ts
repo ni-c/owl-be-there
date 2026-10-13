@@ -1,15 +1,19 @@
+import { RETENTION_DAYS } from './limits.js';
 import { DESCRIPTION_EN, type Language } from './texts.js';
 
 /** The keys of the start page's own texts. */
 export type HomeKey =
   | 'home.lead'
-  | 'home.feature.heat.title'
-  | 'home.feature.heat.text'
-  | 'home.feature.private.title'
-  | 'home.feature.private.text'
+  | `home.feature.${Feature}.title`
+  | `home.feature.${Feature}.text`
   | 'home.faq.title'
   | `home.faq.${FaqTopic}.q`
   | `home.faq.${FaqTopic}.a`;
+
+/** The start page's feature cards, in the order they are shown. */
+export const FEATURES = ['heat', 'private'] as const;
+
+export type Feature = (typeof FEATURES)[number];
 
 /** The start page's questions, in the order they are shown. */
 export const FAQ_TOPICS = [
@@ -55,8 +59,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Schick den Link in euren Gruppenchat oder zeig den QR-Code. WhatsApp, Signal und andere Messenger zeigen eine Vorschau mit dem Titel und den möglichen Tagen. Niemand muss etwas installieren.',
     'home.faq.privacy.q': 'Was passiert mit unseren Daten?',
-    'home.faq.privacy.a':
-      'Gespeichert werden nur die Namen und Tage, die ihr eintragt: keine E-Mail-Adressen, keine IP-Adressen, keine Cookies. Events löschen sich von selbst, meist 90 Tage nach der letzten Änderung.',
+    'home.faq.privacy.a': `Gespeichert werden nur die Namen und Tage, die ihr eintragt: keine E-Mail-Adressen, keine IP-Adressen, keine Cookies. Events löschen sich von selbst, meist ${RETENTION_DAYS} Tage nach der letzten Änderung.`,
   },
   en: {
     'home.lead': DESCRIPTION_EN,
@@ -83,8 +86,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Send the link to your group chat or show the QR code. WhatsApp, Signal and other messengers show a preview with the title and the candidate days. Nobody has to install anything.',
     'home.faq.privacy.q': 'What happens to our data?',
-    'home.faq.privacy.a':
-      'Only the names and days you enter are stored: no email addresses, no IP addresses, no cookies. Events delete themselves, usually 90 days after the last change.',
+    'home.faq.privacy.a': `Only the names and days you enter are stored: no email addresses, no IP addresses, no cookies. Events delete themselves, usually ${RETENTION_DAYS} days after the last change.`,
   },
   es: {
     'home.lead':
@@ -112,8 +114,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Envía el enlace al chat del grupo o enseña el código QR. WhatsApp, Signal y otras apps de mensajería muestran una vista previa con el título y los días posibles. Nadie tiene que instalar nada.',
     'home.faq.privacy.q': '¿Qué pasa con nuestros datos?',
-    'home.faq.privacy.a':
-      'Solo se guardan los nombres y los días que introducís: ni correos electrónicos, ni direcciones IP, ni cookies. Los eventos se borran solos, normalmente 90 días después del último cambio.',
+    'home.faq.privacy.a': `Solo se guardan los nombres y los días que introducís: ni correos electrónicos, ni direcciones IP, ni cookies. Los eventos se borran solos, normalmente ${RETENTION_DAYS} días después del último cambio.`,
   },
   fr: {
     'home.lead':
@@ -141,8 +142,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Envoyez le lien dans le chat du groupe ou montrez le QR code. WhatsApp, Signal et les autres messageries affichent un aperçu avec le titre et les jours proposés. Personne n’a rien à installer.',
     'home.faq.privacy.q': 'Que deviennent nos données ?',
-    'home.faq.privacy.a':
-      'Seuls les noms et les jours que vous indiquez sont enregistrés : pas d’adresse e-mail, pas d’adresse IP, pas de cookies. Les événements se suppriment d’eux-mêmes, en général 90 jours après la dernière modification.',
+    'home.faq.privacy.a': `Seuls les noms et les jours que vous indiquez sont enregistrés : pas d’adresse e-mail, pas d’adresse IP, pas de cookies. Les événements se suppriment d’eux-mêmes, en général ${RETENTION_DAYS} jours après la dernière modification.`,
   },
   it: {
     'home.lead':
@@ -170,8 +170,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Manda il link nella chat del gruppo o mostra il codice QR. WhatsApp, Signal e le altre app di messaggistica mostrano un’anteprima con il titolo e i giorni proposti. Nessuno deve installare niente.',
     'home.faq.privacy.q': 'Che fine fanno i nostri dati?',
-    'home.faq.privacy.a':
-      'Vengono salvati solo i nomi e i giorni che inserite: niente indirizzi email, niente indirizzi IP, niente cookie. Gli eventi si cancellano da soli, di solito 90 giorni dopo l’ultima modifica.',
+    'home.faq.privacy.a': `Vengono salvati solo i nomi e i giorni che inserite: niente indirizzi email, niente indirizzi IP, niente cookie. Gli eventi si cancellano da soli, di solito ${RETENTION_DAYS} giorni dopo l’ultima modifica.`,
   },
   ja: {
     'home.lead':
@@ -199,8 +198,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'グループチャットにリンクを送るか、QRコードを見せるだけ。LINEやWhatsAppなどのメッセージアプリでは、タイトルと候補日がプレビューで表示されます。アプリのインストールは不要です。',
     'home.faq.privacy.q': 'データはどうなるの？',
-    'home.faq.privacy.a':
-      '保存されるのは入力した名前と日にちだけ。メールアドレスもIPアドレスもCookieも保存しません。予定は自動で削除されます（通常は最後の変更から90日後）。',
+    'home.faq.privacy.a': `保存されるのは入力した名前と日にちだけ。メールアドレスもIPアドレスもCookieも保存しません。予定は自動で削除されます（通常は最後の変更から${RETENTION_DAYS}日後）。`,
   },
   nl: {
     'home.lead':
@@ -228,8 +226,7 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Stuur de link naar de groepschat of laat de QR-code zien. WhatsApp, Signal en andere messengers tonen een voorbeeld met de titel en de mogelijke dagen. Niemand hoeft iets te installeren.',
     'home.faq.privacy.q': 'Wat gebeurt er met onze gegevens?',
-    'home.faq.privacy.a':
-      'Alleen de namen en dagen die jullie invullen worden opgeslagen: geen e-mailadressen, geen IP-adressen, geen cookies. Evenementen verwijderen zichzelf, meestal 90 dagen na de laatste wijziging.',
+    'home.faq.privacy.a': `Alleen de namen en dagen die jullie invullen worden opgeslagen: geen e-mailadressen, geen IP-adressen, geen cookies. Evenementen verwijderen zichzelf, meestal ${RETENTION_DAYS} dagen na de laatste wijziging.`,
   },
   pt: {
     'home.lead':
@@ -257,7 +254,6 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.messenger.a':
       'Envia o link para o chat do grupo ou mostra o código QR. O WhatsApp, o Signal e outras apps de mensagens mostram uma pré-visualização com o título e os dias possíveis. Ninguém precisa de instalar nada.',
     'home.faq.privacy.q': 'O que acontece aos nossos dados?',
-    'home.faq.privacy.a':
-      'Só são guardados os nomes e os dias que introduzem: nada de e-mails, endereços IP ou cookies. Os eventos apagam-se sozinhos, normalmente 90 dias depois da última alteração.',
+    'home.faq.privacy.a': `Só são guardados os nomes e os dias que introduzem: nada de e-mails, endereços IP ou cookies. Os eventos apagam-se sozinhos, normalmente ${RETENTION_DAYS} dias depois da última alteração.`,
   },
 };

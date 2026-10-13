@@ -10,6 +10,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Two ways to register a lookalike of an existing name are closed. A zero-width joiner or non-joiner, a tag character or a blank Braille pattern no longer hides a Cyrillic or Greek letter inside a Latin word from the mixed-script check, and an invisible character between a letter and its accent no longer makes a second "José". Stored name keys are recomputed once on the next start; an entry whose new key is already taken keeps its old one.
+- fastify 5.12.7 (GHSA-389g-gv7q-r4x8) and ip-address 10.7.4 (GHSA-rxp7-6hxx-x8q5) in the image, prettier 3.9.10 (GHSA-4cm8-f57v-mqm6) and vite 8.3.3 (GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg, GHSA-9jrq-w75r-8gcw) in development. None of them was reachable here.
+- `npm run scan:secrets` runs the Trivy image by digest, like the gitleaks image next to it.
+
+### Fixed
+
+- Marks painted while the connection is down are no longer lost when you switch to the group view on a phone: both tabs stay mounted, so a save that is retrying keeps retrying. Switching via "Not you", the organiser's fill-in or across the wide-screen breakpoint still sends one last attempt only.
+- When a save sent as the page was hidden overlapped one still under way, a later tap could be dropped, an older state sent again over a newer one, or the status stuck on "Saving…". The newest state now always wins.
+- A day the organiser adds while someone is painting stays new and open for them instead of counting as "no" when their next save did not know it yet.
+- `MAX_DB_BYTES` counts the pages in use, not the free pages deletions leave in the file, so an instance a flood filled takes new events again after `purge` or the retention sweep.
+- Link-preview pictures no longer show hollow boxes for emoji, flags or symbols in the title; a title of nothing else shows the app name. Cyrillic titles wrap to their real width, and a Japanese date range no longer breaks in the middle of a date.
+- In the days editor, days switched off after "Add days up to" no longer switch back on when the end date moves again.
+- The calendar leaves Alt/Cmd with the arrow keys and Ctrl/Cmd with Home and End to the browser (Back, Forward) instead of swallowing them.
+- The "organiser link was not accepted" notice goes away once the right link is pasted into the open page.
+- The stale-data notice no longer stays up after a refresh nobody announced fails (a phone waking up): the page retries with growing pauses until it gets through.
+- Moving to another page inside the app moves focus to it, and the privacy, imprint and not-found pages have their own tab titles. Confirming a dialog that removes its own button no longer drops focus to the top of the page.
+- A confirmation dialog closed with Escape and opened again at once with Enter no longer shuts by itself.
+- A path the static files refuse (a double slash, a dotfile) shows the app's 404 page instead of a JSON 403.
+- The privacy page says an event stays until its final day only once somebody has answered, in all eight languages.
+- Renaming a participant or changing their note folds the write-ahead log at once, so the old text does not linger in the database files.
+- The operator CLI no longer cuts its output off after about 64 KB when stdout is a pipe.
+- The server starts on a file system that answers `link()` with ENOTSUP (errno 95 on Linux) instead of failing to write the secret key.
+- Re-running the release of an older version no longer moves the `X.Y` image tag back, and pre-release tags pass the release checks.
+
+### Changed
+
+- A full event answers with one message whether the organiser's list or a joining person hits the limit.
+- CI keeps the Playwright report of passing runs too and annotates tests that went green only on their retry; two WebKit tests that flaked against their time budget and an aborted fetch are steadied.
+- Dead and duplicated code found by an audit is removed or merged; no visible change.
+
 ## [0.4.1] - 2026-10-11
 
 ### Added

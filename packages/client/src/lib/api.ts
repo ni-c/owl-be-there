@@ -214,21 +214,21 @@ export const api = {
 
   /**
    * Save a complete set of marks. A conflict is an answer, not an error: it
-   * carries the server's current revision.
+   * carries the server's current revision. Sent with `keepalive`, so a save
+   * under way outlives the page.
    */
   async putMarks(
     id: string,
     participantId: string,
-    body: { baseRev: number; yes: string[]; maybe: string[] },
-    credentials: Credentials,
-    keepalive = false
+    body: { baseRev: number; yes: string[]; maybe: string[]; days?: string[] },
+    credentials: Credentials
   ): Promise<
     { ok: true; rev: number; version: number } | { ok: false; rev: number }
   > {
     return exchange(
       'PUT',
       `${events(id)}/participants/${participantId}/marks`,
-      { body, credentials, keepalive },
+      { body, credentials, keepalive: true },
       async (response) => {
         if (response.status === 409) {
           const json = await readJson(response);

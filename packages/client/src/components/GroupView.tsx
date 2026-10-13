@@ -243,7 +243,7 @@ export function GroupView(props: GroupViewProps) {
                   else next.add(p.id);
                   setHidden(next);
                 }}
-                className={`max-w-full min-w-0 [overflow-wrap:anywhere] ${hidden.has(p.id) ? 'line-through' : ''}`}
+                className={hidden.has(p.id) ? 'line-through' : ''}
               >
                 {p.name}
               </Chip>

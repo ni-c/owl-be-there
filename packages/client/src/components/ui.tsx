@@ -12,9 +12,11 @@ import { useI18n } from '../i18n/index.tsx';
 import { rovingKeyDown } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
+export type ButtonVariant =
+  'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
-const VARIANTS: Record<Variant, string> = {
+const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
   secondary:
     'bg-surface text-ink border-2 border-line hover:border-line-strong',
@@ -28,25 +30,31 @@ const VARIANTS: Record<Variant, string> = {
     'bg-surface text-danger border-2 border-line hover:border-danger',
 };
 
+const SIZES: Record<ButtonSize, string> = {
+  sm: 'min-h-11 px-3 text-sm gap-1.5',
+  md: 'min-h-11 px-4 gap-2',
+  lg: 'min-h-13 px-6 text-lg gap-2',
+};
+
+/** The look of a button, for a link that navigates and so cannot be a `<button>`. */
+export function buttonClass(variant: ButtonVariant, size: ButtonSize): string {
+  return `inline-flex items-center justify-center rounded-full font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${SIZES[size]} ${VARIANTS[variant]}`;
+}
+
 export function Button({
   variant = 'secondary',
   size = 'md',
   className = '',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: Variant;
-  size?: 'sm' | 'md' | 'lg';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 }) {
-  const sizes = {
-    sm: 'min-h-11 px-3 text-sm gap-1.5',
-    md: 'min-h-11 px-4 gap-2',
-    lg: 'min-h-13 px-6 text-lg gap-2',
-  };
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center rounded-full font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${sizes[size]} ${VARIANTS[variant]} ${className}`}
+      className={`${buttonClass(variant, size)} ${className}`}
     />
   );
 }
@@ -233,20 +241,26 @@ export function Chip({
   );
 }
 
+const focusLost = (): boolean =>
+  !document.activeElement || document.activeElement === document.body;
+
 /**
  * A modal dialog on the native `<dialog>`: focus is trapped and returned, Escape
  * closes it, and a tap on the backdrop closes it too. On phones it rises from
- * the bottom like a sheet.
+ * the bottom like a sheet. When the opener is gone or disabled by then, focus
+ * goes to `returnFocus`, or to the page's `<main>`, rather than to the body.
  */
 export function Dialog({
   open,
   onClose,
   title,
+  returnFocus,
   children,
 }: {
   open: boolean;
   onClose(): void;
   title: string;
+  returnFocus?: () => HTMLElement | null;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -259,7 +273,14 @@ export function Dialog({
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (!open && dialog.open) {
+      dialog.close();
+      if (focusLost()) returnFocus?.()?.focus();
+      if (focusLost())
+        document.querySelector('main')?.focus({ preventScroll: true });
+    }
+    // Runs when the dialog opens or closes, not whenever `returnFocus` is new.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   return (
     // The backdrop click is a shortcut for the pointer; keyboard users have
@@ -268,7 +289,11 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // The close event comes a task later: if the dialog was opened again
+      // meanwhile (Escape, then Enter on its opener), it is not for this one.
+      onClose={() => {
+        if (!ref.current?.open) onClose();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

@@ -45,10 +45,30 @@ export class MemoryStorage {
   }
 }
 
+/** The event-target half of `window` and `document`, over its own listener table. */
+function fakeEventTarget() {
+  const listeners = new Map<string, Set<() => void>>();
+  return {
+    addEventListener(type: string, listener: () => void) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type)!.add(listener);
+    },
+    removeEventListener(type: string, listener: () => void) {
+      listeners.get(type)?.delete(listener);
+    },
+    dispatch(type: string) {
+      for (const listener of listeners.get(type) ?? []) listener();
+    },
+    /** How many listeners of a type are registered, for leak checks. */
+    listenerCount(type: string) {
+      return listeners.get(type)?.size ?? 0;
+    },
+  };
+}
+
 export function installBrowser() {
   const storage = new MemoryStorage();
   const attributes = new Map<string, string>();
-  const listeners = new Map<string, Set<() => void>>();
   const location = {
     pathname: '/',
     search: '',
@@ -77,38 +97,11 @@ export function installBrowser() {
       },
     },
     scrollTo: vi.fn(),
-    addEventListener(type: string, listener: () => void) {
-      if (!listeners.has(type)) listeners.set(type, new Set());
-      listeners.get(type)!.add(listener);
-    },
-    removeEventListener(type: string, listener: () => void) {
-      listeners.get(type)?.delete(listener);
-    },
-    dispatch(type: string) {
-      for (const listener of listeners.get(type) ?? []) listener();
-    },
-    /** How many listeners of a type are registered, for leak checks. */
-    listenerCount(type: string) {
-      return listeners.get(type)?.size ?? 0;
-    },
+    ...fakeEventTarget(),
   };
-  const documentListeners = new Map<string, Set<() => void>>();
   const document = {
     visibilityState: 'visible' as 'visible' | 'hidden',
-    addEventListener(type: string, listener: () => void) {
-      if (!documentListeners.has(type)) documentListeners.set(type, new Set());
-      documentListeners.get(type)!.add(listener);
-    },
-    removeEventListener(type: string, listener: () => void) {
-      documentListeners.get(type)?.delete(listener);
-    },
-    dispatch(type: string) {
-      for (const listener of documentListeners.get(type) ?? []) listener();
-    },
-    /** How many listeners of a type are registered, for leak checks. */
-    listenerCount(type: string) {
-      return documentListeners.get(type)?.size ?? 0;
-    },
+    ...fakeEventTarget(),
     documentElement: {
       setAttribute: (name: string, value: string) =>
         attributes.set(name, value),

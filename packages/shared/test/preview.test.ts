@@ -258,6 +258,9 @@ describe('wrapText', () => {
       'W'.repeat(30),
       'm'.repeat(30),
       'a ' + 'A'.repeat(13) + '忘',
+      'Мышиная ловля: ужин',
+      'ТУРНИР ПО ФУТБОЛУ',
+      'Щука, жук и шершень Юли и Жени',
     ]) {
       for (const line of wrapText(title, 590, 60, 10)) {
         expect(textWidth(line, 60), line).toBeLessThanOrEqual(590);
@@ -292,6 +295,209 @@ describe('wrapText', () => {
     expect(wrapText('  a \n\t b  ', 500, 30, 2)).toEqual(['a b']);
     expect(wrapText('', 500, 30, 2)).toEqual([]);
     expect(wrapText('   ', 500, 30, 2)).toEqual([]);
+  });
+});
+
+describe('wrapText with Cyrillic', () => {
+  it('measures the wide Cyrillic letters wider than the narrow ones, and than Latin', () => {
+    // Measured from the picture as drawn: capitals 0.76 em, ЖШЩЮ about 1 em,
+    // lowercase 0.56 em, жфшщыю about 0.8 em.
+    expect(textWidth('Д', 1)).toBe(0.76);
+    expect(textWidth('Ё', 1)).toBe(0.76);
+    for (const letter of 'ЖШЩЮ') expect(textWidth(letter, 1), letter).toBe(1);
+    expect(textWidth('д', 1)).toBe(0.56);
+    expect(textWidth('ё', 1)).toBe(0.56);
+    for (const letter of 'жфшщыю')
+      expect(textWidth(letter, 1), letter).toBe(0.8);
+    // Extended Cyrillic, too.
+    expect(textWidth('Ѡ', 1)).toBe(0.76);
+    expect(textWidth('ѣ', 1)).toBe(0.56);
+    expect(textWidth('Ж', 1)).toBeGreaterThan(textWidth('Д', 1));
+    expect(textWidth('Д', 1)).toBeGreaterThan(textWidth('A', 1));
+    expect(textWidth('д', 1)).toBeGreaterThan(textWidth('n', 1));
+  });
+
+  it('leaves the Latin widths as they were', () => {
+    const widths: [string, number][] = [
+      [' ', 0.26],
+      ['W', 1.1],
+      ['M', 0.95],
+      ['m', 0.9],
+      ['w', 0.8],
+      ['A', 0.68],
+      ['Ü', 0.68],
+      ['7', 0.68],
+      ['n', 0.54],
+      ['ö', 0.54],
+      ['…', 0.54],
+      ['忘', 1],
+    ];
+    for (const [char, width] of widths)
+      expect(textWidth(char, 1), char).toBe(width);
+  });
+
+  it('wraps a Cyrillic title where it fills the column, not later', () => {
+    expect(wrapText('Мышиная ловля: ужин', 590, 60, 3)).toEqual([
+      'Мышиная ловля:',
+      'ужин',
+    ]);
+    expect(wrapText('Ужин у Жени и Миши', 590, 60, 3)).toEqual([
+      'Ужин у Жени и',
+      'Миши',
+    ]);
+    expect(
+      wrapText('ДЕНЬ РОЖДЕНИЯ ОЛЬГИ', 590, 60, 3).length
+    ).toBeGreaterThanOrEqual(2);
+    expect(wrapText('ТУРНИР ПО ФУТБОЛУ', 590, 60, 3)).toHaveLength(2);
+  });
+
+  it('keeps every line of a Cyrillic or mixed title inside the column', () => {
+    for (const title of [
+      'День рождения Ольги',
+      'Щука, жук и шершень',
+      'Party Вечеринка у Юли и Жени и всех их друзей',
+      'Мышиная ловля: ужин и ещё много слов в заголовке который не помещается',
+    ])
+      for (const line of wrapText(title, 590, 60, 10))
+        expect(textWidth(line, 60), line).toBeLessThanOrEqual(590);
+  });
+
+  it('mixes Latin and Cyrillic words on one line', () => {
+    expect(wrapText('Party Вечеринка у Юли', 590, 60, 3)).toEqual([
+      'Party Вечеринка у',
+      'Юли',
+    ]);
+    expect(wrapText('Party', 590, 60, 3)).toEqual(['Party']);
+  });
+
+  it('wraps nothing for an empty text and one line for a single wide letter', () => {
+    expect(wrapText('', 590, 60, 3)).toEqual([]);
+    expect(wrapText('Ж', 590, 60, 3)).toEqual(['Ж']);
+    // Wider than the line itself: it is still drawn, not dropped or looped on.
+    expect(wrapText('Ж', 40, 60, 3)).toEqual(['Ж']);
+    expect(wrapText('ЖЖ', 40, 60, 3)).toEqual(['Ж', 'Ж']);
+  });
+
+  it('cuts the third line with an ellipsis that fits', () => {
+    const lines = wrapText(
+      'Мышиная ловля: ужин и ещё много слов в заголовке который не помещается в три строки совсем',
+      590,
+      60,
+      3
+    );
+    expect(lines).toEqual([
+      'Мышиная ловля:',
+      'ужин и ещё много',
+      'слов в заголовке…',
+    ]);
+    expect(textWidth(lines[2]!, 60)).toBeLessThanOrEqual(590);
+    // A last line as full as the others gives up letters for the ellipsis.
+    const tight = wrapText(
+      'Ужин у Жени и Миши и Юры и Жоры и Юли и Шуры',
+      590,
+      60,
+      2
+    );
+    expect(tight).toHaveLength(2);
+    expect(tight[1]!.endsWith('…')).toBe(true);
+    expect(textWidth(tight[1]!, 60)).toBeLessThanOrEqual(590);
+  });
+});
+
+describe('wrapText around Japanese dates', () => {
+  const range = '日程決定：2027/02/26(金)～2027/02/28(日)';
+
+  it('keeps each date of a range whole: the second moves down', () => {
+    expect(wrapText(range, 590, 30, 3)).toEqual([
+      '日程決定：2027/02/26(金)～',
+      '2027/02/28(日)',
+    ]);
+    // Across the year as well.
+    expect(
+      wrapText('日程決定：2027/12/30(木)～2028/01/02(日)', 590, 30, 3)
+    ).toEqual(['日程決定：2027/12/30(木)～', '2028/01/02(日)']);
+  });
+
+  it('is what the picture of a Japanese event shows', () => {
+    for (const [start, end, first, second] of [
+      ['2027-02-26', '2027-02-28', '2027/02/26(金)～', '2027/02/28(日)'],
+      ['2027-12-30', '2028-01-02', '2027/12/30(木)～', '2028/01/02(日)'],
+    ] as const) {
+      const data = snapshot({ language: 'ja', final: [start, end] });
+      const status = previewStatus(SERVER_TEXTS.ja, data, LOCALES.ja);
+      expect(status).toBe(`日程決定：${first}${second}`);
+      const svg = previewSvg(data, options);
+      expect(svg).toContain(`>日程決定：${first}</text>`);
+      expect(svg).toContain(`>${second}</text>`);
+    }
+  });
+
+  it('leaves a single day and a short range on one line', () => {
+    expect(wrapText('日程決定：2027/02/26(金)', 590, 30, 3)).toEqual([
+      '日程決定：2027/02/26(金)',
+    ]);
+    expect(wrapText('2027/02/26(金)～2027/02/28(日)', 590, 30, 3)).toEqual([
+      '2027/02/26(金)～2027/02/28(日)',
+    ]);
+  });
+
+  it('keeps a date and its weekday together when the line ends at the weekday', () => {
+    // The line is full just before 金: the whole date moves, not "26(" alone.
+    expect(wrapText('日程決定：2027/02/26(金)', 375, 30, 3)).toEqual([
+      '日程決定：',
+      '2027/02/26(金)',
+    ]);
+    // A run of Latin letters before a full-width character, too.
+    expect(wrapText('忘年会忘年会AB忘年会', 240, 30, 5)).toEqual([
+      '忘年会忘年会',
+      'AB忘年会',
+    ]);
+  });
+
+  it('still cuts a long Latin word, and a run longer than the line', () => {
+    const word = wrapText('A'.repeat(40), 300, 30, 5);
+    expect(word.join('')).toBe('A'.repeat(40));
+    expect(word.length).toBeGreaterThan(1);
+    // The run moves to its own line, then breaks there: nothing is lost.
+    const lines = wrapText('日本' + 'A'.repeat(40), 300, 30, 5);
+    expect(lines[0]).toBe('日本');
+    expect(lines.slice(1).join('')).toBe('A'.repeat(40));
+    for (const line of lines)
+      expect(textWidth(line, 30)).toBeLessThanOrEqual(300);
+    expect(wrapText('日程決定：' + 'A'.repeat(30), 590, 30, 3)).toEqual([
+      '日程決定：',
+      'A'.repeat(28),
+      'AA',
+    ]);
+  });
+
+  it('breaks a run that starts the text at the overflow, with nothing before it', () => {
+    const lines = wrapText('2027/02/26(金)～2027/02/28(日)', 200, 30, 5);
+    expect(lines).toEqual(['2027/02/26', '(金)～', '2027/02/28', '(日)']);
+    expect(lines.join('')).toBe('2027/02/26(金)～2027/02/28(日)');
+  });
+
+  it('keeps the word and character cases it had', () => {
+    // A space on the line still decides, as before.
+    expect(wrapText('a ' + 'A'.repeat(13) + '忘', 590, 60, 5)).toEqual([
+      'a',
+      'A'.repeat(13),
+      '忘',
+    ]);
+    const japanese = wrapText('忘年会'.repeat(10), 300, 30, 5);
+    expect(japanese.join('')).toBe('忘年会'.repeat(10));
+    expect(japanese).toHaveLength(3);
+    expect(wrapText('', 590, 30, 3)).toEqual([]);
+  });
+
+  it('cuts the last line with an ellipsis without tearing the date', () => {
+    expect(wrapText(range, 590, 30, 1)).toEqual([
+      '日程決定：2027/02/26(金)～…',
+    ]);
+    expect(wrapText(range, 590, 30, 2)).toEqual([
+      '日程決定：2027/02/26(金)～',
+      '2027/02/28(日)',
+    ]);
   });
 });
 

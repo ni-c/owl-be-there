@@ -85,20 +85,26 @@ export function charCount(text: string): number {
 }
 
 /**
+ * A name as the key and the script check see it. The invisible characters go
+ * before NFKC: left in, one between a letter and its accent keeps the accent
+ * apart from the letter, and the same name gets a second key.
+ */
+function foldName(name: string): string {
+  return cleanLine(name).replace(KEY_INVISIBLE, '').normalize('NFKC');
+}
+
+/**
  * What decides whether two names are the same person.
  *
  * Compatibility-normalised and lower-cased, so `Max`, `MAX` and a full-width
  * `Ｍａｘ` are one entry; joiners, variation selectors, tag characters and
  * blank fillers are dropped too, so an invisible character cannot mint a
- * second "Max". A name
- * whose key is empty is no name. The name itself is stored as typed.
+ * second "Max". A name whose key is empty is no name. The name itself is
+ * stored as typed.
  */
 export function nameKey(name: string): string {
-  return cleanLine(name)
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(KEY_INVISIBLE, '')
-    .trim();
+  // Cleaned again: NFKC can turn one character into a space and a mark.
+  return cleanLine(foldName(name).toLowerCase());
 }
 
 /**
@@ -109,7 +115,7 @@ export function nameKey(name: string): string {
  * all-Cyrillic lookalike of a Latin name is left alone.
  */
 export function mixesScripts(name: string): boolean {
-  return (name.normalize('NFKC').match(/[\p{L}\p{M}]+/gu) ?? []).some(
+  return (foldName(name).match(/[\p{L}\p{M}]+/gu) ?? []).some(
     (word) =>
       /\p{Script=Latin}/u.test(word) &&
       /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(word)

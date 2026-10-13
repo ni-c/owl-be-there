@@ -1,6 +1,10 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { run, USAGE } from '../src/commands.js';
 import { MIGRATIONS, migrate } from '../src/db/migrations.js';
@@ -216,5 +220,109 @@ describe('a command that works', () => {
     db.close();
     expect(cli(['sweep']).out).toEqual(['Deleted 1 expired event(s).']);
     expect(cli(['sweep']).out).toEqual(['Deleted 0 expired event(s).']);
+  });
+});
+
+describe('the command line as a process', () => {
+  const cliFile = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
+  const hooks = new URL('./source-hooks.ts', import.meta.url).href;
+
+  /**
+   * Run `cli.ts` with its output piped. Stdout is read only after
+   * `readAfterMs`, as a slow `less` or ssh session would.
+   */
+  const spawnCli = async (
+    args: string[],
+    readAfterMs = 0
+  ): Promise<{ status: number | null; out: string; err: string }> => {
+    const child = spawn(
+      process.execPath,
+      ['--import', hooks, cliFile, ...args],
+      { env: { DATA_DIR: dir }, stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    child.stderr.on('data', (chunk: Buffer) => err.push(chunk));
+    child.stdout.on('data', (chunk: Buffer) => out.push(chunk));
+    child.stdout.pause();
+    const closed = once(child, 'close');
+    await sleep(readAfterMs);
+    child.stdout.resume();
+    const [status] = (await closed) as [number | null];
+    return {
+      status,
+      out: Buffer.concat(out).toString('utf8'),
+      err: Buffer.concat(err).toString('utf8'),
+    };
+  };
+
+  const lines = (text: string): string[] =>
+    text === '' ? [] : text.replace(/\n$/, '').split('\n');
+
+  it('delivers every line of a long list through a pipe that is read late', async () => {
+    const count = 8000;
+    const db = database();
+    db.tx(() => {
+      for (let i = 0; i < count; i += 1) {
+        db.run(
+          `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+           VALUES (?, 'h', 'A title long enough to fill the pipe', 'owl', 'en', 1, ?, 1800000000000, '2027-04-01')`,
+          `LONG${String(i).padStart(8, '0')}`,
+          1800000000000 + i * 1000
+        );
+      }
+    });
+    db.close();
+    // The reader holds off until a process.exit() would long have cut the output.
+    const { status, out, err } = await spawnCli(['list'], 400);
+    expect(err).toBe('');
+    expect(status).toBe(0);
+    const all = lines(out);
+    expect(all).toHaveLength(count);
+    // More than a pipe holds, or the test proves nothing.
+    expect(out.length).toBeGreaterThan(512 * 1024);
+    // Newest first: the last line is the oldest event, the first the newest.
+    expect(all[0]).toMatch(/^LONG00007999 /);
+    expect(all.at(-1)).toMatch(/^LONG00000000 /);
+  }, 30_000);
+
+  it('prints nothing for an empty list and exits 0', async () => {
+    database().close();
+    expect(await spawnCli(['list'])).toEqual({ status: 0, out: '', err: '' });
+  });
+
+  it.each([
+    [['hepl'], 2],
+    [[], 2],
+    [['delete', 'AAAAAAAAAAAA'], 1],
+    [['purge', 'yesterday'], 2],
+  ])(
+    'still exits with the code of a failing command: %j',
+    async (args, code) => {
+      database().close();
+      const { status, out, err } = await spawnCli(args);
+      expect(status).toBe(code);
+      expect(lines(out.concat(err)).length).toBeGreaterThanOrEqual(1);
+    }
+  );
+
+  it('exits 1 without creating a database when there is none', async () => {
+    const { status, err } = await spawnCli(['stats']);
+    expect(status).toBe(1);
+    expect(err).toMatch(/no database at .*owl\.db/);
+    expect(existsSync(join(dir, 'owl.db'))).toBe(false);
+  });
+
+  it('prints one line for a purge without --yes and changes nothing', async () => {
+    const db = database();
+    event(db, 'AAAAAAAAAAAA');
+    event(db, 'BBBBBBBBBBBB');
+    db.close();
+    const { status, out } = await spawnCli(['purge', '2027-01-01']);
+    expect(status).toBe(0);
+    expect(lines(out)).toEqual([
+      'Would delete 2 event(s) nobody answered; add --yes to do it.',
+    ]);
+    expect(cli(['list']).out).toHaveLength(2);
   });
 });

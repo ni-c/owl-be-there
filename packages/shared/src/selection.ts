@@ -1,4 +1,5 @@
 import type { ISODate } from './dates.js';
+import { respondentOf, tally } from './ranking.js';
 
 /** What a participant can say about a day. Unmarked means "no". */
 export type Mark = 'yes' | 'maybe';
@@ -128,35 +129,20 @@ export function onCandidates(marks: Marks, days: ReadonlySet<ISODate>): Marks {
  */
 export function othersOnDays(
   days: readonly ISODate[],
-  participants: readonly {
-    id: string;
-    answered: boolean;
-    yes: readonly ISODate[];
-    maybe: readonly ISODate[];
-    unseen: readonly ISODate[];
-  }[],
+  participants: readonly Parameters<typeof respondentOf>[0][],
   self: string
 ): Map<ISODate, { yes: number; maybe: number; total: number }> {
   const map = new Map<ISODate, { yes: number; maybe: number; total: number }>();
   const others = participants
     .filter((p) => p.id !== self && p.answered)
-    .map((p) => ({
-      yes: new Set(p.yes),
-      maybe: new Set(p.maybe),
-      unseen: new Set(p.unseen),
-    }));
+    .map(respondentOf);
   if (others.length === 0) return map;
   for (const day of days) {
-    let y = 0;
-    let m = 0;
-    let total = 0;
-    for (const other of others) {
-      if (other.unseen.has(day)) continue;
-      total += 1;
-      if (other.yes.has(day)) y += 1;
-      else if (other.maybe.has(day)) m += 1;
+    const { yes, maybe, no } = tally(others, [day]);
+    const total = yes.length + maybe.length + no.length;
+    if (total > 0) {
+      map.set(day, { yes: yes.length, maybe: maybe.length, total });
     }
-    if (total > 0) map.set(day, { yes: y, maybe: m, total });
   }
   return map;
 }

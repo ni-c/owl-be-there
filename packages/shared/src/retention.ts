@@ -1,8 +1,11 @@
-import { addDays, diffDays, maxISODate, type ISODate } from './dates.js';
+import {
+  addDays,
+  diffDays,
+  LAST_DAY,
+  maxISODate,
+  type ISODate,
+} from './dates.js';
 import { RETENTION_DAYS } from './limits.js';
-
-/** The last day an ISO date can name. */
-const LAST_DAY: ISODate = '9999-12-31';
 
 export interface RetentionInput {
   /** The UTC day of the last change. */

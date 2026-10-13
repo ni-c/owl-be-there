@@ -283,7 +283,7 @@ export const pt: Dictionary = {
     'O teu navegador guarda neste dispositivo os eventos que abriste. Também se lembra do teu nome neles e das tuas definições. Podes remover eventos da lista na página inicial.',
   'privacy.retention.title': 'Quando são apagados',
   'privacy.retention.text':
-    'Um evento é apagado {days} dias após a última alteração. Nunca antes de terminar o seu último dia. Quem o organiza pode apagá-lo a qualquer momento.',
+    'Um evento é apagado {days} dias após a última alteração. Depois de alguém ter respondido, fica guardado pelo menos até terminar o seu último dia. Quem o organiza pode apagá-lo a qualquer momento.',
   'privacy.logs_one':
     'O servidor web regista os acessos com endereços IP para prevenir abusos. Estes registos são apagados após {count} dia.',
   'privacy.logs_other':

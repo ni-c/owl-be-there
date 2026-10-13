@@ -298,13 +298,21 @@ describe('the mask penalty', () => {
   });
 
   it('charges for a long run once, and then by the module', () => {
-    // Six in a row is 3 for reaching five and 1 for the sixth. The grid is
-    // otherwise a chequerboard so that nothing else fires: no two-by-two is
-    // uniform, and eighteen dark of thirty-six is exactly half.
-    const chequered = maskPenalty(
-      grid(['#.#.#.', '.#.#.#', '#.#.#.', '.#.#.#', '#.#.#.', '.#.#.#'])
-    );
-    expect(chequered).toBe(0);
+    // The first row is the only run; the other five rows are the chequerboard
+    // of the test above, so no column holds a run, no two-by-two block is
+    // uniform and no finder-like window exists.
+    const rest = ['.#.#.#', '#.#.#.', '.#.#.#', '#.#.#.', '.#.#.#'];
+    // Six in a row is 3 for reaching five and 1 for the sixth, 4 in all. Rule
+    // 4: twenty-one dark of thirty-six is 58 per cent, one step, 10.
+    expect(maskPenalty(grid(['######', ...rest]))).toBe(4 + 10);
+    // Five in a row stops at the 3: twenty dark of thirty-six is 56 per cent,
+    // the same single step, so the sixth module is the whole difference.
+    expect(maskPenalty(grid(['#####.', ...rest]))).toBe(3 + 10);
+    // And the same run in a column, the other axis, scores the same.
+    const transposed = (rows: string[]) =>
+      [...rows[0]!].map((_, x) => rows.map((row) => row[x]).join(''));
+    expect(maskPenalty(grid(transposed(['######', ...rest])))).toBe(4 + 10);
+    expect(maskPenalty(grid(transposed(['#####.', ...rest])))).toBe(3 + 10);
   });
 });
 

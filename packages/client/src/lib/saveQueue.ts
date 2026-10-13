@@ -8,6 +8,8 @@ export interface SaveRequest {
   baseRev: number;
   yes: string[];
   maybe: string[];
+  /** The candidate days the client knew; filled in by the send function. */
+  days?: string[];
 }
 
 /** A failure that retrying cannot fix — a revoked token, a closed poll. */
@@ -46,6 +48,12 @@ export const RETRY_DELAYS_MS = [1000, 2000, 5000, 10_000];
  */
 export class SaveQueue {
   private pending: Marks | null = null;
+  // Stamps tell the newest state from an older one: the last pushed, and the
+  // newest ever handed to the network.
+  private seq = 0;
+  private pendingSeq = 0;
+  private sentSeq = 0;
+  private landedSeq = 0;
   private inFlight = false;
   private leaving = 0;
   private retry: unknown = null;
@@ -53,17 +61,14 @@ export class SaveQueue {
   private disposed = false;
   baseRev: number;
 
-  private readonly sendFn: (
-    request: SaveRequest,
-    keepalive: boolean
-  ) => Promise<SendResult>;
+  private readonly sendFn: (request: SaveRequest) => Promise<SendResult>;
   private readonly onStatus: (status: SaveStatus, error?: unknown) => void;
   private readonly onSaved: (rev: number) => void;
   private readonly timers: Timers;
 
   constructor(options: {
     baseRev: number;
-    send: (request: SaveRequest, keepalive: boolean) => Promise<SendResult>;
+    send: (request: SaveRequest) => Promise<SendResult>;
     onStatus?: (status: SaveStatus, error?: unknown) => void;
     onSaved?: (rev: number) => void;
     timers?: Timers;
@@ -88,6 +93,7 @@ export class SaveQueue {
   /** Queue the complete, current state of the marks. */
   push(marks: Marks): void {
     this.pending = new Map(marks);
+    this.pendingSeq = ++this.seq;
     if (this.retry !== null) {
       // A new change is a good moment to try again right away.
       this.timers.clearTimeout(this.retry);
@@ -98,13 +104,15 @@ export class SaveQueue {
 
   /**
    * Send what is pending without waiting, as the page goes away or is put in
-   * the background. Every save is sent with `keepalive`, so one already under
-   * way outlives the page too.
+   * the background. The send function is expected to use `keepalive`, so
+   * that a request outlives the page, one already under way included.
    */
   flushOnLeave(): void {
     if (this.pending === null || this.disposed) return;
     const marks = this.pending;
+    const markSeq = this.pendingSeq;
     this.pending = null;
+    this.sentSeq = Math.max(this.sentSeq, markSeq);
     if (!this.inFlight && this.retry !== null) {
       this.timers.clearTimeout(this.retry);
       this.retry = null;
@@ -116,14 +124,14 @@ export class SaveQueue {
     const request = this.requestFor(marks);
     if (this.inFlight) request.baseRev += 1;
     this.leaving += 1;
-    this.sendFn(request, true).then(
+    this.sendFn(request).then(
       (result) => {
         this.leaving -= 1;
-        this.afterLeave(marks, result);
+        this.afterLeave(marks, markSeq, result);
       },
       (error: unknown) => {
         this.leaving -= 1;
-        this.afterLeaveFailed(marks, error);
+        this.afterLeaveFailed(marks, markSeq, error);
       }
     );
   }
@@ -132,32 +140,47 @@ export class SaveQueue {
    * The page may live on after `flushOnLeave` (a tab put in the background),
    * so what came back is taken in; a page that is really gone ignores it.
    */
-  private afterLeave(marks: Marks, result: SendResult): void {
+  private afterLeave(marks: Marks, markSeq: number, result: SendResult): void {
     if (this.disposed) return;
     if (result.ok) {
       this.baseRev = Math.max(this.baseRev, result.rev);
+      this.landedSeq = Math.max(this.landedSeq, markSeq);
       this.onSaved(result.rev);
-      if (!this.busy) this.setStatus('saved');
+      // A save that failed meanwhile left what came after it waiting for this.
+      if (this.pending !== null && !this.inFlight && this.retry === null)
+        void this.flush();
+      else if (!this.busy) this.setStatus('saved');
       return;
     }
     // Refused as stale: with a request still under way that is expected, and
     // its answer brings the revision; otherwise take the server's and resend.
-    this.pending ??= marks;
+    this.restore(marks, markSeq);
     if (!this.inFlight && this.retry === null) {
-      this.baseRev = result.rev;
+      this.baseRev = Math.max(this.baseRev, result.rev);
       void this.flush();
     }
   }
 
-  private afterLeaveFailed(marks: Marks, error: unknown): void {
+  private afterLeaveFailed(
+    marks: Marks,
+    markSeq: number,
+    error: unknown
+  ): void {
     if (this.disposed) return;
-    this.pending ??= marks;
+    this.restore(marks, markSeq);
     if (error instanceof PermanentSaveError) {
       this.pending = null;
       this.setStatus('failed', error);
-    } else if (!this.inFlight && this.retry === null) {
+    } else if (this.pending !== null && !this.inFlight && this.retry === null) {
       this.scheduleRetry(error);
     }
+  }
+
+  /** Put an unsent state back, unless a newer one is pending or went out. */
+  private restore(marks: Marks, markSeq: number): void {
+    if (this.pending !== null || markSeq < this.sentSeq) return;
+    this.pending = marks;
+    this.pendingSeq = markSeq;
   }
 
   /** Stop retrying; whatever is pending is dropped, now and until `revive`. */
@@ -182,7 +205,7 @@ export class SaveQueue {
    * Wire the queue to the page: send what is pending when the page is hidden
    * or unloaded. Returns the undo for an effect's cleanup: it sends what is
    * still pending — a panel that goes away without the page doing so, such as
-   * the Group tab on a phone, must not lose the last marks — removes the
+   * after "Not you" or the organiser's fill-in, must not lose the last marks — removes the
    * listeners and disposes of the queue.
    */
   attach(): () => void {
@@ -212,23 +235,24 @@ export class SaveQueue {
   private async flush(): Promise<void> {
     const marks = this.pending;
     if (marks === null || this.disposed) return;
+    const markSeq = this.pendingSeq;
     this.pending = null;
+    this.sentSeq = Math.max(this.sentSeq, markSeq);
     this.inFlight = true;
     this.setStatus('saving');
     try {
-      const result = await this.sendFn(this.requestFor(marks), true);
+      const result = await this.sendFn(this.requestFor(marks));
       this.attempt = 0;
       this.inFlight = false;
       if (result.ok) {
         this.baseRev = result.rev;
+        this.landedSeq = Math.max(this.landedSeq, markSeq);
         this.onSaved(result.rev);
       } else {
         // Someone else saved in between — another device, or a request that
         // overtook this one. Take their revision; resend our latest state.
         this.baseRev = result.rev;
-        // A newer state already sent on leaving is not to be overtaken by
-        // this older one; its answer decides what happens next.
-        if (this.leaving === 0) this.pending ??= marks;
+        this.restore(marks, markSeq);
       }
       if (this.pending !== null) await this.flush();
       else if (result.ok || this.leaving === 0) this.setStatus('saved');
@@ -237,13 +261,17 @@ export class SaveQueue {
       // A request that was under way when the queue was disposed of is not
       // retried: nobody is left to see it, and it would retry for ever.
       if (this.disposed) return;
-      // The same goes for a failure: what was sent on leaving answers for the
-      // newest state.
+      this.restore(marks, markSeq);
+      // A request sent on leaving is still to answer: its answer carries on.
       if (this.leaving > 0) return;
-      this.pending ??= marks;
       if (error instanceof PermanentSaveError) {
         this.pending = null;
         this.setStatus('failed', error);
+        return;
+      }
+      // Overtaken by a newer state: 'saved' only if that one landed, not failed.
+      if (this.pending === null) {
+        if (this.landedSeq >= this.sentSeq) this.setStatus('saved');
         return;
       }
       this.scheduleRetry(error);

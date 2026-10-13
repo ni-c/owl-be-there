@@ -93,6 +93,7 @@ export function AdminPanel(props: AdminPanelProps) {
   // A second tap before the first save is answered would carry the old days
   // and be refused as a conflict with the first.
   const running = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const { event } = data;
 
   /** Run one change; true when it went through. */
@@ -159,7 +160,9 @@ export function AdminPanel(props: AdminPanelProps) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="text-xl font-extrabold">{t('admin.title')}</h2>
+      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-extrabold">
+        {t('admin.title')}
+      </h2>
       {event.status !== 'finalized' && (
         <p className="text-sm text-muted">{t('admin.chooseHint')}</p>
       )}
@@ -168,6 +171,7 @@ export function AdminPanel(props: AdminPanelProps) {
         <DetailsForm
           data={data}
           busy={busy}
+          returnFocus={() => headingRef.current}
           onEdit={clearMessage}
           onSave={(body) =>
             run(
@@ -187,6 +191,7 @@ export function AdminPanel(props: AdminPanelProps) {
           firstWeekday={props.firstWeekday}
           today={props.today}
           busy={busy}
+          returnFocus={() => headingRef.current}
           onEdit={clearMessage}
           onSave={(days, baseDays) =>
             run('days', () =>
@@ -264,10 +269,12 @@ export function AdminPanel(props: AdminPanelProps) {
 /** Asks before a save takes answers or the chosen date away. */
 function LossDialog({
   impact,
+  returnFocus,
   onCancel,
   onConfirm,
 }: {
   impact: SavingImpact | null;
+  returnFocus(): HTMLElement | null;
   onCancel(): void;
   onConfirm(): void;
 }) {
@@ -277,6 +284,7 @@ function LossDialog({
       open={impact !== null}
       onClose={onCancel}
       title={t('admin.lossTitle')}
+      returnFocus={returnFocus}
     >
       <div className="flex flex-col gap-4">
         {impact && impact.marks > 0 && (
@@ -298,11 +306,13 @@ function LossDialog({
 function DetailsForm({
   data,
   busy,
+  returnFocus,
   onEdit,
   onSave,
 }: {
   data: EventSnapshotData;
   busy: boolean;
+  returnFocus(): HTMLElement | null;
   onEdit(): void;
   onSave(body: Partial<DetailsValues>): Promise<boolean>;
 }) {
@@ -450,6 +460,7 @@ function DetailsForm({
       </div>
       <LossDialog
         impact={confirming?.impact ?? null}
+        returnFocus={returnFocus}
         onCancel={() => setConfirming(null)}
         onConfirm={() => {
           const pending = confirming;
@@ -464,6 +475,7 @@ function DetailsForm({
 function DaysEditor(
   props: Pick<AdminPanelProps, 'data' | 'firstWeekday' | 'today'> & {
     busy: boolean;
+    returnFocus(): HTMLElement | null;
     onEdit(): void;
     onSave(days: ISODate[], baseDays: ISODate[]): Promise<boolean>;
   }
@@ -521,7 +533,13 @@ function DaysEditor(
               const value = e.target.value;
               setUntil(value);
               edit(
-                extendSelection(selection, { first, last, until: value, today })
+                extendSelection(selection, {
+                  first,
+                  last,
+                  until: value,
+                  today,
+                  shownEnd: range[range.length - 1]!,
+                })
               );
             }}
           />
@@ -554,6 +572,7 @@ function DaysEditor(
       </div>
       <LossDialog
         impact={confirming?.impact ?? null}
+        returnFocus={props.returnFocus}
         onCancel={() => setConfirming(null)}
         onConfirm={() => {
           const pending = confirming;

@@ -14,6 +14,7 @@ import {
   isoFromDayNumber,
   isoWeekNumber,
   isValidISODate,
+  LAST_DAY,
   maxISODate,
   minISODate,
   monthKeyOf,
@@ -174,6 +175,16 @@ describe('the ends of the calendar', () => {
   it('stays put for a step of nothing, on both ends', () => {
     expect(addDays('9999-12-31', 0)).toBe('9999-12-31');
     expect(addDays('0000-01-01', 0)).toBe('0000-01-01');
+  });
+
+  it('names the last day addDays can reach', () => {
+    expect(LAST_DAY).toBe('9999-12-31');
+    expect(isValidISODate(LAST_DAY)).toBe(true);
+    expect(addDays(LAST_DAY, 0)).toBe(LAST_DAY);
+    expect(addDays(LAST_DAY, -1)).toBe('9999-12-30');
+    expect(() => addDays(LAST_DAY, 1)).toThrow(RangeError);
+    expect(isoFromDayNumber(dayNumber(LAST_DAY))).toBe(LAST_DAY);
+    expect(() => isoFromDayNumber(dayNumber(LAST_DAY) + 1)).toThrow(RangeError);
   });
 
   it('refuses day numbers outside 0000-01-01 to 9999-12-31', () => {

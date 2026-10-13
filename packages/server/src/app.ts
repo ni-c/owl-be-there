@@ -25,6 +25,7 @@ import { registerLiveRoutes } from './routes/live.js';
 import { registerParticipantRoutes } from './routes/participants.js';
 import {
   hasClient,
+  isApiPath,
   registerInstanceRoutes,
   registerSite,
 } from './routes/site.js';
@@ -261,7 +262,7 @@ export async function buildApp(
     }),
   });
 
-  app.setErrorHandler((error: FastifyError | ApiError, _request, reply) => {
+  app.setErrorHandler((error: FastifyError | ApiError, request, reply) => {
     if (error instanceof ValidationError) {
       return reply.code(400).send({
         error: error.code,
@@ -281,6 +282,10 @@ export async function buildApp(
         .send({ error: 'rate_limited', message: error.message });
     }
     if (status >= 400 && status < 500) {
+      // The static handler's refusal (dotfile, odd path) is a missing page.
+      if (status === 403 && !isApiPath(request.url)) {
+        return reply.callNotFound();
+      }
       const codes: Record<number, string> = {
         400: 'bad_request',
         413: 'too_large',

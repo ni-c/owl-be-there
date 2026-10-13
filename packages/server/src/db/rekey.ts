@@ -10,7 +10,7 @@ import type { Db } from './sqlite.js';
  * Kept in `PRAGMA user_version`, which nothing else here uses — the migrations
  * keep their own list in `schema_migrations`.
  */
-export const NAME_KEY_VERSION = 1;
+export const NAME_KEY_VERSION = 2;
 
 export interface RekeyResult {
   /** Keys that were recomputed. */

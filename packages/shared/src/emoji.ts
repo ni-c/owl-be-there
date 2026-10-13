@@ -1,3 +1,5 @@
+import { escapeMarkup } from './text.js';
+
 /**
  * The emoji an organiser can give an event: sports first, then the other
  * reasons groups meet. A fixed list rather than free input, so a title can be
@@ -49,10 +51,7 @@ export const DEFAULT_EMOJI: EmojiKey = 'owl';
  * title stays text, so the tab does not show the emoji twice.
  */
 export function emojiIcon(emoji: string): string {
-  const glyph = emoji
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  const glyph = escapeMarkup(emoji);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${glyph}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

@@ -458,9 +458,37 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
   page,
   request,
 }) => {
-  const { id, adminToken } = await createEvent(request, { minCount: 2 });
+  // Anna is on the roster, so a visitor starts on the list of names, where
+  // "Someone else" is the one way to add a new name.
+  const { id, adminToken } = await createEvent(request, {
+    roster: ['Anna'],
+    minCount: 2,
+  });
   await answer(request, id, 'Anna', [D(6), D(7)]);
   await answer(request, id, 'Ben', [D(7)], [D(6)]);
+  const visit = async () => {
+    const visitor = await page.context().browser()!.newPage();
+    await visitor.goto(`/e/${id}`);
+    await showView(visitor, 'mine');
+    // The list of names only: wide screens also show the group view, whose
+    // chips carry the same names.
+    const names = visitor
+      .getByRole('heading', { name: 'your name' })
+      .locator('..');
+    // A positive anchor first: a count of zero holds just as well while the
+    // page is still loading.
+    await expect(names.getByRole('button', { name: 'Anna' })).toBeVisible();
+    return { visitor, names };
+  };
+
+  // While the poll is open, a newcomer may add a name. This is what makes the
+  // absence below mean something.
+  const early = await visit();
+  await expect(
+    early.names.getByRole('button', { name: 'Someone else' })
+  ).toBeVisible();
+  await early.visitor.close();
+
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await showView(page, 'group');
   const best = page
@@ -479,14 +507,17 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
   const data = await snapshot(request, id);
   expect(data.event).toMatchObject({ status: 'finalized', finalStart: D(7) });
 
-  // A participant can no longer change their days.
-  const other = await page.context().browser()!.newPage();
-  await other.goto(`/e/${id}`);
-  await showView(other, 'mine');
-  await other
-    .getByRole('button', { name: 'Someone else' })
-    .waitFor({ state: 'detached' })
-    .catch(() => undefined);
+  // Nobody new can join, and a participant can no longer change their days.
+  const { visitor: other, names } = await visit();
+  await expect(names.getByRole('button', { name: 'Someone else' })).toHaveCount(
+    0
+  );
+  await names.getByRole('button', { name: 'Anna' }).click();
+  await expect(other.getByText('Hi Anna!')).toBeVisible();
+  await expect(myCalendar(other)).toHaveAttribute('aria-readonly', 'true');
+  await expect(
+    other.getByText('The poll is closed. You can’t change your days now.')
+  ).toBeVisible();
   await other.close();
 });
 
@@ -642,6 +673,11 @@ test('the start page answers the common questions', async ({ page }) => {
     'What happens to our data?',
   ])
     await expect(page.getByRole('heading', { name: question })).toBeVisible();
+  // One card per feature the start page lists.
+  for (const title of ['See what works', 'No accounts'])
+    await expect(
+      page.getByRole('heading', { name: title, exact: true })
+    ).toBeVisible();
   // The text the server wrote for readers without scripts is gone: one page,
   // one main heading.
   await expect(page.locator('[data-static]')).toHaveCount(0);
@@ -666,6 +702,10 @@ test('without scripts the start page still says what the app is and answers the 
   await expect(
     page.getByRole('heading', { name: 'Was passiert mit unseren Daten?' })
   ).toBeVisible();
+  for (const title of ['Seht, wann es passt', 'Keine Konten'])
+    await expect(
+      page.getByRole('heading', { name: title, exact: true })
+    ).toBeVisible();
   await context.close();
 });
 
@@ -936,6 +976,30 @@ test('forgetting an event without an organiser key takes one tap', async ({
   ).toHaveCount(0);
 });
 
+const ADMIN_REFUSED = 'This organiser link was not accepted.';
+const MADE_UP_KEY = 'A'.repeat(43);
+
+/** Pastes an organiser link's fragment into the open page. */
+async function pasteOrganiserKey(page: Page, key: string): Promise<void> {
+  await page.evaluate((value) => {
+    window.location.hash = `#admin=${value}`;
+  }, key);
+}
+
+/**
+ * Opens an event with a made-up organiser key, which a link whose key passes
+ * the fragment check can leave on the device, and has the server refuse it.
+ */
+async function getRefused(page: Page, id: string): Promise<void> {
+  await page.goto(`/e/${id}#admin=${MADE_UP_KEY}`);
+  const days = await openSection(page, 'Days');
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+}
+
 test('an organiser link pasted into the open event page is taken and removed from the address', async ({
   page,
   request,
@@ -955,6 +1019,107 @@ test('an organiser link pasted into the open event page is taken and removed fro
   expect(
     await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
   ).toContain(adminToken);
+  // Nothing was refused before, so there is nothing to take back.
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('the refused-link notice goes away when the complete link is pasted into the open page', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await getRefused(page, id);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
+
+  await pasteOrganiserKey(page, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(new URL(page.url()).hash).toBe('');
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toContain(adminToken);
+
+  // The tools work again, and the notice does not come back with them.
+  const days = await openSection(page, 'Days');
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(days.getByText('Saved')).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('a refused link pasted again keeps the notice, and a link that is no key does not take it back', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  const other = await createEvent(request, { title: 'Chess night' });
+  await getRefused(page, id);
+
+  // Too short to be a key: nothing is stored, the notice stays.
+  await pasteOrganiserKey(page, 'short');
+  await expect.poll(() => new URL(page.url()).hash).toBe('');
+  await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
+
+  // Another key that is not this event's, one of another event included: the
+  // tools return for a moment, are refused again, and the notice with them.
+  for (const key of ['B'.repeat(43), other.adminToken]) {
+    await pasteOrganiserKey(page, key);
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toBeVisible();
+    await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+    const days = await openSection(page, 'Days');
+    await days.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toHaveCount(0);
+  }
+
+  // The complete link then clears it for good.
+  await pasteOrganiserKey(page, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('another event’s organiser link opens that event only; the notice stays out of it', async ({
+  page,
+  request,
+}) => {
+  const { id } = await createEvent(request);
+  const other = await createEvent(request, { title: 'Chess night' });
+  await getRefused(page, id);
+
+  // A fresh page load, as when the link is opened from a message.
+  await page.goto(`/e/${other.id}#admin=${other.adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+
+  // The first event got no key from it.
+  await page.goto(`/e/${id}`);
+  await expect(
+    page.getByRole('heading', { name: 'Summer tournament' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
 });
 
 /** One of the organiser's sections, opened. */
@@ -984,6 +1149,41 @@ test('the days editor saves only the days its calendar shows', async ({
   await expect(section.getByText('Saved')).toBeVisible();
   expect((await snapshot(request, id)).event.days).toEqual(
     [3, 4, 5, 6, 7, 8].map(D)
+  );
+});
+
+test('a day switched off in the days editor stays off when the end date moves on', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    days: [D(3), D(4), D(5)],
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const section = await openSection(page, 'Days');
+  const grid = section.getByRole('grid');
+  const until = section.getByLabel('Add days up to');
+  await until.fill(D(8));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'true');
+  await day(grid, D(6)).click();
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+
+  // Further, back to a date still past the last day, and the same date again:
+  // the day stays off and the others follow the date.
+  await until.fill(D(10));
+  await expect(day(grid, D(10))).toHaveAttribute('aria-pressed', 'true');
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await until.fill(D(7));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(7))).toHaveAttribute('aria-pressed', 'true');
+  await until.fill(D(9));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(8))).toHaveAttribute('aria-pressed', 'true');
+  await expect(day(grid, D(9))).toHaveAttribute('aria-pressed', 'true');
+  await section.getByRole('button', { name: 'Save' }).click();
+  await expect(section.getByText('Saved')).toBeVisible();
+  expect((await snapshot(request, id)).event.days).toEqual(
+    [3, 4, 5, 7, 8, 9].map(D)
   );
 });
 
@@ -1040,4 +1240,269 @@ test('saving days or a duration that takes answers or the date away asks first',
   await dialog.getByRole('button', { name: 'Save anyway' }).click();
   await expect.poll(async () => (await current()).durationDays).toBe(2);
   expect((await current()).finalEnd).toBe(D(4));
+});
+
+const HOME_TITLE = 'Owl Be There — Find a day everyone can make.';
+
+test('a keyboard user who follows a footer link lands in the page, which names the tab', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const { id } = await createEvent(request, { title: 'Chess club' });
+  const main = page.locator('main');
+  const footer = page.getByRole('contentinfo').getByRole('navigation');
+  const scrollY = () => page.evaluate(() => window.scrollY);
+
+  // A fresh load leaves focus where the browser puts it.
+  await page.goto('/');
+  await expect(page).toHaveTitle(HOME_TITLE);
+  expect(
+    await page.evaluate(() => document.activeElement === document.body)
+  ).toBe(true);
+
+  const privacy = footer.getByRole('link', { name: 'Privacy' });
+  await privacy.focus();
+  await expect.poll(scrollY).toBeGreaterThan(0);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(main).toBeFocused();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await expect.poll(scrollY).toBe(0);
+
+  // Back and Forward are page changes too.
+  await privacy.focus();
+  await page.goBack();
+  await expect(page).toHaveTitle(HOME_TITLE);
+  await expect(main).toBeFocused();
+  await privacy.focus();
+  await page.goForward();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await expect(main).toBeFocused();
+
+  const imprint = footer.getByRole('link', { name: 'Imprint' });
+  await imprint.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveTitle('Imprint · Owl Be There');
+  await expect(main).toBeFocused();
+
+  // An event keeps its own title, and the way back to it gives it again.
+  await page.goto(`/e/${id}`);
+  await expect(page).toHaveTitle('Chess club · Owl Be There');
+  await privacy.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await privacy.focus();
+  await page.goBack();
+  await expect(page).toHaveTitle('Chess club · Owl Be There');
+  await expect(main).toBeFocused();
+
+  // An unknown address has a title of its own, and a load steals no focus.
+  await page.goto('/nowhere');
+  await expect(page).toHaveTitle('We can’t find this page. · Owl Be There');
+  expect(
+    await page.evaluate(() => document.activeElement === document.body)
+  ).toBe(true);
+});
+
+test('an event that cannot be shown does not keep the title of the page before it', async ({
+  page,
+}) => {
+  await page.goto('/e/AAAAAAAAAAAA');
+  await expect(page).toHaveTitle(HOME_TITLE);
+  await page
+    .getByRole('contentinfo')
+    .getByRole('link', { name: 'Privacy' })
+    .click();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await page.goBack();
+  await expect(page).toHaveURL(/\/e\/AAAAAAAAAAAA$/);
+  await expect(page).toHaveTitle(HOME_TITLE);
+});
+
+test('choosing another language on the same page keeps focus and renames the tab', async ({
+  page,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  await page.goto('/privacy');
+  const language = page.getByLabel('Language');
+  await language.focus();
+  await language.selectOption('de');
+  await expect(page).toHaveTitle('Datenschutz · Owl Be There');
+  // The same select, now labelled in German.
+  await expect(page.getByLabel('Sprache')).toBeFocused();
+
+  await page.goto('/nowhere');
+  await page.getByLabel('Sprache').selectOption('en');
+  await expect(page).toHaveTitle('We can’t find this page. · Owl Be There');
+
+  // The start page moves between addresses without taking focus.
+  await page.goto('/de');
+  const select = page.getByLabel('Sprache');
+  await select.focus();
+  await select.selectOption('fr');
+  await expect(page).toHaveURL(/\/fr$/);
+  await expect(page.getByLabel('Langue')).toBeFocused();
+});
+
+test('a dialog that opens on arrival keeps focus, and closing it without an opener lands in the page', async ({
+  page,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Plan an event' }).click();
+  await page.getByLabel('Title').fill('Pub quiz');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Saturday', exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Create event' }).click();
+
+  // The share sheet opens with the new page; the page's own focus move must
+  // not pull focus out of it.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('main')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+/** Opens each event as its organiser, so the start page lists it as its own. */
+async function ownEvents(
+  page: Page,
+  request: Parameters<typeof createEvent>[0],
+  titles: string[]
+): Promise<void> {
+  for (const title of titles) {
+    const { id, adminToken } = await createEvent(request, { title });
+    await page.goto(`/e/${id}#admin=${adminToken}`);
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toBeVisible();
+  }
+}
+
+test('removing an event from the start page by keyboard never drops focus on the body', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  await ownEvents(page, request, ['Alpha', 'Beta', 'Gamma']);
+  await page.goto('/');
+  const remove = (title: string) =>
+    page.getByRole('button', { name: `Remove ${title} from this list` });
+  const dialog = page.getByRole('dialog');
+  const links = page.locator('main li > a');
+  const open = async (title: string) => {
+    await remove(title).focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeVisible();
+  };
+  const confirm = async () => {
+    await dialog
+      .getByRole('button', { name: 'Remove from this device' })
+      .focus();
+    await page.keyboard.press('Enter');
+  };
+
+  // Cancel and Escape give focus back to the button that opened the dialog.
+  await open('Beta');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(remove('Beta')).toBeFocused();
+  await open('Beta');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(remove('Beta')).toBeFocused();
+
+  // Confirming removes the opener: focus moves to the entry in its place.
+  const before = await links.allTextContents();
+  const index = before.findIndex((text) => text.includes('Beta'));
+  await open('Beta');
+  await confirm();
+  await expect(remove('Beta')).toHaveCount(0);
+  const after = before.filter((_, at) => at !== index);
+  const expected = after[Math.min(index, after.length - 1)]!.includes('Alpha')
+    ? 'Alpha'
+    : 'Gamma';
+  await expect(page.locator('main li > a:focus')).toContainText(expected);
+
+  // The last entry hands focus to the one before it; with none left, to main.
+  await open('Alpha');
+  await confirm();
+  await expect(remove('Alpha')).toHaveCount(0);
+  await expect(page.locator('main li > a:focus')).toContainText('Gamma');
+  await open('Gamma');
+  await confirm();
+  await expect(links).toHaveCount(0);
+  await expect(page.locator('main')).toBeFocused();
+});
+
+test('confirming a save that costs answers moves focus into the organiser panel, and cancelling returns to Save', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const { id, adminToken } = await createEvent(request, {
+    days: [3, 4, 5, 6, 7, 8].map(D),
+    durationDays: 3,
+  });
+  await answer(request, id, 'Anna', [D(7), D(8)]);
+  const chosen = await request.put(`/api/events/${id}/status`, {
+    headers: { 'x-admin-token': adminToken },
+    data: { status: 'finalized', start: D(3) },
+  });
+  expect(chosen.status()).toBe(200);
+  const current = async () => (await snapshot(request, id)).event;
+  const dialog = page.getByRole('dialog');
+  const panel = page.getByRole('heading', { name: 'Organiser tools' });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+
+  // Days: switch the last day off, which deletes Anna's answer for it.
+  const days = await openSection(page, 'Days');
+  await day(days.getByRole('grid'), D(8)).click();
+  const saveDays = days.getByRole('button', { name: 'Save' });
+  await saveDays.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toContainText('deletes 1 answer');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(saveDays).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(saveDays).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Save anyway' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeFocused();
+  await expect.poll(async () => (await current()).days).toHaveLength(5);
+
+  // Details: a shorter duration.
+  const details = await openSection(page, 'Details');
+  await details.getByLabel('Days in a row').fill('2');
+  const saveDetails = details.getByRole('button', { name: 'Save' });
+  await saveDetails.focus();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(saveDetails).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Save anyway' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeFocused();
+  await expect.poll(async () => (await current()).durationDays).toBe(2);
+
+  // The dialogs of the people list still return to the row's own button.
+  const people = await openSection(page, 'People');
+  const remove = people.getByRole('button', { name: 'Remove', exact: true });
+  await remove.focus();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(remove).toBeFocused();
 });

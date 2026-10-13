@@ -1,4 +1,10 @@
-import { compareISODate, diffDays, type ISODate } from './dates.js';
+import {
+  addDays,
+  compareISODate,
+  diffDays,
+  LAST_DAY,
+  type ISODate,
+} from './dates.js';
 
 /** One person's answer for one day or block. */
 export type Answer = 'yes' | 'maybe' | 'no' | 'open';
@@ -101,6 +107,20 @@ export function candidateBlocks(
     }
   }
   return blocks;
+}
+
+/** Whether `durationDays` consecutive days from `start` are all in `days`; none past 9999-12-31 are. */
+export function blockFits(
+  days: Iterable<ISODate>,
+  start: ISODate,
+  durationDays: number
+): boolean {
+  if (diffDays(start, LAST_DAY) < durationDays - 1) return false;
+  const have = new Set(days);
+  for (let offset = 0; offset < durationDays; offset += 1) {
+    if (!have.has(addDays(start, offset))) return false;
+  }
+  return true;
 }
 
 export interface RankedBlock {

@@ -128,6 +128,121 @@ describe('prefs', () => {
     expect(prefs.readAdminToken(ID)).toBeNull();
   });
 
+  describe('clearAdminToken', () => {
+    const KEY = 'k'.repeat(43);
+    const roles = () => prefs.readMyEvents().map((e) => [e.id, e.role]);
+
+    it('removes the key and the organiser label, and keeps entry and session', () => {
+      prefs.writeAdminToken(ID, KEY);
+      prefs.writeSession(ID, { participantId: OTHER, token: 't' });
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
+      prefs.clearAdminToken(ID);
+      expect(prefs.readAdminToken(ID)).toBeNull();
+      expect(browser.storage.getItem(`owl.admin.${ID}`)).toBeNull();
+      expect(prefs.readSession(ID)).not.toBeNull();
+      expect(roles()).toEqual([[ID, 'participant']]);
+      // The label does not come back with the next visit.
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'participant');
+      expect(prefs.readMyEvents()[0]!.role).toBe('participant');
+    });
+
+    it('is a no-op for an absent key and an event that is not listed', () => {
+      prefs.rememberEvent(
+        { id: OTHER, title: 'B', emoji: 'owl' },
+        'participant'
+      );
+      const before = browser.storage.getItem('owl.events');
+      prefs.clearAdminToken(ID);
+      prefs.clearAdminToken(OTHER);
+      expect(browser.storage.getItem('owl.events')).toBe(before);
+      expect(prefs.readAdminToken(ID)).toBeNull();
+    });
+
+    it('leaves the other events alone', () => {
+      prefs.writeAdminToken(OTHER, KEY);
+      prefs.rememberEvent({ id: OTHER, title: 'B', emoji: 'owl' }, 'organiser');
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
+      prefs.clearAdminToken(ID);
+      expect(prefs.readAdminToken(OTHER)).toBe(KEY);
+      expect(roles()).toEqual([
+        [ID, 'participant'],
+        [OTHER, 'organiser'],
+      ]);
+    });
+
+    it('drops the key when no list is stored, and writes none', () => {
+      prefs.writeAdminToken(ID, KEY);
+      expect(browser.storage.getItem('owl.events')).toBeNull();
+      prefs.clearAdminToken(ID);
+      expect(prefs.readAdminToken(ID)).toBeNull();
+      expect(browser.storage.getItem(`owl.admin.${ID}`)).toBeNull();
+      expect(browser.storage.getItem('owl.events')).toBeNull();
+    });
+
+    it('drops the key and leaves a list that is no list as it is', () => {
+      for (const damaged of ['{not json', '{"id":"x"}', '"text"', 'null']) {
+        browser.storage.setItem('owl.events', damaged);
+        prefs.writeAdminToken(ID, KEY);
+        expect(() => prefs.clearAdminToken(ID), damaged).not.toThrow();
+        expect(prefs.readAdminToken(ID), damaged).toBeNull();
+        expect(browser.storage.getItem('owl.events'), damaged).toBe(damaged);
+      }
+    });
+
+    it('flips the organiser entry of a list with a damaged entry, and loses only that one', () => {
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
+      const stored = JSON.parse(
+        browser.storage.getItem('owl.events')!
+      ) as unknown[];
+      browser.storage.setItem(
+        'owl.events',
+        JSON.stringify([{ id: 'bad' }, ...stored])
+      );
+      prefs.writeAdminToken(ID, KEY);
+      prefs.clearAdminToken(ID);
+      expect(roles()).toEqual([[ID, 'participant']]);
+      expect(prefs.readAdminToken(ID)).toBeNull();
+    });
+
+    it('does not rewrite the list for an event that is listed as a participant', () => {
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'participant');
+      prefs.writeAdminToken(ID, KEY);
+      const before = browser.storage.getItem('owl.events');
+      prefs.clearAdminToken(ID);
+      expect(browser.storage.getItem('owl.events')).toBe(before);
+      expect(prefs.readAdminToken(ID)).toBeNull();
+    });
+
+    it('does not throw when the storage refuses every access, and still works for this tab', async () => {
+      const refuse = () => {
+        throw new Error('storage blocked');
+      };
+      for (const method of ['getItem', 'setItem', 'removeItem'] as const)
+        browser.storage[method] = refuse;
+      vi.resetModules();
+      prefs = await import('../src/lib/prefs.ts');
+      prefs.writeAdminToken(ID, KEY);
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
+      expect(() => prefs.clearAdminToken(ID)).not.toThrow();
+      expect(prefs.readAdminToken(ID)).toBeNull();
+      expect(roles()).toEqual([[ID, 'participant']]);
+    });
+
+    it('does not throw when the storage starts refusing after it was probed', () => {
+      prefs.writeAdminToken(ID, KEY);
+      prefs.rememberEvent({ id: ID, title: 'A', emoji: 'owl' }, 'organiser');
+      const refuse = () => {
+        throw new Error('storage blocked');
+      };
+      for (const method of ['getItem', 'setItem', 'removeItem'] as const)
+        browser.storage[method] = refuse;
+      expect(() => prefs.clearAdminToken(ID)).not.toThrow();
+      // The memory copy of this tab is the one that was cleared.
+      expect(prefs.readAdminToken(ID)).toBeNull();
+      expect(roles()).toEqual([[ID, 'participant']]);
+    });
+  });
+
   describe('the cap on the list', () => {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const idAt = (i: number) =>

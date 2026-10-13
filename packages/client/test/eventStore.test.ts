@@ -1,3 +1,4 @@
+import { snapshotEtag } from '@owl/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventStore } from '../src/lib/eventStore.ts';
 import {
@@ -129,7 +130,7 @@ describe('EventStore', () => {
     const store = new EventStore(EVENT_ID);
     store.start();
     await flush();
-    expect(store.getState().status).toBe('error');
+    expect(store.getState()).toEqual({ status: 'error' });
     store.stop();
   });
 
@@ -368,6 +369,275 @@ describe('EventStore', () => {
     });
   });
 
+  describe('which snapshot is shown', () => {
+    const ifNoneMatch = (index: number) =>
+      (requests[index]!.headers as Record<string, string> | undefined)?.[
+        'if-none-match'
+      ];
+
+    async function startedAt(version: number) {
+      responses.push(
+        jsonResponse(200, eventSnapshot(version), {
+          etag: snapshotEtag(version),
+        })
+      );
+      const store = new EventStore(EVENT_ID);
+      store.start();
+      await flush();
+      return store;
+    }
+
+    it('ignores an older snapshot on both paths, and keeps the ETag of the newer one', async () => {
+      const store = await startedAt(3);
+      const shown = store.getState();
+      let notified = 0;
+      store.subscribe(() => (notified += 1));
+      store.apply(eventSnapshot(2));
+      responses.push(
+        jsonResponse(200, eventSnapshot(2), { etag: snapshotEtag(2) })
+      );
+      await store.refresh();
+      expect(store.getState()).toBe(shown);
+      expect(notified).toBe(0);
+      responses.push(jsonResponse(304, null));
+      await store.refresh();
+      expect(ifNoneMatch(2)).toBe(snapshotEtag(3));
+      store.stop();
+    });
+
+    it('takes a snapshot of the very version it shows, on both paths', async () => {
+      const store = await startedAt(3);
+      const shown = store.getState();
+      let notified = 0;
+      store.subscribe(() => (notified += 1));
+      store.apply(eventSnapshot(3));
+      const applied = store.getState();
+      expect(applied).not.toBe(shown);
+      expect(applied).toMatchObject({ status: 'ready', stale: false });
+      responses.push(
+        jsonResponse(200, eventSnapshot(3), { etag: snapshotEtag(3) })
+      );
+      await store.refresh();
+      expect(store.getState()).not.toBe(applied);
+      expect(notified).toBe(2);
+      store.stop();
+    });
+
+    it('takes the first snapshot on both paths, version 0 included', async () => {
+      const written = new EventStore(EVENT_ID);
+      written.apply(eventSnapshot(0));
+      expect(written.getState()).toMatchObject({ status: 'ready' });
+      responses.push(jsonResponse(304, null));
+      await written.refresh();
+      expect(ifNoneMatch(0)).toBe(snapshotEtag(0));
+
+      const loaded = await startedAt(0);
+      expect(loaded.getState()).toMatchObject({ status: 'ready' });
+      written.stop();
+      loaded.stop();
+    });
+
+    it('sends the ETag of an own write next, and a 304 leaves the state untouched', async () => {
+      const store = await startedAt(1);
+      store.apply(eventSnapshot(2));
+      const written = store.getState();
+      responses.push(jsonResponse(304, null));
+      await store.refresh();
+      expect(ifNoneMatch(1)).toBe(snapshotEtag(2));
+      expect(store.getState()).toBe(written);
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(2);
+      store.stop();
+    });
+
+    it('sends the ETag the server gave as it gave it, and none when it gave none', async () => {
+      responses.push(
+        jsonResponse(200, eventSnapshot(1), { etag: 'W/"other"' })
+      );
+      const store = new EventStore(EVENT_ID);
+      store.start();
+      await flush();
+      responses.push(jsonResponse(200, eventSnapshot(2)));
+      await store.refresh();
+      expect(ifNoneMatch(1)).toBe('W/"other"');
+      await store.refresh();
+      expect(ifNoneMatch(2)).toBeUndefined();
+      store.stop();
+    });
+  });
+
+  describe('a failed refresh nobody announced', () => {
+    const isStale = (store: EventStore) => {
+      const state = store.getState();
+      return state.status === 'ready' && state.stale;
+    };
+
+    async function started() {
+      responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+      const store = new EventStore(EVENT_ID);
+      store.start();
+      await flush();
+      return store;
+    }
+
+    it('is retried after a second, and the stale flag clears on success', async () => {
+      const store = await started();
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      expect(isStale(store)).toBe(true);
+      expect(requests).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(requests).toHaveLength(2);
+      responses.push(jsonResponse(304, null));
+      await vi.advanceTimersByTimeAsync(1);
+      expect(requests).toHaveLength(3);
+      expect(isStale(store)).toBe(false);
+      // Up to date again: nothing more is asked.
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(3);
+      store.stop();
+    });
+
+    it('is retried by a reconnect greeting that names the version already shown', async () => {
+      const store = await started();
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      FakeEventSource.instances[0]!.emit('changed', '{"version":1}');
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(requests).toHaveLength(3);
+      expect(isStale(store)).toBe(false);
+      store.stop();
+    });
+
+    it('backs off from one second to thirty and starts over after a success', async () => {
+      const store = await started();
+      // The refresh and seven retries fail; the next retry gets a 304.
+      for (let i = 0; i < 8; i += 1) responses.push(new TypeError('offline'));
+      await store.refresh();
+      let expected = 2;
+      for (const gap of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
+        await vi.advanceTimersByTimeAsync(gap - 1);
+        expect(requests).toHaveLength(expected);
+        await vi.advanceTimersByTimeAsync(1);
+        expected += 1;
+        expect(requests).toHaveLength(expected);
+        expect(isStale(store)).toBe(true);
+      }
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(requests).toHaveLength(expected + 1);
+      expect(isStale(store)).toBe(false);
+
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      expect(requests).toHaveLength(expected + 2);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(requests).toHaveLength(expected + 2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(requests).toHaveLength(expected + 3);
+      expect(isStale(store)).toBe(false);
+      store.stop();
+    });
+
+    it('does not stack a second retry while one is waiting', async () => {
+      const store = await started();
+      responses.push(new TypeError('offline'), new TypeError('offline'));
+      await store.refresh();
+      await store.refresh();
+      expect(requests).toHaveLength(3);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(requests).toHaveLength(4);
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(4);
+      store.stop();
+    });
+
+    it('is not retried once a refresh or a write has brought the store up to date', async () => {
+      const store = await started();
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      responses.push(jsonResponse(304, null));
+      await store.refresh();
+      expect(isStale(store)).toBe(false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(requests).toHaveLength(3);
+
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      expect(isStale(store)).toBe(true);
+      store.apply(eventSnapshot(2));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(requests).toHaveLength(4);
+      store.stop();
+    });
+
+    it('is not retried after stop, whether the retry is waiting or under way', async () => {
+      const waiting = await started();
+      responses.push(new TypeError('offline'));
+      await waiting.refresh();
+      waiting.stop();
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(2);
+
+      const store = await started();
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      let fail: (error: Error) => void = () => undefined;
+      const held = vi.fn(
+        () =>
+          new Promise<Response>((_resolve, reject) => {
+            fail = reject;
+          })
+      );
+      vi.stubGlobal('fetch', held);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(held).toHaveBeenCalledTimes(1);
+      store.stop();
+      fail(new TypeError('offline'));
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(held).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not retried once the event turns out to be gone', async () => {
+      const store = await started();
+      responses.push(new TypeError('offline'));
+      await store.refresh();
+      responses.push(jsonResponse(404, { error: 'not_found' }));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(store.getState().status).toBe('deleted');
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(3);
+    });
+
+    it('asks nothing while the store is ready and not stale', async () => {
+      const store = await started();
+      responses.push(jsonResponse(304, null));
+      await store.refresh();
+      expect(requests).toHaveLength(2);
+      expect(
+        (requests[1]!.headers as Record<string, string>)['if-none-match']
+      ).toBe('"v1"');
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(2);
+      store.stop();
+    });
+
+    it('leaves a failed first load to the stream', async () => {
+      responses.push(new TypeError('offline'));
+      const store = new EventStore(EVENT_ID);
+      store.start();
+      await flush();
+      expect(store.getState().status).toBe('error');
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(requests).toHaveLength(1);
+      // The stream's greeting names the current version and heals it.
+      responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
+      FakeEventSource.instances[0]!.emit('changed', '{"version":1}');
+      await vi.advanceTimersByTimeAsync(400);
+      expect(store.getState()).toMatchObject({ status: 'ready', stale: false });
+      store.stop();
+    });
+  });
+
   describe('coming back to the page', () => {
     let browser: ReturnType<typeof installBrowser>;
     beforeEach(() => {
@@ -393,6 +663,19 @@ describe('EventStore', () => {
       browser.document.dispatch('visibilitychange');
       await flush();
       expect(requests).toHaveLength(2);
+      store.stop();
+    });
+
+    it('retries a fetch that failed on waking up, though no change was announced', async () => {
+      const store = await started();
+      responses.push(new TypeError('radio not up yet'));
+      browser.document.dispatch('visibilitychange');
+      await flush();
+      expect(requests).toHaveLength(2);
+      expect(store.getState()).toMatchObject({ status: 'ready', stale: true });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(requests).toHaveLength(3);
+      expect(store.getState()).toMatchObject({ status: 'ready', stale: false });
       store.stop();
     });
 
