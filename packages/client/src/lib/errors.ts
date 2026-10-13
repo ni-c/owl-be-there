@@ -1,4 +1,4 @@
-import { LIMITS } from '@owl/shared';
+import { LIMITS, type CandidateProblem } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
 import type { Params } from '../i18n/index.tsx';
 import { ApiFailure, NetworkFailure, type Credentials } from './api.ts';
@@ -22,12 +22,16 @@ const BY_CODE: Partial<Record<string, TranslationKey>> = {
 
 type Translate = (key: TranslationKey, params?: Params) => string;
 
-/** What a day list problem the server names (`invalid_days`) comes down to. */
-const BY_DAYS_PROBLEM: Partial<Record<string, TranslationKey>> = {
+/** The text for each problem `checkCandidateDays` finds, here and on the server. */
+export const CANDIDATE_PROBLEM_KEY: Record<CandidateProblem, TranslationKey> = {
   past: 'error.past',
   too_far: 'error.tooFar',
   span: 'error.rangeTooLong',
 };
+
+/** What a day list problem the server names (`invalid_days`) comes down to. */
+const BY_DAYS_PROBLEM: Partial<Record<string, TranslationKey>> =
+  CANDIDATE_PROBLEM_KEY;
 
 /** The paths and messages of a `validation_failed` answer. */
 function issuesOf(body: unknown): { path: string; message: string }[] {

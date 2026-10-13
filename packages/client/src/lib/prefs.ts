@@ -14,7 +14,7 @@ import { browserBacking, Store } from './storage.ts';
  * events on this device. All of it lives in localStorage under `owl.*`, and
  * every read is checked against a schema.
  */
-export const store = new Store(browserBacking());
+const store = new Store(browserBacking());
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
@@ -76,6 +76,10 @@ export function writeAdminToken(eventId: string, token: string): void {
   store.write(`owl.admin.${eventId}`, token);
 }
 
+function removeAdminToken(eventId: string): void {
+  store.remove(`owl.admin.${eventId}`);
+}
+
 const MyEventSchema = z.object({
   id: z.string().refine(isId),
   title: z.string(),
@@ -125,7 +129,24 @@ export function rememberEvent(
 
 function dropKeys(eventId: string): void {
   clearSession(eventId);
-  store.remove(`owl.admin.${eventId}`);
+  removeAdminToken(eventId);
+}
+
+/**
+ * Drop an organiser key the server has refused, and the "organiser" label the
+ * start page keeps for the event; the list entry and the session stay.
+ */
+export function clearAdminToken(eventId: string): void {
+  removeAdminToken(eventId);
+  const events = readMyEvents();
+  if (events.some((e) => e.id === eventId && e.role === 'organiser')) {
+    store.write(
+      'owl.events',
+      events.map((e) =>
+        e.id === eventId ? { ...e, role: 'participant' as const } : e
+      )
+    );
+  }
 }
 
 /** Forget an event entirely: the list entry, the session and the organiser key. */

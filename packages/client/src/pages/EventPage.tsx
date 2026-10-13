@@ -29,7 +29,7 @@ import { MyDays } from '../components/MyDays.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Link } from '../App.tsx';
-import { Button, Card, Notice } from '../components/ui.tsx';
+import { Button, buttonClass, Card, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { api, calendarFileUrl } from '../lib/api.ts';
 import { setFavicon } from '../lib/favicon.ts';
@@ -37,12 +37,10 @@ import { useEventStore } from '../hooks/useEventStore.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
 import { eventLink } from '../lib/links.ts';
-import {
-  clearAdminToken,
-  takeAdminTokenFromFragment,
-} from '../lib/adminKey.ts';
+import { takeAdminTokenFromFragment } from '../lib/adminKey.ts';
 import { deletionDay } from '../lib/retentionText.ts';
 import {
+  clearAdminToken,
   forgetEvent,
   readAdminToken,
   readSession,
@@ -290,10 +288,7 @@ function EventView(props: EventViewProps) {
             <p className="font-extrabold">{t('event.planOwn.title')}</p>
             <p className="text-sm text-muted">{t('event.planOwn.text')}</p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex min-h-11 items-center rounded-full bg-brand px-4 font-bold text-brand-ink shadow-card hover:bg-brand-hover"
-          >
+          <Link href="/" className={buttonClass('primary', 'md')}>
             {t('home.cta')}
           </Link>
         </Card>

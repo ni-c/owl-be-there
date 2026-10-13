@@ -13,6 +13,7 @@ import {
   daysToSave,
   extendSelection,
   isLossy,
+  rangeProblemKey,
   savingImpact,
   visibleRange,
   type SavingImpact,
@@ -52,6 +53,113 @@ describe('daysProblem', () => {
     // One day at a time needs nothing but a day.
     expect(daysProblem([march(20)], 1)).toBeNull();
     expect(daysProblem([march(5), march(20)], 1)).toBeNull();
+  });
+});
+
+describe('rangeProblemKey', () => {
+  const today = march(10);
+  const horizon = addDays(today, LIMITS.horizon);
+  const problem = (from: string, to: string) =>
+    rangeProblemKey(from, to, today);
+
+  it('accepts a range that starts today and one that ends on the last day of the horizon', () => {
+    expect(problem(today, today)).toBeNull();
+    expect(problem(today, addDays(today, 1))).toBeNull();
+    expect(problem(addDays(horizon, -3), horizon)).toBeNull();
+    expect(problem(horizon, horizon)).toBeNull();
+  });
+
+  it('refuses a start before today, and only that one', () => {
+    expect(problem(addDays(today, -1), addDays(today, 5))).toBe('error.past');
+    expect(problem(addDays(today, -1), today)).toBe('error.past');
+    expect(problem(addDays(today, -400), addDays(today, 5))).toBe('error.past');
+  });
+
+  it('refuses an end past the horizon, and only the day after it', () => {
+    expect(problem(addDays(horizon, -2), addDays(horizon, 1))).toBe(
+      'error.tooFar'
+    );
+    expect(problem(horizon, addDays(horizon, 1))).toBe('error.tooFar');
+    expect(problem(addDays(horizon, 1), addDays(horizon, 1))).toBe(
+      'error.tooFar'
+    );
+  });
+
+  it('allows a span of exactly the limit and refuses one day more', () => {
+    expect(problem(today, addDays(today, LIMITS.span - 1))).toBeNull();
+    expect(problem(today, addDays(today, LIMITS.span))).toBe(
+      'error.rangeTooLong'
+    );
+    // Away from today the same.
+    const from = addDays(today, 100);
+    expect(problem(from, addDays(from, LIMITS.span - 1))).toBeNull();
+    expect(problem(from, addDays(from, LIMITS.span))).toBe(
+      'error.rangeTooLong'
+    );
+  });
+
+  it('says too far, not too long, when a long range also ends past the horizon', () => {
+    expect(problem(addDays(horizon, -LIMITS.span), addDays(horizon, 1))).toBe(
+      'error.tooFar'
+    );
+  });
+
+  it('accepts a single day, from equal to to', () => {
+    expect(problem(march(20), march(20))).toBeNull();
+  });
+
+  it('names an end before the start', () => {
+    expect(problem(march(20), march(19))).toBe('error.range');
+    expect(problem(march(20), march(11))).toBe('error.range');
+  });
+
+  // The one change from the wizard's earlier check, which looked at the limits
+  // first: a reversed range is reported as reversed, even where a limit is
+  // broken as well. Both texts were true; "the end comes before the start" is
+  // the one that tells the organiser what to fix.
+  it('names a reversed range before the limits it also breaks', () => {
+    // Start in the past, end earlier still: was "error.past".
+    expect(problem(addDays(today, -1), addDays(today, -2))).toBe('error.range');
+    expect(problem(addDays(today, -1), addDays(today, -400))).toBe(
+      'error.range'
+    );
+    // Start and end both past the horizon: was "error.tooFar".
+    expect(problem(addDays(horizon, 5), addDays(horizon, 2))).toBe(
+      'error.range'
+    );
+    // A reversed range inside the limits and one that touches today.
+    expect(problem(addDays(today, 1), today)).toBe('error.range');
+  });
+
+  it('keeps the limits for a range that is not reversed', () => {
+    // Start in the past with a later end: still "past".
+    expect(problem(addDays(today, -2), addDays(today, -1))).toBe('error.past');
+    // Start in the past with an end past the horizon: the start is named first.
+    expect(problem(addDays(today, -1), addDays(horizon, 1))).toBe('error.past');
+  });
+
+  it('asks for days when either end is no date', () => {
+    for (const [from, to] of [
+      ['', march(20)],
+      [march(20), ''],
+      ['', ''],
+      ['2027-02-30', march(20)],
+      [march(20), '2027-13-01'],
+      ['20270320', march(21)],
+    ] as const) {
+      expect(problem(from, to), `${from} to ${to}`).toBe('error.noDays');
+    }
+  });
+
+  it('crosses a year end and a leap day like any other range', () => {
+    const base = '2027-12-30';
+    expect(rangeProblemKey(base, '2028-01-02', '2027-12-30')).toBeNull();
+    expect(
+      rangeProblemKey('2028-02-29', '2028-03-01', '2028-02-01')
+    ).toBeNull();
+    expect(rangeProblemKey('2028-03-01', '2028-02-29', '2028-02-01')).toBe(
+      'error.range'
+    );
   });
 });
 

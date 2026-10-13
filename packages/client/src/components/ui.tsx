@@ -12,9 +12,11 @@ import { useI18n } from '../i18n/index.tsx';
 import { rovingKeyDown } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
+export type ButtonVariant =
+  'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
-const VARIANTS: Record<Variant, string> = {
+const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
   secondary:
     'bg-surface text-ink border-2 border-line hover:border-line-strong',
@@ -28,25 +30,31 @@ const VARIANTS: Record<Variant, string> = {
     'bg-surface text-danger border-2 border-line hover:border-danger',
 };
 
+const SIZES: Record<ButtonSize, string> = {
+  sm: 'min-h-11 px-3 text-sm gap-1.5',
+  md: 'min-h-11 px-4 gap-2',
+  lg: 'min-h-13 px-6 text-lg gap-2',
+};
+
+/** The look of a button, for a link that navigates and so cannot be a `<button>`. */
+export function buttonClass(variant: ButtonVariant, size: ButtonSize): string {
+  return `inline-flex items-center justify-center rounded-full font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${SIZES[size]} ${VARIANTS[variant]}`;
+}
+
 export function Button({
   variant = 'secondary',
   size = 'md',
   className = '',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: Variant;
-  size?: 'sm' | 'md' | 'lg';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 }) {
-  const sizes = {
-    sm: 'min-h-11 px-3 text-sm gap-1.5',
-    md: 'min-h-11 px-4 gap-2',
-    lg: 'min-h-13 px-6 text-lg gap-2',
-  };
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center rounded-full font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${sizes[size]} ${VARIANTS[variant]} ${className}`}
+      className={`${buttonClass(variant, size)} ${className}`}
     />
   );
 }

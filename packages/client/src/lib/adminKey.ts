@@ -1,9 +1,4 @@
-import {
-  readAdminToken,
-  readMyEvents,
-  store,
-  writeAdminToken,
-} from './prefs.ts';
+import { readAdminToken, writeAdminToken } from './prefs.ts';
 
 /**
  * The organiser key arrives in the URL fragment. It is removed from the
@@ -30,21 +25,4 @@ export function takeAdminTokenFromFragment(eventId: string): string | null {
     return null;
   }
   return candidate;
-}
-
-/**
- * Drop an organiser key the server has refused, and the "organiser" label the
- * start page keeps for the event; the list entry and the session stay.
- */
-export function clearAdminToken(eventId: string): void {
-  store.remove(`owl.admin.${eventId}`);
-  const events = readMyEvents();
-  if (events.some((e) => e.id === eventId && e.role === 'organiser')) {
-    store.write(
-      'owl.events',
-      events.map((e) =>
-        e.id === eventId ? { ...e, role: 'participant' as const } : e
-      )
-    );
-  }
 }

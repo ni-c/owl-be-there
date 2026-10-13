@@ -2,6 +2,7 @@ import {
   addDays,
   blockFits,
   candidateBlocks,
+  checkCandidateDays,
   compareISODate,
   diffDays,
   expandRange,
@@ -14,6 +15,7 @@ import {
   type Marks,
 } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
+import { CANDIDATE_PROBLEM_KEY } from './errors.ts';
 
 /** A text for the reader, as a dictionary key and its placeholders. */
 export interface Problem {
@@ -36,6 +38,26 @@ export function daysProblem(
   if (candidateBlocks(days, duration).length === 0)
     return { key: 'error.noBlock', params: { count: duration } };
   return null;
+}
+
+/**
+ * What is wrong with the wizard's "from … to …" range, as a dictionary key, or
+ * null. A reversed range is named before the limits are looked at; the limits
+ * are the server's own (`checkCandidateDays`), from `today` to the horizon.
+ */
+export function rangeProblemKey(
+  from: string,
+  to: string,
+  today: ISODate
+): TranslationKey | null {
+  if (!isValidISODate(from) || !isValidISODate(to)) return 'error.noDays';
+  if (compareISODate(to, from) < 0) return 'error.range';
+  const problem = checkCandidateDays(
+    [from, to],
+    today,
+    addDays(today, LIMITS.horizon)
+  );
+  return problem && CANDIDATE_PROBLEM_KEY[problem];
 }
 
 /**

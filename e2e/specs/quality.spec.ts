@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   answer,
   createEvent,
@@ -7,6 +7,7 @@ import {
   dayFromNow,
   joinAs,
   myCalendar,
+  saved,
   showView,
 } from '../helpers.ts';
 
@@ -146,4 +147,55 @@ test('an event page tells link previews its title, and the API is off limits to 
   const picture = await request.get(url.pathname + url.search);
   expect(picture.headers()['content-type']).toBe('image/png');
   expect((await picture.body()).length).toBeLessThan(300_000);
+});
+
+test('the 404 link and the "plan your own" link look and behave like buttons: keyboard focus, a ring, a big target, axe', async ({
+  page,
+  request,
+}) => {
+  // Tab once so the browser is in keyboard mode, then focus the link: that is
+  // what `:focus-visible` needs in WebKit, where Tab skips links by default.
+  const focusedByKeyboard = async (link: Locator) => {
+    await page.keyboard.press('Tab');
+    await link.focus();
+    await expect(link).toBeFocused();
+    return link.evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return {
+        focusVisible: element.matches(':focus-visible'),
+        outlineStyle: computed.outlineStyle,
+        outlineWidth: computed.outlineWidth,
+      };
+    });
+  };
+  const ring = {
+    focusVisible: true,
+    outlineStyle: 'solid',
+    outlineWidth: '3px',
+  };
+
+  await page.goto('/nowhere');
+  const home = page.getByRole('link', { name: 'Go to the start page' });
+  await expect(home).toBeVisible();
+  expect(await focusedByKeyboard(home)).toEqual(ring);
+  expect((await home.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expectAccessible(page, '404 page');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/$/);
+
+  const { id } = await createEvent(request, { roster: ['Anna'] });
+  await page.goto(`/e/${id}`);
+  await showView(page, 'mine');
+  await page.getByRole('button', { name: 'Anna' }).click();
+  await day(myCalendar(page), dayFromNow(5)).click();
+  await saved(page);
+  const invite = page
+    .getByRole('main')
+    .getByRole('link', { name: 'Plan an event' });
+  await expect(invite).toBeVisible();
+  expect(await focusedByKeyboard(invite)).toEqual(ring);
+  expect((await invite.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expectAccessible(page, 'event page with the invitation');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/$/);
 });
