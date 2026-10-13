@@ -115,8 +115,11 @@ export function dayNumber(date: ISODate): number {
   return daysFromCivil(parseISODate(date));
 }
 
+/** The last day an ISO date can name; `addDays` throws past it. */
+export const LAST_DAY: ISODate = '9999-12-31';
+
 const FIRST_DAY_NUMBER = daysFromCivil({ year: 0, month: 1, day: 1 });
-const LAST_DAY_NUMBER = daysFromCivil({ year: 9999, month: 12, day: 31 });
+const LAST_DAY_NUMBER = dayNumber(LAST_DAY);
 
 /**
  * The ISO date of a day number. Throws outside 0000-01-01 to 9999-12-31: a

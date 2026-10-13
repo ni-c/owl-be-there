@@ -1,23 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
   addDays,
   BASE58,
+  cleanLine,
+  cleanText,
   CreateEventBody,
+  dayNumber,
   DEFAULT_EMOJI,
   EMOJI_KEYS,
   emojiIcon,
   EMOJIS,
+  escapeMarkup,
   expiresOn,
   formatDayRange,
   ID_LENGTH,
   isId,
   isLanguage,
+  isoFromDayNumber,
+  LAST_DAY,
   LANGUAGE_NAMES,
   LANGUAGES,
   languagesByName,
   LIMITS,
   makeId,
   MarksBody,
+  maxISODate,
+  nameKey,
   NewPassword,
   RETENTION_DAYS,
   SERVER_TEXTS,
@@ -127,6 +136,34 @@ describe('retention at the very end of the calendar', () => {
       })
     ).toBe('9999-12-30');
   });
+
+  it('is the plain rule clamped to the last day, for every write day near it', () => {
+    const last = dayNumber(LAST_DAY);
+    const clamped = (day: string, days: number) =>
+      isoFromDayNumber(Math.min(dayNumber(day) + days, last));
+    for (let before = 0; before <= RETENTION_DAYS + 5; before += 1) {
+      const lastWriteDay = isoFromDayNumber(last - before);
+      for (const candidateBefore of [0, 1, 2, 400]) {
+        for (const finalBefore of [null, 0, 1, 3]) {
+          const lastCandidateDay = isoFromDayNumber(last - candidateBefore);
+          const finalEnd =
+            finalBefore === null ? null : isoFromDayNumber(last - finalBefore);
+          const lastRelevant = maxISODate(
+            finalEnd ?? lastCandidateDay,
+            lastCandidateDay
+          );
+          const plain = clamped(lastWriteDay, RETENTION_DAYS);
+          for (const answered of [false, true]) {
+            expect(
+              expiresOn({ lastWriteDay, lastCandidateDay, finalEnd, answered })
+            ).toBe(
+              answered ? maxISODate(plain, clamped(lastRelevant, 1)) : plain
+            );
+          }
+        }
+      }
+    }
+  });
 });
 
 describe('retention of an event nobody answered', () => {
@@ -203,8 +240,33 @@ describe('the emoji icon', () => {
     const icon = emojiIcon('</text><image href="x"/>');
     const svg = decodeURIComponent(icon.replace('data:image/svg+xml,', ''));
     expect(svg).not.toContain('<image');
-    expect(svg).toContain('&lt;/text&gt;&lt;image href="x"/&gt;');
+    expect(svg).toContain('&lt;/text&gt;&lt;image href=&quot;x&quot;/&gt;');
     expect(decodeURIComponent(emojiIcon('&'))).toContain('&amp;');
+  });
+
+  it('writes every emoji on the list exactly as the escape it replaced did', () => {
+    // The escape emojiIcon spelled out before it used escapeMarkup, verbatim.
+    const before = (emoji: string): string => {
+      const glyph = emoji
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${glyph}</text></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    };
+    expect(EMOJI_KEYS).toHaveLength(30);
+    for (const key of EMOJI_KEYS) {
+      expect(emojiIcon(EMOJIS[key]), key).toBe(before(EMOJIS[key]));
+    }
+  });
+
+  it('escapes the text the way the rest of the package does, quotes included', () => {
+    const glyphOf = (emoji: string) =>
+      decodeURIComponent(emojiIcon(emoji)).match(/>([^<]*)<\/text>/)![1];
+    expect(glyphOf('&"\'')).toBe('&amp;&quot;&#39;');
+    for (const text of ['&', '<', '>', '"', "'", '&amp;', '', '🦉<&>"\'']) {
+      expect(glyphOf(text), text).toBe(escapeMarkup(text));
+    }
   });
 });
 
@@ -261,6 +323,134 @@ describe('text that shows nothing', () => {
     for (const name of ['Zoë', '李雷', 'Max 🦉']) {
       expect(SessionBody.safeParse({ name }).success, name).toBe(true);
     }
+  });
+});
+
+describe('the text builders', () => {
+  // The three pipelines as they were written out one by one, kept as the
+  // reference for the single builder that replaced them.
+  const blank = (text: string): boolean => text !== '' && nameKey(text) === '';
+  const before = {
+    requiredLine: (max: number) =>
+      z
+        .string()
+        .max(max * 4)
+        .transform(cleanLine)
+        .pipe(z.string().min(1).max(max))
+        .refine((text) => !blank(text), 'Needs a visible character'),
+    line: (max: number) =>
+      z
+        .string()
+        .max(max * 4)
+        .transform(cleanLine)
+        .pipe(z.string().max(max))
+        .refine((text) => !blank(text), 'Needs a visible character'),
+    paragraph: (max: number) =>
+      z
+        .string()
+        .max(max * 4)
+        .transform(cleanText)
+        .pipe(z.string().max(max))
+        .refine((text) => !blank(text), 'Needs a visible character'),
+  };
+
+  // Each builder as a field of the event body: title, location, description.
+  const fields = [
+    { builder: 'requiredLine', field: 'title', max: LIMITS.title },
+    { builder: 'line', field: 'location', max: LIMITS.location },
+    { builder: 'paragraph', field: 'description', max: LIMITS.description },
+  ] as const;
+
+  const create = (field: string, value: string) =>
+    CreateEventBody.safeParse({
+      title: 'Summer tournament',
+      emoji: 'soccer',
+      language: 'en',
+      durationDays: 1,
+      days: ['2027-03-06'],
+      [field]: value,
+    });
+
+  const outcome = (result: z.ZodSafeParseResult<unknown>, field: string) =>
+    result.success
+      ? { value: (result.data as Record<string, unknown>)[field] }
+      : { issues: result.error.issues.map((i) => `${i.code}: ${i.message}`) };
+
+  const inputs = (max: number): string[] => [
+    '',
+    ' ',
+    '\t\n',
+    '\u200D',
+    '\u200B',
+    '\u3164',
+    '\u2800',
+    'a',
+    '  a  ',
+    'a'.repeat(max),
+    'a'.repeat(max + 1),
+    '😀'.repeat(max),
+    '😀'.repeat(max + 1),
+    // Exactly the raw cap (four times the limit), cleaning down to one letter.
+    'a' + ' '.repeat(max * 4 - 1),
+    // One character over the raw cap, though it would clean to one letter.
+    'a' + ' '.repeat(max * 4),
+    // Within the raw cap, but longer than the limit once cleaned.
+    '😀'.repeat(max * 2),
+    'a\nb',
+    '\n\n a \r\n\r\n\r\n b\n',
+    'a\n\u3164',
+    '\u3164\n\u200D',
+    'a\u200Db',
+    'Zoë',
+  ];
+
+  for (const { builder, field, max } of fields) {
+    it(`gives ${field} the result of the old ${builder} on every input`, () => {
+      const reference = z.object({ value: before[builder](max) });
+      for (const input of inputs(max)) {
+        expect(
+          outcome(create(field, input), field),
+          JSON.stringify(input)
+        ).toEqual(outcome(reference.safeParse({ value: input }), 'value'));
+      }
+    });
+  }
+
+  it('gives all three the same message for text that shows nothing', () => {
+    for (const { field } of fields) {
+      const result = create(field, '\u3164');
+      expect(result.success, field).toBe(false);
+      expect(
+        result.error?.issues.map((issue) => issue.message),
+        field
+      ).toEqual(['Needs a visible character']);
+    }
+  });
+
+  it('lets only the required line refuse an empty text', () => {
+    expect(create('title', '').success).toBe(false);
+    expect(create('title', ' \n ').success).toBe(false);
+    expect(create('location', '').success).toBe(true);
+    expect(create('description', '').success).toBe(true);
+  });
+
+  it('caps the raw text at four times the limit and the cleaned text at the limit', () => {
+    for (const { field, max } of fields) {
+      expect(create(field, 'a'.repeat(max)).success, field).toBe(true);
+      expect(create(field, 'a'.repeat(max + 1)).success, field).toBe(false);
+      // Blanks that clean away still count towards the raw cap.
+      const padded = (length: number) => 'a' + ' '.repeat(length - 1);
+      expect(create(field, padded(max * 4)).success, field).toBe(true);
+      expect(create(field, padded(max * 4 + 1)).success, field).toBe(false);
+    }
+  });
+
+  it('keeps the line breaks of a paragraph and folds them in a line', () => {
+    const description = create('description', 'a \r\n b\n\n\n\nc');
+    expect(description.data?.description).toBe('a\nb\n\nc');
+    expect(create('location', 'a \r\n b\n\n\n\nc').data?.location).toBe(
+      'a b c'
+    );
   });
 });
 

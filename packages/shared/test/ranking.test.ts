@@ -1,12 +1,16 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   answerFor,
   blockAnswer,
+  blockFits,
   candidateBlocks,
+  dayNumber,
   expandRange,
   heatLevel,
   heatOf,
+  LAST_DAY,
   rankBlocks,
   respondentOf,
   tally,
@@ -170,6 +174,150 @@ describe('candidateBlocks', () => {
           }
         }
       )
+    );
+  });
+});
+
+describe('blockFits', () => {
+  const days = ['2027-03-05', '2027-03-06', '2027-03-07', '2027-03-09'];
+
+  it('is true for a run of candidate days and false for a gap', () => {
+    expect(blockFits(days, '2027-03-05', 2)).toBe(true);
+    expect(blockFits(days, '2027-03-05', 3)).toBe(true);
+    expect(blockFits(days, '2027-03-06', 2)).toBe(true);
+    expect(blockFits(days, '2027-03-07', 2)).toBe(false);
+    expect(blockFits(days, '2027-03-06', 4)).toBe(false);
+  });
+
+  it('is false without candidate days', () => {
+    expect(blockFits([], '2027-03-05', 1)).toBe(false);
+    expect(blockFits([], '2027-03-05', 3)).toBe(false);
+  });
+
+  it('asks for the day itself with a duration of one', () => {
+    expect(blockFits(days, '2027-03-09', 1)).toBe(true);
+    expect(blockFits(days, '2027-03-08', 1)).toBe(false);
+    expect(blockFits(days, '2027-03-10', 1)).toBe(false);
+  });
+
+  it('finds a block that ends on the last candidate day', () => {
+    expect(blockFits(days.slice(0, 3), '2027-03-06', 2)).toBe(true);
+    expect(blockFits(days.slice(0, 3), '2027-03-07', 2)).toBe(false);
+  });
+
+  it('is false when the start is no candidate day, however many follow it', () => {
+    expect(blockFits(days.slice(1), '2027-03-04', 2)).toBe(false);
+    expect(blockFits(days.slice(1), '2027-03-04', 1)).toBe(false);
+  });
+
+  it('is false when the duration is longer than the whole set', () => {
+    expect(blockFits(days, '2027-03-05', days.length + 1)).toBe(false);
+    expect(blockFits(['2027-03-05'], '2027-03-05', 14)).toBe(false);
+  });
+
+  it('crosses the turn of a month, a year and a leap day', () => {
+    expect(blockFits(['2027-02-28', '2027-03-01'], '2027-02-28', 2)).toBe(true);
+    expect(blockFits(['2028-02-28', '2028-03-01'], '2028-02-28', 2)).toBe(
+      false
+    );
+    expect(
+      blockFits(['2028-02-28', '2028-02-29', '2028-03-01'], '2028-02-28', 3)
+    ).toBe(true);
+    expect(blockFits(['2026-12-31', '2027-01-01'], '2026-12-31', 2)).toBe(true);
+  });
+
+  it('takes any iterable, in any order, and counts a repeated day once', () => {
+    const shuffled = ['2027-03-07', '2027-03-05', '2027-03-06', '2027-03-05'];
+    expect(blockFits(shuffled, '2027-03-05', 3)).toBe(true);
+    expect(blockFits(new Set(shuffled), '2027-03-05', 3)).toBe(true);
+    expect(blockFits(shuffled.values(), '2027-03-05', 3)).toBe(true);
+    expect(blockFits(['2027-03-05', '2027-03-05'], '2027-03-05', 2)).toBe(
+      false
+    );
+  });
+
+  it('answers false rather than throwing at the end of the calendar', () => {
+    expect(blockFits([LAST_DAY], LAST_DAY, 1)).toBe(true);
+    expect(blockFits([LAST_DAY], LAST_DAY, 2)).toBe(false);
+    expect(blockFits([], LAST_DAY, 1)).toBe(false);
+    expect(blockFits(['9999-12-30', LAST_DAY], '9999-12-30', 2)).toBe(true);
+    expect(blockFits(['9999-12-30', LAST_DAY], LAST_DAY, 2)).toBe(false);
+    expect(blockFits(['9999-12-30', LAST_DAY], '9999-12-30', 14)).toBe(false);
+    expect(() => blockFits([LAST_DAY], LAST_DAY, 14)).not.toThrow();
+  });
+
+  it('works on the first day of the calendar', () => {
+    expect(blockFits(['0000-01-01', '0000-01-02'], '0000-01-01', 2)).toBe(true);
+    expect(blockFits(['0000-01-02'], '0000-01-01', 1)).toBe(false);
+  });
+
+  // The rule it replaced in the database: a block fits when exactly
+  // `duration` distinct candidate days lie between its first and last day.
+  const countingRule = (
+    candidates: readonly string[],
+    start: string,
+    duration: number
+  ): boolean => {
+    const first = dayNumber(start);
+    const last = first + duration - 1;
+    if (last > dayNumber(LAST_DAY)) return false;
+    const inside = new Set(
+      candidates.map(dayNumber).filter((n) => n >= first && n <= last)
+    );
+    return inside.size === duration;
+  };
+
+  // Windows that cross a month, a leap day, a year and both ends of the calendar.
+  const windows = [
+    '2027-02-20',
+    '2028-02-20',
+    '2026-12-25',
+    '9999-12-15',
+    '0000-01-01',
+  ];
+  const inWindow = fc.record({
+    base: fc.constantFrom(...windows),
+    // Scattered days, or nearly all of them, so that long blocks fit now and then.
+    offsets: fc.oneof(
+      fc.uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 17 }),
+      fc
+        .uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 3 })
+        .map((holes) =>
+          Array.from({ length: 17 }, (_, n) => n).filter(
+            (n) => !holes.includes(n)
+          )
+        )
+    ),
+    start: fc.integer({ min: 0, max: 16 }),
+    duration: fc.integer({ min: 1, max: 14 }),
+  });
+
+  it('agrees with the counting rule it replaced', () => {
+    fc.assert(
+      fc.property(inWindow, ({ base, offsets, start, duration }) => {
+        const candidates = offsets.map((n) => addDays(base, n));
+        expect(blockFits(candidates, addDays(base, start), duration)).toBe(
+          countingRule(candidates, addDays(base, start), duration)
+        );
+      }),
+      { numRuns: 500 }
+    );
+  });
+
+  it('agrees with candidateBlocks on where a block can start', () => {
+    fc.assert(
+      fc.property(inWindow, ({ base, offsets, start, duration }) => {
+        const candidates = offsets
+          .toSorted((a, b) => a - b)
+          .map((n) => addDays(base, n));
+        const begin = addDays(base, start);
+        expect(blockFits(candidates, begin, duration)).toBe(
+          candidateBlocks(candidates, duration).some(
+            (block) => block[0] === begin
+          )
+        );
+      }),
+      { numRuns: 500 }
     );
   });
 });

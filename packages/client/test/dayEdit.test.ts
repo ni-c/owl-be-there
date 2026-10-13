@@ -1,10 +1,12 @@
 import {
   addDays,
+  compareISODate,
   expandRange,
   LIMITS,
   type ISODate,
   type Mark,
 } from '@owl/shared';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   daysProblem,
@@ -13,6 +15,7 @@ import {
   isLossy,
   savingImpact,
   visibleRange,
+  type SavingImpact,
 } from '../src/lib/dayEdit.ts';
 
 const march = (day: number): ISODate =>
@@ -391,6 +394,110 @@ describe('savingImpact', () => {
       const impact = savingImpact(chosen, [anna], next);
       expect(impact).toEqual({ marks: 1, date: 'kept' });
       expect(isLossy(impact)).toBe(true);
+    });
+
+    it('drops it when the days are gone or the duration outgrows them', () => {
+      const date = (days: ISODate[], durationDays: number) =>
+        savingImpact(chosen, [], { days, durationDays }).date;
+      expect(date([march(20)], 3)).toBe('dropped');
+      expect(date([march(6), march(7), march(8)], 14)).toBe('dropped');
+      // The start itself is not a candidate day any more, though the rest is.
+      expect(date([march(7), march(8)], 2)).toBe('dropped');
+      expect(date([march(6), march(7), march(8)], 3)).toBe('kept');
+    });
+
+    it('has nothing to shorten when the date has no end on record', () => {
+      const open = { ...chosen, finalEnd: null };
+      const next = { days: current.days, durationDays: 1 };
+      expect(savingImpact(open, [], next).date).toBe('kept');
+    });
+
+    it('does not throw at the end of the calendar', () => {
+      const atEnd = {
+        days: ['9999-12-30', '9999-12-31'],
+        durationDays: 2,
+        finalStart: '9999-12-30',
+        finalEnd: '9999-12-31',
+      };
+      const date = (current: typeof atEnd, durationDays: number) =>
+        savingImpact(current, [], { days: current.days, durationDays }).date;
+      expect(date(atEnd, 2)).toBe('kept');
+      expect(date(atEnd, 1)).toBe('shortened');
+      expect(date(atEnd, 3)).toBe('dropped');
+      const last = {
+        days: ['9999-12-31'],
+        durationDays: 1,
+        finalStart: '9999-12-31',
+        finalEnd: '9999-12-31',
+      };
+      expect(date(last, 1)).toBe('kept');
+      expect(date(last, 2)).toBe('dropped');
+      expect(date(last, 14)).toBe('dropped');
+    });
+  });
+
+  describe('against the loop it replaced', () => {
+    // How the date was judged before blockFits did it, verbatim.
+    const before = (
+      current: {
+        finalStart: ISODate | null;
+        finalEnd: ISODate | null;
+      },
+      next: { days: readonly ISODate[]; durationDays: number }
+    ): SavingImpact['date'] => {
+      const wanted = new Set(next.days);
+      let date: SavingImpact['date'] = 'kept';
+      if (current.finalStart !== null) {
+        const start = current.finalStart;
+        const end = addDays(start, next.durationDays - 1);
+        let fits = true;
+        for (
+          let day = start;
+          compareISODate(day, end) <= 0;
+          day = addDays(day, 1)
+        )
+          if (!wanted.has(day)) fits = false;
+        if (!fits) date = 'dropped';
+        else if (
+          current.finalEnd !== null &&
+          compareISODate(end, current.finalEnd) < 0
+        )
+          date = 'shortened';
+      }
+      return date;
+    };
+
+    const days = fc.uniqueArray(fc.integer({ min: 1, max: 20 }), {
+      maxLength: 20,
+    });
+
+    it('judges every date of a window the same way', () => {
+      fc.assert(
+        fc.property(
+          days,
+          fc.option(fc.integer({ min: 1, max: 20 }), { nil: null }),
+          fc.option(fc.integer({ min: 0, max: 13 }), { nil: null }),
+          fc.integer({ min: 1, max: 14 }),
+          (wanted, start, length, durationDays) => {
+            const finalStart = start === null ? null : march(start);
+            const finalEnd =
+              finalStart === null || length === null
+                ? null
+                : addDays(finalStart, length);
+            const current = {
+              days: expandRange(march(1), march(20)),
+              durationDays: 1,
+              finalStart,
+              finalEnd,
+            };
+            const next = { days: wanted.map(march), durationDays };
+            expect(savingImpact(current, [], next).date).toBe(
+              before(current, next)
+            );
+          }
+        ),
+        { numRuns: 500 }
+      );
     });
   });
 });

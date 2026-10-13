@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import {
   addDays,
+  blockFits,
   buildIcs,
   candidateBlocks,
   checkCandidateDays,
@@ -24,7 +25,6 @@ import { hashAdminToken, newAdminToken } from '../auth/tokens.js';
 import { limit, type AppContext } from '../context.js';
 import {
   addRoster,
-  blockFits,
   countEvents,
   countParticipants,
   deleteEvent,
@@ -324,7 +324,8 @@ export function registerEventRoutes(
       requireAdmin(request, event);
       const body = parseBody(StatusBody, request.body);
       if (body.status === 'finalized') {
-        if (!blockFits(ctx.db, event, body.start)) {
+        const days = getDays(ctx.db, event.id).map((row) => row.day);
+        if (!blockFits(days, body.start, event.duration_days)) {
           throw new ApiError(
             400,
             'invalid_block',

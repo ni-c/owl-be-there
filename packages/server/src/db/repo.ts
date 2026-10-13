@@ -1,7 +1,7 @@
 import {
   addDays,
+  blockFits,
   utcDateOf,
-  diffDays,
   expiresOn,
   todayUTC,
   type EmojiKey,
@@ -656,7 +656,8 @@ export function updateEvent(
     }
     const event = getEvent(db, eventId)!;
     if (event.final_start !== null) {
-      if (blockFits(db, event, event.final_start)) {
+      const days = getDays(db, eventId).map((row) => row.day);
+      if (blockFits(days, event.final_start, event.duration_days)) {
         // The block still fits, but its end follows the duration.
         db.run(
           'UPDATE events SET final_end = ? WHERE id = ?',
@@ -682,28 +683,6 @@ const TEXT_FIELDS = [
   'location',
   'creatorName',
 ] as const;
-
-/** The last day `addDays` can reach. */
-const LAST_DAY = '9999-12-31';
-
-/** Whether `start` begins a block of the event's duration made of candidate days. */
-export function blockFits(
-  db: Db,
-  event: Pick<EventRow, 'id' | 'duration_days'>,
-  start: ISODate
-): boolean {
-  // `addDays` throws past the end of the calendar; a block that would reach
-  // beyond it cannot be made of candidate days.
-  if (diffDays(start, LAST_DAY) < event.duration_days - 1) return false;
-  const end = addDays(start, event.duration_days - 1);
-  const count = db.get<{ n: number }>(
-    'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
-    event.id,
-    start,
-    end
-  )!.n;
-  return count === diffDays(start, end) + 1;
-}
 
 export function setStatus(
   db: Db,

@@ -24,29 +24,19 @@ import { LANGUAGES } from './texts.js';
  */
 const blank = (text: string): boolean => text !== '' && nameKey(text) === '';
 
-const line = (max: number) =>
+const cleaned = (clean: (text: string) => string, max: number, min = 0) =>
   z
     .string()
     .max(max * 4)
-    .transform(cleanLine)
-    .pipe(z.string().max(max))
+    .transform(clean)
+    .pipe(z.string().min(min).max(max))
     .refine((text) => !blank(text), 'Needs a visible character');
 
-const requiredLine = (max: number) =>
-  z
-    .string()
-    .max(max * 4)
-    .transform(cleanLine)
-    .pipe(z.string().min(1).max(max))
-    .refine((text) => !blank(text), 'Needs a visible character');
+const line = (max: number) => cleaned(cleanLine, max);
 
-const paragraph = (max: number) =>
-  z
-    .string()
-    .max(max * 4)
-    .transform(cleanText)
-    .pipe(z.string().max(max))
-    .refine((text) => !blank(text), 'Needs a visible character');
+const requiredLine = (max: number) => cleaned(cleanLine, max, 1);
+
+const paragraph = (max: number) => cleaned(cleanText, max);
 
 export const IsoDay = z
   .string()

@@ -1,8 +1,19 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LANGUAGES, LIMITS, nameKey, utcDateOf } from '@owl/shared';
+import {
+  addDays,
+  blockFits,
+  diffDays,
+  LANGUAGES,
+  LAST_DAY,
+  LIMITS,
+  nameKey,
+  utcDateOf,
+} from '@owl/shared';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { savingImpact } from '../../client/src/lib/dayEdit.ts';
 import {
   MIGRATIONS,
   migrate,
@@ -10,15 +21,17 @@ import {
   pendingMigrations,
 } from '../src/db/migrations.js';
 import {
-  blockFits,
   emptyEventIds,
   findParticipantByKey,
+  getDays,
+  getEvent,
   getParticipant,
   listEvents,
   participantViewOf,
   purgeEmpty,
   replaceMarks,
   sweepExpired,
+  updateEvent,
 } from '../src/db/repo.js';
 import { NAME_KEY_VERSION, rekeyParticipants } from '../src/db/rekey.js';
 import { Db } from '../src/db/sqlite.js';
@@ -746,12 +759,25 @@ describe('deleting many events', () => {
   });
 });
 
-describe('blockFits', () => {
-  const eventWith = (db: Db, duration: number, days: string[]) => {
+describe('the block check behind a chosen date', () => {
+  const NOW = Date.UTC(2027, 2, 1);
+
+  /** Replaces the one event 'ev' with the given duration, days and chosen date. */
+  const seed = (
+    db: Db,
+    duration: number,
+    days: readonly string[],
+    chosen?: { start: string; end: string }
+  ) => {
+    db.run('DELETE FROM event_days');
+    db.run('DELETE FROM events');
     db.run(
-      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-       VALUES ('ev', 'h', 't', 'owl', 'en', ?, 0, 0, '9999-12-31')`,
-      duration
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on, closed_at, final_start, final_end)
+       VALUES ('ev', 'h', 't', 'owl', 'en', ?, 0, 0, '9999-12-31', ?, ?, ?)`,
+      duration,
+      chosen ? 0 : null,
+      chosen?.start ?? null,
+      chosen?.end ?? null
     );
     for (const day of days) {
       db.run(
@@ -759,26 +785,213 @@ describe('blockFits', () => {
         day
       );
     }
-    return { id: 'ev', duration_days: duration };
   };
 
-  it('is true for a run of candidate days and false for a gap', () => {
+  const daysOf = (db: Db) => getDays(db, 'ev').map((row) => row.day);
+  const finalOf = (db: Db) => {
+    const event = getEvent(db, 'ev')!;
+    return { start: event.final_start, end: event.final_end };
+  };
+
+  // The query the check used to be, kept as the reference for the shared one.
+  const byQuery = (db: Db, duration: number, start: string): boolean => {
+    if (diffDays(start, LAST_DAY) < duration - 1) return false;
+    const end = addDays(start, duration - 1);
+    const count = db.get<{ n: number }>(
+      'SELECT count(*) AS n FROM event_days WHERE event_id = ? AND day BETWEEN ? AND ?',
+      'ev',
+      start,
+      end
+    )!.n;
+    return count === diffDays(start, end) + 1;
+  };
+
+  it('gives the answer of the query it replaced, in the cases that matter', () => {
     const db = fresh();
-    const event = eventWith(db, 2, ['2027-03-05', '2027-03-06', '2027-03-08']);
-    expect(blockFits(db, event, '2027-03-05')).toBe(true);
-    expect(blockFits(db, event, '2027-03-06')).toBe(false);
-    expect(blockFits(db, event, '2027-03-07')).toBe(false);
+    const cases: [number, string[], string, boolean][] = [
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-05', true],
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-06', false],
+      [2, ['2027-03-05', '2027-03-06', '2027-03-08'], '2027-03-07', false],
+      [1, ['2027-03-05'], '2027-03-05', true],
+      [1, ['2027-03-05'], '2027-03-06', false],
+      [3, ['2027-03-05', '2027-03-06'], '2027-03-05', false],
+      [2, ['2027-02-28', '2027-03-01'], '2027-02-28', true],
+      [2, ['9999-12-30', '9999-12-31'], '9999-12-31', false],
+      [2, ['9999-12-30', '9999-12-31'], '9999-12-30', true],
+      [1, ['9999-12-31'], '9999-12-31', true],
+      [14, ['9999-12-30', '9999-12-31'], '9999-12-30', false],
+    ];
+    for (const [duration, days, start, expected] of cases) {
+      seed(db, duration, days);
+      const label = `${duration} from ${start} in ${days.join(' ')}`;
+      expect(byQuery(db, duration, start), label).toBe(expected);
+      expect(blockFits(daysOf(db), start, duration), label).toBe(expected);
+    }
   });
 
-  it('answers false rather than throwing at the end of the calendar', () => {
+  it('agrees with that query for any days, start and duration', () => {
     const db = fresh();
-    const event = eventWith(db, 2, ['9999-12-30', '9999-12-31']);
-    expect(blockFits(db, event, '9999-12-31')).toBe(false);
-    expect(blockFits(db, event, '9999-12-30')).toBe(true);
-    const single = { id: 'ev', duration_days: 1 };
-    expect(blockFits(db, single, '9999-12-31')).toBe(true);
-    const long = { id: 'ev', duration_days: 14 };
-    expect(blockFits(db, long, '9999-12-30')).toBe(false);
+    seed(db, 1, []);
+    // Windows across a month, a year and the end of the calendar.
+    const bases = ['2027-02-20', '2026-12-25', '9999-12-15'];
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...bases),
+        fc.uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 17 }),
+        fc.integer({ min: 0, max: 16 }),
+        fc.integer({ min: 1, max: 14 }),
+        (base, offsets, start, duration) => {
+          seed(
+            db,
+            duration,
+            offsets.map((n) => addDays(base, n))
+          );
+          expect(blockFits(daysOf(db), addDays(base, start), duration)).toBe(
+            byQuery(db, duration, addDays(base, start))
+          );
+        }
+      ),
+      { numRuns: 300 }
+    );
+  });
+
+  describe('when the days or the duration of a poll with a chosen date change', () => {
+    const MARCH = ['2027-03-05', '2027-03-06', '2027-03-07', '2027-03-08'];
+    const chosen = { start: '2027-03-06', end: '2027-03-07' };
+    const edit = (
+      patch: { days?: string[]; durationDays?: number },
+      before = { days: MARCH, duration: 2, chosen }
+    ) => {
+      const db = fresh();
+      seed(db, before.duration, before.days, before.chosen);
+      updateEvent(db, 'ev', patch, NOW);
+      return finalOf(db);
+    };
+
+    it('keeps it when nothing it needs changes', () => {
+      expect(edit({ days: ['2027-03-06', '2027-03-07'] })).toEqual(chosen);
+      expect(edit({ durationDays: 2 })).toEqual(chosen);
+    });
+
+    it('lengthens it with the duration when the days are there', () => {
+      expect(edit({ durationDays: 3 })).toEqual({
+        start: '2027-03-06',
+        end: '2027-03-08',
+      });
+    });
+
+    it('shortens it with the duration', () => {
+      expect(edit({ durationDays: 1 })).toEqual({
+        start: '2027-03-06',
+        end: '2027-03-06',
+      });
+    });
+
+    it('drops it when a day of it goes, or the new duration has no room', () => {
+      const dropped = { start: null, end: null };
+      expect(
+        edit({ days: ['2027-03-05', '2027-03-06', '2027-03-08'] })
+      ).toEqual(dropped);
+      expect(
+        edit({ days: ['2027-03-05', '2027-03-07', '2027-03-08'] })
+      ).toEqual(dropped);
+      expect(edit({ durationDays: 4 })).toEqual(dropped);
+    });
+
+    it('does not throw at the end of the calendar', () => {
+      const before = {
+        days: ['9999-12-30', '9999-12-31'],
+        duration: 2,
+        chosen: { start: '9999-12-30', end: '9999-12-31' },
+      };
+      expect(edit({ durationDays: 3 }, before)).toEqual({
+        start: null,
+        end: null,
+      });
+      expect(edit({ durationDays: 1 }, before)).toEqual({
+        start: '9999-12-30',
+        end: '9999-12-30',
+      });
+      const last = {
+        days: ['9999-12-31'],
+        duration: 1,
+        chosen: { start: '9999-12-31', end: '9999-12-31' },
+      };
+      expect(edit({}, last)).toEqual(last.chosen);
+      expect(edit({ durationDays: 2 }, last)).toEqual({
+        start: null,
+        end: null,
+      });
+    });
+
+    it('tells the organiser what the server then does, whatever the days', () => {
+      const db = fresh();
+      const bases = ['2027-02-20', '9999-12-15'];
+      const days = (base: string) =>
+        fc
+          .oneof(
+            fc.uniqueArray(fc.integer({ min: 0, max: 16 }), {
+              minLength: 1,
+              maxLength: 17,
+            }),
+            // Nearly all of them, so a chosen date survives often enough.
+            fc
+              .uniqueArray(fc.integer({ min: 0, max: 16 }), { maxLength: 3 })
+              .map((holes) =>
+                Array.from({ length: 17 }, (_, n) => n).filter(
+                  (n) => !holes.includes(n)
+                )
+              )
+          )
+          .map((offsets) => offsets.map((n) => addDays(base, n)).toSorted());
+      fc.assert(
+        fc.property(
+          fc.constantFrom(...bases).chain((base) =>
+            fc.record({
+              base: fc.constant(base),
+              was: days(base),
+              next: days(base),
+            })
+          ),
+          fc.integer({ min: 1, max: 4 }),
+          fc.integer({ min: 1, max: 6 }),
+          ({ was, next }, wasDuration, nextDuration) => {
+            const start = was.find((day) => blockFits(was, day, wasDuration));
+            fc.pre(start !== undefined);
+            const end = addDays(start!, wasDuration - 1);
+            seed(db, wasDuration, was, { start: start!, end });
+            updateEvent(
+              db,
+              'ev',
+              { days: next, durationDays: nextDuration },
+              NOW
+            );
+            const after = finalOf(db);
+            const stored =
+              after.end === null
+                ? 'dropped'
+                : after.end < end
+                  ? 'shortened'
+                  : 'kept';
+            const told = savingImpact(
+              {
+                days: was,
+                durationDays: wasDuration,
+                finalStart: start!,
+                finalEnd: end,
+              },
+              [],
+              { days: next, durationDays: nextDuration }
+            ).date;
+            expect(told).toBe(stored);
+            if (after.end !== null) {
+              expect(after.end).toBe(addDays(start!, nextDuration - 1));
+            }
+          }
+        ),
+        { numRuns: 300 }
+      );
+    });
   });
 });
 

@@ -1,5 +1,6 @@
 import {
   addDays,
+  blockFits,
   candidateBlocks,
   compareISODate,
   diffDays,
@@ -140,14 +141,10 @@ export function savingImpact(
   let date: SavingImpact['date'] = 'kept';
   if (current.finalStart !== null) {
     const start = current.finalStart;
-    const end = addDays(start, next.durationDays - 1);
-    let fits = true;
-    for (let day = start; compareISODate(day, end) <= 0; day = addDays(day, 1))
-      if (!wanted.has(day)) fits = false;
-    if (!fits) date = 'dropped';
+    if (!blockFits(wanted, start, next.durationDays)) date = 'dropped';
     else if (
       current.finalEnd !== null &&
-      compareISODate(end, current.finalEnd) < 0
+      diffDays(start, current.finalEnd) + 1 > next.durationDays
     )
       date = 'shortened';
   }
