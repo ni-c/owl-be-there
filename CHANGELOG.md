@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "organiser link was not accepted" notice goes away once the right link is pasted into the open page.
 - The stale-data notice no longer stays up after a refresh nobody announced fails (a phone waking up): the page retries with growing pauses until it gets through.
 - Moving to another page inside the app moves focus to it, and the privacy, imprint and not-found pages have their own tab titles. Confirming a dialog that removes its own button no longer drops focus to the top of the page.
+- A confirmation dialog closed with Escape and opened again at once with Enter no longer shuts by itself.
 - A path the static files refuse (a double slash, a dotfile) shows the app's 404 page instead of a JSON 403.
 - The privacy page says an event stays until its final day only once somebody has answered, in all eight languages.
 - Renaming a participant or changing their note folds the write-ahead log at once, so the old text does not linger in the database files.
