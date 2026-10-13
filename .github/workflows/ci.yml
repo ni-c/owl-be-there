@@ -25,7 +25,8 @@ permissions:
 # The Trivy release every scan runs. Dependabot bumps `uses:` references only,
 # never this, so it is a manual bump with two companions: the same version in
 # `release.yml` and in the `scan:secrets` image of `package.json`
-# (`aquasec/trivy:<version without the v>`).
+# (`aquasec/trivy:<version without the v>@<digest>`; renew the multi-arch index
+# digest with the version: `docker buildx imagetools inspect aquasec/trivy:<version>`).
 env:
   TRIVY_VERSION: v0.73.0
 
