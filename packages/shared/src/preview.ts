@@ -118,19 +118,26 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   };
 }
 
+/** CJK and other full-width scripts, which break between any two characters. */
+const isFullWidth = (char: string): boolean => char.codePointAt(0)! >= 0x2e80;
+
 /**
  * Rough width of a character in em: SVG has no text measuring. The four wide
- * letters are measured from the rendered font at weight 800; the rest of the
- * alphabet sits close to one average.
+ * Latin letters are measured from the rendered font at weight 800, Cyrillic
+ * from the picture as it is drawn; the rest of the Latin alphabet sits close
+ * to one average.
  */
 function charWidth(char: string): number {
-  const code = char.codePointAt(0)!;
-  if (code >= 0x2e80) return 1; // CJK and other full-width scripts
+  if (isFullWidth(char)) return 1;
   if (char === ' ') return 0.26;
   if (char === 'W') return 1.1;
   if (char === 'M') return 0.95;
   if (char === 'm') return 0.9;
   if (char === 'w') return 0.8;
+  if (/\p{Script=Cyrillic}/u.test(char)) {
+    if (/\p{Lu}/u.test(char)) return /[ЖШЩЮ]/.test(char) ? 1 : 0.76;
+    return /[жфшщыю]/.test(char) ? 0.8 : 0.56;
+  }
   if (/[A-ZÄÖÜÉÈÀ0-9@#%&]/.test(char)) return 0.68;
   return 0.54;
 }
@@ -138,7 +145,8 @@ function charWidth(char: string): number {
 /**
  * Break text into at most `maxLines` lines that fit `maxWidth` pixels at
  * `fontSize`, cutting the last one with an ellipsis. Words longer than a
- * line, and scripts without spaces, break between characters.
+ * line, and scripts without spaces, break between characters; a run of digits
+ * or letters among such characters, a date in Japanese, moves down whole.
  */
 export function wrapText(
   text: string,
@@ -160,9 +168,15 @@ export function wrapText(
     const w = charWidth(char);
     if (width + w > limit && i > start) {
       const wordBreak = char !== ' ' && lastSpace > start;
-      const end = wordBreak ? lastSpace : i;
+      let end = wordBreak ? lastSpace : i;
+      // No space on the line: break before the narrow run at its end (a date).
+      if (!wordBreak && char !== ' ') {
+        let run = i;
+        while (run > start && !isFullWidth(chars[run - 1]!)) run -= 1;
+        if (run > start) end = run;
+      }
       lines.push(chars.slice(start, end).join('').trimEnd());
-      start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : i;
+      start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : end;
       width = 0;
       lastSpace = -1;
       i = start;

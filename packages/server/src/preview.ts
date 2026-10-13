@@ -67,12 +67,27 @@ const CJK_LETTER =
 /** Whether the title has a Greek letter, which only the CJK font draws. */
 const hasGreek = (title: string): boolean => /\p{scx=Greek}/u.test(title);
 
+/** Flags, skin tones, keycaps and the emoji planes: Nunito has none of them. */
+const EMOJI =
+  /[\p{Regional_Indicator}\p{Emoji_Modifier}\u20E3\u{1F000}-\u{1FFFF}]/u;
+/** Squared letters and ideographs (the NEW and FREE buttons), which the CJK font draws. */
+const CJK_SQUARED = /[\u{1F100}-\u{1F1AC}\u{1F200}-\u{1F251}]/u;
+/** Symbols and arrows Nunito lacks; it has (c), (r), TM and the minus sign (U+2212-2215). */
+const SYMBOL =
+  /(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u2190-\u2211\u2216-\u2BFF]/u;
+
+/** Whether no loaded font has this emoji or symbol: resvg would draw a hollow box. */
+const undrawable = (char: string, cjk: boolean): boolean =>
+  cjk
+    ? EMOJI.test(char) && !CJK_SQUARED.test(char)
+    : EMOJI.test(char) || SYMBOL.test(char);
+
 /**
- * The title as the loaded fonts can draw it. A letter no font has would come
- * out as nothing at all, so each run of them becomes an ellipsis, and a title
- * made of nothing else (Hebrew, Thai, ...) is the app's name: a picture
- * without a title looks broken, one with the name looks like a link to the
- * poll tool.
+ * The title as the loaded fonts can draw it. A character no font has comes out
+ * as a hollow box: emoji and symbols are left out, each run of letters is
+ * replaced by an ellipsis, and a title left without a letter or a digit
+ * (Hebrew, Thai, an emoji ...) is the app's name: a picture without a title
+ * looks broken, one with the name looks like a link to the poll tool.
  */
 export function drawableTitle(
   title: string,
@@ -83,6 +98,10 @@ export function drawableTitle(
   let lost = false;
   let any = false;
   for (const char of title) {
+    if (undrawable(char, cjk)) {
+      any = true;
+      continue;
+    }
     const gap = /\p{L}/u.test(char)
       ? !NUNITO_LETTER.test(char) && !(cjk && CJK_LETTER.test(char))
       : lost && /\p{M}/u.test(char);
