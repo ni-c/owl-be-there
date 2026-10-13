@@ -1305,6 +1305,21 @@ test('a keyboard user who follows a footer link lands in the page, which names t
   ).toBe(true);
 });
 
+test('an event that cannot be shown does not keep the title of the page before it', async ({
+  page,
+}) => {
+  await page.goto('/e/AAAAAAAAAAAA');
+  await expect(page).toHaveTitle(HOME_TITLE);
+  await page
+    .getByRole('contentinfo')
+    .getByRole('link', { name: 'Privacy' })
+    .click();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await page.goBack();
+  await expect(page).toHaveURL(/\/e\/AAAAAAAAAAAA$/);
+  await expect(page).toHaveTitle(HOME_TITLE);
+});
+
 test('choosing another language on the same page keeps focus and renames the tab', async ({
   page,
 }, testInfo) => {
@@ -1314,7 +1329,8 @@ test('choosing another language on the same page keeps focus and renames the tab
   await language.focus();
   await language.selectOption('de');
   await expect(page).toHaveTitle('Datenschutz · Owl Be There');
-  await expect(language).toBeFocused();
+  // The same select, now labelled in German.
+  await expect(page.getByLabel('Sprache')).toBeFocused();
 
   await page.goto('/nowhere');
   await page.getByLabel('Sprache').selectOption('en');

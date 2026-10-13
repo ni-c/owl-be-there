@@ -289,7 +289,11 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // The close event comes a task later: if the dialog was opened again
+      // meanwhile (Escape, then Enter on its opener), it is not for this one.
+      onClose={() => {
+        if (!ref.current?.open) onClose();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

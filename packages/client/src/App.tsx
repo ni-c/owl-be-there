@@ -1,4 +1,5 @@
 import {
+  hasImprint,
   isLanguage,
   LANGUAGE_NAMES,
   languagesByName,
@@ -72,7 +73,11 @@ function Shell() {
     if (pathLanguage && pathLanguage !== language) setLanguage(pathLanguage);
   }, [pathLanguage, language, setLanguage]);
 
-  const heading = headingKey(route);
+  // An imprint without its operator details renders the not-found page.
+  const heading =
+    route.page === 'imprint' && instance !== null && !hasImprint(instance)
+      ? 'notFound.title'
+      : headingKey(route);
   useEffect(() => {
     if (route.page !== 'event') {
       document.title = heading

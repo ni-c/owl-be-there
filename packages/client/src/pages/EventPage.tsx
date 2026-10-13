@@ -129,6 +129,9 @@ export function EventPage({
       // The emoji is the tab's icon; in the title it would show twice.
       document.title = `${loaded.title} · ${t('app.name')}`;
       setFavicon(emojiIcon(EMOJIS[loaded.emoji]));
+    } else {
+      // Not the title of the page this one replaced.
+      document.title = `${t('app.name')} — ${t('app.tagline')}`;
     }
   }, [loaded, adminToken, t]);
 
