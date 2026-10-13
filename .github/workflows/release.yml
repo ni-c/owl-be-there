@@ -28,6 +28,8 @@ jobs:
       # `true` when no higher stable release tag exists: only that tag may move
       # `latest`, so re-running an old release cannot roll it back.
       highest: ${{ steps.highest.outputs.highest }}
+      # The same within the tag's major.minor line, for the `X.Y` tag.
+      line_highest: ${{ steps.highest.outputs.line_highest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +56,15 @@ jobs:
           else
             echo "highest=false" >> "$GITHUB_OUTPUT"
           fi
+          core="${GITHUB_REF_NAME#v}"
+          core="${core%%-*}"
+          line="${core%.*}"
+          line_top=$(git tag --list "v${line}.*" --sort=-v:refname | grep -v -- - | head -n 1 || true)
+          if [ -z "$line_top" ] || [ "$line_top" = "$GITHUB_REF_NAME" ]; then
+            echo "line_highest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "line_highest=false" >> "$GITHUB_OUTPUT"
+          fi
       # The tag must be an annotated tag that GitHub verifies against the
       # maintainer's GPG key, the one credential a leaked token does not have.
       # A lightweight tag has no tag object, so the lookup fails closed.
@@ -75,8 +86,11 @@ jobs:
           fi
       # The example deployment is the only place that names a tag; a release
       # that leaves it on an older one sends self-hosters to missing fixes.
+      # A pre-release does not move it.
       - name: The example compose file names this release
-        run: grep -q "owl-be-there:${GITHUB_REF_NAME#v}\$" compose.example.yaml
+        run: |
+          case "$GITHUB_REF_NAME" in *-*) exit 0 ;; esac
+          grep -q "owl-be-there:${GITHUB_REF_NAME#v}\$" compose.example.yaml
       # Checked before anything is published: the release notes come from this
       # section, and an image without its notes cannot be taken back.
       - name: The CHANGELOG has a section for this version
@@ -129,7 +143,7 @@ jobs:
           images: ghcr.io/ni-c/owl-be-there
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.validate.outputs.line_highest == 'true' }}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') && needs.validate.outputs.highest == 'true' }}
       # Both architectures are scanned before anything is pushed, and before
       # the registry credentials are written to disk: the release builds on its

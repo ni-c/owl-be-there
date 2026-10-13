@@ -56,4 +56,4 @@ Maintainers only.
 3. Open a pull request, let CI pass, merge it.
 4. Tag the merge commit on `main` with a signed tag and push it: `git tag -s vx.y.z -m vx.y.z && git push origin vx.y.z`.
 
-The release workflow checks that the tag matches the version in all four manifests, is a signed tag GitHub verifies (your GPG public key must be on your GitHub account), that `compose.example.yaml` names the version and that the CHANGELOG has a section for it, publishes the container image to `ghcr.io/ni-c/owl-be-there` and creates the GitHub release. Never move a tag that has been pushed.
+The release workflow checks that the tag matches the version in all four manifests, is a signed tag GitHub verifies (your GPG public key must be on your GitHub account), that `compose.example.yaml` names the version (pre-releases such as `v1.0.0-rc.1` skip this check) and that the CHANGELOG has a section for it, publishes the container image to `ghcr.io/ni-c/owl-be-there` and creates the GitHub release. Never move a tag that has been pushed.
