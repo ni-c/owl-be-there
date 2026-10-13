@@ -283,7 +283,7 @@ export const es: Dictionary = {
     'Tu navegador guarda los eventos que has abierto en este dispositivo. También recuerda tu nombre en ellos y tus ajustes. Puedes quitar eventos de la lista en la página de inicio.',
   'privacy.retention.title': 'Cuándo se borra',
   'privacy.retention.text':
-    'Borramos cada evento {days} días después de su último cambio. Nunca antes de que pase su último día. Quien lo organiza puede borrarlo en cualquier momento.',
+    'Borramos cada evento {days} días después de su último cambio. En cuanto alguien ha respondido, se conserva al menos hasta que pase su último día. Quien lo organiza puede borrarlo en cualquier momento.',
   'privacy.logs_one':
     'El servidor web registra los accesos con direcciones IP para prevenir abusos. Estos registros se borran después de {count} día.',
   'privacy.logs_other':

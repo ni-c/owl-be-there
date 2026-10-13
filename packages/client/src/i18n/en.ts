@@ -281,7 +281,7 @@ export const en = {
     'Your browser stores opened events on this device. That includes your name in an event and your settings. You can remove events from the list on the start page.',
   'privacy.retention.title': 'When it is deleted',
   'privacy.retention.text':
-    'We delete an event {days} days after its last change. It stays at least until its final day has passed. The organiser can delete it any time.',
+    'We delete an event {days} days after its last change. Once somebody has answered, it stays at least until its final day has passed. The organiser can delete it any time.',
   'privacy.logs_one':
     'The web server logs visits with IP addresses to prevent abuse. These logs are deleted after {count} day.',
   'privacy.logs_other':

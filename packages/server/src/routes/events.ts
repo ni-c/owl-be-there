@@ -49,6 +49,13 @@ export function eventOr404(ctx: AppContext, id: string): EventRow {
   return event;
 }
 
+/** A 409 `full` when `adding` more people would not fit into the event. */
+export function assertRoom(ctx: AppContext, eventId: string, adding = 1): void {
+  if (countParticipants(ctx.db, eventId) + adding > LIMITS.participants) {
+    throw new ApiError(409, 'full', 'This event has no room for more people');
+  }
+}
+
 function requireAdmin(request: FastifyRequest, event: EventRow): void {
   if (!isAdmin(request, event)) {
     throw new ApiError(403, 'forbidden', 'This needs the organiser link');
@@ -363,16 +370,7 @@ export function registerEventRoutes(
       const entries = rosterEntries(body.names).filter(
         (entry) => !findParticipantByKey(ctx.db, event.id, entry.nameKey)
       );
-      if (
-        countParticipants(ctx.db, event.id) + entries.length >
-        LIMITS.participants
-      ) {
-        throw new ApiError(
-          409,
-          'full',
-          'That is more people than an event can hold'
-        );
-      }
+      assertRoom(ctx, event.id, entries.length);
       addRoster(ctx.db, event.id, entries, ctx.clock.now());
       published(ctx, event.id);
       return sendSnapshot(ctx, reply, event.id);

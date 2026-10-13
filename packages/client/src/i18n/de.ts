@@ -287,7 +287,7 @@ export const de: Dictionary = {
     'Dein Browser speichert geöffnete Events auf deinem Gerät. Dazu gehören dein Name im Event und deine Einstellungen. Auf der Startseite kannst du Events aus der Liste entfernen.',
   'privacy.retention.title': 'Wann gelöscht wird',
   'privacy.retention.text':
-    'Wir löschen ein Event {days} Tage nach der letzten Änderung. Frühestens aber nach seinem letzten Tag. Die Organisation kann es jederzeit löschen.',
+    'Wir löschen ein Event {days} Tage nach der letzten Änderung. Sobald jemand geantwortet hat, bleibt es mindestens, bis sein letzter Tag vorbei ist. Die Organisation kann es jederzeit löschen.',
   'privacy.logs_one':
     'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {count} Tag gelöscht.',
   'privacy.logs_other':

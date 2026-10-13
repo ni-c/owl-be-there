@@ -673,6 +673,11 @@ test('the start page answers the common questions', async ({ page }) => {
     'What happens to our data?',
   ])
     await expect(page.getByRole('heading', { name: question })).toBeVisible();
+  // One card per feature the start page lists.
+  for (const title of ['See what works', 'No accounts'])
+    await expect(
+      page.getByRole('heading', { name: title, exact: true })
+    ).toBeVisible();
   // The text the server wrote for readers without scripts is gone: one page,
   // one main heading.
   await expect(page.locator('[data-static]')).toHaveCount(0);
@@ -697,6 +702,10 @@ test('without scripts the start page still says what the app is and answers the 
   await expect(
     page.getByRole('heading', { name: 'Was passiert mit unseren Daten?' })
   ).toBeVisible();
+  for (const title of ['Seht, wann es passt', 'Keine Konten'])
+    await expect(
+      page.getByRole('heading', { name: title, exact: true })
+    ).toBeVisible();
   await context.close();
 });
 

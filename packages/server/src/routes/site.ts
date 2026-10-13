@@ -59,7 +59,7 @@ const withSlash = (path: string): string[] =>
   path === '/' ? [path] : [path, `${path}/`];
 
 /** Whether the request is for the API: `/api` itself or anything below it. */
-const isApiPath = (url: string): boolean => /^\/api(?:[/?]|$)/.test(url);
+export const isApiPath = (url: string): boolean => /^\/api(?:[/?]|$)/.test(url);
 
 /**
  * The client: its static files, and `index.html` with the right head for every

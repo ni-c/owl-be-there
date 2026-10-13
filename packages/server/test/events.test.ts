@@ -408,6 +408,81 @@ describe('the organiser', () => {
     expect(tooMany.json().error).toBe('full');
   });
 
+  describe('against the limit of people', () => {
+    const names = (count: number, prefix = 'P') =>
+      Array.from({ length: count }, (_, i) => `${prefix}${i}`);
+    const add = (id: string, token: string, list: string[]) =>
+      t.app.inject({
+        method: 'POST',
+        url: `/api/events/${id}/participants`,
+        headers: adminHeaders(token),
+        payload: { names: list },
+      });
+    const count = async (id: string) =>
+      (await getSnapshot(t.app, id)).participants.length;
+
+    it('takes a list that fills the event exactly, and refuses one more name after it', async () => {
+      const { id, adminToken } = await createEvent(t.app, {
+        roster: names(LIMITS.participants - 2),
+      });
+      const fills = await add(id, adminToken, ['Last 1', 'Last 2']);
+      expect(fills.statusCode).toBe(200);
+      expect(await count(id)).toBe(LIMITS.participants);
+      const over = await add(id, adminToken, ['One more']);
+      expect(over.statusCode).toBe(409);
+      expect(over.json().error).toBe('full');
+      expect(await count(id)).toBe(LIMITS.participants);
+    });
+
+    it('refuses a list that crosses the limit by one name, and adds none of it', async () => {
+      const { id, adminToken } = await createEvent(t.app, {
+        roster: names(LIMITS.participants - 2),
+      });
+      const crosses = await add(id, adminToken, ['Fits', 'Fits too', 'Over']);
+      expect(crosses.statusCode).toBe(409);
+      expect(crosses.json().error).toBe('full');
+      expect(await count(id)).toBe(LIMITS.participants - 2);
+    });
+
+    it('adds nothing for names that are there already, even in a full event', async () => {
+      const { id, adminToken } = await createEvent(t.app, {
+        roster: names(LIMITS.participants),
+      });
+      expect(await count(id)).toBe(LIMITS.participants);
+      // Another spelling of a name that is there counts as that name.
+      const again = await add(id, adminToken, ['P0', ' p1 ']);
+      expect(again.statusCode).toBe(200);
+      expect(await count(id)).toBe(LIMITS.participants);
+      // One new name among them is one too many.
+      const mixed = await add(id, adminToken, ['P0', 'Newcomer']);
+      expect(mixed.statusCode).toBe(409);
+      expect(await count(id)).toBe(LIMITS.participants);
+    });
+
+    it('does not take an empty list', async () => {
+      const { id, adminToken } = await createEvent(t.app);
+      const empty = await add(id, adminToken, []);
+      expect(empty.statusCode).toBe(400);
+      expect(empty.json().error).toBe('validation_failed');
+    });
+
+    it('gives the one answer a full event always gives, whoever asks', async () => {
+      const { id, adminToken } = await createEvent(t.app, {
+        roster: names(LIMITS.participants),
+      });
+      const byList = await add(id, adminToken, ['Newcomer']);
+      const bySession = await t.app.inject({
+        method: 'POST',
+        url: `/api/events/${id}/session`,
+        payload: { name: 'Newcomer' },
+      });
+      expect(byList.statusCode).toBe(409);
+      expect(bySession.statusCode).toBe(409);
+      expect(byList.json()).toEqual(bySession.json());
+      expect(byList.json().error).toBe('full');
+    });
+  });
+
   it('deletes the event and everything in it', async () => {
     const { id, adminToken } = await createEvent(t.app);
     const max = await join(t.app, id, 'Max');

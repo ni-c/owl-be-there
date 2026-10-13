@@ -44,5 +44,7 @@ export const LIMITS = {
  *
  * Only writes count. Crab Fit extended an event's life on every read, and
  * crawlers that kept requesting old links kept those events alive forever.
+ *
+ * README.md and SECURITY.md state this number literally; change them with it.
  */
 export const RETENTION_DAYS = 90;

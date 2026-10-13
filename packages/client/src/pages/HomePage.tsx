@@ -1,5 +1,11 @@
-import { EMOJIS, FAQ_TOPICS, type InstanceInfoData } from '@owl/shared';
-import { useRef, useState } from 'react';
+import {
+  EMOJIS,
+  FAQ_TOPICS,
+  FEATURES,
+  type Feature,
+  type InstanceInfoData,
+} from '@owl/shared';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
 import { ExampleDemo } from '../components/ExampleDemo.tsx';
@@ -8,6 +14,12 @@ import { Owl } from '../components/Owl.tsx';
 import { Button, Card, Dialog, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { forgetEvent, readMyEvents, type MyEvent } from '../lib/prefs.ts';
+
+// A missing icon is a compile error when a feature is added to FEATURES.
+const FEATURE_ICONS: Record<Feature, ReactNode> = {
+  heat: <StarIcon size={24} />,
+  private: <LockIcon size={24} />,
+};
 
 export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   const { t } = useI18n();
@@ -30,19 +42,6 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
     forgetEvent(event.id);
     setMyEvents(readMyEvents());
   };
-
-  const features = [
-    {
-      icon: <StarIcon size={24} />,
-      title: t('home.feature.heat.title'),
-      text: t('home.feature.heat.text'),
-    },
-    {
-      icon: <LockIcon size={24} />,
-      title: t('home.feature.private.title'),
-      text: t('home.feature.private.text'),
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-10">
@@ -149,13 +148,17 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
       </Dialog>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        {features.map((feature) => (
-          <Card key={feature.title} className="flex flex-col gap-2">
+        {FEATURES.map((feature) => (
+          <Card key={feature} className="flex flex-col gap-2">
             <span className="grid size-11 place-items-center rounded-2xl bg-brand-soft text-brand">
-              {feature.icon}
+              {FEATURE_ICONS[feature]}
             </span>
-            <h2 className="text-lg font-extrabold">{feature.title}</h2>
-            <p className="leading-relaxed text-muted">{feature.text}</p>
+            <h2 className="text-lg font-extrabold">
+              {t(`home.feature.${feature}.title`)}
+            </h2>
+            <p className="leading-relaxed text-muted">
+              {t(`home.feature.${feature}.text`)}
+            </p>
           </Card>
         ))}
       </section>

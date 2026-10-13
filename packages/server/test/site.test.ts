@@ -5,11 +5,14 @@ import { join as joinPath } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { contentSecurityPolicy } from '../src/app.js';
 import {
+  APP_NAME,
   emojiIcon,
   escapeMarkup,
   FAQ_TOPICS,
+  FEATURES,
   HOME_TEXTS,
   LANGUAGES,
+  RETENTION_DAYS,
   SERVER_TEXTS,
 } from '@owl/shared';
 import { snapshot } from '../src/db/repo.js';
@@ -381,6 +384,12 @@ describe('pages', () => {
         `<h1>${escapeMarkup(SERVER_TEXTS[language].tagline)}</h1>`
       );
       expect(root, url).toContain(`<p>${escapeMarkup(texts['home.lead'])}</p>`);
+      for (const feature of FEATURES) {
+        expect(root, `${url} ${feature}`).toContain(
+          `<h2>${escapeMarkup(texts[`home.feature.${feature}.title`])}</h2>` +
+            `<p>${escapeMarkup(texts[`home.feature.${feature}.text`])}</p>`
+        );
+      }
       for (const topic of FAQ_TOPICS) {
         expect(root, `${url} ${topic}`).toContain(
           `<h3>${escapeMarkup(texts[`home.faq.${topic}.q`])}</h3>`
@@ -427,6 +436,44 @@ describe('pages', () => {
           },
         }))
       );
+    }
+  });
+
+  it('states the retention period in the privacy answer of the structured data and of the written text', async () => {
+    t = await testApp();
+    for (const language of LANGUAGES) {
+      const { body } = await t.app.inject({
+        method: 'GET',
+        url: `/${language}`,
+      });
+      const ld = body.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      );
+      const answers: { name: string; acceptedAnswer: { text: string } }[] =
+        JSON.parse(ld![1]!)['@graph'][1].mainEntity;
+      const privacy = answers.find(
+        (entry) => entry.name === HOME_TEXTS[language]['home.faq.privacy.q']
+      );
+      expect(privacy?.acceptedAnswer.text, language).toContain(
+        String(RETENTION_DAYS)
+      );
+      expect(body, language).toContain(
+        `<p>${escapeMarkup(HOME_TEXTS[language]['home.faq.privacy.a'])}</p>`
+      );
+      expect(HOME_TEXTS[language]['home.faq.privacy.a']).toContain(
+        String(RETENTION_DAYS)
+      );
+    }
+  });
+
+  it('names the app in og:site_name from APP_NAME, on the start page, the event page and the not found page', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, { title: 'Quiet page' });
+    const tag = `<meta property="og:site_name" content="${escapeMarkup(APP_NAME)}" />`;
+    for (const url of ['/', '/de', '/privacy', `/e/${id}`, '/nowhere']) {
+      const { body } = await t.app.inject({ method: 'GET', url });
+      expect(body, url).toContain(tag);
+      expect(body.match(/og:site_name/g), url).toHaveLength(1);
     }
   });
 
@@ -577,6 +624,93 @@ describe('pages', () => {
       url: `/e/${id}/og.png/`,
     });
     expect(picture.statusCode).toBe(404);
+  });
+
+  describe('a path the static handler refuses', () => {
+    const ID = 'AAAAAAAAAAAA';
+
+    it('is the app’s own 404 page, not a JSON 403: dotfiles, empty segments, a segment of 256 bytes', async () => {
+      t = await testApp();
+      for (const url of [
+        `//e/${ID}`,
+        '//',
+        `/e//${ID}`,
+        '/de//',
+        '/privacy//',
+        '/.env',
+        '/.hidden',
+        '/.well-known/security.txt',
+        '/a%00b',
+        `/${'a'.repeat(256)}`,
+        `/privacy/${'a'.repeat(300)}`,
+      ]) {
+        for (const method of ['GET', 'HEAD'] as const) {
+          const response = await t.app.inject({ method, url });
+          expect(response.statusCode, `${method} ${url}`).toBe(404);
+          expect(response.headers['content-type'], `${method} ${url}`).toBe(
+            'text/html; charset=utf-8'
+          );
+          if (method === 'GET') {
+            expect(response.body, url).toContain('<div id="root"></div>');
+            expect(response.body, url).not.toContain('bad_request');
+          }
+        }
+      }
+    });
+
+    it('is a 404 for a segment of 255 bytes, which the static handler still looks up, as for 256', async () => {
+      t = await testApp();
+      for (const length of [1, 255, 256, 257]) {
+        const response = await t.app.inject({
+          method: 'GET',
+          url: `/${'a'.repeat(length)}`,
+        });
+        expect(response.statusCode, String(length)).toBe(404);
+        expect(response.headers['content-type'], String(length)).toBe(
+          'text/html; charset=utf-8'
+        );
+      }
+    });
+
+    it('stays a JSON refusal under /api', async () => {
+      t = await testApp();
+      for (const url of ['/api/.env', '/api//x']) {
+        for (const method of ['GET', 'HEAD'] as const) {
+          const response = await t.app.inject({ method, url });
+          expect(response.statusCode, `${method} ${url}`).toBe(403);
+          expect(response.headers['content-type'], `${method} ${url}`).toBe(
+            'application/json; charset=utf-8'
+          );
+          if (method === 'GET') {
+            expect(response.json()).toEqual({
+              error: 'bad_request',
+              message: 'Forbidden',
+            });
+          }
+        }
+      }
+    });
+
+    it('is a JSON not found where there is no client', async () => {
+      t = await testApp({ site: false });
+      for (const url of ['/.env', `//e/${ID}`, `/${'a'.repeat(256)}`]) {
+        const response = await t.app.inject({ method: 'GET', url });
+        expect(response.statusCode, url).toBe(404);
+        expect(response.json().error, url).toBe('not_found');
+      }
+    });
+
+    it('leaves an unsatisfiable range a 416', async () => {
+      t = await testApp();
+      for (const method of ['GET', 'HEAD'] as const) {
+        const response = await t.app.inject({
+          method,
+          url: '/assets/app.js',
+          headers: { range: 'bytes=999999-' },
+        });
+        expect(response.statusCode, method).toBe(416);
+      }
+    });
   });
 
   it('answers the JSON 404 for /api and what is below it, the app for names that merely start with api', async () => {

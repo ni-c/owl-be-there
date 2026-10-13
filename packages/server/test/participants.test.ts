@@ -1,5 +1,6 @@
 import { addDays, answerFor, LIMITS, respondentOf } from '@owl/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { LIMITS } from '@owl/shared';
 import {
   createEvent,
   eventBody,
@@ -131,6 +132,74 @@ describe('who are you', () => {
     const fresh = await sessionRequest(t.app, id, { name: 'Newcomer' });
     expect(fresh.statusCode).toBe(409);
     expect(fresh.json().error).toBe('closed');
+  });
+
+  describe('at the limit of people', () => {
+    const roster = (count: number) =>
+      Array.from({ length: count }, (_, i) => `P${i}`);
+    const count = async (eventId: string) =>
+      (await getSnapshot(t.app, eventId)).participants.length;
+
+    it('lets the last free place be taken, and refuses the next new name', async () => {
+      const full = await createEvent(t.app, {
+        roster: roster(LIMITS.participants - 1),
+      });
+      const last = await join(t.app, full.id, 'Last');
+      expect(last.created).toBe(true);
+      expect(await count(full.id)).toBe(LIMITS.participants);
+      const over = await sessionRequest(t.app, full.id, { name: 'Over' });
+      expect(over.statusCode).toBe(409);
+      expect(over.json().error).toBe('full');
+      expect(await count(full.id)).toBe(LIMITS.participants);
+    });
+
+    it('refuses a new name in an event that is full, with or without a password', async () => {
+      const full = await createEvent(t.app, {
+        roster: roster(LIMITS.participants),
+      });
+      for (const extra of [{}, { password: 'secret-1' }]) {
+        const over = await sessionRequest(t.app, full.id, {
+          name: 'Newcomer',
+          ...extra,
+        });
+        expect(over.statusCode, JSON.stringify(extra)).toBe(409);
+        expect(over.json().error).toBe('full');
+      }
+      expect(await count(full.id)).toBe(LIMITS.participants);
+    });
+
+    it('needs no room for a name that is there already', async () => {
+      const full = await createEvent(t.app, {
+        roster: roster(LIMITS.participants),
+      });
+      const again = await join(t.app, full.id, 'p1');
+      expect(again.created).toBe(false);
+      // Protecting the name changes the entry, it does not add one.
+      const protectedName = await join(t.app, full.id, 'P1', 'secret-1');
+      expect(protectedName).toMatchObject({
+        participantId: again.participantId,
+        created: false,
+      });
+      expect(await count(full.id)).toBe(LIMITS.participants);
+    });
+
+    it('has room again once somebody is deleted', async () => {
+      const full = await createEvent(t.app, {
+        roster: roster(LIMITS.participants),
+      });
+      expect(
+        (await sessionRequest(t.app, full.id, { name: 'Newcomer' })).statusCode
+      ).toBe(409);
+      const first = await join(t.app, full.id, 'P0');
+      const removed = await t.app.inject({
+        method: 'DELETE',
+        url: `/api/events/${full.id}/participants/${first.participantId}`,
+        headers: adminHeaders(full.adminToken),
+      });
+      expect(removed.statusCode).toBe(204);
+      expect((await join(t.app, full.id, 'Newcomer')).created).toBe(true);
+      expect(await count(full.id)).toBe(LIMITS.participants);
+    });
   });
 
   it('does not let a closed poll be used to protect a name', async () => {

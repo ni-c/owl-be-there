@@ -284,7 +284,7 @@ export const it: Dictionary = {
     'Il browser conserva su questo dispositivo gli eventi che hai aperto. Ricorda anche il tuo nome negli eventi e le tue impostazioni. Puoi rimuovere gli eventi dall’elenco nella pagina iniziale.',
   'privacy.retention.title': 'Quando vengono eliminati',
   'privacy.retention.text':
-    'Un evento viene eliminato {days} giorni dopo l’ultima modifica. Mai prima che sia passato il suo ultimo giorno. L’organizzatore può eliminarlo in qualsiasi momento.',
+    'Un evento viene eliminato {days} giorni dopo l’ultima modifica. Una volta che qualcuno ha risposto, resta almeno finché non è passato il suo ultimo giorno. L’organizzatore può eliminarlo in qualsiasi momento.',
   'privacy.logs_one':
     'Il server web registra gli accessi con gli indirizzi IP per prevenire abusi. Questi registri vengono eliminati dopo {count} giorno.',
   'privacy.logs_other':

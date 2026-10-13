@@ -110,6 +110,22 @@ describe('texts that must agree with the rest of the app', () => {
     expect(ja['event.expires']).toContain('予定');
   });
 
+  it('keeps the {days} placeholder in the retention text of every language', () => {
+    for (const language of LANGUAGES) {
+      const text = DICTIONARIES[language]['privacy.retention.text'];
+      expect(text, language).toContain('{days}');
+      // The one placeholder is filled with RETENTION_DAYS; no number is typed out.
+      expect(text.match(/\d+/g), language).toBeNull();
+      expect(interpolate(text, { days: 90 }), language).toContain('90');
+    }
+  });
+
+  it('says in English that the wait for the last day applies once somebody has answered', () => {
+    expect(en['privacy.retention.text']).toContain(
+      'Once somebody has answered, it stays at least until its final day has passed.'
+    );
+  });
+
   it('keeps the English privacy line about third parties true', () => {
     expect(en['privacy.stored.nothingElse']).toContain('Google Calendar');
   });
