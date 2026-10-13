@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   BASE58,
   CreateEventBody,
   DEFAULT_EMOJI,
@@ -655,5 +656,57 @@ describe('schemas', () => {
     expect(
       UpdateEventBody.safeParse({ minCount: null, location: null }).success
     ).toBe(true);
+  });
+
+  describe('the days a save knew', () => {
+    const marks = { baseRev: 0, yes: ['2027-03-06'], maybe: [] };
+    const parse = (days: unknown) => MarksBody.safeParse({ ...marks, days });
+
+    it('is optional, so a client that does not send it still saves', () => {
+      const old = MarksBody.safeParse(marks);
+      expect(old.success).toBe(true);
+      expect(old.data).not.toHaveProperty('days');
+      // Present and undefined is absent, as JSON cannot tell them apart.
+      expect(parse(undefined).success).toBe(true);
+    });
+
+    it('takes any number of valid days up to the limit, the empty list included', () => {
+      expect(parse([]).data?.days).toEqual([]);
+      expect(parse(['2027-03-06', '2027-03-05']).data?.days).toEqual([
+        '2027-03-06',
+        '2027-03-05',
+      ]);
+      const longest = Array.from({ length: LIMITS.days }, (_, i) =>
+        addDays('2027-01-01', i)
+      );
+      expect(parse(longest).success).toBe(true);
+      expect(
+        parse([...longest, addDays('2027-01-01', LIMITS.days)]).success
+      ).toBe(false);
+    });
+
+    it('refuses what is no list of days', () => {
+      for (const days of [
+        null,
+        'all',
+        {},
+        7,
+        [null],
+        [20270306],
+        [''],
+        ['2027-02-30'],
+        ['2027-13-01'],
+        ['2027-3-6'],
+        ['2027-03-06T00:00:00Z'],
+      ])
+        expect(parse(days).success, JSON.stringify(days)).toBe(false);
+    });
+
+    it('is the only addition: other fields are still refused', () => {
+      expect(MarksBody.safeParse({ ...marks, day: [] }).success).toBe(false);
+      expect(
+        MarksBody.safeParse({ ...marks, days: [], known: [] }).success
+      ).toBe(false);
+    });
   });
 });

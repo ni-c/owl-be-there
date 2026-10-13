@@ -8,7 +8,8 @@ import {
 /**
  * The send function of a participant's {@link SaveQueue}: the request goes out
  * with only the days that are candidates right now, and failures are sorted
- * into those worth retrying and those that are not.
+ * into those worth retrying and those that are not. It also names the
+ * candidate days it knows, so the server can keep a day added since as new.
  *
  * The organiser may remove a day between a stroke and its request, so the days
  * are filtered when the request is made, not when the stroke was. A day that
@@ -27,6 +28,7 @@ export function marksSender(options: {
       baseRev: request.baseRev,
       yes: request.yes.filter((day) => candidates.has(day)),
       maybe: request.maybe.filter((day) => candidates.has(day)),
+      days: [...candidates].sort(),
     };
     try {
       return await options.put(kept);

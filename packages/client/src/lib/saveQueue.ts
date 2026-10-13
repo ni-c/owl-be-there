@@ -8,6 +8,8 @@ export interface SaveRequest {
   baseRev: number;
   yes: string[];
   maybe: string[];
+  /** The candidate days the client knew; filled in by the send function. */
+  days?: string[];
 }
 
 /** A failure that retrying cannot fix — a revoked token, a closed poll. */

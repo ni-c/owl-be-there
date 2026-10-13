@@ -1,3 +1,4 @@
+import { addDays, answerFor, LIMITS, respondentOf } from '@owl/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createEvent,
@@ -417,6 +418,380 @@ describe('marks', () => {
         ['2027-03-06']
       );
       expect(response.statusCode).toBe(400);
+    });
+  });
+
+  describe('a day added after the person last answered', () => {
+    const OLD = ['2027-03-05', ...WEEKEND];
+    const NEW = '2027-03-08';
+    const NEWER = '2027-03-09';
+    // The days the event has now, as the organiser last saw them.
+    let current: string[];
+    beforeEach(() => {
+      current = [...OLD];
+    });
+
+    const tick = (ms: number) => {
+      t.clock.time += ms;
+    };
+    const add = async (...days: string[]) => {
+      const response = await t.app.inject({
+        method: 'PATCH',
+        url: `/api/events/${id}`,
+        headers: adminHeaders(adminToken),
+        payload: { days: [...current, ...days], baseDays: current },
+      });
+      expect(response.statusCode).toBe(200);
+      current = [...current, ...days];
+    };
+    const view = async (who: { participantId: string }) =>
+      (await getSnapshot(t.app, id)).participants.find(
+        (p: { id: string }) => p.id === who.participantId
+      );
+    const answerOf = (
+      person: Parameters<typeof respondentOf>[0],
+      day: string
+    ) => answerFor(respondentOf(person), day);
+    const markedAt = (who: { participantId: string }) =>
+      t.db.get<{ marks_at: number | null }>(
+        'SELECT marks_at FROM participants WHERE id = ?',
+        who.participantId
+      )!.marks_at;
+    const put = (
+      who: { participantId: string; token: string },
+      payload: Record<string, unknown>
+    ) =>
+      t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/participants/${who.participantId}/marks`,
+        headers: { 'x-participant-token': who.token },
+        payload,
+      });
+
+    /** Max answers one second after joining, the organiser adds NEW a second later. */
+    const answeredThenAdded = async () => {
+      const max = await join(t.app, id, 'Max');
+      tick(1000);
+      expect(
+        (await mark(t.app, id, max, ['2027-03-06'], [], 0, OLD)).statusCode
+      ).toBe(200);
+      tick(1000);
+      const addedAt = t.clock.time;
+      await add(NEW);
+      tick(500);
+      return { max, addedAt };
+    };
+
+    it('stays new, and open rather than "no", for a save that did not know it', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      expect((await view(max)).unseen).toEqual([NEW]);
+      const saved = await mark(t.app, id, max, ['2027-03-06'], [], 1, OLD);
+      expect(saved.statusCode).toBe(200);
+      const after = await view(max);
+      expect(after).toMatchObject({
+        answered: true,
+        yes: ['2027-03-06'],
+        unseen: [NEW],
+        rev: 2,
+      });
+      expect(answerOf(after, NEW)).toBe('open');
+      expect(answerOf(after, '2027-03-07')).toBe('no');
+      expect(markedAt(max)).toBe(addedAt - 1);
+    });
+
+    it('is cleared by a save that knew it', async () => {
+      const { max } = await answeredThenAdded();
+      const saved = await mark(t.app, id, max, ['2027-03-06'], [], 1, [
+        ...OLD,
+        NEW,
+      ]);
+      expect(saved.statusCode).toBe(200);
+      const after = await view(max);
+      expect(after.unseen).toEqual([]);
+      expect(answerOf(after, NEW)).toBe('no');
+      expect(markedAt(max)).toBe(t.clock.time);
+    });
+
+    it('is cleared by a save without the list, as it always was', async () => {
+      const { max } = await answeredThenAdded();
+      expect(
+        (await mark(t.app, id, max, ['2027-03-06'], [], 1)).statusCode
+      ).toBe(200);
+      const after = await view(max);
+      expect(after.unseen).toEqual([]);
+      expect(answerOf(after, NEW)).toBe('no');
+      expect(markedAt(max)).toBe(t.clock.time);
+    });
+
+    it('stays new for a save that knew no day at all, and for one that knew only old ones', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      expect((await mark(t.app, id, max, [], [], 1, [])).statusCode).toBe(200);
+      expect((await view(max)).unseen).toEqual([NEW]);
+      expect(markedAt(max)).toBe(addedAt - 1);
+      // An old day the list lacks was seen long ago: only NEW counts.
+      expect(
+        (await mark(t.app, id, max, [], [], 2, ['2027-03-06'])).statusCode
+      ).toBe(200);
+      expect((await view(max)).unseen).toEqual([NEW]);
+    });
+
+    it('keeps a day new through a save of nothing, "none of these days" included', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      const emptied = await mark(t.app, id, max, [], [], 1, OLD);
+      expect(emptied.statusCode).toBe(200);
+      expect(await view(max)).toMatchObject({
+        answered: true,
+        yes: [],
+        maybe: [],
+        unseen: [NEW],
+      });
+      expect(markedAt(max)).toBe(addedAt - 1);
+      // The next save, now with the day known, clears it.
+      expect(
+        (await mark(t.app, id, max, [], [], 2, [...OLD, NEW])).statusCode
+      ).toBe(200);
+      expect((await view(max)).unseen).toEqual([]);
+    });
+
+    it('counts from joining for someone who never saved', async () => {
+      const max = await join(t.app, id, 'Max');
+      tick(1000);
+      const addedAt = t.clock.time;
+      await add(NEW);
+      tick(500);
+      // Never answered: nothing is unseen yet, and the first save decides.
+      expect(await view(max)).toMatchObject({ answered: false, unseen: [] });
+      const first = await mark(t.app, id, max, ['2027-03-06'], [], 0, OLD);
+      expect(first.statusCode).toBe(200);
+      const after = await view(max);
+      expect(after).toMatchObject({ answered: true, unseen: [NEW] });
+      expect(answerOf(after, NEW)).toBe('open');
+      expect(markedAt(max)).toBe(addedAt - 1);
+
+      const ana = await join(t.app, id, 'Ana');
+      expect((await mark(t.app, id, ana, [], [], 0, current)).statusCode).toBe(
+        200
+      );
+      expect((await view(ana)).unseen).toEqual([]);
+      expect(markedAt(ana)).toBe(t.clock.time);
+    });
+
+    it('does not count a day added in the very millisecond someone joined', async () => {
+      await add(NEW);
+      const max = await join(t.app, id, 'Max');
+      tick(500);
+      expect((await mark(t.app, id, max, [], [], 0, OLD)).statusCode).toBe(200);
+      expect((await view(max)).unseen).toEqual([]);
+      expect(markedAt(max)).toBe(t.clock.time);
+    });
+
+    describe('with two days added at different times', () => {
+      // NEW a second after Max answered, NEWER another second later.
+      const twoAdded = async () => {
+        const { max, addedAt } = await answeredThenAdded();
+        tick(1000);
+        const newerAt = t.clock.time;
+        await add(NEWER);
+        tick(500);
+        return { max, addedAt, newerAt };
+      };
+
+      it('keeps only the later one when the sender knew the earlier', async () => {
+        const { max, newerAt } = await twoAdded();
+        expect(
+          (await mark(t.app, id, max, [], [], 1, [...OLD, NEW])).statusCode
+        ).toBe(200);
+        expect((await view(max)).unseen).toEqual([NEWER]);
+        expect(markedAt(max)).toBe(newerAt - 1);
+        // What the stamp has passed is seen for good, even for a poorer list.
+        expect((await mark(t.app, id, max, [], [], 2, OLD)).statusCode).toBe(
+          200
+        );
+        expect((await view(max)).unseen).toEqual([NEWER]);
+        expect(markedAt(max)).toBe(newerAt - 1);
+      });
+
+      it('keeps both when the sender knew neither', async () => {
+        const { max, addedAt } = await twoAdded();
+        expect((await mark(t.app, id, max, [], [], 1, OLD)).statusCode).toBe(
+          200
+        );
+        expect((await view(max)).unseen).toEqual([NEW, NEWER]);
+        expect(markedAt(max)).toBe(addedAt - 1);
+      });
+
+      it('keeps both when the list has the later day but not the earlier', async () => {
+        // No snapshot looks like that; the earlier day decides.
+        const { max, addedAt } = await twoAdded();
+        expect(
+          (await mark(t.app, id, max, [], [], 1, [...OLD, NEWER])).statusCode
+        ).toBe(200);
+        expect((await view(max)).unseen).toEqual([NEW, NEWER]);
+        expect(markedAt(max)).toBe(addedAt - 1);
+      });
+
+      it('clears both when the sender knew both', async () => {
+        const { max } = await twoAdded();
+        expect(
+          (await mark(t.app, id, max, [], [], 1, [...OLD, NEW, NEWER]))
+            .statusCode
+        ).toBe(200);
+        expect((await view(max)).unseen).toEqual([]);
+        expect(markedAt(max)).toBe(t.clock.time);
+      });
+    });
+
+    it('keeps both of two days added in one millisecond, for a sender that knew one', async () => {
+      const max = await join(t.app, id, 'Max');
+      tick(1000);
+      expect((await mark(t.app, id, max, [], [], 0, OLD)).statusCode).toBe(200);
+      tick(1000);
+      const addedAt = t.clock.time;
+      await add(NEW);
+      await add(NEWER);
+      tick(500);
+      expect(
+        (await mark(t.app, id, max, [], [], 1, [...OLD, NEW])).statusCode
+      ).toBe(200);
+      // One stamp cannot tell them apart: the one it knew shows as new too.
+      expect((await view(max)).unseen).toEqual([NEW, NEWER]);
+      expect(markedAt(max)).toBe(addedAt - 1);
+      expect(
+        (await mark(t.app, id, max, [], [], 2, [...OLD, NEW, NEWER])).statusCode
+      ).toBe(200);
+      expect((await view(max)).unseen).toEqual([]);
+    });
+
+    it('never stamps earlier than the last answer', async () => {
+      const max = await join(t.app, id, 'Max');
+      tick(1000);
+      expect((await mark(t.app, id, max, [], [], 0, OLD)).statusCode).toBe(200);
+      const answeredAt = markedAt(max);
+      // A day added the very next millisecond is the earliest a day can be new.
+      tick(1);
+      await add(NEW);
+      tick(500);
+      expect((await mark(t.app, id, max, [], [], 1, OLD)).statusCode).toBe(200);
+      expect(markedAt(max)).toBe(answeredAt);
+      expect((await view(max)).unseen).toEqual([NEW]);
+      // Saving again with nothing new to keep never goes back either.
+      expect((await mark(t.app, id, max, [], [], 2, OLD)).statusCode).toBe(200);
+      expect(markedAt(max)).toBe(answeredAt);
+    });
+
+    it('ignores listed days that are no candidates', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      // The organiser removes 2027-03-05 meanwhile; the list still has it, and
+      // a day that was never a candidate.
+      const removed = await t.app.inject({
+        method: 'PATCH',
+        url: `/api/events/${id}`,
+        headers: adminHeaders(adminToken),
+        payload: { days: ['2027-03-06', '2027-03-07', NEW], baseDays: current },
+      });
+      expect(removed.statusCode).toBe(200);
+      const saved = await mark(t.app, id, max, ['2027-03-06'], [], 1, [
+        ...OLD,
+        '2027-04-01',
+      ]);
+      expect(saved.statusCode).toBe(200);
+      expect(await view(max)).toMatchObject({
+        yes: ['2027-03-06'],
+        unseen: [NEW],
+      });
+      expect(markedAt(max)).toBe(addedAt - 1);
+      // Only strangers listed: the same as knowing nothing.
+      expect(
+        (await mark(t.app, id, max, [], [], 2, ['2027-04-01', '2027-04-02']))
+          .statusCode
+      ).toBe(200);
+      expect((await view(max)).unseen).toEqual([NEW]);
+    });
+
+    it('refuses a list that is not valid, saving nothing', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      const base = { baseRev: 1, yes: ['2027-03-07'], maybe: [] };
+      const tooMany = Array.from({ length: LIMITS.days + 1 }, (_, i) =>
+        addDays('2027-03-01', i)
+      );
+      for (const days of [
+        ['2027-02-30'],
+        ['2027-3-8'],
+        ['tomorrow'],
+        [''],
+        [20270308],
+        [null],
+        'all',
+        null,
+        {},
+        tooMany,
+      ]) {
+        const response = await put(max, { ...base, days });
+        expect(response.statusCode, JSON.stringify(days).slice(0, 40)).toBe(
+          400
+        );
+        expect(response.json().error).toBe('validation_failed');
+      }
+      // Nothing was saved, the revision and the answer time included.
+      expect(await view(max)).toMatchObject({
+        yes: ['2027-03-06'],
+        rev: 1,
+        unseen: [NEW],
+      });
+      expect(markedAt(max)).toBeLessThan(addedAt);
+      // An extra field is as unknown as it was.
+      const extra = await put(max, { ...base, days: OLD, known: OLD });
+      expect(extra.statusCode).toBe(400);
+    });
+
+    it('accepts the longest list, beside the longest marks', async () => {
+      const all = Array.from({ length: LIMITS.days }, (_, i) =>
+        addDays('2027-03-05', i)
+      );
+      const big = await createEvent(t.app, { days: all });
+      const max = await join(t.app, big.id, 'Max');
+      tick(1000);
+      // yes, maybe and the list at the limit each: the body must still fit.
+      const strangers = Array.from({ length: LIMITS.days }, (_, i) =>
+        addDays('2028-03-05', i)
+      );
+      const response = await t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${big.id}/participants/${max.participantId}/marks`,
+        headers: { 'x-participant-token': max.token },
+        payload: { baseRev: 0, yes: all, maybe: strangers, days: all },
+      });
+      expect(response.statusCode).toBe(200);
+      const person = (await getSnapshot(t.app, big.id)).participants[0];
+      expect(person.yes).toHaveLength(LIMITS.days);
+      expect(person.unseen).toEqual([]);
+    });
+
+    it('still answers a stale revision with the 409 and the current marks, and changes nothing', async () => {
+      const { max, addedAt } = await answeredThenAdded();
+      const late = await mark(t.app, id, max, ['2027-03-07'], [], 0, [
+        ...OLD,
+        NEW,
+      ]);
+      expect(late.statusCode).toBe(409);
+      expect(late.json()).toEqual({
+        error: 'stale',
+        rev: 1,
+        yes: ['2027-03-06'],
+        maybe: [],
+      });
+      // The refused save did not clear the day, whatever it knew.
+      expect((await view(max)).unseen).toEqual([NEW]);
+      expect(markedAt(max)).toBeLessThan(addedAt);
+      // The retry on the revision it was handed goes through.
+      expect(
+        (await mark(t.app, id, max, ['2027-03-07'], [], 1, OLD)).statusCode
+      ).toBe(200);
+      expect(await view(max)).toMatchObject({
+        yes: ['2027-03-07'],
+        rev: 2,
+        unseen: [NEW],
+      });
     });
   });
 

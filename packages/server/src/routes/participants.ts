@@ -304,7 +304,8 @@ export function registerParticipantRoutes(
         body.baseRev,
         yes,
         maybe,
-        ctx.clock.now()
+        ctx.clock.now(),
+        body.days
       );
       if (!result.ok) {
         return reply.code(409).send({

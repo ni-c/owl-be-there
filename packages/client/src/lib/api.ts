@@ -220,7 +220,7 @@ export const api = {
   async putMarks(
     id: string,
     participantId: string,
-    body: { baseRev: number; yes: string[]; maybe: string[] },
+    body: { baseRev: number; yes: string[]; maybe: string[]; days?: string[] },
     credentials: Credentials
   ): Promise<
     { ok: true; rev: number; version: number } | { ok: false; rev: number }

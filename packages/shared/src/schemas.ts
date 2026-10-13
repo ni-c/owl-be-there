@@ -124,6 +124,8 @@ export const MarksBody = z.strictObject({
   baseRev: z.int().min(0),
   yes: DayList,
   maybe: DayList,
+  /** The candidate days the sender knew; omitted, the save counts as having seen every day. */
+  days: DayList.optional(),
 });
 
 export const UpdateParticipantBody = z.strictObject({

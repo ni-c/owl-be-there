@@ -119,13 +119,14 @@ export async function mark(
   who: { participantId: string; token: string },
   yes: string[],
   maybe: string[] = [],
-  baseRev = 0
+  baseRev = 0,
+  days?: string[]
 ): Promise<LightMyRequestResponse> {
   return app.inject({
     method: 'PUT',
     url: `/api/events/${id}/participants/${who.participantId}/marks`,
     headers: { 'x-participant-token': who.token },
-    payload: { baseRev, yes, maybe },
+    payload: { baseRev, yes, maybe, ...(days !== undefined && { days }) },
   });
 }
 

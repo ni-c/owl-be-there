@@ -123,6 +123,38 @@ describe('api', () => {
     expect(calls[0]!.init.keepalive).toBeUndefined();
   });
 
+  it('puts the days a save knew into the body, and leaves the field out when there are none to name', async () => {
+    const calls = mockFetch(
+      jsonResponse(200, { rev: 1, version: 4 }),
+      jsonResponse(200, { rev: 2, version: 5 }),
+      jsonResponse(200, { rev: 3, version: 6 })
+    );
+    const body = (index: number) =>
+      JSON.parse(calls[index]!.init.body as string) as Record<string, unknown>;
+    await api.putMarks(
+      EVENT_ID,
+      PID,
+      { baseRev: 0, yes: ['2027-03-06'], maybe: [], days: ['2027-03-06'] },
+      {}
+    );
+    expect(body(0)).toEqual({
+      baseRev: 0,
+      yes: ['2027-03-06'],
+      maybe: [],
+      days: ['2027-03-06'],
+    });
+    // An empty list is a statement, not an absence.
+    await api.putMarks(
+      EVENT_ID,
+      PID,
+      { baseRev: 1, yes: [], maybe: [], days: [] },
+      {}
+    );
+    expect(body(1)).toHaveProperty('days', []);
+    await api.putMarks(EVENT_ID, PID, { baseRev: 2, yes: [], maybe: [] }, {});
+    expect(body(2)).not.toHaveProperty('days');
+  });
+
   it('returns a stale save as an answer, and a closed poll as a failure', async () => {
     mockFetch(
       jsonResponse(409, {

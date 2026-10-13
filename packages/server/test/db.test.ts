@@ -13,8 +13,11 @@ import {
   blockFits,
   emptyEventIds,
   findParticipantByKey,
+  getParticipant,
   listEvents,
+  participantViewOf,
   purgeEmpty,
+  replaceMarks,
   sweepExpired,
 } from '../src/db/repo.js';
 import { NAME_KEY_VERSION, rekeyParticipants } from '../src/db/rekey.js';
@@ -399,6 +402,141 @@ describe('Db.tx', () => {
     db.checkpoint();
     db.close();
     expect(() => db.close()).not.toThrow();
+  });
+});
+
+describe('replaceMarks and the days a save knew', () => {
+  const DAYS: [string, number][] = [
+    ['2027-03-05', 100],
+    ['2027-03-06', 100],
+    ['2027-03-07', 5000],
+    ['2027-03-08', 7000],
+  ];
+  const ALL = DAYS.map(([day]) => day);
+
+  /** One event with DAYS, one person created at 100 who last answered at `markedAt`. */
+  const setup = (markedAt: number | null) => {
+    const db = fresh();
+    db.run(
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+       VALUES ('e', 'h', 't', 'owl', 'en', 1, 100, 100, '2028-01-01')`
+    );
+    for (const [day, addedAt] of DAYS)
+      db.run(
+        'INSERT INTO event_days (event_id, day, added_at) VALUES (?, ?, ?)',
+        'e',
+        day,
+        addedAt
+      );
+    db.run(
+      `INSERT INTO participants (id, event_id, name, name_key, source, marks_at, created_at)
+       VALUES ('p', 'e', 'Max', 'max', 'self', ?, 100)`,
+      markedAt
+    );
+    const save = (
+      known: string[] | undefined,
+      now: number,
+      baseRev = 0,
+      yes: string[] = []
+    ) => replaceMarks(db, 'e', 'p', baseRev, yes, [], now, known);
+    const state = () => {
+      const row = db.get<{ marks_at: number | null; rev: number }>(
+        'SELECT marks_at, rev FROM participants WHERE id = ?',
+        'p'
+      )!;
+      return { markedAt: row.marks_at, rev: row.rev };
+    };
+    const unseen = () =>
+      participantViewOf(db, 'e', getParticipant(db, 'e', 'p')!).unseen;
+    return { db, save, state, unseen };
+  };
+
+  it('stamps the time of the save when no list comes with it', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(undefined, 9000).ok).toBe(true);
+    expect(state()).toEqual({ markedAt: 9000, rev: 1 });
+    expect(unseen()).toEqual([]);
+  });
+
+  it('stamps the time of the save when the list has every day added since', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(ALL, 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(9000);
+    expect(unseen()).toEqual([]);
+  });
+
+  it('stamps one millisecond before the first day added since that the list lacks', () => {
+    const { save, state, unseen } = setup(1000);
+    // Knows the day added at 5000, not the one added at 7000.
+    expect(save(ALL.slice(0, 3), 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(6999);
+    expect(unseen()).toEqual(['2027-03-08']);
+  });
+
+  it('lets the first lacking day decide, whichever the list holds after it', () => {
+    const { save, state, unseen } = setup(1000);
+    expect(save(['2027-03-05', '2027-03-08'], 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+  });
+
+  it('counts a day added in the very millisecond of the last answer as seen', () => {
+    const { save, state } = setup(5000);
+    expect(save(['2027-03-05', '2027-03-06'], 9000).ok).toBe(true);
+    // Only the day added at 7000 is newer than 5000; 5000 itself is not.
+    expect(state().markedAt).toBe(6999);
+  });
+
+  it('never goes back past the last answer', () => {
+    const { save, state, unseen } = setup(4999);
+    // The day added at 5000 is the first new one: 4999 is as far as it goes.
+    expect(save([], 9000).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+    expect(save([], 9500, 1).ok).toBe(true);
+    expect(state().markedAt).toBe(4999);
+  });
+
+  it('never stamps a time later than the save itself', () => {
+    // A clock that stepped back: the lacking day looks younger than "now".
+    const { save, state } = setup(1000);
+    expect(save(ALL.slice(0, 3), 3000).ok).toBe(true);
+    expect(state().markedAt).toBe(3000);
+  });
+
+  it('counts from the creation of someone who never answered', () => {
+    const { save, state, unseen } = setup(null);
+    expect(save(['2027-03-05', '2027-03-06'], 9000).ok).toBe(true);
+    // Created at 100: the days added at 5000 and 7000 are both new to them.
+    expect(state().markedAt).toBe(4999);
+    expect(unseen()).toEqual(['2027-03-07', '2027-03-08']);
+    const second = setup(null);
+    expect(second.save(ALL, 9000).ok).toBe(true);
+    expect(second.state().markedAt).toBe(9000);
+    // The days added at creation are no news, whatever the list says.
+    const third = setup(null);
+    expect(third.save([], 9000).ok).toBe(true);
+    expect(third.state().markedAt).toBe(4999);
+  });
+
+  it('answers a save on an old revision without touching the answer time', () => {
+    const { save, state } = setup(1000);
+    expect(save(ALL, 2000).ok).toBe(true);
+    const refused = save([], 9000, 0);
+    expect(refused).toMatchObject({ ok: false, rev: 1 });
+    expect(state()).toEqual({ markedAt: 2000, rev: 1 });
+  });
+
+  it('keeps its marks, and ignores listed days that are no candidates', () => {
+    const { db, save, state } = setup(1000);
+    expect(
+      save(['2027-03-05', '2099-01-01', 'not a day'], 9000, 0, ['2027-03-05'])
+        .ok
+    ).toBe(true);
+    expect(state().markedAt).toBe(4999);
+    expect(
+      db.all('SELECT day, state FROM marks WHERE participant_id = ?', 'p')
+    ).toEqual([{ day: '2027-03-05', state: 'yes' }]);
   });
 });
 
