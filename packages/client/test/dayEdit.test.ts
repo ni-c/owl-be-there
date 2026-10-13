@@ -78,8 +78,14 @@ describe('extendSelection', () => {
   const last = march(7);
   const today = march(1);
   const base = all([5, 6, 7].map(march));
-  const extend = (until: string, from = base) =>
-    extendSelection(from, { first, last, until, today });
+  const extend = (until: string, from = base, shownEnd?: ISODate) =>
+    extendSelection(from, {
+      first,
+      last,
+      until,
+      today,
+      ...(shownEnd === undefined ? {} : { shownEnd }),
+    });
 
   it('adds the days up to the date and drops them again when it moves back', () => {
     const far = extend('2027-04-07');
@@ -101,6 +107,132 @@ describe('extendSelection', () => {
     const edited = new Map(base);
     edited.delete(march(6));
     expect(sorted(extend(march(9), edited))).toEqual([5, 7, 8, 9].map(march));
+  });
+
+  describe('with the end the calendar shows', () => {
+    // 5 to 7 are the saved days; the calendar was extended to the 12th and the
+    // organiser switched off the 10th.
+    const shown = march(12);
+    const edited = () => {
+      const from = extend(shown);
+      from.delete(march(10));
+      return from;
+    };
+
+    it('keeps an added day that was switched off when the date moves on', () => {
+      const further = extend(march(15), edited(), shown);
+      expect(sorted(further)).toEqual(
+        [5, 6, 7, 8, 9, 11, 12, 13, 14, 15].map(march)
+      );
+      // Without the shown end the day comes back, which is the bug it fixes.
+      expect(extend(march(15), edited()).has(march(10))).toBe(true);
+    });
+
+    it('keeps it off when the date moves back but stays past the last day', () => {
+      const nearer = extend(march(11), edited(), shown);
+      expect(sorted(nearer)).toEqual([5, 6, 7, 8, 9, 11].map(march));
+      // And when the same date is applied again.
+      const same = extend(shown, edited(), shown);
+      expect(sorted(same)).toEqual([5, 6, 7, 8, 9, 11, 12].map(march));
+    });
+
+    it('keeps it off through a chain of dates, one after the other', () => {
+      let selection = extend(march(9));
+      let end = march(9);
+      for (const until of [march(10), march(11), march(10), march(13)]) {
+        selection = extend(until, selection, end);
+        if (until === march(10)) selection.delete(march(10));
+        end = until;
+      }
+      expect(sorted(selection)).toEqual([5, 6, 7, 8, 9, 11, 12, 13].map(march));
+    });
+
+    it('brings the days back as chosen after the date went below them', () => {
+      // Documented limit: a day dropped with the calendar's end is gone.
+      const shrunk = extend(march(9), edited(), shown);
+      expect(sorted(shrunk)).toEqual([5, 6, 7, 8, 9].map(march));
+      const grown = extend(shown, shrunk, march(9));
+      expect(sorted(grown)).toEqual([5, 6, 7, 8, 9, 10, 11, 12].map(march));
+    });
+
+    it('returns to the saved days for the last day, an earlier date or none', () => {
+      const original = [5, 6, 7].map(march);
+      expect(sorted(extend(last, edited(), shown))).toEqual(original);
+      expect(sorted(extend(march(6), edited(), shown))).toEqual(original);
+      expect(sorted(extend(march(1), edited(), shown))).toEqual(original);
+      expect(sorted(extend('', edited(), shown))).toEqual(original);
+      expect(sorted(extend('2027-3-9', edited(), shown))).toEqual(original);
+      // Starting again from the saved days adds everything, as at first.
+      expect(
+        sorted(extend(shown, extend(last, edited(), shown), last))
+      ).toEqual([5, 6, 7, 8, 9, 10, 11, 12].map(march));
+    });
+
+    it('adds the first day after the last one', () => {
+      const added = extend(march(8), base, last);
+      expect(sorted(added)).toEqual([5, 6, 7, 8].map(march));
+      // A calendar that shows only the saved days is where it starts.
+      expect(sorted(extend(march(9), added, march(8)))).toEqual(
+        [5, 6, 7, 8, 9].map(march)
+      );
+    });
+
+    it('starts at today when the shown end lies before it', () => {
+      const late = { first, last, today: march(10) };
+      const grown = extendSelection(base, {
+        ...late,
+        until: march(12),
+        shownEnd: march(8),
+      });
+      expect(sorted(grown)).toEqual([5, 6, 7, 10, 11, 12].map(march));
+      // A shown end after today leads, and the day before it stays as it is.
+      const after = extendSelection(all([5, 6, 7, 11].map(march)), {
+        ...late,
+        until: march(13),
+        shownEnd: march(11),
+      });
+      expect(sorted(after)).toEqual([5, 6, 7, 11, 12, 13].map(march));
+    });
+
+    it('behaves as before without it, or with the last day', () => {
+      const from = edited();
+      for (const until of [march(6), last, march(9), shown, march(20), '']) {
+        const plain = extend(until, from);
+        expect(extend(until, from, undefined)).toEqual(plain);
+        expect(extend(until, from, last)).toEqual(plain);
+        // A shown end before the last day is the last day.
+        expect(extend(until, from, march(6))).toEqual(plain);
+      }
+    });
+
+    it('counts the days the calendar shows against what an event may hold', () => {
+      const grown = extend('2029-01-01');
+      expect(grown.size).toBe(LIMITS.days);
+      const end = sorted(grown).at(-1)!;
+      // Full: nothing is added past the shown end.
+      expect(extend('2029-01-01', grown, end).size).toBe(LIMITS.days);
+      // One switched off makes room for exactly one more.
+      const edited = new Map(grown);
+      edited.delete(march(10));
+      const refilled = extend('2029-01-01', edited, end);
+      expect(refilled.size).toBe(LIMITS.days);
+      expect(refilled.has(march(10))).toBe(false);
+      expect(refilled.has(addDays(end, 1))).toBe(true);
+    });
+
+    it('adds only the new days when nothing is left of the added ones', () => {
+      const none = extend(march(9));
+      none.delete(march(8));
+      none.delete(march(9));
+      expect(sorted(extend(march(11), none, march(9)))).toEqual(
+        [5, 6, 7, 10, 11].map(march)
+      );
+      // The same with nothing selected at all.
+      expect(sorted(extend(march(9), new Map(), last))).toEqual(
+        [8, 9].map(march)
+      );
+      expect(extend(march(9), new Map(), march(9)).size).toBe(0);
+    });
   });
 
   it('never holds more days than an event may', () => {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   createEvent,
   day,
@@ -32,6 +32,32 @@ function midWeekOffset(): number {
   if (offset === undefined)
     throw new Error('no Tuesday or Wednesday in six days');
   return offset;
+}
+
+/** A key with the modifiers held down. */
+interface Chord {
+  key: string;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+}
+
+/**
+ * Sends a keydown to a day cell and says whether the page left it to the
+ * browser. Dispatched in the page, so a shortcut like Alt+ArrowLeft cannot
+ * navigate away, and the same on every browser and screen.
+ */
+function leftToBrowser(cell: Locator, chord: Chord): Promise<boolean> {
+  return cell.evaluate((element, init) => {
+    const event = new KeyboardEvent('keydown', {
+      ...init,
+      bubbles: true,
+      cancelable: true,
+    });
+    element.dispatchEvent(event);
+    return !event.defaultPrevented;
+  }, chord);
 }
 
 async function myMarks(
@@ -281,6 +307,145 @@ test.describe('painting days', () => {
     await page.keyboard.press('Control+y');
     await page.keyboard.press('Alt+y');
     await expect(maybe).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('Alt, Cmd and Ctrl with the arrow keys, Home and End are left to the browser', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Jonas');
+    const grid = myCalendar(page);
+    // Back and Forward (Alt on Windows and Linux, Cmd on macOS), and the top
+    // and bottom of the page.
+    const chords: Chord[] = [
+      { key: 'ArrowLeft', altKey: true },
+      { key: 'ArrowRight', altKey: true },
+      { key: 'ArrowLeft', metaKey: true },
+      { key: 'ArrowRight', metaKey: true },
+      { key: 'ArrowUp', ctrlKey: true },
+      { key: 'ArrowDown', metaKey: true },
+      { key: 'Home', ctrlKey: true },
+      { key: 'End', ctrlKey: true },
+      { key: 'Home', metaKey: true },
+      { key: 'End', altKey: true },
+      // Shift does not give the keys back to the page.
+      { key: 'ArrowRight', altKey: true, shiftKey: true },
+      { key: 'ArrowDown', ctrlKey: true, shiftKey: true },
+    ];
+    // The first day, one in the middle and the last: Home and End have
+    // nowhere to go at the ends, and still must not be taken.
+    for (const offset of [3, 9, 16]) {
+      const cell = day(grid, D(offset));
+      await cell.focus();
+      for (const chord of chords) {
+        expect(await leftToBrowser(cell, chord), JSON.stringify(chord)).toBe(
+          true
+        );
+        await expect(cell).toBeFocused();
+      }
+    }
+    // Nothing was selected or painted on the way.
+    await expect(grid.locator('[data-preview="true"]')).toHaveCount(0);
+    await expect(grid.locator('[data-state="yes"]')).toHaveCount(0);
+    // The same keys without a modifier are the calendar's, so the check above
+    // is not passing for want of a handler.
+    const cell = day(grid, D(9));
+    await cell.focus();
+    for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+      expect(await leftToBrowser(cell, { key }), key).toBe(false);
+      expect(await leftToBrowser(cell, { key, shiftKey: true }), key).toBe(
+        false
+      );
+    }
+    for (const key of ['Home', 'End']) {
+      expect(await leftToBrowser(cell, { key }), key).toBe(false);
+      expect(await leftToBrowser(cell, { key, shiftKey: true }), key).toBe(
+        false
+      );
+    }
+  });
+
+  test('the arrow keys, Home and End still move the focus, and Shift extends a selection', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Karla');
+    const grid = myCalendar(page);
+    await day(grid, D(9)).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(day(grid, D(10))).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(day(grid, D(9))).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(day(grid, D(16))).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(day(grid, D(9))).toBeFocused();
+    // Home and End go to the ends of the week, as far as it has days.
+    const ends = await day(grid, D(9)).evaluate((element) => {
+      const row = element.closest('[role="row"]')!;
+      const cells = [...row.querySelectorAll<HTMLElement>('[data-day]')];
+      return {
+        first: cells[0]!.dataset.day!,
+        last: cells.at(-1)!.dataset.day!,
+      };
+    });
+    await page.keyboard.press('End');
+    await expect(day(grid, ends.last)).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(day(grid, ends.first)).toBeFocused();
+    // The first and the last day of the range: nowhere further to go.
+    await day(grid, D(3)).focus();
+    await page.keyboard.press('Home');
+    await expect(day(grid, D(3))).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(day(grid, D(3))).toBeFocused();
+    await day(grid, D(16)).focus();
+    await page.keyboard.press('End');
+    await expect(day(grid, D(16))).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(day(grid, D(16))).toBeFocused();
+    // Shift + arrow spans a rectangle from where it started.
+    await day(grid, D(4)).focus();
+    await page.keyboard.press('Shift+ArrowDown');
+    await expect(day(grid, D(11))).toBeFocused();
+    await expect(day(grid, D(4))).toHaveAttribute('data-preview', 'true');
+    await expect(day(grid, D(11))).toHaveAttribute('data-preview', 'true');
+    await page.keyboard.press('Space');
+    await expect(day(grid, D(4))).toHaveAttribute('data-state', 'yes');
+    await expect(day(grid, D(11))).toHaveAttribute('data-state', 'yes');
+    // Shift + Home selects along the week.
+    await day(grid, D(16)).focus();
+    await page.keyboard.press('Shift+Home');
+    await expect(grid.locator('[data-preview="true"]')).not.toHaveCount(0);
+  });
+
+  test('undo with Control or Cmd and Z still works on a focused day', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Lena');
+    const grid = myCalendar(page);
+    const cell = day(grid, D(6));
+    await cell.focus();
+    await page.keyboard.press('Space');
+    await expect(cell).toHaveAttribute('data-state', 'yes');
+    await page.keyboard.press('Control+z');
+    await expect(cell).toHaveAttribute('data-state', 'none');
+    await page.keyboard.press('Space');
+    await expect(cell).toHaveAttribute('data-state', 'yes');
+    await page.keyboard.press('Meta+z');
+    await expect(cell).toHaveAttribute('data-state', 'none');
+    // With nothing left to undo, the keys change nothing.
+    await page.keyboard.press('Control+z');
+    await expect(grid.locator('[data-state="yes"]')).toHaveCount(0);
   });
 });
 

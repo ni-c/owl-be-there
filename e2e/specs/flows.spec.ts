@@ -967,6 +967,30 @@ test('forgetting an event without an organiser key takes one tap', async ({
   ).toHaveCount(0);
 });
 
+const ADMIN_REFUSED = 'This organiser link was not accepted.';
+const MADE_UP_KEY = 'A'.repeat(43);
+
+/** Pastes an organiser link's fragment into the open page. */
+async function pasteOrganiserKey(page: Page, key: string): Promise<void> {
+  await page.evaluate((value) => {
+    window.location.hash = `#admin=${value}`;
+  }, key);
+}
+
+/**
+ * Opens an event with a made-up organiser key, which a link whose key passes
+ * the fragment check can leave on the device, and has the server refuse it.
+ */
+async function getRefused(page: Page, id: string): Promise<void> {
+  await page.goto(`/e/${id}#admin=${MADE_UP_KEY}`);
+  const days = await openSection(page, 'Days');
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+}
+
 test('an organiser link pasted into the open event page is taken and removed from the address', async ({
   page,
   request,
@@ -986,6 +1010,107 @@ test('an organiser link pasted into the open event page is taken and removed fro
   expect(
     await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
   ).toContain(adminToken);
+  // Nothing was refused before, so there is nothing to take back.
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('the refused-link notice goes away when the complete link is pasted into the open page', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await getRefused(page, id);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
+
+  await pasteOrganiserKey(page, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(new URL(page.url()).hash).toBe('');
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toContain(adminToken);
+
+  // The tools work again, and the notice does not come back with them.
+  const days = await openSection(page, 'Days');
+  await days.getByRole('button', { name: 'Save' }).click();
+  await expect(days.getByText('Saved')).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('a refused link pasted again keeps the notice, and a link that is no key does not take it back', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  const other = await createEvent(request, { title: 'Chess night' });
+  await getRefused(page, id);
+
+  // Too short to be a key: nothing is stored, the notice stays.
+  await pasteOrganiserKey(page, 'short');
+  await expect.poll(() => new URL(page.url()).hash).toBe('');
+  await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
+
+  // Another key that is not this event's, one of another event included: the
+  // tools return for a moment, are refused again, and the notice with them.
+  for (const key of ['B'.repeat(43), other.adminToken]) {
+    await pasteOrganiserKey(page, key);
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toBeVisible();
+    await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+    const days = await openSection(page, 'Days');
+    await days.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toHaveCount(0);
+  }
+
+  // The complete link then clears it for good.
+  await pasteOrganiserKey(page, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('another event’s organiser link opens that event only; the notice stays out of it', async ({
+  page,
+  request,
+}) => {
+  const { id } = await createEvent(request);
+  const other = await createEvent(request, { title: 'Chess night' });
+  await getRefused(page, id);
+
+  // A fresh page load, as when the link is opened from a message.
+  await page.goto(`/e/${other.id}#admin=${other.adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+
+  // The first event got no key from it.
+  await page.goto(`/e/${id}`);
+  await expect(
+    page.getByRole('heading', { name: 'Summer tournament' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
 });
 
 /** One of the organiser's sections, opened. */
@@ -1015,6 +1140,41 @@ test('the days editor saves only the days its calendar shows', async ({
   await expect(section.getByText('Saved')).toBeVisible();
   expect((await snapshot(request, id)).event.days).toEqual(
     [3, 4, 5, 6, 7, 8].map(D)
+  );
+});
+
+test('a day switched off in the days editor stays off when the end date moves on', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    days: [D(3), D(4), D(5)],
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const section = await openSection(page, 'Days');
+  const grid = section.getByRole('grid');
+  const until = section.getByLabel('Add days up to');
+  await until.fill(D(8));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'true');
+  await day(grid, D(6)).click();
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+
+  // Further, back to a date still past the last day, and the same date again:
+  // the day stays off and the others follow the date.
+  await until.fill(D(10));
+  await expect(day(grid, D(10))).toHaveAttribute('aria-pressed', 'true');
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await until.fill(D(7));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(7))).toHaveAttribute('aria-pressed', 'true');
+  await until.fill(D(9));
+  await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'false');
+  await expect(day(grid, D(8))).toHaveAttribute('aria-pressed', 'true');
+  await expect(day(grid, D(9))).toHaveAttribute('aria-pressed', 'true');
+  await section.getByRole('button', { name: 'Save' }).click();
+  await expect(section.getByText('Saved')).toBeVisible();
+  expect((await snapshot(request, id)).event.days).toEqual(
+    [3, 4, 5, 7, 8, 9].map(D)
   );
 });
 

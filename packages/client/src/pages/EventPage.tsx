@@ -76,7 +76,10 @@ export function EventPage({
       if (!window.location.hash.startsWith('#admin=')) return;
       const taken = takeAdminTokenFromFragment(id);
       if (taken !== null) setCandidate(taken);
-      setAdminToken(readAdminToken(id));
+      const stored = readAdminToken(id);
+      setAdminToken(stored);
+      // A refusal clears the stored key, so one stored now came from this link.
+      if (stored !== null) setAdminRefused(false);
     };
     take();
     window.addEventListener('hashchange', take);

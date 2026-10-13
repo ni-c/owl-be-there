@@ -521,7 +521,13 @@ function DaysEditor(
               const value = e.target.value;
               setUntil(value);
               edit(
-                extendSelection(selection, { first, last, until: value, today })
+                extendSelection(selection, {
+                  first,
+                  last,
+                  until: value,
+                  today,
+                  shownEnd: range[range.length - 1]!,
+                })
               );
             }}
           />

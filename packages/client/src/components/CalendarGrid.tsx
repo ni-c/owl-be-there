@@ -398,7 +398,9 @@ export function CalendarGrid(props: CalendarGridProps) {
       ArrowUp: [-1, 0],
       ArrowDown: [1, 0],
     };
-    const step = steps[event.key];
+    // Alt/Cmd+Arrow (history) and Ctrl+Home/End belong to the browser.
+    const modified = event.altKey || event.ctrlKey || event.metaKey;
+    const step = modified ? undefined : steps[event.key];
     if (step) {
       event.preventDefault();
       const next = move(target, step[0], step[1]);
@@ -408,7 +410,7 @@ export function CalendarGrid(props: CalendarGridProps) {
       if (next) focusDay(next);
       return;
     }
-    if (event.key === 'Home' || event.key === 'End') {
+    if (!modified && (event.key === 'Home' || event.key === 'End')) {
       event.preventDefault();
       const row = rows[positions.get(target)?.row ?? 0]!;
       const inRow = row.days.filter((day) => daySet.has(day));
@@ -434,11 +436,10 @@ export function CalendarGrid(props: CalendarGridProps) {
       setAnchor(null);
       return;
     }
-    const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
-    if (plain && (event.key === 'y' || event.key === 'Y')) {
+    if (!modified && (event.key === 'y' || event.key === 'Y')) {
       paintProps.onBrushChange?.('yes');
     } else if (
-      plain &&
+      !modified &&
       (event.key === 'm' || event.key === 'M' || event.key === '?')
     ) {
       paintProps.onBrushChange?.('maybe');

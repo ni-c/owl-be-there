@@ -63,7 +63,9 @@ export function visibleRange(
  * have passed (the server refuses them and the grid cannot switch them off),
  * never beyond what an event may span or how far ahead it may reach, and never
  * more than an event may hold. Whatever was added stays within those limits,
- * and a date at or before the last day adds nothing.
+ * and a date at or before the last day adds nothing. Days after the last one
+ * that the calendar already showed (`shownEnd`) are kept as they are, so one
+ * the organiser switched off stays off while the date moves on.
  */
 export function extendSelection(
   selection: Marks,
@@ -72,9 +74,11 @@ export function extendSelection(
     last: ISODate;
     until: string;
     today: ISODate;
+    /** The last day the calendar shows now; defaults to the last day. */
+    shownEnd?: ISODate;
   }
 ): Map<ISODate, Mark> {
-  const { first, last, until, today } = range;
+  const { first, last, until, today, shownEnd } = range;
   const shown = visibleRange(first, last, until);
   const end = shown[shown.length - 1]!;
   const next = new Map<ISODate, Mark>();
@@ -86,7 +90,12 @@ export function extendSelection(
     addDays(today, LIMITS.horizon)
   );
   const upTo = minISODate(until, limit);
-  for (const day of expandRange(maxISODate(addDays(last, 1), today), upTo)) {
+  // A date typed before the last day drops the added days; they return as chosen.
+  const shownLast = maxISODate(last, shownEnd ?? last);
+  for (const day of expandRange(
+    maxISODate(addDays(shownLast, 1), today),
+    upTo
+  )) {
     if (next.size >= LIMITS.days) break;
     next.set(day, 'yes');
   }
