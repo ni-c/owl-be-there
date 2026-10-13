@@ -45,6 +45,8 @@ async function expectAccessible(page: Page, label: string): Promise<void> {
 
 for (const scheme of ['light', 'dark'] as const) {
   test(`pages pass axe in ${scheme} mode`, async ({ browser, request }) => {
+    // Eight axe scans take 24-28 s in WebKit, too close to the 30 s default.
+    test.slow();
     const context = await browser.newContext({
       colorScheme: scheme,
       locale: 'en-GB',
@@ -115,7 +117,13 @@ test('the app talks to nobody but its own server and breaks no CSP rule', async 
   page.on('pageerror', (error) => violations.push(error.message));
 
   const { id } = await createEvent(request);
+  // Let the start page's own request finish: WebKit logs one that a navigation
+  // cuts off as a failed access control check.
+  const instance = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === '/api/instance'
+  );
   await page.goto('/');
+  await (await instance).finished();
   await page.goto(`/e/${id}`);
   await joinAs(page, 'Carla');
   await day(myCalendar(page), dayFromNow(4)).click();
