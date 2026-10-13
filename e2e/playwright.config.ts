@@ -17,8 +17,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : 4,
+  // The github reporter annotates failed and flaky tests, so a run that went
+  // green only through a retry still says so.
   reporter: process.env.CI
-    ? [['list'], ['html', { open: 'never' }]]
+    ? [['list'], ['html', { open: 'never' }], ['github']]
     : [['list']],
   timeout: 30_000,
   expect: { timeout: 7_000 },

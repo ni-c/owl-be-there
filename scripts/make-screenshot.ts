@@ -29,6 +29,7 @@ import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { PREVIEW_COLOURS } from '@owl/shared';
 import { chromium, type Browser, type Page } from '@playwright/test';
 
 const root = resolve(import.meta.dirname, '..');
@@ -147,26 +148,18 @@ async function shootOg(browser: Browser): Promise<void> {
     join(root, 'packages/client/public/favicon.svg'),
     'utf8'
   );
-  // The empty cell and the steps of the heatmap ramp (`PREVIEW_COLOURS.heat` in
-  // shared/preview.ts), as a strip of calendar days.
-  const cells = [
-    '#f1e8da',
-    '#6fbc9f',
-    '#f1e8da',
-    '#4aa685',
-    '#268262',
-    '#0e5441',
-    '#1a7055',
-  ];
+  // The empty cell and the steps of the heatmap ramp, as a strip of calendar days.
+  const { heat } = PREVIEW_COLOURS;
+  const cells = [heat[0], heat[1], heat[0], heat[2], heat[3], heat[5], heat[4]];
   const html = `<!doctype html><html><head><style>
   ${fontFace(400)}
   ${fontFace(800)}
   html, body { margin: 0; width: 1200px; height: 630px; }
   body { display: flex; align-items: center; justify-content: center; gap: 64px;
-    background: #fbf6ee; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; color: #2a2118; }
+    background: ${PREVIEW_COLOURS.bg}; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; color: ${PREVIEW_COLOURS.ink}; }
   .owl { width: 340px; height: 352px; }
   h1 { font-size: 92px; margin: 0; font-weight: 800; letter-spacing: -2px; }
-  p { font-size: 40px; margin: 16px 0 0; color: #6b5b4a; font-weight: 400; max-width: 640px; }
+  p { font-size: 40px; margin: 16px 0 0; color: ${PREVIEW_COLOURS.muted}; font-weight: 400; max-width: 640px; }
   .cal { display: grid; grid-template-columns: repeat(7, 46px); gap: 8px; margin-top: 36px; }
   .cal span { height: 46px; border-radius: 12px; }
 </style></head><body>

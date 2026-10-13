@@ -458,9 +458,37 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
   page,
   request,
 }) => {
-  const { id, adminToken } = await createEvent(request, { minCount: 2 });
+  // Anna is on the roster, so a visitor starts on the list of names, where
+  // "Someone else" is the one way to add a new name.
+  const { id, adminToken } = await createEvent(request, {
+    roster: ['Anna'],
+    minCount: 2,
+  });
   await answer(request, id, 'Anna', [D(6), D(7)]);
   await answer(request, id, 'Ben', [D(7)], [D(6)]);
+  const visit = async () => {
+    const visitor = await page.context().browser()!.newPage();
+    await visitor.goto(`/e/${id}`);
+    await showView(visitor, 'mine');
+    // The list of names only: wide screens also show the group view, whose
+    // chips carry the same names.
+    const names = visitor
+      .getByRole('heading', { name: 'your name' })
+      .locator('..');
+    // A positive anchor first: a count of zero holds just as well while the
+    // page is still loading.
+    await expect(names.getByRole('button', { name: 'Anna' })).toBeVisible();
+    return { visitor, names };
+  };
+
+  // While the poll is open, a newcomer may add a name. This is what makes the
+  // absence below mean something.
+  const early = await visit();
+  await expect(
+    early.names.getByRole('button', { name: 'Someone else' })
+  ).toBeVisible();
+  await early.visitor.close();
+
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await showView(page, 'group');
   const best = page
@@ -479,14 +507,17 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
   const data = await snapshot(request, id);
   expect(data.event).toMatchObject({ status: 'finalized', finalStart: D(7) });
 
-  // A participant can no longer change their days.
-  const other = await page.context().browser()!.newPage();
-  await other.goto(`/e/${id}`);
-  await showView(other, 'mine');
-  await other
-    .getByRole('button', { name: 'Someone else' })
-    .waitFor({ state: 'detached' })
-    .catch(() => undefined);
+  // Nobody new can join, and a participant can no longer change their days.
+  const { visitor: other, names } = await visit();
+  await expect(names.getByRole('button', { name: 'Someone else' })).toHaveCount(
+    0
+  );
+  await names.getByRole('button', { name: 'Anna' }).click();
+  await expect(other.getByText('Hi Anna!')).toBeVisible();
+  await expect(myCalendar(other)).toHaveAttribute('aria-readonly', 'true');
+  await expect(
+    other.getByText('The poll is closed. You can’t change your days now.')
+  ).toBeVisible();
   await other.close();
 });
 
