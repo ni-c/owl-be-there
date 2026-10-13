@@ -757,6 +757,39 @@ describe('rekeyParticipants', () => {
     expect(version(db)).toBe(NAME_KEY_VERSION + 4);
   });
 
+  it('rekeys a database keyed by version 1, and skips a colliding pair instead of failing', () => {
+    expect(NAME_KEY_VERSION).toBeGreaterThanOrEqual(2);
+    const db = seeded();
+    db.exec('PRAGMA user_version = 1');
+    // Version 1 left the accent apart from its letter behind a joiner.
+    const V1_KEY = 'jose\u0301';
+    person(db, 'split', 'one', 'Jose\u200d\u0301', V1_KEY, 1);
+    person(db, 'plain', 'two', 'Jos\u00e9', 'jos\u00e9', 2);
+    person(db, 'split-two', 'two', 'Jose\u200d\u0301', V1_KEY, 3);
+    // A pair in one event: the older keeps the key, the younger is left alone.
+    person(db, 'old', 'one', 'Zo\u00eb', 'zo\u00eb', 4);
+    person(db, 'young', 'one', 'Zoe\u200c\u0308', 'zoe\u0308', 5);
+    expect(rekeyParticipants(db)).toEqual({ updated: 1, skipped: 2 });
+    expect(keyOf(db, 'split')).toBe('jos\u00e9');
+    expect(keyOf(db, 'split-two')).toBe(V1_KEY);
+    expect(keyOf(db, 'young')).toBe('zoe\u0308');
+    expect(version(db)).toBe(NAME_KEY_VERSION);
+    // The person typing the name the new way finds the rekeyed entry.
+    expect(
+      findParticipantByKey(db, 'one', nameKey('Jose\u200d\u0301'))?.id
+    ).toBe('split');
+    // A second start has nothing left to do.
+    expect(rekeyParticipants(db)).toEqual({ updated: 0, skipped: 0 });
+  });
+
+  it('leaves a database that is already at version 2 as it is', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    person(db, 'a', 'one', 'Jose\u200d\u0301', 'jose\u0301');
+    expect(rekeyParticipants(db, 2)).toEqual({ updated: 0, skipped: 0 });
+    expect(keyOf(db, 'a')).toBe('jose\u0301');
+  });
+
   it('records the version on an empty database, and rejects a bad one', () => {
     const db = seeded();
     expect(version(db)).toBe(0);
@@ -785,6 +818,8 @@ describe('rekeyParticipants', () => {
       ['\u2800x', 'x'],
       ['\u000bz\u000c', 'z'],
       ['Stra\u00dfe', 'stra\u00dfe'],
+      ['Jose\u200d\u0301', 'jos\u00e9'],
+      ['a \u00a8b', 'a \u0308b'],
     ];
     for (const [name, key] of keys) {
       expect(nameKey(name), `raise NAME_KEY_VERSION: ${name}`).toBe(key);

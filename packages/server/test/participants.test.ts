@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createEvent,
+  eventBody,
   getSnapshot,
   join,
   mark,
@@ -142,6 +143,139 @@ describe('who are you', () => {
     expect((await getSnapshot(t.app, id)).participants[0].hasPassword).toBe(
       false
     );
+  });
+
+  describe('invisible characters in a name', () => {
+    const invisibles = [
+      '\u200D',
+      '\u200C',
+      '\u{E0020}',
+      '\u{E0041}',
+      '\u206A',
+      '\u2800',
+    ];
+    const people = async (eventId = id) =>
+      (await getSnapshot(t.app, eventId)).participants as { name: string }[];
+
+    it('refuses a lookalike with a Cyrillic or Greek letter split off by one', async () => {
+      await join(t.app, id, 'Max');
+      for (const c of invisibles) {
+        for (const letter of ['\u0430', '\u03B1']) {
+          const response = await sessionRequest(t.app, id, {
+            name: `M${c}${letter}${c}x`,
+          });
+          expect(response.statusCode, `${c.codePointAt(0)}`).toBe(400);
+          expect(response.json().error).toBe('validation_failed');
+          expect(response.json().issues[0].path).toBe('name');
+        }
+      }
+      // Nobody was registered, and the plain mix is still refused.
+      expect(await people()).toHaveLength(1);
+      expect(
+        (await sessionRequest(t.app, id, { name: 'M\u0430x' })).statusCode
+      ).toBe(400);
+    });
+
+    it('lets a name in two scripts in, as long as no word mixes them', async () => {
+      const response = await sessionRequest(t.app, id, {
+        name: 'Max \u041C\u0430\u0445',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().created).toBe(true);
+    });
+
+    it('finds the existing person for a name with an invisible character before its accent', async () => {
+      const jose = await join(t.app, id, 'Jos\u00E9');
+      const zoe = await join(t.app, id, 'Zo\u00EB');
+      for (const c of ['\u200D', '\u200C', '\uFE0F', '\u3164']) {
+        expect(await join(t.app, id, `Jose${c}\u0301`)).toMatchObject({
+          participantId: jose.participantId,
+          created: false,
+        });
+      }
+      expect(await join(t.app, id, 'Zoe\u200D\u0308')).toMatchObject({
+        participantId: zoe.participantId,
+        created: false,
+      });
+      expect((await people()).map((p) => p.name)).toEqual([
+        'Jos\u00E9',
+        'Zo\u00EB',
+      ]);
+    });
+
+    it('still asks for the password of the person it finds', async () => {
+      await join(t.app, id, 'Jos\u00E9', 'secret-1');
+      const variant = 'Jose\u200D\u0301';
+      const without = await sessionRequest(t.app, id, { name: variant });
+      expect(without.statusCode).toBe(401);
+      expect(without.json().error).toBe('password_required');
+      expect(
+        (
+          await sessionRequest(t.app, id, {
+            name: variant,
+            password: 'nope-nope',
+          })
+        ).json().error
+      ).toBe('wrong_password');
+      expect(
+        (
+          await sessionRequest(t.app, id, {
+            name: variant,
+            password: 'secret-1',
+          })
+        ).statusCode
+      ).toBe(200);
+      expect(await people()).toHaveLength(1);
+    });
+
+    it('refuses a name of nothing but invisible characters', async () => {
+      for (const name of [
+        '\u200D\u200C',
+        '\u{E0041}',
+        '\u3164\u2800',
+        ' \u200D ',
+      ]) {
+        const response = await sessionRequest(t.app, id, { name });
+        expect(response.statusCode, name).toBe(400);
+        expect(response.json().error).toBe('validation_failed');
+      }
+      expect(await people()).toHaveLength(0);
+    });
+
+    it('matches a roster name written with an invisible character, and dedupes a roster by it', async () => {
+      const roster = await createEvent(t.app, {
+        roster: [
+          'Jos\u00E9',
+          'Jose\u200D\u0301',
+          'Zoe\u200D\u0308',
+          'Zo\u00EB',
+        ],
+      });
+      expect((await people(roster.id)).map((p) => p.name)).toEqual([
+        'Jos\u00E9',
+        'Zoe\u200D\u0308',
+      ]);
+      const again = await join(t.app, roster.id, 'Jose\u200C\u0301');
+      expect(again.created).toBe(false);
+      expect(await people(roster.id)).toHaveLength(2);
+    });
+
+    it('refuses a split lookalike in a roster, at creation and when adding', async () => {
+      const created = await t.app.inject({
+        method: 'POST',
+        url: '/api/events',
+        payload: eventBody({ roster: ['M\u200D\u0430\u200Dx'] }),
+      });
+      expect(created.statusCode).toBe(400);
+      const added = await t.app.inject({
+        method: 'POST',
+        url: `/api/events/${id}/participants`,
+        headers: adminHeaders(adminToken),
+        payload: { names: ['Ben', 'M\u2800\u03B1\u2800x'] },
+      });
+      expect(added.statusCode).toBe(400);
+      expect(await people()).toHaveLength(0);
+    });
   });
 });
 
@@ -390,6 +524,39 @@ describe('changing a participant', () => {
         )
       ).statusCode
     ).toBe(200);
+  });
+
+  it('refuses a rename to a lookalike split by an invisible character', async () => {
+    const max = await join(t.app, id, 'Max');
+    const headers = { 'x-participant-token': max.token };
+    for (const c of ['\u200D', '\u200C', '\u{E0041}', '\u206A', '\u2800']) {
+      const response = await patch(max.participantId, headers, {
+        name: `M${c}\u0430${c}x`,
+      });
+      expect(response.statusCode, `${c.codePointAt(0)}`).toBe(400);
+      expect(response.json().error).toBe('validation_failed');
+    }
+    expect((await getSnapshot(t.app, id)).participants[0].name).toBe('Max');
+  });
+
+  it('treats an invisible character before an accent as the same name', async () => {
+    const jose = await join(t.app, id, 'Jos\u00E9');
+    const ana = await join(t.app, id, 'Ana');
+    const taken = await patch(
+      ana.participantId,
+      { 'x-participant-token': ana.token },
+      { name: 'Jose\u200D\u0301' }
+    );
+    expect(taken.statusCode).toBe(409);
+    expect(taken.json().error).toBe('name_taken');
+    // One's own name in that spelling is no clash.
+    const own = await patch(
+      jose.participantId,
+      { 'x-participant-token': jose.token },
+      { name: 'Jose\u200D\u0301' }
+    );
+    expect(own.statusCode).toBe(200);
+    expect(own.json().participant.name).toBe('Jose\u200D\u0301');
   });
 
   it('answers with the participant as the snapshot shows them', async () => {

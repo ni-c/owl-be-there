@@ -122,6 +122,55 @@ describe('mixesScripts', () => {
     // A decomposed accent is part of its word, not a break.
     expect(mixesScripts('Jose\u0301')).toBe(false);
   });
+
+  describe('with default-ignorable characters inside a word', () => {
+    // None of these is removed by cleanLine, and none is a letter: they used to
+    // cut the word in two, so a lookalike passed as two harmless words.
+    const invisibles = [
+      ['zero-width joiner', '\u200D'],
+      ['zero-width non-joiner', '\u200C'],
+      ['tag space', '\u{E0020}'],
+      ['tag letter A', '\u{E0041}'],
+      ['inhibit symmetric swapping', '\u206A'],
+      ['blank Braille pattern', '\u2800'],
+    ] as const;
+
+    it.each(invisibles)('sees a mix through a %s', (_label, c) => {
+      expect(mixesScripts(`M${c}\u0430${c}x`)).toBe(true);
+      expect(mixesScripts(`M${c}\u03B1${c}x`)).toBe(true);
+      // At either end of the Cyrillic or Greek run, and between two words'
+      // worth of letters with no space in between.
+      expect(mixesScripts(`Max${c}\u041C\u0430\u0445`)).toBe(true);
+      expect(mixesScripts(`\u041C\u0430\u0445${c}Max`)).toBe(true);
+    });
+
+    it.each(invisibles)(
+      'leaves one-script words and separate words alone with a %s',
+      (_label, c) => {
+        expect(mixesScripts(`An${c}na`)).toBe(false);
+        expect(mixesScripts(`\u0410\u043D${c}\u043D\u0430`)).toBe(false);
+        // A space keeps the two words apart, whatever sits next to it.
+        expect(mixesScripts(`Max${c} \u041C\u0430\u0445`)).toBe(false);
+        // Nothing but the invisible character.
+        expect(mixesScripts(c)).toBe(false);
+      }
+    );
+
+    it('leaves a Latin word alone however many of them it carries', () => {
+      expect(mixesScripts('M\u200D\u200C\u2800ax')).toBe(false);
+    });
+  });
+
+  it('leaves more names alone', () => {
+    expect(mixesScripts('Anna')).toBe(false);
+    expect(mixesScripts('\u0410\u043D\u043D\u0430')).toBe(false);
+    expect(mixesScripts('Max \u041C\u0430\u0445')).toBe(false);
+    expect(mixesScripts('Ivan \u0418\u0432\u0430\u043D')).toBe(false);
+    expect(mixesScripts('J\u00F6rg')).toBe(false);
+    // An accent in either form stays inside its word.
+    expect(mixesScripts('Jos\u00E9')).toBe(false);
+    expect(mixesScripts('Jose\u0301')).toBe(false);
+  });
 });
 
 describe('default-ignorable characters in name keys', () => {
@@ -161,6 +210,111 @@ describe('default-ignorable characters in name keys', () => {
   it('leaves a title its variation selector', () => {
     expect(cleanLine('Party \u2764\uFE0F')).toBe('Party \u2764\uFE0F');
     expect(cleanLine('Max\u{E0041}')).toBe('Max\u{E0041}');
+  });
+});
+
+describe('invisible characters between a letter and its accent', () => {
+  const jose = nameKey('Jos\u00E9');
+
+  it('give the name the key of the precomposed form', () => {
+    for (const invisible of ['\u200D', '\u200C', '\uFE0F', '\u3164']) {
+      expect(nameKey(`Jose${invisible}\u0301`), invisible).toBe(jose);
+      // Before the letter, and several in a row.
+      expect(nameKey(`${invisible}Jose\u0301`), invisible).toBe(jose);
+      expect(nameKey(`Jose${invisible}${invisible}\u0301`), invisible).toBe(
+        jose
+      );
+    }
+    expect(nameKey('Jose\u00AD\u0301')).toBe(jose);
+    expect(nameKey('Jose\u200B\u0301')).toBe(jose);
+    expect(nameKey('Jose\u{E0041}\u0301')).toBe(jose);
+    expect(nameKey('Jose\u2800\u0301')).toBe(jose);
+    expect(jose).toBe('jos\u00E9');
+  });
+
+  it('gives the diaeresis of Zoë the same treatment', () => {
+    expect(nameKey('Zoe\u200D\u0308')).toBe(nameKey('Zo\u00EB'));
+    expect(nameKey('Zoe\u200D\u0308')).toBe('zo\u00EB');
+    expect(nameKey('ZOE\u200C\u0308')).toBe('zo\u00EB');
+  });
+
+  it('keeps an accent that is really there, and a different letter apart', () => {
+    expect(nameKey('Jose')).not.toBe(jose);
+    expect(nameKey('Jose\u200D\u0301')).not.toBe(nameKey('Jose'));
+    expect(nameKey('Zoe\u200D\u0308')).not.toBe(nameKey('Zoe'));
+  });
+
+  it('collapses the two spaces NFKC makes of a spacing diacritic', () => {
+    // U+00A8 becomes a space and a combining diaeresis.
+    expect(nameKey('a \u00A8b')).toBe('a \u0308b');
+    expect(nameKey('a \u00A8b')).not.toMatch(/\s\s/u);
+    expect(nameKey('a\u00A8b')).toBe('a \u0308b');
+    // At the ends the space is trimmed away.
+    expect(nameKey('\u00A8a')).toBe('\u0308a');
+    expect(nameKey('a\u00A8')).toBe('a \u0308');
+  });
+
+  it('still treats case, width and spacing variants as one name', () => {
+    const key = nameKey('Max');
+    for (const variant of ['MAX', 'max', ' Max ', '\uFF2D\uFF41\uFF58']) {
+      expect(nameKey(variant), variant).toBe(key);
+    }
+  });
+
+  it('gives a name of nothing but invisible characters the empty key', () => {
+    for (const name of [
+      '\u200D\u200C',
+      '\u{E0020}\u{E0041}',
+      '\u206A\u2800\u3164',
+      ' \u200D ',
+      '\uFE0F',
+    ]) {
+      expect(nameKey(name), name).toBe('');
+    }
+  });
+
+  it('is idempotent', () => {
+    for (const name of [
+      'Jose\u200D\u0301',
+      'Jose\u200C\u0301',
+      'Jose\uFE0F\u0301',
+      'Jose\u3164\u0301',
+      'Zoe\u200D\u0308',
+      'a \u00A8b',
+      '\u00A8',
+      '\u200D\u0301',
+      '\u0130stanbul',
+      '',
+    ]) {
+      const key = nameKey(name);
+      expect(nameKey(key), name).toBe(key);
+    }
+    fc.assert(
+      fc.property(fc.string({ unit: 'binary' }), (raw) => {
+        const key = nameKey(raw);
+        expect(nameKey(key)).toBe(key);
+      })
+    );
+  });
+
+  it('is idempotent for every assigned code point in the places that mattered', () => {
+    const wrap = [
+      (c: string) => c,
+      (c: string) => `x${c}y`,
+      (c: string) => `Jose${c}\u0301`,
+      (c: string) => `a ${c}b`,
+    ];
+    for (let cp = 0; cp <= 0x10ffff; cp += 1) {
+      if (cp >= 0xd800 && cp <= 0xdfff) continue;
+      const c = String.fromCodePoint(cp);
+      if (/\p{Cn}/u.test(c)) continue;
+      for (const make of wrap) {
+        const key = nameKey(make(c));
+        if (nameKey(key) !== key) {
+          expect.fail(`not idempotent for U+${cp.toString(16)}`);
+        }
+      }
+    }
   });
 });
 
