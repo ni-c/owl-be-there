@@ -363,6 +363,8 @@ export function registerParticipantRoutes(
           ctx.clock.now()
         );
       });
+      // The old name or note must not outlive the change in the log.
+      if (name !== undefined || body.note !== undefined) ctx.db.checkpoint();
       published(ctx, event.id);
       return {
         participant: participantViewOf(ctx.db, event.id, updated),

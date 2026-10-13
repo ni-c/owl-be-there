@@ -53,7 +53,13 @@ function create(path: string, content: string): void {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'EEXIST') return;
     // A file system without hard links: fall back on the exclusive write.
-    if (code === 'EPERM' || code === 'ENOSYS' || code === 'EOPNOTSUPP') {
+    // Node names errno 95 ENOTSUP on Linux; EOPNOTSUPP is the BSD/macOS name.
+    if (
+      code === 'EPERM' ||
+      code === 'ENOSYS' ||
+      code === 'ENOTSUP' ||
+      code === 'EOPNOTSUPP'
+    ) {
       try {
         writeFileSync(path, content, { flag: 'wx', mode: 0o600 });
       } catch (second) {

@@ -122,11 +122,17 @@ export class Db {
     return row === undefined || Number(row.busy) === 0;
   }
 
-  /** The size of the database in bytes: pages in use times the page size. */
+  /**
+   * The data in bytes: pages in use times the page size. Free pages are left
+   * out — the file never shrinks, but they are reused before it grows.
+   */
   sizeBytes(): number {
     const pages = this.get<{ page_count: number }>('PRAGMA page_count');
+    const free = this.get<{ freelist_count: number }>('PRAGMA freelist_count');
     const size = this.get<{ page_size: number }>('PRAGMA page_size');
-    return Number(pages?.page_count ?? 0) * Number(size?.page_size ?? 0);
+    const used =
+      Number(pages?.page_count ?? 0) - Number(free?.freelist_count ?? 0);
+    return used * Number(size?.page_size ?? 0);
   }
 
   close(): void {
