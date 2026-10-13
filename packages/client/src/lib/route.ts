@@ -24,6 +24,27 @@ export function parseRoute(pathname: string): Route {
   return { page: 'not-found' };
 }
 
+/** The heading that also names the tab; the start page and events name themselves. */
+export function headingKey(
+  route: Route
+): 'privacy.title' | 'imprint.title' | 'notFound.title' | null {
+  switch (route.page) {
+    case 'privacy':
+      return 'privacy.title';
+    case 'imprint':
+      return 'imprint.title';
+    case 'not-found':
+      return 'notFound.title';
+    default:
+      return null;
+  }
+}
+
+/** Equal for routes a reader sees as one page: the start page in any language. */
+export function placeOf(route: Route): string {
+  return route.page === 'event' ? `event/${route.id}` : route.page;
+}
+
 const listeners = new Set<() => void>();
 
 /** Be told when the path changes, by `navigate` or the back button. */

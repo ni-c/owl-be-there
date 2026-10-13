@@ -1241,3 +1241,252 @@ test('saving days or a duration that takes answers or the date away asks first',
   await expect.poll(async () => (await current()).durationDays).toBe(2);
   expect((await current()).finalEnd).toBe(D(4));
 });
+
+const HOME_TITLE = 'Owl Be There — Find a day everyone can make.';
+
+test('a keyboard user who follows a footer link lands in the page, which names the tab', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const { id } = await createEvent(request, { title: 'Chess club' });
+  const main = page.locator('main');
+  const footer = page.getByRole('contentinfo').getByRole('navigation');
+  const scrollY = () => page.evaluate(() => window.scrollY);
+
+  // A fresh load leaves focus where the browser puts it.
+  await page.goto('/');
+  await expect(page).toHaveTitle(HOME_TITLE);
+  expect(
+    await page.evaluate(() => document.activeElement === document.body)
+  ).toBe(true);
+
+  const privacy = footer.getByRole('link', { name: 'Privacy' });
+  await privacy.focus();
+  await expect.poll(scrollY).toBeGreaterThan(0);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(main).toBeFocused();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await expect.poll(scrollY).toBe(0);
+
+  // Back and Forward are page changes too.
+  await privacy.focus();
+  await page.goBack();
+  await expect(page).toHaveTitle(HOME_TITLE);
+  await expect(main).toBeFocused();
+  await privacy.focus();
+  await page.goForward();
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await expect(main).toBeFocused();
+
+  const imprint = footer.getByRole('link', { name: 'Imprint' });
+  await imprint.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveTitle('Imprint · Owl Be There');
+  await expect(main).toBeFocused();
+
+  // An event keeps its own title, and the way back to it gives it again.
+  await page.goto(`/e/${id}`);
+  await expect(page).toHaveTitle('Chess club · Owl Be There');
+  await privacy.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveTitle('Privacy · Owl Be There');
+  await privacy.focus();
+  await page.goBack();
+  await expect(page).toHaveTitle('Chess club · Owl Be There');
+  await expect(main).toBeFocused();
+
+  // An unknown address has a title of its own, and a load steals no focus.
+  await page.goto('/nowhere');
+  await expect(page).toHaveTitle('We can’t find this page. · Owl Be There');
+  expect(
+    await page.evaluate(() => document.activeElement === document.body)
+  ).toBe(true);
+});
+
+test('choosing another language on the same page keeps focus and renames the tab', async ({
+  page,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  await page.goto('/privacy');
+  const language = page.getByLabel('Language');
+  await language.focus();
+  await language.selectOption('de');
+  await expect(page).toHaveTitle('Datenschutz · Owl Be There');
+  await expect(language).toBeFocused();
+
+  await page.goto('/nowhere');
+  await page.getByLabel('Sprache').selectOption('en');
+  await expect(page).toHaveTitle('We can’t find this page. · Owl Be There');
+
+  // The start page moves between addresses without taking focus.
+  await page.goto('/de');
+  const select = page.getByLabel('Sprache');
+  await select.focus();
+  await select.selectOption('fr');
+  await expect(page).toHaveURL(/\/fr$/);
+  await expect(page.getByLabel('Langue')).toBeFocused();
+});
+
+test('a dialog that opens on arrival keeps focus, and closing it without an opener lands in the page', async ({
+  page,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Plan an event' }).click();
+  await page.getByLabel('Title').fill('Pub quiz');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Saturday', exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Create event' }).click();
+
+  // The share sheet opens with the new page; the page's own focus move must
+  // not pull focus out of it.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('main')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+/** Opens each event as its organiser, so the start page lists it as its own. */
+async function ownEvents(
+  page: Page,
+  request: Parameters<typeof createEvent>[0],
+  titles: string[]
+): Promise<void> {
+  for (const title of titles) {
+    const { id, adminToken } = await createEvent(request, { title });
+    await page.goto(`/e/${id}#admin=${adminToken}`);
+    await expect(
+      page.getByRole('heading', { name: 'Organiser tools' })
+    ).toBeVisible();
+  }
+}
+
+test('removing an event from the start page by keyboard never drops focus on the body', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  await ownEvents(page, request, ['Alpha', 'Beta', 'Gamma']);
+  await page.goto('/');
+  const remove = (title: string) =>
+    page.getByRole('button', { name: `Remove ${title} from this list` });
+  const dialog = page.getByRole('dialog');
+  const links = page.locator('main li > a');
+  const open = async (title: string) => {
+    await remove(title).focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeVisible();
+  };
+  const confirm = async () => {
+    await dialog
+      .getByRole('button', { name: 'Remove from this device' })
+      .focus();
+    await page.keyboard.press('Enter');
+  };
+
+  // Cancel and Escape give focus back to the button that opened the dialog.
+  await open('Beta');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(remove('Beta')).toBeFocused();
+  await open('Beta');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(remove('Beta')).toBeFocused();
+
+  // Confirming removes the opener: focus moves to the entry in its place.
+  const before = await links.allTextContents();
+  const index = before.findIndex((text) => text.includes('Beta'));
+  await open('Beta');
+  await confirm();
+  await expect(remove('Beta')).toHaveCount(0);
+  const after = before.filter((_, at) => at !== index);
+  const expected = after[Math.min(index, after.length - 1)]!.includes('Alpha')
+    ? 'Alpha'
+    : 'Gamma';
+  await expect(page.locator('main li > a:focus')).toContainText(expected);
+
+  // The last entry hands focus to the one before it; with none left, to main.
+  await open('Alpha');
+  await confirm();
+  await expect(remove('Alpha')).toHaveCount(0);
+  await expect(page.locator('main li > a:focus')).toContainText('Gamma');
+  await open('Gamma');
+  await confirm();
+  await expect(links).toHaveCount(0);
+  await expect(page.locator('main')).toBeFocused();
+});
+
+test('confirming a save that costs answers moves focus into the organiser panel, and cancelling returns to Save', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+  const { id, adminToken } = await createEvent(request, {
+    days: [3, 4, 5, 6, 7, 8].map(D),
+    durationDays: 3,
+  });
+  await answer(request, id, 'Anna', [D(7), D(8)]);
+  const chosen = await request.put(`/api/events/${id}/status`, {
+    headers: { 'x-admin-token': adminToken },
+    data: { status: 'finalized', start: D(3) },
+  });
+  expect(chosen.status()).toBe(200);
+  const current = async () => (await snapshot(request, id)).event;
+  const dialog = page.getByRole('dialog');
+  const panel = page.getByRole('heading', { name: 'Organiser tools' });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+
+  // Days: switch the last day off, which deletes Anna's answer for it.
+  const days = await openSection(page, 'Days');
+  await day(days.getByRole('grid'), D(8)).click();
+  const saveDays = days.getByRole('button', { name: 'Save' });
+  await saveDays.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toContainText('deletes 1 answer');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(saveDays).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(saveDays).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Save anyway' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeFocused();
+  await expect.poll(async () => (await current()).days).toHaveLength(5);
+
+  // Details: a shorter duration.
+  const details = await openSection(page, 'Details');
+  await details.getByLabel('Days in a row').fill('2');
+  const saveDetails = details.getByRole('button', { name: 'Save' });
+  await saveDetails.focus();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(saveDetails).toBeFocused();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Save anyway' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeFocused();
+  await expect.poll(async () => (await current()).durationDays).toBe(2);
+
+  // The dialogs of the people list still return to the row's own button.
+  const people = await openSection(page, 'People');
+  const remove = people.getByRole('button', { name: 'Remove', exact: true });
+  await remove.focus();
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(remove).toBeFocused();
+});

@@ -29,6 +29,8 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   // asks first, and a plain list entry goes at once.
   const [forgetting, setForgetting] = useState<MyEvent | null>(null);
   const wizardRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const forgottenAt = useRef(0);
   const creationDisabled = instance?.creationEnabled === false;
 
   const start = () => {
@@ -39,8 +41,15 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   };
 
   const forget = (event: MyEvent) => {
+    forgottenAt.current = myEvents.findIndex((mine) => mine.id === event.id);
     forgetEvent(event.id);
     setMyEvents(readMyEvents());
+  };
+
+  // The opener is gone: the entry that took its place, else the last one.
+  const afterForget = () => {
+    const links = listRef.current?.querySelectorAll<HTMLElement>('li > a');
+    return links?.item(Math.min(forgottenAt.current, links.length - 1)) ?? null;
   };
 
   return (
@@ -80,7 +89,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
       {myEvents.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-2xl font-extrabold">{t('home.myEvents')}</h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul ref={listRef} className="grid gap-3 sm:grid-cols-2">
             {myEvents.map((event) => (
               <li
                 key={event.id}
@@ -124,6 +133,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
         open={forgetting !== null}
         onClose={() => setForgetting(null)}
         title={t('home.forgetOrganiser.title')}
+        returnFocus={afterForget}
       >
         <div className="flex flex-col gap-5">
           <p className="leading-relaxed wrap-anywhere">

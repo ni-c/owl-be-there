@@ -241,20 +241,26 @@ export function Chip({
   );
 }
 
+const focusLost = (): boolean =>
+  !document.activeElement || document.activeElement === document.body;
+
 /**
  * A modal dialog on the native `<dialog>`: focus is trapped and returned, Escape
  * closes it, and a tap on the backdrop closes it too. On phones it rises from
- * the bottom like a sheet.
+ * the bottom like a sheet. When the opener is gone or disabled by then, focus
+ * goes to `returnFocus`, or to the page's `<main>`, rather than to the body.
  */
 export function Dialog({
   open,
   onClose,
   title,
+  returnFocus,
   children,
 }: {
   open: boolean;
   onClose(): void;
   title: string;
+  returnFocus?: () => HTMLElement | null;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -267,7 +273,14 @@ export function Dialog({
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (!open && dialog.open) {
+      dialog.close();
+      if (focusLost()) returnFocus?.()?.focus();
+      if (focusLost())
+        document.querySelector('main')?.focus({ preventScroll: true });
+    }
+    // Runs when the dialog opens or closes, not whenever `returnFocus` is new.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   return (
     // The backdrop click is a shortcut for the pointer; keyboard users have

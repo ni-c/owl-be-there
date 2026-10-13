@@ -15,7 +15,13 @@ import {
   weekdayName,
   weekdayOrder,
 } from '../src/lib/locale.ts';
-import { navigate, parseRoute, subscribeToRoute } from '../src/lib/route.ts';
+import {
+  headingKey,
+  navigate,
+  parseRoute,
+  placeOf,
+  subscribeToRoute,
+} from '../src/lib/route.ts';
 import { installBrowser } from './browser.ts';
 
 afterEach(() => {
@@ -208,6 +214,48 @@ describe('routes', () => {
     ]) {
       expect(parseRoute(path), path).toEqual({ page: 'not-found' });
     }
+  });
+
+  it('titles privacy, imprint and unknown paths by their heading, and leaves the others to themselves', () => {
+    expect(headingKey(parseRoute('/privacy'))).toBe('privacy.title');
+    expect(headingKey(parseRoute('/privacy/'))).toBe('privacy.title');
+    expect(headingKey(parseRoute('/imprint'))).toBe('imprint.title');
+    expect(headingKey(parseRoute('/nope'))).toBe('notFound.title');
+    // The start page has its tagline, an event its own title.
+    expect(headingKey(parseRoute('/'))).toBeNull();
+    expect(headingKey(parseRoute('/de'))).toBeNull();
+    expect(headingKey(parseRoute('/e/7gT4kPq2Wx9Z'))).toBeNull();
+  });
+
+  it('gives each of those titles a text in every language, none like the start page title or another', () => {
+    const dictionaries = { de, en, es, fr, it: italian, ja, nl, pt };
+    for (const [language, dictionary] of Object.entries(dictionaries)) {
+      const name = dictionary['app.name'];
+      const titles = [`${name} — ${dictionary['app.tagline']}`];
+      for (const path of ['/privacy', '/imprint', '/nope']) {
+        const heading = dictionary[headingKey(parseRoute(path))!];
+        expect(heading.trim(), `${language} ${path}`).not.toBe('');
+        titles.push(`${heading} · ${name}`);
+      }
+      expect(new Set(titles).size, language).toBe(4);
+    }
+  });
+
+  it('keeps one place for the start page in every language and for one event, and tells the rest apart', () => {
+    const place = (path: string) => placeOf(parseRoute(path));
+    expect(place('/')).toBe(place('/de'));
+    expect(place('/de')).toBe(place('/ja/'));
+    expect(place('/privacy')).toBe(place('/privacy/'));
+    expect(place('/e/7gT4kPq2Wx9Z')).toBe(place('/e/7gT4kPq2Wx9Z/'));
+    expect(place('/e/7gT4kPq2Wx9Z')).not.toBe(place('/e/7gT4kPq2Wx9Y'));
+    const places = [
+      '/',
+      '/privacy',
+      '/imprint',
+      '/e/7gT4kPq2Wx9Z',
+      '/nope',
+    ].map(place);
+    expect(new Set(places).size).toBe(5);
   });
 
   it('navigates with history, optionally replacing and carrying state', () => {
