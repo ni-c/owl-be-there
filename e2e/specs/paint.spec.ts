@@ -1,13 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   createEvent,
   day,
   dayFromNow,
   daysFromNow,
+  groupCalendar,
   isMobile,
   joinAs,
   myCalendar,
   saved,
+  showView,
   snapshot,
   utcDateOf,
 } from '../helpers.ts';
@@ -279,5 +281,130 @@ test.describe('painting days', () => {
     await page.keyboard.press('Control+y');
     await page.keyboard.press('Alt+y');
     await expect(maybe).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+/** The layout with two tabs instead of two columns starts below 56rem. */
+async function narrow(page: Page): Promise<void> {
+  if ((page.viewportSize()?.width ?? 0) >= 896)
+    await page.setViewportSize({ width: 390, height: 844 });
+}
+
+test.describe('the tabs of a narrow screen', () => {
+  test('marks that could not be saved yet survive a visit to the Group tab', async ({
+    page,
+    context,
+    request,
+  }) => {
+    await narrow(page);
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Jonas');
+    const cell = day(myCalendar(page), D(4));
+    await context.setOffline(true);
+    await cell.click();
+    await expect(cell).toHaveAttribute('data-state', 'yes');
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Offline' })
+    ).toBeVisible();
+    // Leaving "My days" must not end the retries; the stroke is not on the
+    // server, and nothing but this page knows about it.
+    await showView(page, 'group');
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^Group/);
+    expect((await myMarks(request, id, 'Jonas')).yes).toEqual([]);
+    await context.setOffline(false);
+    await showView(page, 'mine');
+    await expect(cell).toHaveAttribute('data-state', 'yes');
+    // The next retry comes within ten seconds at the longest.
+    await expect
+      .poll(async () => (await myMarks(request, id, 'Jonas')).yes, {
+        timeout: 20_000,
+      })
+      .toEqual([D(4)]);
+    await saved(page);
+  });
+
+  test('switching tabs with nothing unsaved loses nothing and sends nothing', async ({
+    page,
+    request,
+  }) => {
+    await narrow(page);
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Kai');
+    const cell = day(myCalendar(page), D(4));
+    await cell.click();
+    await saved(page);
+    const writes: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() !== 'GET') writes.push(`${r.method()} ${r.url()}`);
+    });
+    for (let round = 0; round < 2; round += 1) {
+      await showView(page, 'group');
+      await expect(groupCalendar(page)).toBeVisible();
+      await showView(page, 'mine');
+      await expect(cell).toHaveAttribute('data-state', 'yes');
+    }
+    expect(writes).toEqual([]);
+    expect((await myMarks(request, id, 'Kai')).yes).toEqual([D(4)]);
+  });
+
+  test('each tab controls a panel of its own, and only the selected one is shown', async ({
+    page,
+    request,
+  }) => {
+    await narrow(page);
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await showView(page, 'mine');
+    const tabs = page.getByRole('tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(page.locator('[role="tabpanel"]')).toHaveCount(2);
+    await expect(page.locator('[role="tabpanel"]:not([hidden])')).toHaveCount(
+      1
+    );
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^My days/);
+    const controlled: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      const tab = tabs.nth(index);
+      const panelId = (await tab.getAttribute('aria-controls'))!;
+      const panel = page.locator(`[id="${panelId}"]`);
+      await expect(panel).toHaveAttribute('role', 'tabpanel');
+      await expect(panel).toHaveAttribute(
+        'aria-labelledby',
+        (await tab.getAttribute('id'))!
+      );
+      controlled.push(panelId);
+    }
+    expect(new Set(controlled).size).toBe(2);
+    await tabs.nth(1).click();
+    await expect(page.locator('[role="tabpanel"]:not([hidden])')).toHaveCount(
+      1
+    );
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^Group/);
+  });
+
+  test('the arrow keys switch between the tabs, wrapping at both ends', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboards are a desktop thing');
+    await narrow(page);
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await showView(page, 'mine');
+    const tabs = page.getByRole('tab');
+    await tabs.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^Group/);
+    // Past the last tab, back to the first; and before the first, the last.
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.first()).toBeFocused();
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^My days/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^Group/);
   });
 });

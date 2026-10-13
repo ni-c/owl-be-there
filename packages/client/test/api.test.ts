@@ -112,14 +112,15 @@ describe('api', () => {
       EVENT_ID,
       PID,
       { baseRev: 0, yes: [], maybe: [] },
-      { participant: 'tok' },
-      true
+      { participant: 'tok' }
     );
     expect(result).toEqual({ ok: true, rev: 1, version: 4 });
     expect(
       (marks[0]!.init.headers as Record<string, string>)['x-participant-token']
     ).toBe('tok');
+    // Only a save has to outlive the page.
     expect(marks[0]!.init.keepalive).toBe(true);
+    expect(calls[0]!.init.keepalive).toBeUndefined();
   });
 
   it('returns a stale save as an answer, and a closed poll as a failure', async () => {
@@ -313,8 +314,7 @@ describe('api', () => {
           EVENT_ID,
           PID,
           { baseRev: 0, yes: [], maybe: [] },
-          { participant: 't' },
-          true
+          { participant: 't' }
         )
         .catch((error: unknown) => error);
       await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);

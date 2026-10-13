@@ -117,10 +117,7 @@ test('the app talks to nobody but its own server and breaks no CSP rule', async 
   await page.goto('/');
   await page.goto(`/e/${id}`);
   await joinAs(page, 'Carla');
-  await page
-    .locator(`[data-day="${dayFromNow(4)}"]`)
-    .first()
-    .click();
+  await day(myCalendar(page), dayFromNow(4)).click();
   await showView(page, 'group');
   await page.getByRole('button', { name: 'Share' }).click();
   await page.waitForTimeout(500);

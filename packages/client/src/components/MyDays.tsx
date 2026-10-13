@@ -501,18 +501,14 @@ function Painter(
       new SaveQueue({
         baseRev: participant.rev,
         send: marksSender({
-          put: async (request, keepalive) => {
-            const result = await api.putMarks(
+          put: (request) =>
+            api.putMarks(
               eventId,
               participant.id,
               request,
-              credentialsRef.current,
-              keepalive
-            );
-            return result.ok ? { ok: true, rev: result.rev } : result;
-          },
+              credentialsRef.current
+            ),
           candidates: () => candidatesRef.current,
-          refresh: () => void store.refresh(),
         }),
         onStatus: (next, error) => {
           setStatus(next);
