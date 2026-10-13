@@ -1,12 +1,13 @@
-import type { EventSnapshotData } from '@owl/shared';
+import { snapshotEtag, type EventSnapshotData } from '@owl/shared';
 import { api, ApiFailure, streamUrl } from './api.ts';
+import { Observable } from './observable.ts';
 
 export type EventState =
   | { status: 'loading' }
   | { status: 'ready'; data: EventSnapshotData; stale: boolean }
   | { status: 'not-found' }
   | { status: 'deleted' }
-  | { status: 'error'; error: unknown };
+  | { status: 'error' };
 
 /** How long to wait after a "changed" before fetching — changes come in bursts. */
 const REFETCH_DELAY_MS = 400;
@@ -25,10 +26,8 @@ const CATCH_UP_MAX_MS = 30_000;
  * snapshot with the ETag it has, so a change this browser made itself — whose
  * response it has already applied — costs a 304 and nothing more.
  */
-export class EventStore {
-  private state: EventState = { status: 'loading' };
+export class EventStore extends Observable<EventState> {
   private etag: string | null = null;
-  private readonly listeners = new Set<() => void>();
   private source: EventSource | null = null;
   private refetchTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,19 +42,8 @@ export class EventStore {
   readonly id: string;
 
   constructor(id: string) {
+    super({ status: 'loading' });
     this.id = id;
-  }
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  };
-
-  getState = (): EventState => this.state;
-
-  private set(state: EventState): void {
-    this.state = state;
-    for (const listener of this.listeners) listener();
   }
 
   start(): void {
@@ -107,14 +95,7 @@ export class EventStore {
         }
         return false;
       }
-      // A write may have applied a newer snapshot while this GET travelled.
-      if (
-        this.state.status === 'ready' &&
-        result.data.event.version < this.state.data.event.version
-      )
-        return false;
-      this.etag = result.etag;
-      this.set({ status: 'ready', data: result.data, stale: false });
+      this.accept(result.data, result.etag);
       return false;
     } catch (error) {
       if (this.stopped) return false;
@@ -131,7 +112,7 @@ export class EventStore {
         // Keep showing what we have; say it may be out of date.
         this.set({ ...this.state, stale: true });
       } else {
-        this.set({ status: 'error', error });
+        this.set({ status: 'error' });
       }
       return true;
     }
@@ -141,16 +122,23 @@ export class EventStore {
     return this.state.status === 'ready' ? this.state.data.event.version : -1;
   }
 
+  /** An announced version is ahead of the shown one, or the last GET failed. */
+  private isBehind(): boolean {
+    const stale = this.state.status === 'ready' && this.state.stale;
+    return stale || this.announced > this.shownVersion();
+  }
+
   /**
    * An announcement is said once. When the fetch it set off failed, or ran
    * into a request that was already under way and brought an older snapshot
-   * home, nothing would ask again: so while the store is behind the newest
-   * version heard of, it keeps asking, with growing pauses once it is not
-   * getting there.
+   * home, nothing would ask again; nor would anything after a failed refresh
+   * nobody announced (a phone waking up). So while the store is behind the
+   * newest version heard of, or stale, it keeps asking, with growing pauses
+   * once it is not getting there.
    */
   private catchUp(failed: boolean): void {
     if (this.stopped || this.refetchTimer) return;
-    if (this.announced <= this.shownVersion()) {
+    if (!this.isBehind()) {
       this.catchUpMisses = 0;
       return;
     }
@@ -162,13 +150,19 @@ export class EventStore {
     this.scheduleRefetch(delay, true);
   }
 
+  /**
+   * Show a snapshot unless it is older than the shown one: a write may have
+   * landed while a GET travelled.
+   */
+  private accept(data: EventSnapshotData, etag: string | null): void {
+    if (data.event.version < this.shownVersion()) return;
+    this.etag = etag;
+    this.set({ status: 'ready', data, stale: false });
+  }
+
   /** Take a snapshot a write returned, if it is newer than what we show. */
   apply(data: EventSnapshotData): void {
-    const current =
-      this.state.status === 'ready' ? this.state.data.event.version : -1;
-    if (data.event.version < current) return;
-    this.etag = `"v${data.event.version}"`;
-    this.set({ status: 'ready', data, stale: false });
+    this.accept(data, snapshotEtag(data.event.version));
   }
 
   /** The event was deleted by this browser. */
@@ -220,7 +214,7 @@ export class EventStore {
     this.refetchTimer = setTimeout(() => {
       this.refetchTimer = null;
       // A write may have caught up while a catch-up was waiting.
-      if (onlyIfBehind && this.announced <= this.shownVersion()) return;
+      if (onlyIfBehind && !this.isBehind()) return;
       void this.refresh();
     }, delay);
   }

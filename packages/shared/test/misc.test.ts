@@ -24,6 +24,7 @@ import {
   DESCRIPTION_EN,
   TAGLINES,
   SessionBody,
+  snapshotEtag,
   StatusBody,
   UpdateEventBody,
   UpdateParticipantBody,
@@ -413,6 +414,25 @@ describe('the name and tagline', () => {
       expect(TAGLINES[language].trim(), language).not.toBe('');
     }
     expect(SERVER_TEXTS.en.description).toBe(DESCRIPTION_EN);
+  });
+});
+
+describe('the snapshot ETag', () => {
+  it('is the version in quotes, v-prefixed', () => {
+    expect(snapshotEtag(1)).toBe('"v1"');
+    expect(snapshotEtag(42)).toBe('"v42"');
+  });
+
+  it('holds at the first version and at large ones', () => {
+    expect(snapshotEtag(0)).toBe('"v0"');
+    expect(snapshotEtag(Number.MAX_SAFE_INTEGER)).toBe(
+      `"v${Number.MAX_SAFE_INTEGER}"`
+    );
+  });
+
+  it('differs for every version', () => {
+    const etags = [0, 1, 2, 10, 11, 100].map(snapshotEtag);
+    expect(new Set(etags).size).toBe(etags.length);
   });
 });
 

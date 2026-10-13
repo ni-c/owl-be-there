@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { LIMITS } from '@owl/shared';
+import { LIMITS, snapshotEtag } from '@owl/shared';
 import { getEvent } from '../src/db/repo.js';
 import {
   createEvent,
@@ -179,6 +179,27 @@ describe('reading an event', () => {
     });
     expect(changed.statusCode).toBe(200);
     expect(changed.headers.etag).toBe('"v2"');
+  });
+
+  it('sends the shared ETag for the event version, and answers 304 only to that one', async () => {
+    const { id } = await createEvent(t.app);
+    await join(t.app, id, 'Max');
+    const version = getEvent(t.db, id)!.version;
+    expect(version).toBeGreaterThan(1);
+    const get = (etag: string) =>
+      t.app.inject({
+        method: 'GET',
+        url: `/api/events/${id}`,
+        headers: { 'if-none-match': etag },
+      });
+    const same = await get(snapshotEtag(version));
+    expect(same.statusCode).toBe(304);
+    expect(same.headers.etag).toBe(snapshotEtag(version));
+    const older = await get(snapshotEtag(version - 1));
+    expect(older.statusCode).toBe(200);
+    expect(older.headers.etag).toBe(snapshotEtag(version));
+    const newer = await get(snapshotEtag(version + 1));
+    expect(newer.statusCode).toBe(200);
   });
 
   it('never extends an event by reading it', async () => {

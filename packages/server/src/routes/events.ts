@@ -12,6 +12,7 @@ import {
   normalizeDays,
   RosterBody,
   SERVER_TEXTS,
+  snapshotEtag,
   StatusBody,
   todayUTC,
   UpdateEventBody,
@@ -223,7 +224,7 @@ export function registerEventRoutes(
     { config: limit(config, 600, '1 minute') },
     async (request, reply) => {
       const event = eventOr404(ctx, request.params.id);
-      const etag = `"v${event.version}"`;
+      const etag = snapshotEtag(event.version);
       reply.header('etag', etag).header('cache-control', 'private, no-cache');
       if (request.headers['if-none-match'] === etag)
         return reply.code(304).send();
