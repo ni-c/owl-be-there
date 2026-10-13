@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { en } from '../src/i18n/en.ts';
 import { translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
+import { CANDIDATE_PROBLEM_KEY } from '../src/lib/dayEdit.ts';
 import {
-  CANDIDATE_PROBLEM_KEY,
   errorMessage,
   isForbidden,
   sessionRevoked,

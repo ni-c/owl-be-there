@@ -1,7 +1,8 @@
-import { LIMITS, type CandidateProblem } from '@owl/shared';
+import { LIMITS } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
 import type { Params } from '../i18n/index.tsx';
 import { ApiFailure, NetworkFailure, type Credentials } from './api.ts';
+import { CANDIDATE_PROBLEM_KEY } from './dayEdit.ts';
 import { PermanentSaveError } from './saveQueue.ts';
 
 const BY_CODE: Partial<Record<string, TranslationKey>> = {
@@ -21,13 +22,6 @@ const BY_CODE: Partial<Record<string, TranslationKey>> = {
 };
 
 type Translate = (key: TranslationKey, params?: Params) => string;
-
-/** The text for each problem `checkCandidateDays` finds, here and on the server. */
-export const CANDIDATE_PROBLEM_KEY: Record<CandidateProblem, TranslationKey> = {
-  past: 'error.past',
-  too_far: 'error.tooFar',
-  span: 'error.rangeTooLong',
-};
 
 /** What a day list problem the server names (`invalid_days`) comes down to. */
 const BY_DAYS_PROBLEM: Partial<Record<string, TranslationKey>> =

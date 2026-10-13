@@ -10,12 +10,19 @@ import {
   LIMITS,
   maxISODate,
   minISODate,
+  type CandidateProblem,
   type ISODate,
   type Mark,
   type Marks,
 } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
-import { CANDIDATE_PROBLEM_KEY } from './errors.ts';
+
+/** The text for each problem `checkCandidateDays` finds, here and on the server. */
+export const CANDIDATE_PROBLEM_KEY: Record<CandidateProblem, TranslationKey> = {
+  past: 'error.past',
+  too_far: 'error.tooFar',
+  span: 'error.rangeTooLong',
+};
 
 /** A text for the reader, as a dictionary key and its placeholders. */
 export interface Problem {
