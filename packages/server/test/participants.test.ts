@@ -1,6 +1,5 @@
 import { addDays, answerFor, LIMITS, respondentOf } from '@owl/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { LIMITS } from '@owl/shared';
 import {
   createEvent,
   eventBody,
