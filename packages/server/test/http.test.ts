@@ -1,77 +1,6 @@
 import { CreateEventBody } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
-import {
-  clientKey,
-  networkKey,
-  parseBody,
-  ValidationError,
-} from '../src/http.js';
-
-describe('clientKey', () => {
-  it('keeps an IPv4 address as it is', () => {
-    expect(clientKey('203.0.113.7')).toBe('203.0.113.7');
-  });
-
-  it('reduces an IPv4-mapped IPv6 address to the IPv4 one', () => {
-    expect(clientKey('::ffff:203.0.113.7')).toBe('203.0.113.7');
-  });
-
-  it('puts every address of an IPv6 /64 in one bucket', () => {
-    const a = clientKey('2001:db8:1:2:aaaa:bbbb:cccc:dddd');
-    const b = clientKey('2001:db8:1:2::1');
-    expect(a).toBe('2001:db8:1:2::');
-    expect(b).toBe(a);
-    expect(clientKey('2001:db8:1:3::1')).not.toBe(a);
-    // The last bit of the /64 prefix tells two networks apart.
-    expect(clientKey('2001:db8:1:2:ffff:ffff:ffff:ffff')).toBe(a);
-    expect(clientKey('2001:db8:1:3::')).not.toBe(a);
-    expect(clientKey('2001:db8:1:1:ffff:ffff:ffff:ffff')).not.toBe(a);
-  });
-
-  it('gives the same key to every way of writing an address', () => {
-    const key = clientKey('2001:db8:1:2::1');
-    expect(clientKey('2001:0DB8:0001:0002:0000:0000:0000:0001')).toBe(key);
-    expect(clientKey('2001:DB8:1:2::1')).toBe(key);
-  });
-
-  it('handles the short forms of IPv6', () => {
-    expect(clientKey('::1')).toBe(clientKey('::'));
-    expect(clientKey('::1')).not.toBe(clientKey('1::'));
-    expect(clientKey('1::')).toBe(clientKey('1:0:0:0:ffff::1'));
-    expect(clientKey('fe80::1%eth0')).toBe(clientKey('fe80::2'));
-    expect(clientKey('fe80::1%eth0')).not.toBe(clientKey('fe81::1'));
-  });
-
-  it('reduces every form of an IPv4-mapped address to the IPv4 one', () => {
-    expect(clientKey('::ffff:cb00:7107')).toBe('203.0.113.7');
-    expect(clientKey('::FFFF:203.0.113.7')).toBe('203.0.113.7');
-    expect(clientKey('0:0:0:0:0:ffff:203.0.113.7')).toBe('203.0.113.7');
-    expect(clientKey('[::ffff:cb00:7107]:80')).toBe('203.0.113.7');
-  });
-
-  it('takes the address out of one that carries a port', () => {
-    expect(clientKey('203.0.113.77:51234')).toBe('203.0.113.77');
-    expect(clientKey('203.0.113.77:1')).toBe('203.0.113.77');
-    expect(clientKey('[2001:db8::1]:443')).toBe(clientKey('2001:db8::1'));
-    expect(clientKey('[2001:db8::1]')).toBe(clientKey('2001:db8::1'));
-    expect(clientKey('[::ffff:203.0.113.7]:80')).toBe('203.0.113.7');
-  });
-
-  it('puts everything that is no address into one shared bucket', () => {
-    for (const garbage of [
-      'unknown',
-      '',
-      'garbage',
-      '203.0.113.77:',
-      '203.0.113.77:123456',
-      '203.0.113.256',
-      '[nonsense]:80',
-      '[2001:db8::1',
-    ]) {
-      expect(clientKey(garbage)).toBe('unknown');
-    }
-  });
-});
+import { networkKey, parseBody, ValidationError } from '../src/http.js';
 
 describe('networkKey', () => {
   it('keeps IPv4 addresses, mapped or not, as they are', () => {
@@ -84,20 +13,88 @@ describe('networkKey', () => {
     expect(a).toBe('2001:db8:1::');
     expect(networkKey('2001:db8:1:ffff:1:2:3:4')).toBe(a);
     expect(networkKey('2001:db8:1:0:0:0:0:0')).toBe(a);
+    expect(networkKey('2001:db8:1:2:aaaa:bbbb:cccc:dddd')).toBe(a);
+    // The last bit of the /48 prefix tells two networks apart.
+    expect(networkKey('2001:db8:1:ffff:ffff:ffff:ffff:ffff')).toBe(a);
+    expect(networkKey('2001:db8:2::')).not.toBe(a);
     expect(networkKey('2001:db8:2::1')).not.toBe(a);
     expect(networkKey('2001:db8:0:ffff:ffff:ffff:ffff:ffff')).not.toBe(a);
     // The /64 is finer than the /48.
-    expect(clientKey('2001:db8:1:2::1')).not.toBe(clientKey('2001:db8:1:3::1'));
     expect(networkKey('2001:db8:1:2::1')).toBe(networkKey('2001:db8:1:3::1'));
   });
 
-  it('treats an address with a port like the address, and garbage as one key', () => {
+  it('gives the same key to every way of writing an address', () => {
+    const key = networkKey('2001:db8:1:2::1');
+    expect(networkKey('2001:0DB8:0001:0002:0000:0000:0000:0001')).toBe(key);
+    expect(networkKey('2001:DB8:1:2::1')).toBe(key);
+    expect(networkKey('2001:db8:1::')).toBe(key);
+  });
+
+  it('handles the short forms of IPv6', () => {
+    expect(networkKey('::1')).toBe(networkKey('::'));
+    expect(networkKey('::1')).not.toBe(networkKey('1::'));
+    expect(networkKey('1::')).toBe(networkKey('1:0:0:0:ffff::1'));
+    expect(networkKey('1::')).toBe(networkKey('1:0:0:ffff::1'));
+    expect(networkKey('1::')).not.toBe(networkKey('1:0:1::1'));
+    expect(networkKey('fe80::1%eth0')).toBe(networkKey('fe80::2'));
+    expect(networkKey('fe80::1%eth0')).not.toBe(networkKey('fe81::1'));
+    expect(networkKey('fe80::1%eth0')).not.toBe(networkKey('fe80:0:1::1'));
+  });
+
+  it('reduces every form of an IPv4-mapped address to the IPv4 one', () => {
+    expect(networkKey('::ffff:cb00:7107')).toBe('203.0.113.7');
+    expect(networkKey('::FFFF:203.0.113.7')).toBe('203.0.113.7');
+    expect(networkKey('0:0:0:0:0:ffff:203.0.113.7')).toBe('203.0.113.7');
+    expect(networkKey('[::ffff:cb00:7107]:80')).toBe('203.0.113.7');
+  });
+
+  it('takes the address out of one that carries a port', () => {
     expect(networkKey('203.0.113.77:51234')).toBe('203.0.113.77');
+    expect(networkKey('203.0.113.77:1')).toBe('203.0.113.77');
     expect(networkKey('[2001:db8:1:2::1]:443')).toBe(
       networkKey('2001:db8:1:2::1')
     );
-    expect(networkKey('unknown')).toBe('unknown');
-    expect(networkKey('')).toBe('unknown');
+    expect(networkKey('[2001:db8::1]')).toBe(networkKey('2001:db8::1'));
+    expect(networkKey('[::ffff:203.0.113.7]:80')).toBe('203.0.113.7');
+  });
+
+  it('puts everything that is no address into one shared bucket', () => {
+    for (const garbage of [
+      'unknown',
+      '',
+      'garbage',
+      '203.0.113.77:',
+      '203.0.113.77:123456',
+      '203.0.113.256',
+      '[nonsense]:80',
+      '[2001:db8::1',
+      '::1%a%b',
+      '::1%',
+      '::1%a\n',
+    ]) {
+      expect(networkKey(garbage)).toBe('unknown');
+    }
+  });
+
+  it('answers a very long or hostile string quickly', () => {
+    const hostile = [
+      'a'.repeat(100_000),
+      '1.'.repeat(50_000),
+      '['.repeat(100_000),
+      '::1' + '%'.repeat(100_000),
+      '::1%' + '%'.repeat(100_000),
+      '%'.repeat(100_000),
+      '[' + '%'.repeat(100_000) + ']:80',
+      '1.1.1.' + '1'.repeat(100_000) + ':80',
+    ];
+    const started = performance.now();
+    for (const input of hostile) expect(networkKey(input)).toBe('unknown');
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('keeps a long but valid zone id on its address', () => {
+    const zoned = 'fe80::1%' + 'a'.repeat(10_000);
+    expect(networkKey(zoned)).toBe(networkKey('fe80::2'));
   });
 });
 

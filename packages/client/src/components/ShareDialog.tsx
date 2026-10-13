@@ -62,7 +62,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
  * path. Nothing when the link is too long for a code: the link beside it still
  * works.
  */
-export function QrCode({ text, size = 200 }: { text: string; size?: number }) {
+function QrCode({ text }: { text: string }) {
   const { t } = useI18n();
   const path = useMemo(() => qrPath(text), [text]);
   if (!path) return null;
@@ -70,8 +70,8 @@ export function QrCode({ text, size = 200 }: { text: string; size?: number }) {
     <figure className="flex flex-col items-center gap-2">
       <svg
         viewBox={`0 0 ${path.size} ${path.size}`}
-        width={size}
-        height={size}
+        width={200}
+        height={200}
         role="img"
         aria-label={text}
         shapeRendering="crispEdges"

@@ -241,6 +241,6 @@ export async function registerSite(
 }
 
 /** Whether a directory holds a built client. */
-export function hasClient(dir: string | null): boolean {
-  return dir !== null && existsSync(join(dir, 'index.html'));
+export function hasClient(dir: string): boolean {
+  return existsSync(join(dir, 'index.html'));
 }

@@ -165,11 +165,6 @@ function WhoAreYou({
         setName(who);
         setMode('type');
         setError(t('who.protected', { name: who.trim() }));
-      } else if (
-        failure instanceof ApiFailure &&
-        failure.code === 'password_too_short'
-      ) {
-        setError(t('who.passwordTooShort', { min: LIMITS.passwordMin }));
       } else {
         setError(errorMessage(failure, t));
       }

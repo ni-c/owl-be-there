@@ -59,36 +59,15 @@ export function header(
 }
 
 /**
- * The key one client is known by: its IPv4 address, or the /64 of its IPv6
- * address. An address with a port — `203.0.113.7:51234`, `[2001:db8::1]:443`,
- * as some proxies write it — is the address alone, and anything that is no
- * address at all is one shared `unknown`, so a port or a made-up string cannot
- * be turned into a bucket of one's own. An IPv4-mapped IPv6 address is the
- * IPv4 address.
- *
- * A /64 is what one household or one phone is handed, and every address inside
- * it is free for the taking — limiting the single address would limit nothing.
- * The key lives in memory only and is never written anywhere.
- */
-export function clientKey(ip: string): string {
-  return addressKey(ip, 64);
-}
-
-/**
- * A coarser key: an IPv4 address, or the /48 of an IPv6 address — what one
- * site or one rented server is commonly handed, and 65,536 of the /64s above.
- * It is what the limits use that someone with a whole prefix must not be able
- * to multiply: the route limits, the live streams, the password checks and the
- * new events.
+ * The key every limit counts a client by: its IPv4 address (an IPv4-mapped IPv6
+ * one included) or the /48 of its IPv6 address, as one rented /48 holds 65,536
+ * /64s. A port is dropped; anything that is no address is one shared `unknown`,
+ * so a made-up string cannot become a bucket of its own.
  */
 export function networkKey(ip: string): string {
-  return addressKey(ip, 48);
-}
-
-function addressKey(ip: string, ipv6Subnet: number): string {
   const address = withoutPort(ip);
   return isIPv4(address) || isIPv6(address)
-    ? normalizeIP(address, ipv6Subnet)
+    ? normalizeIP(address, 48)
     : 'unknown';
 }
 

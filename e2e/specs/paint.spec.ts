@@ -573,3 +573,65 @@ test.describe('the tabs of a narrow screen', () => {
     await expect(page.getByRole('tabpanel')).toHaveAccessibleName(/^Group/);
   });
 });
+
+/**
+ * How far a day cell is scaled while a mouse button is held down on it (1 is
+ * not at all). The press scales over 120 ms, so the value is read well after
+ * that; the button is released on the cell, which is a tap.
+ */
+async function scaleWhilePressed(page: Page, cell: Locator): Promise<number> {
+  await cell.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(300);
+  const scale = await cell.evaluate(
+    (element) => new DOMMatrix(getComputedStyle(element).transform).a
+  );
+  await page.mouse.up();
+  return scale;
+}
+
+test.describe('press feedback', () => {
+  test('a day that does something shrinks under the mouse, one that does nothing stays put', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(isMobile(testInfo), 'the press is checked with a mouse');
+    const { id, adminToken } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Mara');
+
+    // A day to paint, and a day of the group view, which opens a sheet.
+    expect(
+      await scaleWhilePressed(page, day(myCalendar(page), D(4)))
+    ).toBeLessThan(1);
+    await saved(page);
+    await showView(page, 'group');
+    expect(
+      await scaleWhilePressed(page, day(groupCalendar(page), D(4)))
+    ).toBeLessThan(1);
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Close' })
+      .click();
+
+    // Once the poll is closed no day can be painted: aria-disabled, not the
+    // disabled attribute, says so, and the press must not suggest otherwise.
+    const closed = await request.put(`/api/events/${id}/status`, {
+      headers: { 'x-admin-token': adminToken },
+      data: { status: 'closed' },
+    });
+    expect(closed.status()).toBe(200);
+    await page.reload();
+    await showView(page, 'mine');
+    await expect(myCalendar(page)).toHaveAttribute('aria-readonly', 'true');
+    const inert = day(myCalendar(page), D(5));
+    await expect(inert).toHaveAttribute('aria-disabled', 'true');
+    expect(await scaleWhilePressed(page, inert)).toBe(1);
+
+    // The group view stays clickable and keeps its feedback.
+    await showView(page, 'group');
+    expect(
+      await scaleWhilePressed(page, day(groupCalendar(page), D(5)))
+    ).toBeLessThan(1);
+  });
+});

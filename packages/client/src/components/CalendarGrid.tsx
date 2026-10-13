@@ -13,7 +13,6 @@ import {
   type Mark,
   type Marks,
   type StrokeMode,
-  type WeekRow,
   type Weekday,
 } from '@owl/shared';
 import {
@@ -65,8 +64,8 @@ interface PaintProps extends BaseProps {
 interface HeatProps extends BaseProps {
   mode: 'heat';
   heat: ReadonlyMap<ISODate, HeatInfo>;
-  highlighted?: ReadonlySet<ISODate>;
-  selected?: ReadonlySet<ISODate>;
+  highlighted: ReadonlySet<ISODate>;
+  selected: ReadonlySet<ISODate>;
   onDayClick(day: ISODate): void;
 }
 
@@ -80,18 +79,13 @@ interface Stroke {
   moved: boolean;
 }
 
-/** The week rows for a set of days: always the whole range, never paged. */
-export function useWeeks(
-  days: readonly ISODate[],
-  firstWeekday: Weekday
-): WeekRow[] {
-  return useMemo(() => buildWeeks(days, firstWeekday), [days, firstWeekday]);
-}
-
 export function CalendarGrid(props: CalendarGridProps) {
   const { days, firstWeekday, today, label } = props;
   const { t, tn, locale } = useI18n();
-  const rows = useWeeks(days, firstWeekday);
+  const rows = useMemo(
+    () => buildWeeks(days, firstWeekday),
+    [days, firstWeekday]
+  );
   const daySet = useMemo(() => new Set(days), [days]);
   const paint = props.mode !== 'heat';
   const disabled = paint && Boolean((props as PaintProps).disabled);
@@ -624,8 +618,8 @@ export function CalendarGrid(props: CalendarGridProps) {
                           className="cal-cell w-full"
                           data-heat={info?.level ?? 0}
                           data-kind={past ? 'past' : 'day'}
-                          data-best={props.highlighted?.has(day) ?? false}
-                          data-selected={props.selected?.has(day) ?? false}
+                          data-best={props.highlighted.has(day)}
+                          data-selected={props.selected.has(day)}
                           aria-label={`${fullDate}: ${stateLabel(day)}`}
                         >
                           <span className="absolute top-1 left-1.5 text-[0.65rem] font-bold">

@@ -211,7 +211,6 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                     aria-checked={emoji === key}
                     aria-label={t(`emoji.${key}`)}
                     title={t(`emoji.${key}`)}
-                    data-emoji={key}
                     // One stop in the tab order; the arrow keys move within.
                     tabIndex={emoji === key ? 0 : -1}
                     onClick={() => setEmoji(key)}
