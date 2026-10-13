@@ -53,6 +53,7 @@ export class SaveQueue {
   private seq = 0;
   private pendingSeq = 0;
   private sentSeq = 0;
+  private landedSeq = 0;
   private inFlight = false;
   private leaving = 0;
   private retry: unknown = null;
@@ -143,6 +144,7 @@ export class SaveQueue {
     if (this.disposed) return;
     if (result.ok) {
       this.baseRev = Math.max(this.baseRev, result.rev);
+      this.landedSeq = Math.max(this.landedSeq, markSeq);
       this.onSaved(result.rev);
       // A save that failed meanwhile left what came after it waiting for this.
       if (this.pending !== null && !this.inFlight && this.retry === null)
@@ -203,7 +205,7 @@ export class SaveQueue {
    * Wire the queue to the page: send what is pending when the page is hidden
    * or unloaded. Returns the undo for an effect's cleanup: it sends what is
    * still pending — a panel that goes away without the page doing so, such as
-   * the Group tab on a phone, must not lose the last marks — removes the
+   * after "Not you" or the organiser's fill-in, must not lose the last marks — removes the
    * listeners and disposes of the queue.
    */
   attach(): () => void {
@@ -244,6 +246,7 @@ export class SaveQueue {
       this.inFlight = false;
       if (result.ok) {
         this.baseRev = result.rev;
+        this.landedSeq = Math.max(this.landedSeq, markSeq);
         this.onSaved(result.rev);
       } else {
         // Someone else saved in between — another device, or a request that
@@ -266,9 +269,9 @@ export class SaveQueue {
         this.setStatus('failed', error);
         return;
       }
-      // What failed was already overtaken by a newer state that landed.
+      // Overtaken by a newer state: 'saved' only if that one landed, not failed.
       if (this.pending === null) {
-        this.setStatus('saved');
+        if (this.landedSeq >= this.sentSeq) this.setStatus('saved');
         return;
       }
       this.scheduleRetry(error);

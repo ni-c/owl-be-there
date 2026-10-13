@@ -993,3 +993,61 @@ describe('SaveQueue, a request sent on leaving among saves under way', () => {
     expect(wrong).toEqual([]);
   });
 });
+
+/**
+ * A save under way that fails after a newer state went out on leaving: the
+ * queue may only call that "saved" when the newer state really landed.
+ */
+describe('SaveQueue, an overtaken save that fails', () => {
+  /** A under way (request 0), B sent on leaving (request 1). */
+  function leaveWhileSaving() {
+    const context = setup();
+    context.queue.push(marks('2027-03-01'));
+    context.queue.push(marks('2027-03-02'));
+    context.queue.flushOnLeave();
+    expect(context.server.requests).toHaveLength(2);
+    return context;
+  }
+
+  it('stays failed when the newer state was refused for good', async () => {
+    const { server, queue, timers, statuses } = leaveWhileSaving();
+    server.fail(new PermanentSaveError('forbidden'), 1);
+    await tick();
+    expect(statuses.at(-1)).toBe('failed');
+    server.fail(new Error('network'), 0);
+    await tick();
+    expect(statuses.at(-1)).toBe('failed');
+    expect(statuses).not.toContain('saved');
+    expect(timers.pending).toHaveLength(0);
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('says saved when the newer state landed', async () => {
+    const { server, queue, timers, statuses } = leaveWhileSaving();
+    server.apply(0); // A lands, but its answer is lost
+    server.answer(1);
+    await tick();
+    server.fail(new Error('network'), 0);
+    await tick();
+    expect(server.marks.yes).toEqual(['2027-03-02']);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(timers.pending).toHaveLength(0);
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('sends nothing more when the newer state is still on its way', async () => {
+    const { server, queue, timers, statuses } = leaveWhileSaving();
+    server.apply(0); // A lands, but its answer is lost
+    server.fail(new Error('network'), 0);
+    await tick();
+    expect(statuses.at(-1)).not.toBe('saved');
+    expect(timers.pending).toHaveLength(0);
+    server.answer(1);
+    await tick();
+    expect(statuses.at(-1)).toBe('saved');
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(false);
+  });
+});
