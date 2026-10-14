@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-14
+
 ### Security
 
 - Two ways to register a lookalike of an existing name are closed. A zero-width joiner or non-joiner, a tag character or a blank Braille pattern no longer hides a Cyrillic or Greek letter inside a Latin word from the mixed-script check, and an invisible character between a letter and its accent no longer makes a second "José". Stored name keys are recomputed once on the next start; an entry whose new key is already taken keeps its old one.
@@ -280,7 +282,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ni-c/owl-be-there/compare/v0.2.1...v0.3.0
