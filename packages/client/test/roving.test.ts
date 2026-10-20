@@ -34,6 +34,12 @@ describe('arrowTarget', () => {
     expect(arrowTarget('ArrowRight', 2, 3, false)).toBe(0);
     expect(arrowTarget('ArrowLeft', 0, 3, false)).toBe(2);
   });
+
+  it('moves horizontal focus in the visible direction in RTL', () => {
+    expect(arrowTarget('ArrowLeft', 0, 3, false, true)).toBe(1);
+    expect(arrowTarget('ArrowRight', 0, 3, false, true)).toBe(2);
+    expect(arrowTarget('ArrowDown', 0, 3, true, true)).toBe(1);
+  });
 });
 
 describe('rovingKeyDown', () => {
@@ -71,6 +77,23 @@ describe('rovingKeyDown', () => {
     expect(s.event.preventDefault).toHaveBeenCalledOnce();
     expect(s.focus[1]).toHaveBeenCalledOnce();
     expect(s.focus[0]).not.toHaveBeenCalled();
+  });
+
+  it('moves in the mirrored direction when the document is RTL', () => {
+    const s = setup('ArrowLeft');
+    s.event.currentTarget = {
+      ...s.event.currentTarget,
+      ownerDocument: { documentElement: { dir: 'rtl' } },
+    } as never;
+    rovingKeyDown(
+      s.event as unknown as KeyboardEvent<HTMLElement>,
+      0,
+      3,
+      s.choose,
+      false
+    );
+    expect(s.choose).toHaveBeenCalledWith(1);
+    expect(s.focus[1]).toHaveBeenCalledOnce();
   });
 
   it('wraps in both directions', () => {

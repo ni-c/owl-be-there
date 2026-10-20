@@ -63,7 +63,7 @@ export class PageTemplate {
   render(head: string, language: Language = 'en', content = ''): string {
     const before = this.before.replace(
       /<html lang="[^"]*"/,
-      `<html lang="${language}"`
+      `<html lang="${language}"${language === 'ar' ? ' dir="rtl"' : ''}`
     );
     return `${before}${head}${this.between}${content}${this.after}`;
   }

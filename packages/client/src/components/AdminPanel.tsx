@@ -382,7 +382,7 @@ function DetailsForm({
             id={id}
             value={input.emoji}
             onChange={(e) => edit({ emoji: e.target.value as EmojiKey })}
-            className="min-h-11 rounded-2xl border-2 border-line bg-surface pl-3"
+            className="min-h-11 rounded-2xl border-2 border-line bg-surface ps-3"
           >
             {EMOJI_KEYS.map((key) => (
               <option key={key} value={key}>

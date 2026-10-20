@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
 import {
   previewNeedsCjk,
@@ -63,9 +64,11 @@ const NUNITO_LETTER = /[\p{scx=Latin}\p{scx=Cyrillic}]/u;
 /** Letters the CJK font adds. It carries Greek and Cyrillic too, but no Hebrew or Thai. */
 const CJK_LETTER =
   /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Bopomofo}\p{scx=Greek}]/u;
+const ARABIC_LETTER = /\p{scx=Arabic}/u;
 
 /** Whether the title has a Greek letter, which only the CJK font draws. */
 const hasGreek = (title: string): boolean => /\p{scx=Greek}/u.test(title);
+const hasArabic = (title: string): boolean => ARABIC_LETTER.test(title);
 
 /** Flags, skin tones, keycaps and the emoji planes: Nunito has none of them. */
 const EMOJI =
@@ -92,7 +95,8 @@ const undrawable = (char: string, cjk: boolean): boolean =>
 export function drawableTitle(
   title: string,
   appName: string,
-  cjk: boolean
+  cjk: boolean,
+  arabic = false
 ): string {
   let out = '';
   let lost = false;
@@ -103,7 +107,9 @@ export function drawableTitle(
       continue;
     }
     const gap = /\p{L}/u.test(char)
-      ? !NUNITO_LETTER.test(char) && !(cjk && CJK_LETTER.test(char))
+      ? !NUNITO_LETTER.test(char) &&
+        !(cjk && CJK_LETTER.test(char)) &&
+        !(arabic && ARABIC_LETTER.test(char))
       : lost && /\p{M}/u.test(char);
     if (gap) {
       if (!lost) out += '…';
@@ -123,14 +129,16 @@ export interface RenderBudget {
   perSecond: number;
 }
 
-/** Nunito's files, 400 and 800 each: Latin and the scripts around it. */
-const NUNITO_FILES = [
-  'latin',
-  'latin-ext',
-  'vietnamese',
-  'cyrillic',
-  'cyrillic-ext',
-].flatMap((subset) => [`${subset}-400`, `${subset}-800`]);
+/**
+ * Nunito at 400 and 800: the Latin, Vietnamese and Cyrillic subsets of
+ * @fontsource/nunito merged into one file per weight. resvg takes a missing
+ * glyph from the first font that has it, whatever its weight, and gives up on
+ * a line that font shapes into a different number of glyphs; with one file per
+ * subset, Vietnamese came out as boxes and bold Cyrillic as regular.
+ */
+const NUNITO_FILES = ['nunito-400.woff2', 'nunito-800.woff2'].map((name) =>
+  fileURLToPath(new URL(`../fonts/${name}`, import.meta.url))
+);
 
 const DEFAULT_BUDGET: RenderBudget = { burst: 10, perSecond: 5 };
 
@@ -167,15 +175,7 @@ export class PreviewBusy extends Error {
 export class PreviewRenderer {
   private readonly latin = new Lazy(() =>
     Promise.all(
-      NUNITO_FILES.map(async (name) =>
-        decompress(
-          await readFile(
-            require.resolve(
-              `@fontsource/nunito/files/nunito-${name}-normal.woff2`
-            )
-          )
-        )
-      )
+      NUNITO_FILES.map(async (path) => decompress(await readFile(path)))
     )
   );
   /** Noto Sans CJK JP from the built client, or null when there is none. */
@@ -184,6 +184,19 @@ export class PreviewRenderer {
       file ? decompress(file) : null
     )
   );
+  private readonly cjkSc = new Lazy(() =>
+    this.clientFile('fonts/noto-sans-cjk-sc-regular.woff2').then((file) =>
+      file ? decompress(file) : null
+    )
+  );
+  private readonly arabic = new Lazy(async () => {
+    const files = await Promise.all([
+      this.clientFile('fonts/owl-noto-sans-arabic-regular.woff2'),
+      this.clientFile('fonts/owl-noto-sans-arabic-bold.woff2'),
+    ]);
+    if (files.some((file) => file === null)) return null;
+    return Promise.all(files.map((file) => decompress(file!)));
+  });
   private readonly owl = new Lazy(() =>
     this.clientFile('favicon.svg').then((file) =>
       file ? `data:image/svg+xml;base64,${file.toString('base64')}` : null
@@ -267,17 +280,28 @@ export class PreviewRenderer {
     const fonts = [...(await this.latin.get())];
     let cjk = false;
     if (previewNeedsCjk(data) || hasGreek(data.event.title)) {
-      const font = await this.cjk.get();
+      const font = await (data.event.language === 'zh-Hans'
+        ? this.cjkSc.get()
+        : this.cjk.get());
       if (font) {
         fonts.push(font);
         cjk = true;
+      }
+    }
+    let arabic = false;
+    if (data.event.language === 'ar' || hasArabic(data.event.title)) {
+      const loaded = await this.arabic.get();
+      if (loaded) {
+        fonts.push(...loaded);
+        arabic = true;
       }
     }
     const { event } = data;
     const title = drawableTitle(
       event.title,
       SERVER_TEXTS[event.language].appName,
-      cjk
+      cjk,
+      arabic
     );
     const svg = previewSvg(
       title === event.title ? data : { ...data, event: { ...event, title } },

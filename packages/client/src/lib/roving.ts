@@ -9,12 +9,19 @@ export function arrowTarget(
   key: string,
   index: number,
   length: number,
-  vertical = true
+  vertical = true,
+  rtl = false
 ): number | null {
   if (length === 0) return null;
-  if (key === 'ArrowRight' || (vertical && key === 'ArrowDown'))
+  if (
+    (rtl ? key === 'ArrowLeft' : key === 'ArrowRight') ||
+    (vertical && key === 'ArrowDown')
+  )
     return (index + 1) % length;
-  if (key === 'ArrowLeft' || (vertical && key === 'ArrowUp'))
+  if (
+    (rtl ? key === 'ArrowRight' : key === 'ArrowLeft') ||
+    (vertical && key === 'ArrowUp')
+  )
     return (index - 1 + length) % length;
   return null;
 }
@@ -31,7 +38,13 @@ export function rovingKeyDown(
   choose: (index: number) => void,
   vertical = true
 ): void {
-  const next = arrowTarget(event.key, index, length, vertical);
+  const next = arrowTarget(
+    event.key,
+    index,
+    length,
+    vertical,
+    event.currentTarget.ownerDocument?.documentElement.dir === 'rtl'
+  );
   if (next === null) return;
   event.preventDefault();
   choose(next);

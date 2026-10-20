@@ -25,7 +25,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
-import { weekdayName, weekdayOrder } from '../lib/locale.ts';
+import { weekdayHeading, weekdayName, weekdayOrder } from '../lib/locale.ts';
 
 export interface HeatInfo {
   level: 0 | 1 | 2 | 3 | 4 | 5;
@@ -81,7 +81,7 @@ interface Stroke {
 
 export function CalendarGrid(props: CalendarGridProps) {
   const { days, firstWeekday, today, label } = props;
-  const { t, tn, locale } = useI18n();
+  const { t, tn, locale, language } = useI18n();
   const rows = useMemo(
     () => buildWeeks(days, firstWeekday),
     [days, firstWeekday]
@@ -387,8 +387,8 @@ export function CalendarGrid(props: CalendarGridProps) {
     const target = (event.target as HTMLElement).dataset.day;
     if (!target) return;
     const steps: Record<string, [number, number]> = {
-      ArrowLeft: [0, -1],
-      ArrowRight: [0, 1],
+      ArrowLeft: [0, language === 'ar' ? 1 : -1],
+      ArrowRight: [0, language === 'ar' ? -1 : 1],
       ArrowUp: [-1, 0],
       ArrowDown: [1, 0],
     };
@@ -514,13 +514,13 @@ export function CalendarGrid(props: CalendarGridProps) {
                   className="min-h-9 w-full rounded-lg text-sm font-bold text-muted hover:bg-sunken hover:text-ink"
                   onClick={() => toggleTargets(weekdayTargets(weekday))}
                   // The name starts with what is shown (WCAG 2.5.3).
-                  aria-label={`${weekdayName(weekday, locale, 'short')}: ${t(
+                  aria-label={`${weekdayHeading(weekday, locale)}: ${t(
                     'cal.weekdayAll',
                     { weekday: weekdayName(weekday, locale, 'long') }
                   )}`}
                   tabIndex={-1}
                 >
-                  {weekdayName(weekday, locale, 'short')}
+                  {weekdayHeading(weekday, locale)}
                 </button>
               ) : (
                 <span className="text-sm font-bold text-muted">
@@ -528,7 +528,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                     title={weekdayName(weekday, locale, 'long')}
                     className="no-underline"
                   >
-                    {weekdayName(weekday, locale, 'short')}
+                    {weekdayHeading(weekday, locale)}
                   </abbr>
                 </span>
               )}
@@ -624,7 +624,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                           data-selected={props.selected.has(day)}
                           aria-label={`${fullDate}: ${stateLabel(day)}`}
                         >
-                          <span className="absolute top-1 left-1.5 text-[0.65rem] font-bold">
+                          <span className="absolute top-1 start-1.5 text-[0.65rem] font-bold">
                             {number}
                           </span>
                           {info && info.yes + info.maybe > 0 && (
@@ -690,7 +690,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                         {unseen && (
                           <span
                             aria-hidden="true"
-                            className="absolute -top-1 -right-1 rounded-full bg-brand px-1 text-[0.55rem] font-black text-brand-ink uppercase"
+                            className="absolute -top-1 -end-1 rounded-full bg-brand px-1 text-[0.55rem] font-black text-brand-ink uppercase"
                           >
                             {t('cal.new')}
                           </span>
@@ -698,7 +698,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                         {hint && hint.total > 0 && (
                           <span
                             aria-hidden="true"
-                            className="absolute right-1.5 bottom-1 left-1.5 flex h-1 overflow-hidden rounded-full bg-black/10"
+                            className="absolute inset-x-1.5 bottom-1 flex h-1 overflow-hidden rounded-full bg-black/10"
                           >
                             <span
                               style={{

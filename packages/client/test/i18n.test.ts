@@ -1,16 +1,53 @@
 import { charCount, LANGUAGES, LIMITS, LOCALES, PEOPLE } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
+import { ar } from '../src/i18n/ar.ts';
+import { cs } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
+import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
+import { id } from '../src/i18n/id.ts';
 import { interpolate } from '../src/i18n/index.tsx';
 import { it as italian } from '../src/i18n/it.ts';
 import { ja } from '../src/i18n/ja.ts';
+import { ko } from '../src/i18n/ko.ts';
+import { nb } from '../src/i18n/nb.ts';
 import { nl } from '../src/i18n/nl.ts';
+import { pl } from '../src/i18n/pl.ts';
 import { pt } from '../src/i18n/pt.ts';
+import { ru } from '../src/i18n/ru.ts';
+import { sv } from '../src/i18n/sv.ts';
+import { tr } from '../src/i18n/tr.ts';
+import { uk } from '../src/i18n/uk.ts';
+import { vi } from '../src/i18n/vi.ts';
+import { zhHans } from '../src/i18n/zh-Hans.ts';
+import { zhHant } from '../src/i18n/zh-Hant.ts';
 
-const DICTIONARIES = { de, en, es, fr, it: italian, ja, nl, pt } as const;
+const DICTIONARIES = {
+  ar,
+  cs,
+  de,
+  en,
+  es,
+  fi,
+  fr,
+  id,
+  it: italian,
+  ja,
+  ko,
+  nb,
+  nl,
+  pl,
+  pt,
+  ru,
+  sv,
+  tr,
+  uk,
+  vi,
+  'zh-Hans': zhHans,
+  'zh-Hant': zhHant,
+} as const;
 
 describe('interpolate', () => {
   it('leaves placeholders named like Object.prototype members visible', () => {
@@ -62,7 +99,9 @@ describe('texts that must agree with the rest of the app', () => {
     for (const language of LANGUAGES) {
       const dictionary = DICTIONARIES[language];
       expect(dictionary['privacy.stored.nothingElse'], language).toContain(
-        language === 'ja' ? 'Google' : dictionary['event.google']
+        language === 'ja' || language === 'pl'
+          ? 'Google'
+          : dictionary['event.google']
       );
     }
   });

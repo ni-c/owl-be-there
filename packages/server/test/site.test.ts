@@ -343,13 +343,63 @@ describe('pages', () => {
     const japanese = await t.app.inject({ method: 'GET', url: '/ja' });
     expect(japanese.body).toContain('<html lang="ja">');
     expect(japanese.body).toContain('みんなが集まれる日を見つけよう。');
+    const traditionalChinese = await t.app.inject({
+      method: 'GET',
+      url: '/zh-Hant',
+    });
+    expect(traditionalChinese.statusCode).toBe(200);
+    expect(traditionalChinese.body).toContain('<html lang="zh-Hant">');
+    expect(traditionalChinese.body).toContain('找出大家都方便的日子。');
+    const simplifiedChinese = await t.app.inject({
+      method: 'GET',
+      url: '/zh-Hans',
+    });
+    expect(simplifiedChinese.statusCode).toBe(200);
+    expect(simplifiedChinese.body).toContain('<html lang="zh-Hans">');
+    expect(simplifiedChinese.body).toContain('找到大家都有空的日子。');
+    const turkish = await t.app.inject({ method: 'GET', url: '/tr' });
+    expect(turkish.statusCode).toBe(200);
+    expect(turkish.body).toContain('<html lang="tr">');
+    expect(turkish.body).toContain('Herkese uyan bir gün bulun.');
+    const indonesian = await t.app.inject({ method: 'GET', url: '/id' });
+    expect(indonesian.statusCode).toBe(200);
+    expect(indonesian.body).toContain('<html lang="id">');
+    expect(indonesian.body).toContain('Temukan hari yang cocok untuk semua.');
+    const polish = await t.app.inject({ method: 'GET', url: '/pl' });
+    expect(polish.statusCode).toBe(200);
+    expect(polish.body).toContain('<html lang="pl">');
+    expect(polish.body).toContain('Znajdź dzień, który pasuje wszystkim.');
+    const czech = await t.app.inject({ method: 'GET', url: '/cs' });
+    expect(czech.statusCode).toBe(200);
+    expect(czech.body).toContain('<html lang="cs">');
+    expect(czech.body).toContain('Najděte den, který vyhovuje všem.');
+    const norwegian = await t.app.inject({ method: 'GET', url: '/nb' });
+    expect(norwegian.statusCode).toBe(200);
+    expect(norwegian.body).toContain('<html lang="nb">');
+    expect(norwegian.body).toContain('Finn en dag som passer for alle.');
+    const swedish = await t.app.inject({ method: 'GET', url: '/sv' });
+    expect(swedish.statusCode).toBe(200);
+    expect(swedish.body).toContain('<html lang="sv">');
+    expect(swedish.body).toContain('Hitta en dag som passar alla.');
+    const finnish = await t.app.inject({ method: 'GET', url: '/fi' });
+    expect(finnish.statusCode).toBe(200);
+    expect(finnish.body).toContain('<html lang="fi">');
+    expect(finnish.body).toContain('Löydä päivä, joka sopii kaikille.');
+    const russian = await t.app.inject({ method: 'GET', url: '/ru' });
+    expect(russian.statusCode).toBe(200);
+    expect(russian.body).toContain('<html lang="ru">');
+    expect(russian.body).toContain('Найдите день, который подходит всем.');
+    const arabic = await t.app.inject({ method: 'GET', url: '/ar' });
+    expect(arabic.statusCode).toBe(200);
+    expect(arabic.body).toContain('<html lang="ar" dir="rtl">');
+    expect(arabic.body).toContain('اعثر على يوم يناسب الجميع.');
   });
 
   it('names every language version of the start page, and / as the default', async () => {
     t = await testApp();
     for (const url of ['/', '/en', '/fr']) {
       const { body } = await t.app.inject({ method: 'GET', url });
-      for (const language of ['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'])
+      for (const language of LANGUAGES)
         expect(body, url).toContain(
           `<link rel="alternate" hreflang="${language}" href="https://owl.example.org/${language}" />`
         );
@@ -496,6 +546,89 @@ describe('pages', () => {
     expect(body).toContain('<html lang="nl">');
     expect(body).not.toContain('hreflang');
     expect(body).not.toContain('rel="canonical"');
+    const traditionalChinese = await createEvent(t.app, {
+      language: 'zh-Hant',
+    });
+    const chinesePage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${traditionalChinese.id}`,
+    });
+    expect(chinesePage.body).toContain('<html lang="zh-Hant">');
+    expect(chinesePage.body).toContain('標記你方便的日期');
+    const simplifiedChinese = await createEvent(t.app, {
+      language: 'zh-Hans',
+    });
+    const simplifiedChinesePage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${simplifiedChinese.id}`,
+    });
+    expect(simplifiedChinesePage.body).toContain('<html lang="zh-Hans">');
+    expect(simplifiedChinesePage.body).toContain('标记你方便的日期');
+    const turkish = await createEvent(t.app, { language: 'tr' });
+    const turkishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${turkish.id}`,
+    });
+    expect(turkishPage.body).toContain('<html lang="tr">');
+    expect(turkishPage.body).toContain('Uygun günlerini işaretle');
+    const indonesian = await createEvent(t.app, { language: 'id' });
+    const indonesianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${indonesian.id}`,
+    });
+    expect(indonesianPage.body).toContain('<html lang="id">');
+    expect(indonesianPage.body).toContain('Tandai hari saat kamu bisa hadir');
+    const polish = await createEvent(t.app, { language: 'pl' });
+    const polishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${polish.id}`,
+    });
+    expect(polishPage.body).toContain('<html lang="pl">');
+    expect(polishPage.body).toContain('Zaznacz dni, w które możesz przyjść');
+    const czech = await createEvent(t.app, { language: 'cs' });
+    const czechPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${czech.id}`,
+    });
+    expect(czechPage.body).toContain('<html lang="cs">');
+    expect(czechPage.body).toContain('Označ dny, kdy máš čas');
+    const norwegian = await createEvent(t.app, { language: 'nb' });
+    const norwegianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${norwegian.id}`,
+    });
+    expect(norwegianPage.body).toContain('<html lang="nb">');
+    expect(norwegianPage.body).toContain('Marker dagene du kan');
+    const swedish = await createEvent(t.app, { language: 'sv' });
+    const swedishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${swedish.id}`,
+    });
+    expect(swedishPage.body).toContain('<html lang="sv">');
+    expect(swedishPage.body).toContain('Markera de dagar du kan');
+    const finnish = await createEvent(t.app, { language: 'fi' });
+    const finnishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${finnish.id}`,
+    });
+    expect(finnishPage.body).toContain('<html lang="fi">');
+    expect(finnishPage.body).toContain(
+      'Merkitse päivät, jolloin pääset mukaan'
+    );
+    const russian = await createEvent(t.app, { language: 'ru' });
+    const russianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${russian.id}`,
+    });
+    expect(russianPage.body).toContain('<html lang="ru">');
+    expect(russianPage.body).toContain('Отметь дни, когда можешь прийти');
+    const arabic = await createEvent(t.app, { language: 'ar' });
+    const arabicPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${arabic.id}`,
+    });
+    expect(arabicPage.body).toContain('<html lang="ar" dir="rtl">');
+    expect(arabicPage.body).toContain('حدّد الأيام التي تناسبك');
   });
 
   it('answers a language it does not speak, or a capitalised one, with a 404', async () => {
@@ -532,16 +665,16 @@ describe('pages', () => {
     );
     expect(locs).toEqual([
       'https://owl.example.org/',
-      ...['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'].map(
-        (language) => `https://owl.example.org/${language}`
-      ),
+      ...LANGUAGES.map((language) => `https://owl.example.org/${language}`),
       'https://owl.example.org/privacy',
     ]);
     expect(response.body).not.toContain('/imprint');
     expect(response.body).not.toContain(id);
     expect(response.body).not.toContain('/e/');
-    // Each start page names all nine versions.
-    expect(response.body.match(/hreflang=/g)).toHaveLength(9 * 9);
+    // Each start page names all language versions and the default.
+    expect(response.body.match(/hreflang=/g)).toHaveLength(
+      (LANGUAGES.length + 1) ** 2
+    );
   });
 
   it('lists /imprint in the sitemap, after the privacy page, when it is configured', async () => {

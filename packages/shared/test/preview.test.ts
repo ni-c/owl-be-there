@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  arabicPunctuation,
   monthRange,
   PREVIEW_MAX_WEEKS,
   previewCalendar,
@@ -525,7 +526,90 @@ describe('monthRange', () => {
   });
 });
 
+describe('arabicPunctuation', () => {
+  it('swaps dashes and middle dots in lines with Arabic letters only', () => {
+    expect(arabicPunctuation('')).toBe('');
+    expect(arabicPunctuation('October – November · 5')).toBe(
+      'October – November · 5'
+    );
+    expect(arabicPunctuation('Шашлики — 5 · 2')).toBe('Шашлики — 5 · 2');
+    expect(arabicPunctuation('أكتوبر – نوفمبر 2026')).toBe(
+      'أكتوبر - نوفمبر 2026'
+    );
+    expect(arabicPunctuation('أكتوبر—نوفمبر')).toBe('أكتوبر-نوفمبر');
+    expect(arabicPunctuation('حدّد الأيام · 5 إجابات')).toBe(
+      'حدّد الأيام، 5 إجابات'
+    );
+    expect(arabicPunctuation('أ·ب · ج')).toBe('أ،ب، ج');
+    expect(arabicPunctuation('عشاء الفريق')).toBe('عشاء الفريق');
+  });
+});
+
 describe('previewSvg', () => {
+  it('mirrors the Arabic preview without exposing private details', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'عشاء الفريق',
+        description: 'Do not show this',
+        people: [{ name: 'Secret person' }],
+      }),
+      options
+    );
+    expect(svg).toContain('<rect x="48" y="48" width="456"');
+    expect(svg).toContain('direction="rtl" text-anchor="end"');
+    expect(visible(svg)).toContain('عشاء الفريق');
+    expect(visible(svg)).toContain('حدّد الأيام التي تناسبك');
+    expect(svg).not.toContain('Secret person');
+    expect(svg).not.toContain('Do not show this');
+  });
+
+  it('puts a truncation mark outside Arabic text so the font still draws the letters', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'بطولة كرة القدم مع الأصدقاء في عطلة نهاية الأسبوع',
+      }),
+      options
+    );
+    expect(svg).toContain('font-family="Nunito"');
+    expect(svg).toContain('>…</text>');
+    expect(svg).not.toMatch(/[\u0600-\u06ff]…<\/text>/u);
+  });
+
+  it('keeps dashes and middle dots out of Arabic lines, which the Arabic font cannot draw', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'عشاء الفريق',
+        days: ['2026-10-30', '2026-11-02'],
+        people: [{ name: 'Anna', yes: ['2026-10-30'] }],
+      }),
+      options
+    );
+    const text = visible(svg);
+    expect(text).toContain('تناسبك،');
+    expect(text).toMatch(/أكتوبر - نوفمبر/u);
+    expect(text).not.toMatch(/[–—·]/u);
+  });
+
+  it('names the Arabic font first on Arabic lines only', () => {
+    const arabic = previewSvg(
+      snapshot({ language: 'ar', title: 'عشاء الفريق' }),
+      options
+    );
+    expect(arabic).toMatch(
+      /font-weight="800" font-family="'Noto Sans Arabic', Nunito"[^>]*>عشاء الفريق</u
+    );
+    expect(arabic).toMatch(
+      /font-weight="400" font-family="'Noto Sans Arabic', Nunito"[^>]*>حدّد/u
+    );
+    expect(arabic).not.toMatch(/Noto Sans Arabic', Nunito"[^>]*>Owl Be There</);
+    expect(previewSvg(snapshot(), options)).not.toContain(
+      `'Noto Sans Arabic', Nunito`
+    );
+  });
+
   it('shows the title and the state, never names or the description', () => {
     const svg = previewSvg(
       snapshot({
@@ -629,6 +713,11 @@ describe('previewNeedsCjk', () => {
     expect(previewNeedsCjk(snapshot())).toBe(false);
     expect(previewNeedsCjk(snapshot({ title: 'Grillabend Ü' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ language: 'ja' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'zh-Hant' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'zh-Hans' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'ko' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'vi' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'uk' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ title: '忘年会' }))).toBe(true);
   });
 

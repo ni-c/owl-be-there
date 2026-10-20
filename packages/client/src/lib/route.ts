@@ -17,7 +17,7 @@ export function parseRoute(pathname: string): Route {
   // The server answers these with and without a trailing slash; so does the app.
   if (/^\/privacy\/?$/.test(pathname)) return { page: 'privacy' };
   if (/^\/imprint\/?$/.test(pathname)) return { page: 'imprint' };
-  const home = /^\/([a-z]{2})\/?$/.exec(pathname);
+  const home = /^\/([a-z]{2}(?:-[A-Za-z]+)?)\/?$/.exec(pathname);
   if (home && isLanguage(home[1]!)) return { page: 'home', language: home[1] };
   const event = /^\/e\/([^/]+)\/?$/.exec(pathname);
   if (event && isId(event[1]!)) return { page: 'event', id: event[1]! };

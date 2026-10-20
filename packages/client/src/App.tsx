@@ -174,7 +174,7 @@ function Header() {
     <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-3 sm:px-6">
       <Link
         href="/"
-        className="flex items-center gap-2 rounded-full pr-3 font-black"
+        className="flex items-center gap-2 rounded-full pe-3 font-black"
       >
         <Owl size={40} />
         <span className="text-xl tracking-tight">{t('app.name')}</span>
@@ -198,7 +198,7 @@ function Footer({
     writeTheme(next);
   };
   const selectClass =
-    'min-h-10 rounded-full border-2 border-line bg-surface pl-3 font-bold text-ink focus:border-focus';
+    'min-h-10 rounded-full border-2 border-line bg-surface ps-3 font-bold text-ink focus:border-focus';
   return (
     <footer className="border-t border-line bg-sunken/60">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm sm:px-6">

@@ -14,14 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Notes are easier to find: the group view marks everyone who wrote one with a speech bubble and lists all notes under a heading of their own, below "Who is counted". A note stays listed while its writer is left out of the count.
 - Ben and Max in the start page example each have a note, so the example shows what notes look like.
+- Fourteen more interface languages: Arabic, Czech, Finnish, Indonesian, Korean, Norwegian Bokmål, Polish, Russian, Simplified Chinese, Swedish, Traditional Chinese, Turkish, Ukrainian and Vietnamese. The start page (`/ar`, `/ko` …), link previews and calendar files speak them too, and a browser set to one of them opens in it.
+- Arabic reads right to left: the layout is mirrored and the arrow keys in the calendar follow the reading direction. Arabic and Simplified Chinese text use bundled Noto Sans Arabic and Noto Sans CJK SC fonts, so no request leaves for a font service.
 
 ### Changed
 
 - The day sheet lists people as small chips in the colour of their answer instead of in heading-sized bold type, and an empty group shows only its heading. Notes have a block of their own at the end of the sheet, each next to its writer's name in the colour of their answer for that day. Neither page shows a notes block when nobody has written one.
+- The database gains one migration that lets events store the new languages. It rebuilds the `events` table once on the first start; events, participants and their days are kept.
 
 ### Fixed
 
 - An organiser key kept on a device is checked as soon as the event opens. After the organiser link had been issued anew, the old key still showed the organiser tools until the first change, which the server then refused and which was lost; now the page says at once that the link was not accepted.
+- Japanese pages no longer fetch the full Japanese font for characters the small interface font lacked.
+- Link preview pictures draw Vietnamese letters instead of boxes, and bold Cyrillic and accented Latin letters (č, ł, ş …) in bold instead of regular.
 
 ## [0.4.2] - 2026-10-14
 

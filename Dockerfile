@@ -81,6 +81,7 @@ COPY packages/server/package.json packages/server/package.json
 COPY --from=deps /app/node_modules node_modules
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/server/dist packages/server/dist
+COPY --from=build /app/packages/server/fonts packages/server/fonts
 COPY --from=build /app/packages/client/dist packages/client/dist
 # The only writable place: the database and the server secret. Everything else
 # stays root-owned, and the container runs with a read-only root filesystem.

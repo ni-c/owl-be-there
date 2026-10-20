@@ -175,7 +175,7 @@ export function GroupView(props: GroupViewProps) {
                   >
                     <button
                       type="button"
-                      className="flex min-h-11 flex-1 items-center gap-3 text-left"
+                      className="flex min-h-11 flex-1 items-center gap-3 text-start"
                       aria-pressed={isSelected}
                       onClick={() => setSelected(isSelected ? null : block)}
                     >

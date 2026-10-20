@@ -42,7 +42,8 @@ export const PREVIEW_COLOURS = {
 } as const;
 
 /** The font stack the server loads; CJK only falls in where Nunito has no glyph. */
-const PREVIEW_FONTS = "Nunito, 'Noto Sans CJK JP'";
+const PREVIEW_FONTS =
+  "Nunito, 'Noto Sans CJK SC', 'Noto Sans CJK JP', 'Noto Sans Arabic'";
 
 export interface PreviewOptions {
   /** Shown at the bottom, e.g. `owlbethere.app`. */
@@ -130,6 +131,7 @@ const isFullWidth = (char: string): boolean => char.codePointAt(0)! >= 0x2e80;
 function charWidth(char: string): number {
   if (isFullWidth(char)) return 1;
   if (char === ' ') return 0.26;
+  if (/\p{scx=Arabic}/u.test(char)) return 0.65;
   if (char === 'W') return 1.1;
   if (char === 'M') return 0.95;
   if (char === 'm') return 0.9;
@@ -197,6 +199,28 @@ export function wrapText(
   return kept;
 }
 
+/**
+ * Noto Sans Arabic has no en or em dash and no middle dot, and resvg cannot
+ * borrow one glyph from Nunito inside Arabic text: the whole line comes out
+ * as boxes. A line with Arabic letters gets the hyphen and the Arabic comma.
+ */
+export function arabicPunctuation(line: string): string {
+  return /\p{scx=Arabic}/u.test(line)
+    ? line.replace(/[–—]/g, '-').replace(/\s?·/g, '،')
+    : line;
+}
+
+/**
+ * A line with Arabic letters names the Arabic font first, so its weight is
+ * matched like Nunito's instead of being left to resvg's fallback, which
+ * drew bold Cyrillic in the regular weight.
+ */
+function arabicFont(line: string): string {
+  return /\p{scx=Arabic}/u.test(line)
+    ? ` font-family="'Noto Sans Arabic', Nunito"`
+    : '';
+}
+
 /** The whole picture, as an SVG document. */
 export function previewSvg(
   data: EventSnapshotData,
@@ -208,17 +232,38 @@ export function previewSvg(
   const e = escapeMarkup;
   const status = previewStatus(texts, data, locale);
 
-  const left = 72;
+  const rtl = event.language === 'ar';
+  const left = rtl ? 1128 : 72;
+  const textAttributes = rtl ? ' direction="rtl" text-anchor="end"' : '';
   const columnWidth = 590;
   const parts: string[] = [];
+  const addLine = (
+    line: string,
+    lineY: number,
+    size: number,
+    weight: number,
+    colour: string
+  ): void => {
+    const separateEllipsis = /\p{scx=Arabic}/u.test(line) && line.endsWith('…');
+    const content = separateEllipsis ? line.slice(0, -1) : line;
+    parts.push(
+      `<text x="${left}" y="${lineY}" font-size="${size}" font-weight="${weight}"${arabicFont(content)} fill="${colour}"${textAttributes}>${e(arabicPunctuation(content))}</text>`
+    );
+    if (separateEllipsis) {
+      const ellipsisX = left + (rtl ? -1 : 1) * (textWidth(content, size) + 8);
+      parts.push(
+        `<text x="${ellipsisX}" y="${lineY}" font-size="${size}" font-family="Nunito" fill="${colour}" text-anchor="${rtl ? 'end' : 'start'}">…</text>`
+      );
+    }
+  };
 
   // Brand line.
   if (options.owl)
     parts.push(
-      `<image href="${e(options.owl)}" x="${left}" y="56" width="68" height="70"/>`
+      `<image href="${e(options.owl)}" x="${rtl ? 1060 : left}" y="56" width="68" height="70"/>`
     );
   parts.push(
-    `<text x="${options.owl ? left + 84 : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}">${e(texts.appName)}</text>`
+    `<text x="${options.owl ? (rtl ? left - 84 : left + 84) : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}"${textAttributes}>${e(texts.appName)}</text>`
   );
 
   // Title, up to three lines, then the state of the poll.
@@ -226,26 +271,22 @@ export function previewSvg(
   const titleLines = wrapText(event.title, columnWidth, titleSize, 3);
   let y = 214;
   for (const line of titleLines) {
-    parts.push(
-      `<text x="${left}" y="${y}" font-size="${titleSize}" font-weight="800" fill="${PREVIEW_COLOURS.ink}">${e(line)}</text>`
-    );
+    addLine(line, y, titleSize, 800, PREVIEW_COLOURS.ink);
     y += 70;
   }
   y += 8;
   for (const line of wrapText(status, columnWidth, 30, 3)) {
-    parts.push(
-      `<text x="${left}" y="${y}" font-size="30" fill="${PREVIEW_COLOURS.muted}">${e(line)}</text>`
-    );
+    addLine(line, y, 30, 400, PREVIEW_COLOURS.muted);
     y += 42;
   }
   parts.push(
-    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${PREVIEW_COLOURS.muted}">${e(options.host)}</text>`
+    `<text x="${left}" y="566" font-size="28" font-weight="800" fill="${PREVIEW_COLOURS.muted}"${textAttributes}>${e(options.host)}</text>`
   );
 
   // The calendar panel.
   const calendar = previewCalendar(data);
   const { weeks } = calendar;
-  const panelX = 696;
+  const panelX = rtl ? 48 : 696;
   const panelY = 48;
   const panelW = 456;
   const panelH = 534;
@@ -270,7 +311,7 @@ export function previewSvg(
       Math.floor((gridW / textWidth(months, 1)) * 0.95)
     );
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.ink}">${e(months)}</text>`
+      `<text x="${panelX + panelW / 2}" y="${top + 36}" font-size="${size}" font-weight="800"${arabicFont(months)} text-anchor="middle" fill="${PREVIEW_COLOURS.ink}">${e(arabicPunctuation(months))}</text>`
     );
   }
   const headY = top + 84;
@@ -281,13 +322,13 @@ export function previewSvg(
       weekday: 'narrow',
     });
     parts.push(
-      `<text x="${gridX + index * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
+      `<text x="${gridX + (rtl ? 6 - index : index) * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800"${arabicFont(name)} text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
     );
   }
   weeks.forEach((row, rowIndex) => {
     const cy = headY + 20 + rowIndex * (cell + gap);
     row.forEach((c, index) => {
-      const cx = gridX + index * (cell + gap);
+      const cx = gridX + (rtl ? 6 - index : index) * (cell + gap);
       const number = formatDay(c.day, locale, { day: 'numeric' }).replace(
         /\D+$/,
         ''
@@ -314,7 +355,7 @@ export function previewSvg(
   });
   if (calendar.hidden > 0)
     parts.push(
-      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800" text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(texts.previewMoreDays(calendar.hidden))}</text>`
+      `<text x="${panelX + panelW / 2}" y="${headY + 20 + weeks.length * (cell + gap) + 28}" font-size="24" font-weight="800"${arabicFont(texts.previewMoreDays(calendar.hidden))} text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(arabicPunctuation(texts.previewMoreDays(calendar.hidden)))}</text>`
     );
 
   return [
@@ -371,6 +412,9 @@ function isCjk(code: number): boolean {
 export function previewNeedsCjk(data: EventSnapshotData): boolean {
   return (
     data.event.language === 'ja' ||
+    data.event.language === 'ko' ||
+    data.event.language === 'zh-Hant' ||
+    data.event.language === 'zh-Hans' ||
     [...data.event.title].some((char) => isCjk(char.codePointAt(0)!))
   );
 }

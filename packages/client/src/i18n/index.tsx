@@ -9,30 +9,64 @@ import {
 } from 'react';
 import { readLanguage, writeLanguage } from '../lib/prefs.ts';
 import { parseRoute } from '../lib/route.ts';
+import { ar, arForms } from './ar.ts';
+import { cs, csFew } from './cs.ts';
 import { de } from './de.ts';
 import { en, type Dictionary, type TranslationKey } from './en.ts';
 import { es } from './es.ts';
+import { fi } from './fi.ts';
 import { fr } from './fr.ts';
+import { id } from './id.ts';
 import { it } from './it.ts';
 import { ja } from './ja.ts';
+import { ko } from './ko.ts';
+import { nb } from './nb.ts';
 import { nl } from './nl.ts';
+import { pl, plFew } from './pl.ts';
 import { pt } from './pt.ts';
+import { ru, ruFew } from './ru.ts';
+import { sv } from './sv.ts';
+import { tr } from './tr.ts';
+import { uk, ukFew } from './uk.ts';
+import { vi } from './vi.ts';
+import { zhHans } from './zh-Hans.ts';
+import { zhHant } from './zh-Hant.ts';
 
 const DICTIONARIES: Record<Language, Dictionary> = {
+  ar,
+  cs,
   de,
   en,
   es,
+  fi,
   fr,
+  id,
   it,
   ja,
+  ko,
+  nb,
   nl,
+  pl,
   pt,
+  ru,
+  sv,
+  tr,
+  uk,
+  vi,
+  'zh-Hans': zhHans,
+  'zh-Hant': zhHant,
 };
 
 /** Keys that come in `_one` / `_other` pairs, without the suffix. */
-type CountedKey = {
+export type CountedKey = {
   [K in TranslationKey]: K extends `${infer Base}_other` ? Base : never;
 }[TranslationKey];
+
+const FEW_FORMS: Partial<
+  Record<Language, Partial<Record<CountedKey, string>>>
+> = { cs: csFew, pl: plFew, ru: ruFew, uk: ukFew };
+
+const ARABIC_FORMS = arForms;
 
 export type Params = Record<string, string | number>;
 
@@ -56,7 +90,12 @@ export function detectLanguage(
   if (fromPath) return fromPath;
   if (stored) return stored;
   for (const tag of browser) {
-    const base = tag.toLowerCase().split('-')[0]!;
+    const normalized = tag.toLowerCase();
+    if (/^zh-(hant|tw|hk|mo)(-|$)/.test(normalized)) return 'zh-Hant';
+    if (normalized === 'zh' || /^zh-(hans|cn|sg)(-|$)/.test(normalized))
+      return 'zh-Hans';
+    const base = normalized.split('-')[0]!;
+    if (base === 'no') return 'nb';
     const match = LANGUAGES.find((language) => language === base);
     if (match) return match;
   }
@@ -70,8 +109,16 @@ export function translator(language: Language) {
     interpolate(dictionary[key], params);
   /** A counted text: `{count}` is filled in and the plural form chosen. */
   const tn = (key: CountedKey, count: number, params: Params = {}): string => {
-    const form = plural.select(count) === 'one' ? 'one' : 'other';
-    return interpolate(dictionary[`${key}_${form}` as TranslationKey], {
+    const category = plural.select(count);
+    const text =
+      (language === 'ar' && category !== 'one' && category !== 'other'
+        ? ARABIC_FORMS[category]?.[key]
+        : undefined) ??
+      (category === 'few' ? FEW_FORMS[language]?.[key] : undefined) ??
+      dictionary[
+        `${key}_${category === 'one' ? 'one' : 'other'}` as TranslationKey
+      ];
+    return interpolate(text, {
       ...params,
       count,
     });
@@ -103,6 +150,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
   const value = useMemo<I18n>(() => {
     document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
     return {
       language,
       locale: LOCALES[language],

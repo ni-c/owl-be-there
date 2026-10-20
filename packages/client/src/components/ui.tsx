@@ -149,9 +149,9 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
     <span className="relative grid">
       <select
         {...props}
-        className={`appearance-none pr-9 ${props.className ?? ''}`}
+        className={`appearance-none pe-9 ${props.className ?? ''}`}
       />
-      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted">
+      <span className="pointer-events-none absolute top-1/2 end-3 -translate-y-1/2 text-muted">
         <ChevronDownIcon size={16} />
       </span>
     </span>

@@ -47,6 +47,26 @@ The image must carry Node 26; if its Node is older, mount a Node 26 installation
 - The application makes no requests to third parties — no fonts, no scripts, no analytics. Keep it that way.
 - Commit messages are imperative ("Add the week toggle", not "Added …").
 
+## Translations
+
+`packages/client/src/i18n/en.ts` is the source text and the type of every other dictionary: a missing key is a build error, and a test compares the placeholders. Every language should read like the others:
+
+- Address one person informally (du, tu, tú, je, ty, ты, ти, sen, kamu, 你). Use the plural only where the whole group is addressed, as in the tagline and the FAQ.
+- Short, friendly, plain sentences, no marketing tone.
+- Typographic punctuation: ’ for apostrophes, — for dashes, … for an ellipsis, and the language's own quotation marks. Quote the event title inside a sentence: „{title}“, «{title}», ”{title}”, 「{title}」.
+- Localize examples and placeholders instead of translating them word for word: "Football in the park" is "Calcetto al parco" in Italian. The example person stays Anna, and "Willi Thiel" stays in Latin script.
+- One word per concept: event, organiser, organiser link, poll, answer, yes and maybe. Keep the candidate days apart from the chosen date — they must never share a word.
+- Counted texts come in `_one` / `_other` pairs. Languages with a `few` category add its forms (`csFew`, `plFew`, `ruFew`, `ukFew`), Arabic adds `arForms`. Check 1, 2, 5, 21 and 22.
+
+A new language is registered in these places:
+
+1. `packages/shared/src/texts.ts`: `LANGUAGES`, `LOCALES`, `LANGUAGE_NAMES`, `TAGLINES` and `SERVER_TEXTS`.
+2. `packages/shared/src/home.ts`: `HOME_TEXTS`.
+3. `packages/client/src/i18n/<code>.ts`, listed in `i18n/index.tsx` (`DICTIONARIES`, `FEW_FORMS`, and `detectLanguage` when browser tags need mapping, as for `zh` and `no`).
+4. The `language` check in `packages/server/src/db/migrations.ts`. A released migration never changes: add one that rebuilds the `events` table with the longer list.
+5. Scripts Nunito does not cover (it has Latin, Cyrillic and Vietnamese): a bundled font in `packages/client/public/fonts` with its rule in `styles.css`, and the font choice for link previews in `shared/preview.ts` and `server/src/preview.ts`. A right-to-left language also sets `dir` in `i18n/index.tsx` and swaps the arrow keys in `CalendarGrid.tsx`.
+6. The language lists in the tests and in the README.
+
 ## Releasing
 
 Maintainers only.

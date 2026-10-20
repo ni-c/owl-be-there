@@ -97,7 +97,7 @@ export function EventViews(props: {
                 {t('event.tabGroup')}
                 <span
                   aria-hidden="true"
-                  className="ml-1.5 inline-grid min-w-6 place-items-center rounded-full bg-line px-1.5 text-sm text-ink"
+                  className="ms-1.5 inline-grid min-w-6 place-items-center rounded-full bg-line px-1.5 text-sm text-ink"
                 >
                   {answered}
                 </span>

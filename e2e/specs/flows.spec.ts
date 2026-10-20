@@ -834,6 +834,30 @@ test('the start page has an address per language, and choosing another follows i
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('Arabic mirrors the page and calendar, then restores LTR on language change', async ({
+  page,
+}) => {
+  await page.goto('/ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(
+    page.getByRole('heading', { name: 'اعثر على يوم يناسب الجميع.' })
+  ).toBeVisible();
+  const days = page.locator('[data-browser-frame] .cal-row [data-day]');
+  await expect(days.nth(1)).toBeVisible();
+  const first = await days.first().boundingBox();
+  const second = await days.nth(1).boundingBox();
+  expect(first!.x).toBeGreaterThan(second!.x);
+  await days.first().focus();
+  await days.first().press('ArrowLeft');
+  await expect(days.nth(1)).toBeFocused();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth)
+  ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth + 1));
+
+  await page.getByLabel('اللغة').selectOption('en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+});
+
 test('the start page answers the common questions', async ({ page }) => {
   await page.goto('/en');
   await expect(page.getByRole('heading', { name: 'Questions' })).toBeVisible();

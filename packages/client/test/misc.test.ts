@@ -1,17 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ar, arForms } from '../src/i18n/ar.ts';
+import { cs, csFew } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
+import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
+import { id } from '../src/i18n/id.ts';
 import { it as italian } from '../src/i18n/it.ts';
 import { ja } from '../src/i18n/ja.ts';
+import { ko } from '../src/i18n/ko.ts';
+import { nb } from '../src/i18n/nb.ts';
 import { nl } from '../src/i18n/nl.ts';
+import { pl, plFew } from '../src/i18n/pl.ts';
 import { pt } from '../src/i18n/pt.ts';
+import { ru, ruFew } from '../src/i18n/ru.ts';
+import { sv } from '../src/i18n/sv.ts';
+import { tr } from '../src/i18n/tr.ts';
+import { uk, ukFew } from '../src/i18n/uk.ts';
+import { vi as vietnamese } from '../src/i18n/vi.ts';
+import { zhHans } from '../src/i18n/zh-Hans.ts';
+import { zhHant } from '../src/i18n/zh-Hant.ts';
 import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
 import {
   firstWeekdayFor,
+  weekdayHeading,
   weekdayName,
   weekdayOrder,
 } from '../src/lib/locale.ts';
@@ -32,7 +47,29 @@ describe('i18n', () => {
   it('has every English text in each translation, with the same placeholders', () => {
     const placeholders = (text: string) =>
       [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
-    for (const dictionary of [de, es, fr, italian, ja, nl, pt]) {
+    for (const dictionary of [
+      ar,
+      cs,
+      de,
+      es,
+      fi,
+      fr,
+      id,
+      italian,
+      ja,
+      ko,
+      nb,
+      nl,
+      pl,
+      pt,
+      ru,
+      sv,
+      tr,
+      uk,
+      vietnamese,
+      zhHans,
+      zhHant,
+    ]) {
       expect(Object.keys(dictionary).sort()).toEqual(Object.keys(en).sort());
       for (const key of Object.keys(en) as (keyof typeof en)[]) {
         expect(placeholders(dictionary[key]), key).toEqual(
@@ -89,6 +126,224 @@ describe('i18n', () => {
     expect(translator('nl').tn('create.dayCount', 2)).toBe(
       '2 dagen om uit te kiezen'
     );
+    for (const [count, expected] of [
+      [0, '0 dager å velge mellom'],
+      [1, '1 dag å velge mellom'],
+      [2, '2 dager å velge mellom'],
+      [5, '5 dager å velge mellom'],
+    ] as const)
+      expect(translator('nb').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('nb').tn('event.answers', 1)).toBe('1 svar');
+    expect(translator('nb').tn('event.answers', 2)).toBe('2 svar');
+    expect(translator('nb').tn('mine.newDays', 1)).toBe(
+      '1 ny dag er lagt til. Ta en titt.'
+    );
+    expect(translator('nb').tn('mine.newDays', 2)).toBe(
+      '2 nye dager er lagt til. Ta en titt.'
+    );
+    for (const [count, expected] of [
+      [0, '0 dagar att välja mellan'],
+      [1, '1 dag att välja mellan'],
+      [2, '2 dagar att välja mellan'],
+      [5, '5 dagar att välja mellan'],
+    ] as const)
+      expect(translator('sv').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('sv').tn('event.answers', 1)).toBe('1 svar');
+    expect(translator('sv').tn('event.answers', 2)).toBe('2 svar');
+    expect(translator('sv').tn('mine.newDays', 1)).toBe(
+      '1 ny dag har lagts till. Ta en titt.'
+    );
+    expect(translator('sv').tn('mine.newDays', 2)).toBe(
+      '2 nya dagar har lagts till. Ta en titt.'
+    );
+    for (const [count, expected] of [
+      [0, '0 päivää valittavana'],
+      [1, '1 päivä valittavana'],
+      [2, '2 päivää valittavana'],
+      [5, '5 päivää valittavana'],
+    ] as const)
+      expect(translator('fi').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('fi').tn('event.answers', 1)).toBe('1 vastaus');
+    expect(translator('fi').tn('event.answers', 2)).toBe('2 vastausta');
+    expect(translator('fi').tn('event.minCount', 1)).toBe(
+      'tarvitaan 1 henkilö'
+    );
+    expect(translator('fi').tn('event.minCount', 5)).toBe(
+      'tarvitaan 5 henkilöä'
+    );
+    expect(translator('fi').tn('cal.othersCan', 1)).toBe(
+      'lisäksi 1 muu henkilö pääsee'
+    );
+    expect(translator('fi').tn('cal.othersCan', 2)).toBe(
+      'lisäksi 2 muuta henkilöä pääsee'
+    );
+    expect(translator('fi').tn('mine.newDays', 1)).toBe(
+      '1 uusi päivä lisättiin. Tarkista se.'
+    );
+    expect(translator('fi').tn('mine.newDays', 2)).toBe(
+      '2 uutta päivää lisättiin. Tarkista ne.'
+    );
+    expect(translator('pl').tn('event.minCount', 1)).toBe(
+      'wymagana co najmniej 1 osoba'
+    );
+    expect(translator('pl').tn('event.minCount', 2)).toBe(
+      'wymagane co najmniej 2 osoby'
+    );
+    expect(translator('pl').tn('event.minCount', 5)).toBe(
+      'wymaganych co najmniej 5 osób'
+    );
+    expect(translator('pl').tn('event.minCount', 12)).toBe(
+      'wymaganych co najmniej 12 osób'
+    );
+    expect(translator('pl').tn('event.minCount', 22)).toBe(
+      'wymagane co najmniej 22 osoby'
+    );
+    expect(translator('pl').tn('mine.newDays', 0)).toBe(
+      'Dodano 0 nowych dni. Sprawdź je.'
+    );
+    expect(translator('pl').tn('mine.newDays', 2)).toBe(
+      'Dodano 2 nowe dni. Sprawdź je.'
+    );
+    expect(translator('pl').tn('cal.othersCan', 2)).toBe(
+      'jeszcze 2 osoby mogą przyjść'
+    );
+    expect(translator('pl').tn('cal.othersCan', 5)).toBe(
+      'jeszcze 5 osób może przyjść'
+    );
+    for (const [count, expected] of [
+      [0, '0 dní na výběr'],
+      [1, '1 den na výběr'],
+      [2, '2 dny na výběr'],
+      [4, '4 dny na výběr'],
+      [5, '5 dní na výběr'],
+      [12, '12 dní na výběr'],
+      [22, '22 dní na výběr'],
+    ] as const)
+      expect(translator('cs').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('cs').tn('event.minCount', 2)).toBe('minimálně 2 lidé');
+    expect(translator('cs').tn('event.answers', 4)).toBe('4 odpovědi');
+    expect(translator('cs').tn('event.answers', 5)).toBe('5 odpovědí');
+    expect(translator('cs').tn('mine.newDays', 2)).toBe(
+      'Byly přidány 2 nové dny. Podívej se.'
+    );
+    expect(translator('cs').tn('privacy.backups', 2)).toContain('2 dny');
+    for (const [count, expected] of [
+      [0, '0 дней на выбор'],
+      [1, '1 день на выбор'],
+      [2, '2 дня на выбор'],
+      [4, '4 дня на выбор'],
+      [5, '5 дней на выбор'],
+      [11, '11 дней на выбор'],
+      [21, '21 день на выбор'],
+      [22, '22 дня на выбор'],
+      [25, '25 дней на выбор'],
+    ] as const)
+      expect(translator('ru').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('ru').tn('event.answers', 2)).toBe('2 ответа');
+    expect(translator('ru').tn('event.answers', 5)).toBe('5 ответов');
+    expect(translator('ru').tn('event.minCount', 21)).toBe(
+      'нужен минимум 21 человек'
+    );
+    expect(translator('ru').tn('event.minCount', 22)).toBe(
+      'нужно минимум 22 человека'
+    );
+    expect(translator('ru').tn('cal.othersCan', 2)).toBe(
+      'ещё 2 человека могут прийти'
+    );
+    expect(translator('ru').tn('privacy.logs', 2)).toContain('через 2 дня');
+    for (const [count, expected] of [
+      [0, '0 днів на вибір'],
+      [1, '1 день на вибір'],
+      [2, '2 дні на вибір'],
+      [4, '4 дні на вибір'],
+      [5, '5 днів на вибір'],
+      [11, '11 днів на вибір'],
+      [21, '21 день на вибір'],
+      [22, '22 дні на вибір'],
+      [25, '25 днів на вибір'],
+    ] as const)
+      expect(translator('uk').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('uk').tn('event.answers', 2)).toBe('2 відповіді');
+    expect(translator('uk').tn('event.answers', 5)).toBe('5 відповідей');
+    expect(translator('uk').tn('event.minCount', 21)).toBe(
+      'потрібна щонайменше 21 людина'
+    );
+    expect(translator('uk').tn('event.minCount', 22)).toBe(
+      'потрібні щонайменше 22 людини'
+    );
+    for (const [count, expected] of [
+      [0, 'لا أيام للاختيار (0)'],
+      [1, 'يوم واحد للاختيار (1)'],
+      [2, 'يومان للاختيار (2)'],
+      [3, '3 أيام للاختيار'],
+      [11, '11 يوماً للاختيار'],
+      [21, '21 يوماً للاختيار'],
+      [22, '22 يوماً للاختيار'],
+      [100, '100 يوم للاختيار'],
+    ] as const)
+      expect(translator('ar').tn('create.dayCount', count)).toBe(expected);
+    expect(translator('ar').tn('event.answers', 2)).toBe('إجابتان (2)');
+    expect(translator('ar').tn('event.answers', 3)).toBe('3 إجابات');
+    expect(translator('ar').tn('event.answers', 11)).toBe('11 إجابة');
+    for (const forms of Object.values(arForms)) {
+      expect(Object.keys(forms).sort()).toEqual(
+        Object.keys(en)
+          .filter((key) => key.endsWith('_other'))
+          .map((key) => key.slice(0, -6))
+          .sort()
+      );
+      for (const [key, value] of Object.entries(forms))
+        expect(
+          [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort(),
+          key
+        ).toEqual(
+          [...en[`${key}_other` as keyof typeof en].matchAll(/\{(\w+)\}/g)]
+            .map((match) => match[1])
+            .sort()
+        );
+    }
+    const placeholders = (text: string) =>
+      [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+    for (const [key, value] of Object.entries(plFew))
+      expect(placeholders(value), key).toEqual(
+        placeholders(en[`${key}_other` as keyof typeof en])
+      );
+    for (const [key, value] of Object.entries(csFew))
+      expect(placeholders(value), key).toEqual(
+        placeholders(en[`${key}_other` as keyof typeof en])
+      );
+    for (const [key, value] of Object.entries(ruFew))
+      expect(placeholders(value), key).toEqual(
+        placeholders(en[`${key}_other` as keyof typeof en])
+      );
+    for (const [key, value] of Object.entries(ukFew))
+      expect(placeholders(value), key).toEqual(
+        placeholders(en[`${key}_other` as keyof typeof en])
+      );
+    expect(translator('zh-Hant').tn('create.dayCount', 0)).toBe(
+      '有 0 天可供選擇'
+    );
+    expect(translator('zh-Hant').tn('create.dayCount', 1)).toBe(
+      '有 1 天可供選擇'
+    );
+    expect(translator('zh-Hans').tn('create.dayCount', 0)).toBe(
+      '有 0 天可供选择'
+    );
+    expect(translator('zh-Hans').tn('create.dayCount', 1)).toBe(
+      '有 1 天可供选择'
+    );
+    expect(translator('tr').tn('create.dayCount', 0)).toBe(
+      'Seçilebilecek 0 gün'
+    );
+    expect(translator('tr').tn('create.dayCount', 1)).toBe(
+      'Seçilebilecek 1 gün'
+    );
+    expect(translator('id').tn('create.dayCount', 0)).toBe(
+      '0 hari untuk dipilih'
+    );
+    expect(translator('id').tn('create.dayCount', 1)).toBe(
+      '1 hari untuk dipilih'
+    );
   });
 
   it('starts in the language of the address before anything else', () => {
@@ -104,6 +359,7 @@ describe('i18n', () => {
     expect(detectLanguage(null, ['es-ES', 'en-GB'])).toBe('es');
     expect(detectLanguage('fr', ['en-US'])).toBe('fr');
     expect(detectLanguage(null, ['fr-FR', 'en-GB'])).toBe('fr');
+    expect(detectLanguage(null, ['id-ID', 'en-GB'])).toBe('id');
     expect(detectLanguage('pt', ['en-US'])).toBe('pt');
     expect(detectLanguage(null, ['pt-PT', 'en-GB'])).toBe('pt');
     expect(detectLanguage('it', ['en-US'])).toBe('it');
@@ -112,8 +368,30 @@ describe('i18n', () => {
     expect(detectLanguage(null, ['ja-JP', 'en-GB'])).toBe('ja');
     expect(detectLanguage('nl', ['en-US'])).toBe('nl');
     expect(detectLanguage(null, ['nl-NL', 'en-GB'])).toBe('nl');
+    expect(detectLanguage(null, ['nb-NO', 'en-GB'])).toBe('nb');
+    expect(detectLanguage(null, ['sv-SE', 'en-GB'])).toBe('sv');
+    expect(detectLanguage(null, ['fi-FI', 'en-GB'])).toBe('fi');
+    expect(detectLanguage(null, ['tr-TR', 'en-GB'])).toBe('tr');
+    expect(detectLanguage(null, ['no-NO', 'en-GB'])).toBe('nb');
+    expect(detectLanguage(null, ['nn-NO', 'en-GB'])).toBe('en');
+    expect(detectLanguage(null, ['pl-PL', 'en-GB'])).toBe('pl');
+    expect(detectLanguage(null, ['cs-CZ', 'en-GB'])).toBe('cs');
+    expect(detectLanguage(null, ['ru-RU', 'en-GB'])).toBe('ru');
+    expect(detectLanguage(null, ['ar-EG', 'en-GB'])).toBe('ar');
+    expect(detectLanguage(null, ['uk-UA', 'ru-RU'])).toBe('uk');
+    expect(detectLanguage(null, ['vi-VN', 'en-GB'])).toBe('vi');
+    expect(detectLanguage(null, ['ko-KR', 'en-GB'])).toBe('ko');
+    expect(detectLanguage(null, ['ko'])).toBe('ko');
+    expect(detectLanguage(null, ['zh-TW', 'en-GB'])).toBe('zh-Hant');
+    expect(detectLanguage(null, ['zh-Hant-HK'])).toBe('zh-Hant');
+    expect(detectLanguage(null, ['zh-CN', 'en-GB'])).toBe('zh-Hans');
+    expect(detectLanguage(null, ['zh-SG'])).toBe('zh-Hans');
+    expect(detectLanguage(null, ['zh-Hans-CN'])).toBe('zh-Hans');
+    expect(detectLanguage(null, ['zh'])).toBe('zh-Hans');
+    expect(detectLanguage(null, ['zh-HK'])).toBe('zh-Hant');
+    expect(detectLanguage(null, ['zh-MO'])).toBe('zh-Hant');
     expect(detectLanguage(null, ['EN-gb'])).toBe('en');
-    expect(detectLanguage(null, ['no', 'da'])).toBe('en');
+    expect(detectLanguage(null, ['no', 'da'])).toBe('nb');
     expect(detectLanguage(null, [])).toBe('en');
   });
 });
@@ -159,6 +437,18 @@ describe('weekdayOrder', () => {
   });
 });
 
+describe('weekdayHeading', () => {
+  it('heads a column with the short name, and with the letter in Arabic', () => {
+    expect(weekdayHeading(0, 'en-GB')).toBe('Mon');
+    expect(weekdayHeading(6, 'vi-VN')).toBe('CN');
+    expect(weekdayHeading(0, 'ko-KR')).toBe('월');
+    // Arabic's short names are the full ones, too wide for a column.
+    expect(weekdayName(0, 'ar', 'short')).toBe('الاثنين');
+    expect(weekdayHeading(0, 'ar')).toBe('ن');
+    expect(weekdayHeading(6, 'ar-EG')).toBe('ح');
+  });
+});
+
 describe('weekdayName', () => {
   it('names Monday as 0 and Sunday as 6, short and long', () => {
     expect(weekdayName(0, 'en', 'short')).toBe('Mon');
@@ -190,6 +480,23 @@ describe('routes', () => {
   it('reads the start page in a language from its address', () => {
     expect(parseRoute('/de')).toEqual({ page: 'home', language: 'de' });
     expect(parseRoute('/ja/')).toEqual({ page: 'home', language: 'ja' });
+    expect(parseRoute('/zh-Hant')).toEqual({
+      page: 'home',
+      language: 'zh-Hant',
+    });
+    expect(parseRoute('/zh-Hans')).toEqual({
+      page: 'home',
+      language: 'zh-Hans',
+    });
+    expect(parseRoute('/pl')).toEqual({ page: 'home', language: 'pl' });
+    expect(parseRoute('/cs')).toEqual({ page: 'home', language: 'cs' });
+    expect(parseRoute('/nb')).toEqual({ page: 'home', language: 'nb' });
+    expect(parseRoute('/sv')).toEqual({ page: 'home', language: 'sv' });
+    expect(parseRoute('/fi')).toEqual({ page: 'home', language: 'fi' });
+    expect(parseRoute('/id')).toEqual({ page: 'home', language: 'id' });
+    expect(parseRoute('/tr')).toEqual({ page: 'home', language: 'tr' });
+    expect(parseRoute('/ru')).toEqual({ page: 'home', language: 'ru' });
+    expect(parseRoute('/ar')).toEqual({ page: 'home', language: 'ar' });
     for (const language of ['en', 'es', 'fr', 'it', 'nl', 'pt'] as const)
       expect(parseRoute(`/${language}`)).toEqual({ page: 'home', language });
   });
