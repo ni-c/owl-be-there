@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -66,6 +67,16 @@ export function EventPage({
   const [adminToken, setAdminToken] = useState(() => readAdminToken(id));
   const [adminRefused, setAdminRefused] = useState(false);
   const [candidate, setCandidate] = useState<string | null>(null);
+  // The key the server last accepted, so it is not asked about twice.
+  const verified = useRef<string | null>(null);
+
+  // The server refused the key: forget it here too, or the dead panel
+  // returns with the next visit.
+  const loseAdmin = useCallback(() => {
+    clearAdminToken(id);
+    setAdminToken(null);
+    setAdminRefused(true);
+  }, [id]);
 
   // The organiser key in the address is taken on arrival and whenever the
   // fragment changes: a link pasted into the open tab changes nothing else.
@@ -93,6 +104,7 @@ export function EventPage({
       .checkAdmin(id, candidate)
       .then((valid) => {
         if (!valid || !current) return;
+        verified.current = candidate;
         writeAdminToken(id, candidate);
         setAdminToken(candidate);
         setAdminRefused(false);
@@ -102,6 +114,25 @@ export function EventPage({
       current = false;
     };
   }, [id, candidate]);
+
+  // A key kept on this device may have been replaced since, by a new
+  // organiser link: ask once before the first change fails with it. A failed
+  // request is no refusal; the panel stays until the server says no.
+  useEffect(() => {
+    if (adminToken === null || verified.current === adminToken) return;
+    let current = true;
+    api
+      .checkAdmin(id, adminToken)
+      .then((valid) => {
+        if (!current) return;
+        if (valid) verified.current = adminToken;
+        else loseAdmin();
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [id, adminToken, loseAdmin]);
   const [session, setSession] = useState<Session | null>(() => readSession(id));
   // Every change of the session is kept on this device and shown at once.
   const changeSession = useCallback(
@@ -181,13 +212,7 @@ export function EventPage({
       stale={state.stale}
       store={store}
       adminToken={adminToken}
-      onAdminLost={() => {
-        // The server refused the key: forget it here too, or the dead panel
-        // returns with the next visit.
-        clearAdminToken(id);
-        setAdminToken(null);
-        setAdminRefused(true);
-      }}
+      onAdminLost={loseAdmin}
       adminRefused={adminRefused}
       session={session}
       onSession={changeSession}
