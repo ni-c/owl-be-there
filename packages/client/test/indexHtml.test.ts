@@ -46,7 +46,8 @@ describe('index.html head block', () => {
 });
 
 describe('the inline script’s dictionary preload', () => {
-  const script = /<script>([\s\S]*?)<\/script>/.exec(html)![1]!;
+  const start = html.indexOf('<script>') + '<script>'.length;
+  const script = html.slice(start, html.indexOf('</script>', start));
   /** Each lazy language with a file of its own; English and German have none. */
   const FILES = Object.fromEntries(
     LANGUAGES.map((language) => [
@@ -205,5 +206,22 @@ describe('the inline script’s dictionary preload', () => {
     expect(
       run({ storage: 'throws', browser: ['ja'] }).links.map((l) => l.href)
     ).toEqual(['/assets/ja.js']);
+  });
+
+  it('preloads only files of its own build, never another origin or scheme', () => {
+    const block = JSON.stringify({
+      fa: [
+        '/assets/fa-Bx1_2.js',
+        'javascript:alert(1)',
+        'https://example.org/assets/x.js',
+        '//example.org/assets/x.js',
+        '/assets/../secret.js',
+        '/assets/x.css',
+        7,
+      ],
+    });
+    expect(run({ path: '/fa', block }).links.map((l) => l.href)).toEqual([
+      '/assets/fa-Bx1_2.js',
+    ]);
   });
 });

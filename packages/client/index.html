@@ -76,10 +76,13 @@
           }
           var list = language ? files[language] : [];
           for (var j = 0; j < list.length; j++) {
+            // Only a file of our own build: never another origin or scheme.
+            var file = /^\/assets\/([\w.-]+\.js)$/.exec(list[j]);
+            if (!file) continue;
             var link = document.createElement('link');
             link.rel = 'modulepreload';
             link.crossOrigin = '';
-            link.href = list[j];
+            link.href = '/assets/' + file[1];
             document.head.appendChild(link);
           }
         } catch (error) {
