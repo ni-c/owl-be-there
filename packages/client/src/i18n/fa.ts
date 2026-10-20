@@ -14,6 +14,10 @@ export const fa = {
   'home.example.eventTitle': 'شام با همکارها',
   'home.example.hint': 'یک رویداد ساختگی برای امتحان؛ چیزی ذخیره نمی‌شود.',
   'home.example.reset': 'از اول',
+  'home.example.noteBen':
+    'وسط هفته برایم سخت است؛ پنجشنبه‌ها شاید، از نیمهٔ ماه به بعد.',
+  'home.example.noteMax':
+    'تا نیمهٔ ماه پنجشنبه‌ها تمرین گروه کر دارم، بعدش آزادم.',
   'event.planOwn.title': 'خودت هم برنامه‌ای داری؟',
   'event.planOwn.text':
     'در یک دقیقه رویداد خودت را بساز، بدون نیاز به حساب کاربری.',
@@ -206,7 +210,7 @@ export const fa = {
   'day.maybe': 'شاید',
   'day.cannot': 'نمی‌توانند',
   'day.open': 'بدون پاسخ',
-  'day.nobody': 'هیچ‌کس',
+  'day.notes': 'یادداشت‌ها',
   'day.close': 'بستن',
 
   'share.title': 'با گروهت به اشتراک بگذار',

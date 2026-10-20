@@ -13,6 +13,10 @@ export const ar = {
   'home.example.eventTitle': 'عشاء الفريق',
   'home.example.hint': 'حدث تجريبي، لن يُحفَظ شيء.',
   'home.example.reset': 'ابدأ من جديد',
+  'home.example.noteBen':
+    'أيام الأسبوع صعبة عليّ، ربما الخميس بدءاً من منتصف الشهر.',
+  'home.example.noteMax':
+    'لديّ تدريب الكورال أيام الخميس حتى منتصف الشهر، وبعدها أنا متفرّغ.',
   'event.planOwn.title': 'هل تخطّط لحدثك الخاص؟',
   'event.planOwn.text': 'أنشئ حدثاً في دقيقة، دون حساب.',
   'home.myEvents': 'أحداثك',
@@ -198,7 +202,7 @@ export const ar = {
   'day.maybe': 'ربما',
   'day.cannot': 'لا يستطيع',
   'day.open': 'لم يُجب',
-  'day.nobody': 'لا أحد',
+  'day.notes': 'ملاحظات',
   'day.close': 'إغلاق',
 
   'share.title': 'شارك مع المجموعة',

@@ -12,6 +12,8 @@ export const zhHant = {
   'home.example.eventTitle': '團隊晚餐',
   'home.example.hint': '這只是試用範例，不會儲存任何內容。',
   'home.example.reset': '重新開始',
+  'home.example.noteBen': '平日我比較忙——週四或許可以，從月中開始。',
+  'home.example.noteMax': '月中以前每週四要練合唱，之後我就有空了。',
   'event.planOwn.title': '想自己規劃活動嗎？',
   'event.planOwn.text': '不用帳號，一分鐘就能建立自己的活動。',
   'home.myEvents': '你的活動',
@@ -194,7 +196,7 @@ export const zhHant = {
   'day.maybe': '可能參加',
   'day.cannot': '無法參加',
   'day.open': '尚未回覆',
-  'day.nobody': '沒有人',
+  'day.notes': '備註',
   'day.close': '關閉',
 
   'share.title': '分享給群組',

@@ -13,6 +13,10 @@ export const id = {
   'home.example.eventTitle': 'Makan malam tim',
   'home.example.hint': 'Acara karangan untuk dicoba — tidak ada yang disimpan.',
   'home.example.reset': 'Mulai lagi',
+  'home.example.noteBen':
+    'Hari kerja agak padat — Kamis mungkin bisa, mulai pertengahan bulan.',
+  'home.example.noteMax':
+    'Tiap Kamis aku latihan paduan suara sampai pertengahan bulan, setelah itu aku bebas.',
   'event.planOwn.title': 'Mau merencanakan acaramu sendiri?',
   'event.planOwn.text': 'Buat acaramu sendiri dalam semenit, tanpa akun.',
   'home.myEvents': 'Acaramu',
@@ -206,7 +210,7 @@ export const id = {
   'day.maybe': 'Mungkin bisa',
   'day.cannot': 'Tidak bisa hadir',
   'day.open': 'Belum menjawab',
-  'day.nobody': 'tidak ada',
+  'day.notes': 'Catatan',
   'day.close': 'Tutup',
 
   'share.title': 'Bagikan dengan grup',

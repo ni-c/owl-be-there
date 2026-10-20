@@ -14,6 +14,10 @@ export const ptBr: Dictionary = {
   'home.example.eventTitle': 'Jantar do time',
   'home.example.hint': 'Um evento inventado para testar — nada é salvo.',
   'home.example.reset': 'Começar de novo',
+  'home.example.noteBen':
+    'Durante a semana fica difícil — às quintas talvez, a partir da metade do mês.',
+  'home.example.noteMax':
+    'Às quintas tenho ensaio do coral até a metade do mês, depois estou livre.',
   'event.planOwn.title': 'Quer organizar algo também?',
   'event.planOwn.text':
     'Crie seu próprio evento em um minuto, sem precisar de conta.',
@@ -205,7 +209,7 @@ export const ptBr: Dictionary = {
   'day.maybe': 'Talvez',
   'day.cannot': 'Não podem',
   'day.open': 'Sem resposta',
-  'day.nobody': 'ninguém',
+  'day.notes': 'Observações',
   'day.close': 'Fechar',
 
   'share.title': 'Compartilhar com o grupo',

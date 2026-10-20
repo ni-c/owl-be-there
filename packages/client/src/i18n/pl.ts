@@ -14,6 +14,10 @@ export const pl = {
   'home.example.hint':
     'To przykładowe wydarzenie do wypróbowania — nic nie zostanie zapisane.',
   'home.example.reset': 'Zacznij od nowa',
+  'home.example.noteBen':
+    'W tygodniu mam ciasno — w czwartki może, od połowy miesiąca.',
+  'home.example.noteMax':
+    'Do połowy miesiąca w czwartki mam próby chóru, potem jestem wolny.',
   'event.planOwn.title': 'Chcesz zaplanować własne wydarzenie?',
   'event.planOwn.text':
     'Utwórz własne wydarzenie w minutę, bez zakładania konta.',
@@ -210,7 +214,7 @@ export const pl = {
   'day.maybe': 'Być może',
   'day.cannot': 'Nie może przyjść',
   'day.open': 'Brak odpowiedzi',
-  'day.nobody': 'nikt',
+  'day.notes': 'Uwagi',
   'day.close': 'Zamknij',
 
   'share.title': 'Udostępnij grupie',

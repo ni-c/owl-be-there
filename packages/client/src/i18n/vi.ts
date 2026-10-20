@@ -13,6 +13,10 @@ export const vi = {
   'home.example.eventTitle': 'Liên hoan cả nhóm',
   'home.example.hint': 'Một sự kiện mẫu để thử — không có gì được lưu lại.',
   'home.example.reset': 'Làm lại từ đầu',
+  'home.example.noteBen':
+    'Ngày thường mình hơi kẹt — thứ Năm thì có lẽ được, từ giữa tháng.',
+  'home.example.noteMax':
+    'Thứ Năm mình tập hợp xướng đến giữa tháng, sau đó thì rảnh.',
   'event.planOwn.title': 'Bạn muốn tự lên kế hoạch?',
   'event.planOwn.text':
     'Tạo sự kiện của riêng bạn trong một phút, không cần tài khoản.',
@@ -201,7 +205,7 @@ export const vi = {
   'day.maybe': 'Chưa chắc',
   'day.cannot': 'Không đi được',
   'day.open': 'Chưa trả lời',
-  'day.nobody': 'không ai',
+  'day.notes': 'Ghi chú',
   'day.close': 'Đóng',
 
   'share.title': 'Chia sẻ với nhóm của bạn',

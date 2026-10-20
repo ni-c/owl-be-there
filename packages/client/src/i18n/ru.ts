@@ -13,6 +13,10 @@ export const ru = {
   'home.example.eventTitle': 'Ужин с командой',
   'home.example.hint': 'Пробное событие — ничего не сохраняется.',
   'home.example.reset': 'Начать заново',
+  'home.example.noteBen':
+    'В будни у меня плотно — по четвергам, может быть, с середины месяца.',
+  'home.example.noteMax':
+    'До середины месяца по четвергам хор, потом я свободен.',
   'event.planOwn.title': 'Планируешь своё событие?',
   'event.planOwn.text': 'Создай его за минуту, без учётной записи.',
   'home.myEvents': 'Твои события',
@@ -201,7 +205,7 @@ export const ru = {
   'day.maybe': 'Возможно',
   'day.cannot': 'Не может',
   'day.open': 'Без ответа',
-  'day.nobody': 'никого',
+  'day.notes': 'Комментарии',
   'day.close': 'Закрыть',
 
   'share.title': 'Поделиться с группой',

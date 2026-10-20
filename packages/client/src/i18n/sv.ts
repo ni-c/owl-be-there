@@ -13,6 +13,10 @@ export const sv = {
   'home.example.eventTitle': 'Middag med teamet',
   'home.example.hint': 'Ett påhittat evenemang att prova med — inget sparas.',
   'home.example.reset': 'Börja om',
+  'home.example.noteBen':
+    'På vardagarna har jag fullt upp — torsdagar kanske, från mitten av månaden.',
+  'home.example.noteMax':
+    'Körövning på torsdagar fram till mitten av månaden, sedan är jag ledig.',
   'event.planOwn.title': 'Planerar du något själv?',
   'event.planOwn.text': 'Skapa ditt eget evenemang på en minut, utan konto.',
   'home.myEvents': 'Dina evenemang',
@@ -204,7 +208,7 @@ export const sv = {
   'day.maybe': 'Kanske',
   'day.cannot': 'Kan inte',
   'day.open': 'Inte svarat',
-  'day.nobody': 'ingen',
+  'day.notes': 'Anteckningar',
   'day.close': 'Stäng',
 
   'share.title': 'Dela med din grupp',

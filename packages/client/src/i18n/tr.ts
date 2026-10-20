@@ -14,6 +14,10 @@ export const tr = {
   'home.example.hint':
     'Denemek için uydurma bir etkinlik — hiçbir şey kaydedilmez.',
   'home.example.reset': 'Baştan başla',
+  'home.example.noteBen':
+    'Hafta içi biraz zor — perşembe olabilir, ayın ortasından itibaren.',
+  'home.example.noteMax':
+    'Ayın ortasına kadar perşembeleri koro provam var, sonrasında boşum.',
   'event.planOwn.title': 'Kendi etkinliğini mi planlıyorsun?',
   'event.planOwn.text': 'Hesap açmadan bir dakikada kendi etkinliğini oluştur.',
   'home.myEvents': 'Etkinliklerin',
@@ -203,7 +207,7 @@ export const tr = {
   'day.maybe': 'Belki katılabilir',
   'day.cannot': 'Katılamaz',
   'day.open': 'Yanıt vermedi',
-  'day.nobody': 'kimse',
+  'day.notes': 'Notlar',
   'day.close': 'Kapat',
 
   'share.title': 'Grupla paylaş',

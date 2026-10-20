@@ -14,6 +14,10 @@ export const nb = {
   'home.example.hint':
     'Et oppdiktet arrangement du kan prøve — ingenting blir lagret.',
   'home.example.reset': 'Begynn på nytt',
+  'home.example.noteBen':
+    'Ukedagene er travle for meg — torsdager kanskje, fra midten av måneden.',
+  'home.example.noteMax':
+    'Korøvelse på torsdager fram til midten av måneden, etter det er jeg ledig.',
   'event.planOwn.title': 'Vil du planlegge noe selv?',
   'event.planOwn.text':
     'Opprett ditt eget arrangement på et minutt, uten konto.',
@@ -206,7 +210,7 @@ export const nb = {
   'day.maybe': 'Kanskje',
   'day.cannot': 'Kan ikke',
   'day.open': 'Ikke svart',
-  'day.nobody': 'ingen',
+  'day.notes': 'Merknader',
   'day.close': 'Lukk',
 
   'share.title': 'Del med gruppen din',

@@ -14,6 +14,10 @@ export const ko: Dictionary = {
   'home.example.eventTitle': '팀 회식',
   'home.example.hint': '체험용 가상 모임이에요 — 아무것도 저장되지 않아요.',
   'home.example.reset': '처음부터 다시',
+  'home.example.noteBen':
+    '평일은 좀 빠듯해요. 목요일이라면 월 중순부터 아마 괜찮아요.',
+  'home.example.noteMax':
+    '월 중순까지는 목요일에 합창 연습이 있어요. 그 뒤로는 시간 돼요.',
   'event.planOwn.title': '직접 모임을 계획하고 있나요?',
   'event.planOwn.text': '계정 없이 1분 만에 내 모임을 만들 수 있어요.',
   'home.myEvents': '내 모임',
@@ -201,7 +205,7 @@ export const ko: Dictionary = {
   'day.maybe': '아마도',
   'day.cannot': '불가',
   'day.open': '응답 안 함',
-  'day.nobody': '없음',
+  'day.notes': '메모',
   'day.close': '닫기',
 
   'share.title': '그룹에 공유하기',

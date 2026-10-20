@@ -13,6 +13,10 @@ export const cs = {
   'home.example.eventTitle': 'Večeře s týmem',
   'home.example.hint': 'Ukázková událost na vyzkoušení — nic se neukládá.',
   'home.example.reset': 'Začít znovu',
+  'home.example.noteBen':
+    'Přes týden je to u mě těsné — ve čtvrtek možná, od poloviny měsíce.',
+  'home.example.noteMax':
+    'Do poloviny měsíce mám ve čtvrtek sbor, pak mám volno.',
   'event.planOwn.title': 'Plánuješ vlastní událost?',
   'event.planOwn.text': 'Vytvoř si vlastní událost za minutu, bez účtu.',
   'home.myEvents': 'Tvoje události',
@@ -202,7 +206,7 @@ export const cs = {
   'day.maybe': 'Možná',
   'day.cannot': 'Nemůže',
   'day.open': 'Bez odpovědi',
-  'day.nobody': 'nikdo',
+  'day.notes': 'Poznámky',
   'day.close': 'Zavřít',
 
   'share.title': 'Sdílet se skupinou',

@@ -411,7 +411,7 @@ function DayDetails({
           <h4 className="mb-2 flex items-center gap-2 font-extrabold">
             <NoteIcon size={16} />
             {t('day.notes')}{' '}
-            <span className="text-muted">· {notes.length}</span>
+            <span className="text-muted">· {number(notes.length)}</span>
           </h4>
           <ul className="flex flex-col gap-2">
             {notes.map(([id, person]) => {

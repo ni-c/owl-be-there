@@ -12,6 +12,8 @@ export const zhHans = {
   'home.example.eventTitle': '团队聚餐',
   'home.example.hint': '这只是一个试用活动，不会保存任何内容。',
   'home.example.reset': '重新开始',
+  'home.example.noteBen': '工作日我比较忙——周四也许可以，从月中开始。',
+  'home.example.noteMax': '月中之前每周四有合唱排练，之后我就有空了。',
   'event.planOwn.title': '想自己组织活动吗？',
   'event.planOwn.text': '无需账号，一分钟就能创建自己的活动。',
   'home.myEvents': '你的活动',
@@ -194,7 +196,7 @@ export const zhHans = {
   'day.maybe': '可能参加',
   'day.cannot': '无法参加',
   'day.open': '尚未回复',
-  'day.nobody': '没有人',
+  'day.notes': '备注',
   'day.close': '关闭',
 
   'share.title': '分享给大家',

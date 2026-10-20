@@ -14,6 +14,10 @@ export const fi = {
   'home.example.hint':
     'Kokeiltavaksi tehty kuvitteellinen tapahtuma — mitään ei tallenneta.',
   'home.example.reset': 'Aloita alusta',
+  'home.example.noteBen':
+    'Arkisin on tiukkaa — torstaisin ehkä, kuun puolivälistä alkaen.',
+  'home.example.noteMax':
+    'Torstaisin kuoroharjoitukset kuun puoliväliin asti, sen jälkeen olen vapaa.',
   'event.planOwn.title': 'Suunnitteletko omaa tapahtumaa?',
   'event.planOwn.text': 'Luo tapahtuma minuutissa ilman käyttäjätiliä.',
   'home.myEvents': 'Omat tapahtumasi',
@@ -205,7 +209,7 @@ export const fi = {
   'day.maybe': 'Ehkä',
   'day.cannot': 'Ei pääse',
   'day.open': 'Ei vastannut',
-  'day.nobody': 'ei kukaan',
+  'day.notes': 'Kommentit',
   'day.close': 'Sulje',
 
   'share.title': 'Jaa ryhmällesi',

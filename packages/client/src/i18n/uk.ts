@@ -13,6 +13,10 @@ export const uk = {
   'home.example.eventTitle': 'Вечеря з командою',
   'home.example.hint': 'Вигадана подія для спроби — нічого не зберігається.',
   'home.example.reset': 'Почати спочатку',
+  'home.example.noteBen':
+    'У будні в мене щільно — по четвергах, можливо, із середини місяця.',
+  'home.example.noteMax':
+    'До середини місяця по четвергах хор, потім я вільний.',
   'event.planOwn.title': 'Хочеш запланувати щось своє?',
   'event.planOwn.text':
     'Створи власну подію за хвилину, без облікового запису.',
@@ -202,7 +206,7 @@ export const uk = {
   'day.maybe': 'Можливо',
   'day.cannot': 'Не може',
   'day.open': 'Без відповіді',
-  'day.nobody': 'ніхто',
+  'day.notes': 'Коментарі',
   'day.close': 'Закрити',
 
   'share.title': 'Поділися з групою',

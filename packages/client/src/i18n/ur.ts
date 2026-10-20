@@ -13,6 +13,10 @@ export const ur = {
   'home.example.eventTitle': 'ٹیم ڈنر',
   'home.example.hint': 'آزمانے کے لیے ایک فرضی ایونٹ؛ کچھ بھی محفوظ نہیں ہوتا۔',
   'home.example.reset': 'دوبارہ شروع کریں',
+  'home.example.noteBen':
+    'ہفتے کے دنوں میں مشکل ہے، جمعرات شاید ٹھیک رہے، مہینے کے وسط سے۔',
+  'home.example.noteMax':
+    'مہینے کے وسط تک جمعرات کو کوائر کی مشق ہوتی ہے، اس کے بعد میں فارغ ہوں۔',
   'event.planOwn.title': 'اپنا ایونٹ پلان کرنا ہے؟',
   'event.planOwn.text':
     'ایک منٹ میں اپنا ایونٹ شروع کریں، کسی اکاؤنٹ کی ضرورت نہیں۔',
@@ -204,7 +208,7 @@ export const ur = {
   'day.maybe': 'شاید',
   'day.cannot': 'نہیں',
   'day.open': 'جواب نہیں دیا',
-  'day.nobody': 'کوئی نہیں',
+  'day.notes': 'نوٹس',
   'day.close': 'بند کریں',
 
   'share.title': 'اپنے گروپ کے ساتھ شیئر کریں',
