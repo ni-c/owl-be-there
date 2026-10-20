@@ -172,10 +172,24 @@ test('the organiser link is taken from the fragment and removed from the address
     page.getByRole('heading', { name: 'Organiser tools' })
   ).toBeVisible();
   expect(new URL(page.url()).hash).toBe('');
+
+  // The stored key is asked about once on arrival, and the server's yes
+  // keeps the tools.
+  const checks: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().endsWith(`/api/events/${id}/admin`))
+      checks.push(r.headers()['x-admin-token'] ?? '');
+  });
+  const checked = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/events/${id}/admin`)
+  );
   await page.reload();
+  expect((await checked).status()).toBe(204);
   await expect(
     page.getByRole('heading', { name: 'Organiser tools' })
   ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(checks).toEqual([adminToken]);
 });
 
 test('a link with a made-up organiser key does not replace the real one', async ({
@@ -191,8 +205,11 @@ test('a link with a made-up organiser key does not replace the real one', async 
   // A fresh page load, as when the link is opened from a message: from the
   // event page itself, only the fragment would change and nothing reloads.
   await page.goto('/');
-  const checked = page.waitForResponse((response) =>
-    response.url().endsWith(`/api/events/${id}/admin`)
+  // The stored key is checked on arrival as well; this waits for the link's.
+  const checked = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/events/${id}/admin`) &&
+      response.request().headers()['x-admin-token'] === 'A'.repeat(43)
   );
   await page.goto(`/e/${id}#admin=${'A'.repeat(43)}`);
   expect((await checked).status()).toBe(403);
@@ -995,12 +1012,11 @@ async function pasteOrganiserKey(page: Page, key: string): Promise<void> {
 
 /**
  * Opens an event with a made-up organiser key, which a link whose key passes
- * the fragment check can leave on the device, and has the server refuse it.
+ * the fragment check can leave on the device; the page asks the server about
+ * it and is refused.
  */
 async function getRefused(page: Page, id: string): Promise<void> {
   await page.goto(`/e/${id}#admin=${MADE_UP_KEY}`);
-  const days = await openSection(page, 'Days');
-  await days.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Organiser tools' })
@@ -1076,20 +1092,21 @@ test('a refused link pasted again keeps the notice, and a link that is no key do
     await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
   ).toBeNull();
 
-  // Another key that is not this event's, one of another event included: the
-  // tools return for a moment, are refused again, and the notice with them.
+  // Another key that is not this event's, one of another event included: it
+  // is asked about at once and refused, and the notice stays.
   for (const key of ['B'.repeat(43), other.adminToken]) {
+    const checked = page.waitForResponse((response) =>
+      response.url().endsWith(`/api/events/${id}/admin`)
+    );
     await pasteOrganiserKey(page, key);
-    await expect(
-      page.getByRole('heading', { name: 'Organiser tools' })
-    ).toBeVisible();
-    await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
-    const days = await openSection(page, 'Days');
-    await days.getByRole('button', { name: 'Save' }).click();
+    expect((await checked).status()).toBe(403);
     await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Organiser tools' })
     ).toHaveCount(0);
+    expect(
+      await page.evaluate((k) => localStorage.getItem(k), `owl.admin.${id}`)
+    ).toBeNull();
   }
 
   // The complete link then clears it for good.
@@ -1127,6 +1144,58 @@ test('another event’s organiser link opens that event only; the notice stays o
   expect(
     await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
   ).toBeNull();
+});
+
+test('an organiser key kept on this device that the server no longer accepts is dropped on arrival', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+
+  // The organiser link was issued anew elsewhere: the key here is dead.
+  await page.evaluate((key) => {
+    localStorage.setItem(key, JSON.stringify('C'.repeat(43)));
+  }, `owl.admin.${id}`);
+  await page.reload();
+  await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toBeNull();
+
+  // The current link brings the tools back.
+  await pasteOrganiserKey(page, adminToken);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+});
+
+test('an organiser key kept on this device stays when it cannot be checked', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request);
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+
+  await page.route(`**/api/events/${id}/admin`, (route) => route.abort());
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Organiser tools' })
+  ).toBeVisible();
+  await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
+  ).toContain(adminToken);
 });
 
 /** One of the organiser's sections, opened. */

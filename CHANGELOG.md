@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- An organiser key kept on a device is checked as soon as the event opens. After the organiser link had been issued anew, the old key still showed the organiser tools until the first change, which the server then refused and which was lost; now the page says at once that the link was not accepted.
+
 ## [0.4.2] - 2026-10-14
 
 ### Security
