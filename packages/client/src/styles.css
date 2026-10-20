@@ -328,6 +328,12 @@ html:lang(ja) body {
     box-shadow 120ms ease;
 }
 
+/* Drawn, not text: the counts are content the cell's name already reads out,
+   and as text they would run into the day number (WCAG 2.5.3, Label in Name). */
+.cal-count::before {
+  content: attr(data-count);
+}
+
 .cal-cell[data-month-start='true'] {
   box-shadow: inset 3px 0 0 var(--owl-line-strong);
 }

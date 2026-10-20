@@ -147,7 +147,17 @@ test.describe('painting days', () => {
       weekday: 'long',
       timeZone: 'UTC',
     }).format(utcDateOf(D(6)));
-    await page.getByRole('button', { name: `All ${weekday}s` }).click();
+    const short = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      timeZone: 'UTC',
+    }).format(utcDateOf(D(6)));
+    const header = page.getByRole('button', { name: `All ${weekday}s` });
+    // Voice control users say what they see, so the name starts with it.
+    await expect(header).toHaveAccessibleName(`${short}: All ${weekday}s`);
+    await expect(
+      page.getByRole('button', { name: /^W\d+: Week \d+$/ }).first()
+    ).toBeVisible();
+    await header.click();
     await expect(day(grid, D(6))).toHaveAttribute('data-state', 'yes');
     await expect(day(grid, D(13))).toHaveAttribute('data-state', 'yes');
     await expect

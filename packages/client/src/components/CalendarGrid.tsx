@@ -513,9 +513,11 @@ export function CalendarGrid(props: CalendarGridProps) {
                   type="button"
                   className="min-h-9 w-full rounded-lg text-sm font-bold text-muted hover:bg-sunken hover:text-ink"
                   onClick={() => toggleTargets(weekdayTargets(weekday))}
-                  aria-label={t('cal.weekdayAll', {
-                    weekday: weekdayName(weekday, locale, 'long'),
-                  })}
+                  // The name starts with what is shown (WCAG 2.5.3).
+                  aria-label={`${weekdayName(weekday, locale, 'short')}: ${t(
+                    'cal.weekdayAll',
+                    { weekday: weekdayName(weekday, locale, 'long') }
+                  )}`}
                   tabIndex={-1}
                 >
                   {weekdayName(weekday, locale, 'short')}
@@ -566,9 +568,9 @@ export function CalendarGrid(props: CalendarGridProps) {
                       tabIndex={-1}
                       className="rounded-md px-1 py-0.5 hover:bg-sunken hover:text-ink"
                       onClick={() => toggleTargets(weekTargets)}
-                      aria-label={t('cal.weekToggle', {
+                      aria-label={`${t('cal.week', {
                         number: row.weekNumber,
-                      })}
+                      })}: ${t('cal.weekToggle', { number: row.weekNumber })}`}
                     >
                       {t('cal.week', { number: row.weekNumber })}
                     </button>
@@ -626,14 +628,16 @@ export function CalendarGrid(props: CalendarGridProps) {
                             {number}
                           </span>
                           {info && info.yes + info.maybe > 0 && (
-                            <span className="text-lg font-black">
-                              {info.yes}
-                            </span>
+                            <span
+                              className="cal-count text-lg font-black"
+                              data-count={info.yes}
+                            />
                           )}
                           {info && info.maybe > 0 && (
-                            <span className="text-[0.65rem] font-bold">
-                              +{info.maybe}?
-                            </span>
+                            <span
+                              className="cal-count text-[0.65rem] font-bold"
+                              data-count={`+${info.maybe}?`}
+                            />
                           )}
                         </button>
                       </div>
