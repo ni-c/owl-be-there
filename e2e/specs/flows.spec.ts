@@ -384,6 +384,13 @@ test('two people see each other live, and the day sheet names them', async ({
   // Ben's page updates by itself.
   const cell = day(groupCalendar(two), D(5));
   await expect(cell).toHaveAttribute('data-heat', '5', { timeout: 10_000 });
+  // The count is drawn by CSS, so it never runs into the day number's text.
+  const count = cell.locator('.cal-count');
+  await expect(count).toHaveAttribute('data-count', '1');
+  expect(
+    await count.evaluate((e) => getComputedStyle(e, '::before').content)
+  ).toBe('"1"');
+  await expect(cell).toHaveAccessibleName(/: 1 can, 0 maybe, 0 cannot$/);
   await expect(two.getByText('Not answered yet: Ben')).toBeVisible();
   await cell.click();
   const sheet = two.getByRole('dialog');
