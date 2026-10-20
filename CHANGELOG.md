@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-20
+
 ### Added
 
 - Notes are easier to find: the group view marks everyone who wrote one with a speech bubble and lists all notes under a heading of their own, below "Who is counted". A note stays listed while its writer is left out of the count.
@@ -307,7 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...v0.4.0
