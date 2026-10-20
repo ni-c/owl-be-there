@@ -167,6 +167,18 @@ interface HeadOptions {
 }
 
 /**
+ * A language as search engines read `hreflang`: an ISO 639-1 language with an
+ * ISO 3166-1 country or an ISO 15924 script. Google ignores a region like
+ * "419", so the Latin American page is plain Spanish and Spain's page names
+ * its country; `<html lang>` keeps the full tag.
+ */
+export function hreflangOf(language: Language): string {
+  if (language === 'es-419') return 'es';
+  if (language === 'es') return 'es-ES';
+  return language;
+}
+
+/**
  * The start page in one language: `/de`, `/fr` and so on. Plain `/` picks the
  * visitor's language in the browser and is the `x-default`.
  */
@@ -197,7 +209,7 @@ function head(options: HeadOptions): string {
           `<link rel="canonical" href="${e(options.publicUrl + options.path)}" />`,
           ...LANGUAGES.map(
             (language) =>
-              `<link rel="alternate" hreflang="${language}" href="${e(options.publicUrl + homePath(language))}" />`
+              `<link rel="alternate" hreflang="${hreflangOf(language)}" href="${e(options.publicUrl + homePath(language))}" />`
           ),
           `<link rel="alternate" hreflang="x-default" href="${e(options.publicUrl + homePath(null))}" />`,
         ]
@@ -313,7 +325,7 @@ export function sitemap(
   const alternates = [
     ...LANGUAGES.map(
       (language) =>
-        `    <xhtml:link rel="alternate" hreflang="${language}" href="${e(publicUrl + homePath(language))}" />`
+        `    <xhtml:link rel="alternate" hreflang="${hreflangOf(language)}" href="${e(publicUrl + homePath(language))}" />`
     ),
     `    <xhtml:link rel="alternate" hreflang="x-default" href="${e(publicUrl + homePath(null))}" />`,
   ].join('\n');

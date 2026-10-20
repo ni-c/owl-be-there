@@ -19,6 +19,7 @@ import { snapshot } from '../src/db/repo.js';
 import {
   dataBlock,
   dictionaryChunks,
+  hreflangOf,
   jsonLd,
   PageTemplate,
 } from '../src/pages.js';
@@ -413,13 +414,25 @@ describe('pages', () => {
     }
   });
 
+  it('names every language in a form search engines accept, each once', () => {
+    const tags = LANGUAGES.map(hreflangOf);
+    expect(new Set(tags).size).toBe(LANGUAGES.length);
+    for (const tag of tags)
+      expect(tag).toMatch(/^[a-z]{2}(-([A-Z]{2}|[A-Z][a-z]{3}))?$/);
+    // Google ignores es-419: Latin American Spanish is plain Spanish.
+    expect(hreflangOf('es-419')).toBe('es');
+    expect(hreflangOf('es')).toBe('es-ES');
+    expect(hreflangOf('pt-BR')).toBe('pt-BR');
+    expect(hreflangOf('zh-Hant')).toBe('zh-Hant');
+  });
+
   it('names every language version of the start page, and / as the default', async () => {
     t = await testApp();
     for (const url of ['/', '/en', '/fr']) {
       const { body } = await t.app.inject({ method: 'GET', url });
       for (const language of LANGUAGES)
         expect(body, url).toContain(
-          `<link rel="alternate" hreflang="${language}" href="https://owl.example.org/${language}" />`
+          `<link rel="alternate" hreflang="${hreflangOf(language)}" href="https://owl.example.org/${language}" />`
         );
       expect(body, url).toContain(
         '<link rel="alternate" hreflang="x-default" href="https://owl.example.org/" />'
