@@ -118,19 +118,9 @@ export function MarksEditor(props: {
                 },
               ]}
             />
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={undoLast}
-                disabled={undo.length === 0}
-              >
-                <UndoIcon size={16} />
-                {t('mine.undo')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
                 onClick={() => {
                   const result = toggleDays(marks, future, brush);
                   if (result.changed > 0) change(result.marks, result.changed);
@@ -140,13 +130,16 @@ export function MarksEditor(props: {
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
                 onClick={() => {
                   const result = clearDays(marks, future);
                   if (result.changed > 0) change(result.marks, result.changed);
                 }}
               >
                 {t('mine.none')}
+              </Button>
+              <Button size="sm" onClick={undoLast} disabled={undo.length === 0}>
+                <UndoIcon size={16} />
+                {t('mine.undo')}
               </Button>
             </div>
           </div>

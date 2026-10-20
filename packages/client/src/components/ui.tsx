@@ -13,16 +13,13 @@ import { rovingKeyDown } from '../lib/roving.ts';
 import { ChevronDownIcon, CloseIcon } from './icons.tsx';
 
 export type ButtonVariant =
-  'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerOutline';
+  'primary' | 'secondary' | 'danger' | 'dangerOutline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-brand-ink hover:bg-brand-hover shadow-card',
   secondary:
     'bg-surface text-ink border-2 border-line hover:border-line-strong',
-  // No text colour of its own: it inherits the ink, and a caller's `text-*`
-  // class (a red delete button) is not left to lose a tie between utilities.
-  ghost: 'hover:bg-sunken',
   danger: 'bg-danger text-danger-ink hover:opacity-90',
   // A destructive action that only opens a confirmation: framed like a
   // secondary button, in red.

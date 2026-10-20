@@ -95,7 +95,6 @@ export function ExampleDemo() {
           </p>
           <Button
             size="sm"
-            variant="ghost"
             disabled={!changed}
             onClick={() => {
               setAnna(start);

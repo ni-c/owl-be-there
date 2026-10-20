@@ -30,6 +30,7 @@
   --owl-danger-soft: #fde8e6;
   --owl-yes: #268262;
   --owl-yes-ink: #ffffff;
+  --owl-yes-text: #1a7055;
   --owl-maybe: #e0a020;
   --owl-maybe-ink: #2a2118;
   --owl-heat-0: #f1e8da;
@@ -75,6 +76,7 @@
     --owl-danger-soft: #3d2230;
     --owl-yes: #2c9572;
     --owl-yes-ink: #0c1f18;
+    --owl-yes-text: #4fb393;
     --owl-maybe: #b8821c;
     --owl-maybe-ink: #1b1308;
     --owl-heat-0: #23263f;
@@ -114,6 +116,7 @@
   --owl-danger-soft: #3d2230;
   --owl-yes: #2c9572;
   --owl-yes-ink: #0c1f18;
+  --owl-yes-text: #4fb393;
   --owl-maybe: #b8821c;
   --owl-maybe-ink: #1b1308;
   --owl-heat-0: #23263f;
@@ -169,6 +172,7 @@
   --color-danger-soft: var(--owl-danger-soft);
   --color-yes: var(--owl-yes);
   --color-yes-ink: var(--owl-yes-ink);
+  --color-yes-text: var(--owl-yes-text);
   --color-maybe: var(--owl-maybe);
   --color-maybe-ink: var(--owl-maybe-ink);
   --shadow-card: var(--owl-shadow);

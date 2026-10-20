@@ -101,7 +101,12 @@ for (const scheme of ['light', 'dark'] as const) {
       'data-state',
       'maybe'
     );
+    // The status in green, below the note.
+    await saved(page);
     await expectAccessible(page, 'my days, marked');
+    // The entry section, with its framed red delete button.
+    await page.getByRole('button', { name: 'Edit entry' }).click();
+    await expectAccessible(page, 'my days, entry');
     await showView(page, 'group');
     await expectAccessible(page, 'group');
     // The day sheet: names as chips in each group's colour, one group empty.

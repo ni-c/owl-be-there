@@ -620,14 +620,13 @@ function People(
                 {person.name}
                 {person.hasPassword && <LockIcon size={14} />}
               </span>
-              <span className="flex flex-wrap gap-1">
+              <span className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => props.onFillIn(person.id)}>
                   {t('admin.fillIn')}
                 </Button>
                 {person.hasPassword && (
                   <Button
                     size="sm"
-                    variant="ghost"
                     onClick={() =>
                       setUnlocking({ id: person.id, name: person.name })
                     }
@@ -637,8 +636,7 @@ function People(
                 )}
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="text-danger"
+                  variant="dangerOutline"
                   onClick={() =>
                     setRemoving({ id: person.id, name: person.name })
                   }

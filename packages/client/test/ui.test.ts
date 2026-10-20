@@ -18,7 +18,6 @@ const VARIANT_CLASSES: Record<ButtonVariant, string[]> = {
     'shadow-card',
   ],
   secondary: ['bg-surface', 'text-ink', 'border-2', 'hover:border-line-strong'],
-  ghost: ['hover:bg-sunken'],
   danger: ['bg-danger', 'text-danger-ink', 'hover:opacity-90'],
   dangerOutline: ['bg-surface', 'text-danger', 'hover:border-danger'],
 };

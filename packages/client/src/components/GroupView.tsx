@@ -257,11 +257,7 @@ export function GroupView(props: GroupViewProps) {
               </Chip>
             ))}
           {hidden.size > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setHidden(new Set())}
-            >
+            <Button size="sm" onClick={() => setHidden(new Set())}>
               {t('group.showAll')}
             </Button>
           )}
