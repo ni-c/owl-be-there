@@ -14,11 +14,18 @@ export default defineConfig({
   // Test the sources, never a stale build of them. The projects extend this
   // config; an alias of their own would only give each its own Vite server.
   resolve: {
-    alias: {
-      '@owl/shared': fileURLToPath(
-        new URL('./packages/shared/src/index.ts', import.meta.url)
-      ),
-    },
+    alias: [
+      {
+        find: /^@owl\/shared$/,
+        replacement: fileURLToPath(
+          new URL('./packages/shared/src/index.ts', import.meta.url)
+        ),
+      },
+      {
+        find: /^@owl\/shared\/(.+)$/,
+        replacement: `${fileURLToPath(new URL('./packages/shared/src/', import.meta.url))}$1.ts`,
+      },
+    ],
   },
   test: {
     projects: [

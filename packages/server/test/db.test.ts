@@ -81,7 +81,7 @@ describe('migrate', () => {
     expect(() => migrate(db)).toThrow(/does not know/);
   });
 
-  it('upgrades a v1 database to all eight languages without losing events, people or marks', () => {
+  it('upgrades a v1 database to all languages without losing events, people or marks', () => {
     const db = new Db(':memory:');
     migrate(db, [MIGRATIONS[0]!]);
     db.run(
@@ -96,7 +96,7 @@ describe('migrate', () => {
     );
     db.run("INSERT INTO marks VALUES ('p', 'old', '2027-03-06', 'yes')");
 
-    expect(migrate(db)).toBe(1);
+    expect(migrate(db)).toBe(2);
     expect(db.get<{ language: string }>('SELECT language FROM events')).toEqual(
       {
         language: 'de',
@@ -145,6 +145,48 @@ describe('migrate', () => {
          VALUES ('dutch', 'h', 'Wedstrijd', 'soccer', 'nl', 1, 0, 0, '2027-04-01')`
       )
     ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('polish', 'h', 'Kolacja', 'party', 'pl', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('czech', 'h', 'Večeře', 'party', 'cs', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('norwegian', 'h', 'Middag', 'party', 'nb', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('chinese', 'h', '聚餐', 'party', 'zh-Hant', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('simplified', 'h', '聚餐', 'party', 'zh-Hans', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('turkish', 'h', 'Akşam yemeği', 'party', 'tr', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('indonesian', 'h', 'Makan malam', 'party', 'id', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
     expect(() =>
       db.run(
         `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
@@ -175,7 +217,86 @@ describe('migrate', () => {
     expect(db.get<{ foreign_keys: number }>('PRAGMA foreign_keys')).toEqual({
       foreign_keys: 1,
     });
+    expect(migrate(db)).toBe(2);
+  });
+
+  it('upgrades a v2 database to new languages without changing existing rows', () => {
+    const db = new Db(':memory:');
+    migrate(db, MIGRATIONS.slice(0, 2));
+    db.run(
+      `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+       VALUES ('old', 'h', 'Existing event', 'owl', 'ja', 1, 0, 0, '2027-04-01')`
+    );
+    db.run(
+      "INSERT INTO event_days (event_id, day, added_at) VALUES ('old', '2027-03-06', 0)"
+    );
+    db.run(
+      "INSERT INTO participants (id, event_id, name, name_key, source, created_at) VALUES ('p', 'old', 'Max', 'max', 'self', 0)"
+    );
+    db.run("INSERT INTO marks VALUES ('p', 'old', '2027-03-06', 'yes')");
+
     expect(migrate(db)).toBe(1);
+    expect(
+      db.get<{ language: string }>(
+        'SELECT language FROM events WHERE id = ?',
+        'old'
+      )?.language
+    ).toBe('ja');
+    expect(db.all('SELECT * FROM event_days')).toHaveLength(1);
+    expect(db.all('SELECT * FROM participants')).toHaveLength(1);
+    expect(db.all('SELECT * FROM marks')).toHaveLength(1);
+    expect(db.all('PRAGMA foreign_key_check')).toEqual([]);
+    expect(
+      db.get<{ foreign_keys: number }>('PRAGMA foreign_keys')?.foreign_keys
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('new', 'h', '聚餐', 'party', 'zh-Hant', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('polish', 'h', 'Kolacja', 'party', 'pl', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('czech', 'h', 'Večeře', 'party', 'cs', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('norwegian', 'h', 'Middag', 'party', 'nb', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('swedish', 'h', 'Middag', 'party', 'sv', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('finnish', 'h', 'Illallinen', 'party', 'fi', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('russian', 'h', 'Ужин', 'party', 'ru', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
+    expect(
+      db.run(
+        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+         VALUES ('arabic', 'h', 'عشاء', 'party', 'ar', 1, 0, 0, '2027-04-01')`
+      )
+    ).toBe(1);
   });
 
   it('enforces the schema rules', () => {

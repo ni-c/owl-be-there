@@ -47,7 +47,8 @@ async function expectAccessible(page: Page, label: string): Promise<void> {
 
 for (const scheme of ['light', 'dark'] as const) {
   test(`pages pass axe in ${scheme} mode`, async ({ browser, request }) => {
-    // Eight axe scans take 24-28 s in WebKit, too close to the 30 s default.
+    // An axe scan takes about 3 s in WebKit (eight took 24-28 s), and there are
+    // thirteen: past the 30 s default.
     test.slow();
     const context = await browser.newContext({
       colorScheme: scheme,
@@ -101,7 +102,12 @@ for (const scheme of ['light', 'dark'] as const) {
       'data-state',
       'maybe'
     );
+    // The status in green, below the note.
+    await saved(page);
     await expectAccessible(page, 'my days, marked');
+    // The entry section, with its framed red delete button.
+    await page.getByRole('button', { name: 'Edit entry' }).click();
+    await expectAccessible(page, 'my days, entry');
     await showView(page, 'group');
     await expectAccessible(page, 'group');
     // The day sheet: names as chips in each group's colour, one group empty.
@@ -114,6 +120,17 @@ for (const scheme of ['light', 'dark'] as const) {
       .click();
     await page.getByRole('button', { name: 'Share' }).click();
     await expectAccessible(page, 'share sheet');
+    await page.keyboard.press('Escape');
+    // The organiser's people list and a person's sheet.
+    const people = page.locator('details').filter({
+      has: page.locator('summary', { hasText: 'People' }),
+    });
+    await people.locator('summary').click();
+    await expectAccessible(page, 'people');
+    await people.getByRole('button', { name: /^Anna/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Anna' })).toBeVisible();
+    await expectAccessible(page, 'person sheet');
+    await page.keyboard.press('Escape');
 
     await page.goto('/privacy');
     await expectAccessible(page, 'privacy');
@@ -171,6 +188,12 @@ test('the app talks to nobody but its own server and breaks no CSP rule', async 
   );
   await page.goto('/');
   await (await instance).finished();
+  // A language loaded later, preloaded by the inline script: its own server too.
+  await page.goto('/fa');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
+  // Back to English, which the steps below speak: an address is a choice.
+  await page.goto('/en');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.goto(`/e/${id}`);
   await joinAs(page, 'Carla');
   await day(myCalendar(page), dayFromNow(4)).click();

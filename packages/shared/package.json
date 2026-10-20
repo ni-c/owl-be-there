@@ -1,6 +1,6 @@
 {
   "name": "@owl/shared",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "description": "Domain logic, limits and validation schemas shared by the server and the client",
   "license": "MIT",
@@ -11,6 +11,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./home-texts": {
+      "types": "./dist/home-texts.d.ts",
+      "import": "./dist/home-texts.js"
+    },
+    "./home/*": {
+      "types": "./dist/home/*.d.ts",
+      "import": "./dist/home/*.js"
     }
   },
   "files": [

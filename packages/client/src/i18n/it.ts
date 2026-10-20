@@ -1,11 +1,12 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/it';
 import type { Dictionary } from './en.ts';
 
 export const it: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.it,
 
-  ...HOME_TEXTS.it,
+  ...HOME,
   'home.cta': 'Organizza un evento',
   'home.example.title': 'Provalo',
   'home.example.text':
@@ -262,6 +263,8 @@ export const it: Dictionary = {
   'admin.noPeople': 'Non c’è ancora nessuno.',
 
   'footer.language': 'Lingua',
+  'language.loadFailed':
+    'Impossibile caricare {language}. Controlla la connessione e ricarica la pagina.',
   'footer.theme': 'Aspetto',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Note legali',

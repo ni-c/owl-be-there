@@ -6,7 +6,7 @@ import {
   escapeMarkup,
   FAQ_TOPICS,
   FEATURES,
-  HOME_TEXTS,
+  isRtl,
   LANGUAGES,
   LOCALES,
   PREVIEW_HEIGHT,
@@ -16,6 +16,8 @@ import {
   type EventSnapshotData,
   type Language,
 } from '@owl/shared';
+import { HOME_TEXTS } from '@owl/shared/home-texts';
+import { z } from 'zod';
 
 /**
  * The client's `index.html`, with a replaceable block of head tags and a place
@@ -32,10 +34,12 @@ export class PageTemplate {
   private readonly before: string;
   private readonly between: string;
   private readonly after: string;
+  /** The dictionary chunks as a data block, or nothing without a manifest. */
+  private readonly data: string;
   /** Hashes of the inline scripts, for the content security policy. */
   readonly scriptHashes: string[];
 
-  constructor(html: string) {
+  constructor(html: string, chunks: DictionaryChunks | null = null) {
     const start = html.indexOf('<!--owl:head-->');
     const endMarker = '<!--/owl:head-->';
     const end = html.indexOf(endMarker);
@@ -52,6 +56,9 @@ export class PageTemplate {
     this.before = html.slice(0, start);
     this.between = html.slice(end + endMarker.length, root);
     this.after = html.slice(root + rootMarker.length);
+    // Written into every page, never into index.html itself: a data block
+    // in the file would be hashed like a script.
+    this.data = chunks ? `\n    ${dataBlock('owl-i18n', chunks)}` : '';
     this.scriptHashes = inlineScriptHashes(html);
   }
 
@@ -63,10 +70,63 @@ export class PageTemplate {
   render(head: string, language: Language = 'en', content = ''): string {
     const before = this.before.replace(
       /<html lang="[^"]*"/,
-      `<html lang="${language}"`
+      `<html lang="${language}"${isRtl(language) ? ' dir="rtl"' : ''}`
     );
-    return `${before}${head}${this.between}${content}${this.after}`;
+    return `${before}${head}${this.data}${this.between}${content}${this.after}`;
   }
+}
+
+/**
+ * The files of each language's dictionary chunk, the chunk itself first;
+ * empty for the languages in the main bundle. The inline script of
+ * `index.html` preloads them for the language the page will start in.
+ */
+export type DictionaryChunks = Record<Language, string[]>;
+
+const ManifestSchema = z.record(
+  z.string(),
+  z.object({
+    file: z.string(),
+    isEntry: z.boolean().optional(),
+    imports: z.array(z.string()).optional(),
+  })
+);
+
+/**
+ * The dictionary chunks from Vite's build manifest. Only the languages this
+ * server knows are looked up, under the source path `src/i18n/<code>.ts`;
+ * a chunk's static imports follow it, the entry excepted, which the page
+ * loads anyway. Only plain file names under `assets/` pass.
+ */
+export function dictionaryChunks(manifest: unknown): DictionaryChunks {
+  const entries = ManifestSchema.parse(manifest);
+  const files = (key: string, seen: Set<string>): string[] => {
+    const entry = entries[key];
+    if (!entry || entry.isEntry || seen.has(key)) return [];
+    seen.add(key);
+    return [
+      entry.file,
+      ...(entry.imports ?? []).flatMap((next) => files(next, seen)),
+    ];
+  };
+  return Object.fromEntries(
+    LANGUAGES.map((language) => [
+      language,
+      files(`src/i18n/${language}.ts`, new Set())
+        .filter((file) => /^assets\/[\w.-]+\.js$/.test(file))
+        .map((file) => `/${file}`),
+    ])
+  ) as DictionaryChunks;
+}
+
+/** JSON inside a script element: `<` escaped, so no text can close it. */
+function scriptJson(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+/** Data for the page's own script to read; a data block, never run. */
+export function dataBlock(id: string, data: unknown): string {
+  return `<script type="application/json" id="${id}">${scriptJson(data)}</script>`;
 }
 
 /**
@@ -74,8 +134,8 @@ export class PageTemplate {
  *
  * Read from the very file being served: an edited script changes its own
  * allowance, and an injected one is not on the list. Only meta, title and link
- * tags, JSON-LD (data, never run) and plain markup are ever put into the page,
- * so the hashes stay valid.
+ * tags, JSON-LD and the dictionary data block (data, never run) and plain
+ * markup are ever put into the page, so the hashes stay valid.
  */
 function inlineScriptHashes(html: string): string[] {
   const hashes: string[] = [];
@@ -104,6 +164,18 @@ interface HeadOptions {
   icon: string;
   /** Announce the start page in every language, for search engines. */
   alternates?: boolean;
+}
+
+/**
+ * A language as search engines read `hreflang`: an ISO 639-1 language with an
+ * ISO 3166-1 country or an ISO 15924 script. Google ignores a region like
+ * "419", so the Latin American page is plain Spanish and Spain's page names
+ * its country; `<html lang>` keeps the full tag.
+ */
+export function hreflangOf(language: Language): string {
+  if (language === 'es-419') return 'es';
+  if (language === 'es') return 'es-ES';
+  return language;
 }
 
 /**
@@ -137,7 +209,7 @@ function head(options: HeadOptions): string {
           `<link rel="canonical" href="${e(options.publicUrl + options.path)}" />`,
           ...LANGUAGES.map(
             (language) =>
-              `<link rel="alternate" hreflang="${language}" href="${e(options.publicUrl + homePath(language))}" />`
+              `<link rel="alternate" hreflang="${hreflangOf(language)}" href="${e(options.publicUrl + homePath(language))}" />`
           ),
           `<link rel="alternate" hreflang="x-default" href="${e(options.publicUrl + homePath(null))}" />`,
         ]
@@ -171,7 +243,7 @@ export function defaultHead(
  * it can close the element or open another.
  */
 export function jsonLd(data: unknown): string {
-  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+  return `<script type="application/ld+json">${scriptJson(data)}</script>`;
 }
 
 /**
@@ -253,7 +325,7 @@ export function sitemap(
   const alternates = [
     ...LANGUAGES.map(
       (language) =>
-        `    <xhtml:link rel="alternate" hreflang="${language}" href="${e(publicUrl + homePath(language))}" />`
+        `    <xhtml:link rel="alternate" hreflang="${hreflangOf(language)}" href="${e(publicUrl + homePath(language))}" />`
     ),
     `    <xhtml:link rel="alternate" hreflang="x-default" href="${e(publicUrl + homePath(null))}" />`,
   ].join('\n');

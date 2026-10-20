@@ -426,7 +426,7 @@ function StatusBanner({
     url: eventLink(publicUrl, event.id, window.location.origin),
   });
   return (
-    <section className="flex flex-col items-center gap-4 rounded-3xl border-2 border-brand bg-brand-soft p-5 text-center sm:flex-row sm:text-left">
+    <section className="flex flex-col items-center gap-4 rounded-3xl border-2 border-brand bg-brand-soft p-5 text-center sm:flex-row sm:text-start">
       <Owl mood="celebrating" size={96} />
       <div className="flex flex-1 flex-col gap-1">
         <p className="text-sm font-extrabold tracking-wide text-muted uppercase">

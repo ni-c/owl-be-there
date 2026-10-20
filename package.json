@@ -1,6 +1,6 @@
 {
   "name": "owl-be-there",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "description": "Find a day everyone can make. Mark your days on a calendar and see what works for the group. No accounts.",
   "license": "MIT",
@@ -34,9 +34,10 @@
     "test:coverage": "vitest run --coverage",
     "test:tz": "node scripts/test-time-zones.ts",
     "screenshot": "node scripts/make-screenshot.ts",
+    "check:bundle": "node scripts/check-bundle.ts",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "scan:secrets": "docker run --rm -v \"$PWD\":/repo:ro aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c fs --scanners secret --exit-code 1 --skip-dirs '**/node_modules' --skip-dirs '**/dist' --skip-dirs coverage --skip-dirs playwright-report --skip-dirs test-results /repo && docker run --rm -v \"$PWD\":/repo:ro ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git --redact --no-banner --log-opts=--all /repo",
-    "ci:local": "npm run lint && npm run typecheck && npm audit --audit-level=high && npm run scan:secrets && npm run test:coverage && npm run test:tz && npm run build && npm run test:e2e"
+    "ci:local": "npm run lint && npm run typecheck && npm audit --audit-level=high && npm run scan:secrets && npm run test:coverage && npm run test:tz && npm run build && npm run check:bundle && npm run test:e2e"
   },
   "overrides": {
     "eslint-plugin-jsx-a11y": {

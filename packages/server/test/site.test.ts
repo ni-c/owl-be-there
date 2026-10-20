@@ -10,13 +10,19 @@ import {
   escapeMarkup,
   FAQ_TOPICS,
   FEATURES,
-  HOME_TEXTS,
   LANGUAGES,
   RETENTION_DAYS,
   SERVER_TEXTS,
 } from '@owl/shared';
+import { HOME_TEXTS } from '@owl/shared/home-texts';
 import { snapshot } from '../src/db/repo.js';
-import { jsonLd, PageTemplate } from '../src/pages.js';
+import {
+  dataBlock,
+  dictionaryChunks,
+  hreflangOf,
+  jsonLd,
+  PageTemplate,
+} from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
   CLIENT_DIR,
@@ -343,15 +349,90 @@ describe('pages', () => {
     const japanese = await t.app.inject({ method: 'GET', url: '/ja' });
     expect(japanese.body).toContain('<html lang="ja">');
     expect(japanese.body).toContain('みんなが集まれる日を見つけよう。');
+    const traditionalChinese = await t.app.inject({
+      method: 'GET',
+      url: '/zh-Hant',
+    });
+    expect(traditionalChinese.statusCode).toBe(200);
+    expect(traditionalChinese.body).toContain('<html lang="zh-Hant">');
+    expect(traditionalChinese.body).toContain('找出大家都方便的日子。');
+    const simplifiedChinese = await t.app.inject({
+      method: 'GET',
+      url: '/zh-Hans',
+    });
+    expect(simplifiedChinese.statusCode).toBe(200);
+    expect(simplifiedChinese.body).toContain('<html lang="zh-Hans">');
+    expect(simplifiedChinese.body).toContain('找到大家都有空的日子。');
+    const turkish = await t.app.inject({ method: 'GET', url: '/tr' });
+    expect(turkish.statusCode).toBe(200);
+    expect(turkish.body).toContain('<html lang="tr">');
+    expect(turkish.body).toContain('Herkese uyan bir gün bulun.');
+    const indonesian = await t.app.inject({ method: 'GET', url: '/id' });
+    expect(indonesian.statusCode).toBe(200);
+    expect(indonesian.body).toContain('<html lang="id">');
+    expect(indonesian.body).toContain('Temukan hari yang cocok untuk semua.');
+    const polish = await t.app.inject({ method: 'GET', url: '/pl' });
+    expect(polish.statusCode).toBe(200);
+    expect(polish.body).toContain('<html lang="pl">');
+    expect(polish.body).toContain('Znajdź dzień, który pasuje wszystkim.');
+    const czech = await t.app.inject({ method: 'GET', url: '/cs' });
+    expect(czech.statusCode).toBe(200);
+    expect(czech.body).toContain('<html lang="cs">');
+    expect(czech.body).toContain('Najděte den, který vyhovuje všem.');
+    const norwegian = await t.app.inject({ method: 'GET', url: '/nb' });
+    expect(norwegian.statusCode).toBe(200);
+    expect(norwegian.body).toContain('<html lang="nb">');
+    expect(norwegian.body).toContain('Finn en dag som passer for alle.');
+    const swedish = await t.app.inject({ method: 'GET', url: '/sv' });
+    expect(swedish.statusCode).toBe(200);
+    expect(swedish.body).toContain('<html lang="sv">');
+    expect(swedish.body).toContain('Hitta en dag som passar alla.');
+    const finnish = await t.app.inject({ method: 'GET', url: '/fi' });
+    expect(finnish.statusCode).toBe(200);
+    expect(finnish.body).toContain('<html lang="fi">');
+    expect(finnish.body).toContain('Löydä päivä, joka sopii kaikille.');
+    const russian = await t.app.inject({ method: 'GET', url: '/ru' });
+    expect(russian.statusCode).toBe(200);
+    expect(russian.body).toContain('<html lang="ru">');
+    expect(russian.body).toContain('Найдите день, который подходит всем.');
+    const arabic = await t.app.inject({ method: 'GET', url: '/ar' });
+    expect(arabic.statusCode).toBe(200);
+    expect(arabic.body).toContain('<html lang="ar" dir="rtl">');
+    expect(arabic.body).toContain('اعثر على يوم يناسب الجميع.');
+    for (const [url, html] of [
+      ['/fa', '<html lang="fa" dir="rtl">'],
+      ['/ur', '<html lang="ur" dir="rtl">'],
+      ['/es-419', '<html lang="es-419">'],
+      ['/pt-BR', '<html lang="pt-BR">'],
+    ] as const) {
+      const page = await t.app.inject({ method: 'GET', url });
+      expect(page.statusCode, url).toBe(200);
+      expect(page.body, url).toContain(html);
+      expect(page.body, url).toContain(
+        `<link rel="canonical" href="https://owl.example.org${url}" />`
+      );
+    }
+  });
+
+  it('names every language in a form search engines accept, each once', () => {
+    const tags = LANGUAGES.map(hreflangOf);
+    expect(new Set(tags).size).toBe(LANGUAGES.length);
+    for (const tag of tags)
+      expect(tag).toMatch(/^[a-z]{2}(-([A-Z]{2}|[A-Z][a-z]{3}))?$/);
+    // Google ignores es-419: Latin American Spanish is plain Spanish.
+    expect(hreflangOf('es-419')).toBe('es');
+    expect(hreflangOf('es')).toBe('es-ES');
+    expect(hreflangOf('pt-BR')).toBe('pt-BR');
+    expect(hreflangOf('zh-Hant')).toBe('zh-Hant');
   });
 
   it('names every language version of the start page, and / as the default', async () => {
     t = await testApp();
     for (const url of ['/', '/en', '/fr']) {
       const { body } = await t.app.inject({ method: 'GET', url });
-      for (const language of ['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'])
+      for (const language of LANGUAGES)
         expect(body, url).toContain(
-          `<link rel="alternate" hreflang="${language}" href="https://owl.example.org/${language}" />`
+          `<link rel="alternate" hreflang="${hreflangOf(language)}" href="https://owl.example.org/${language}" />`
         );
       expect(body, url).toContain(
         '<link rel="alternate" hreflang="x-default" href="https://owl.example.org/" />'
@@ -496,6 +577,89 @@ describe('pages', () => {
     expect(body).toContain('<html lang="nl">');
     expect(body).not.toContain('hreflang');
     expect(body).not.toContain('rel="canonical"');
+    const traditionalChinese = await createEvent(t.app, {
+      language: 'zh-Hant',
+    });
+    const chinesePage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${traditionalChinese.id}`,
+    });
+    expect(chinesePage.body).toContain('<html lang="zh-Hant">');
+    expect(chinesePage.body).toContain('標記你方便的日期');
+    const simplifiedChinese = await createEvent(t.app, {
+      language: 'zh-Hans',
+    });
+    const simplifiedChinesePage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${simplifiedChinese.id}`,
+    });
+    expect(simplifiedChinesePage.body).toContain('<html lang="zh-Hans">');
+    expect(simplifiedChinesePage.body).toContain('标记你方便的日期');
+    const turkish = await createEvent(t.app, { language: 'tr' });
+    const turkishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${turkish.id}`,
+    });
+    expect(turkishPage.body).toContain('<html lang="tr">');
+    expect(turkishPage.body).toContain('Uygun günlerini işaretle');
+    const indonesian = await createEvent(t.app, { language: 'id' });
+    const indonesianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${indonesian.id}`,
+    });
+    expect(indonesianPage.body).toContain('<html lang="id">');
+    expect(indonesianPage.body).toContain('Tandai hari saat kamu bisa hadir');
+    const polish = await createEvent(t.app, { language: 'pl' });
+    const polishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${polish.id}`,
+    });
+    expect(polishPage.body).toContain('<html lang="pl">');
+    expect(polishPage.body).toContain('Zaznacz dni, w które możesz przyjść');
+    const czech = await createEvent(t.app, { language: 'cs' });
+    const czechPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${czech.id}`,
+    });
+    expect(czechPage.body).toContain('<html lang="cs">');
+    expect(czechPage.body).toContain('Označ dny, kdy máš čas');
+    const norwegian = await createEvent(t.app, { language: 'nb' });
+    const norwegianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${norwegian.id}`,
+    });
+    expect(norwegianPage.body).toContain('<html lang="nb">');
+    expect(norwegianPage.body).toContain('Marker dagene du kan');
+    const swedish = await createEvent(t.app, { language: 'sv' });
+    const swedishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${swedish.id}`,
+    });
+    expect(swedishPage.body).toContain('<html lang="sv">');
+    expect(swedishPage.body).toContain('Markera de dagar du kan');
+    const finnish = await createEvent(t.app, { language: 'fi' });
+    const finnishPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${finnish.id}`,
+    });
+    expect(finnishPage.body).toContain('<html lang="fi">');
+    expect(finnishPage.body).toContain(
+      'Merkitse päivät, jolloin pääset mukaan'
+    );
+    const russian = await createEvent(t.app, { language: 'ru' });
+    const russianPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${russian.id}`,
+    });
+    expect(russianPage.body).toContain('<html lang="ru">');
+    expect(russianPage.body).toContain('Отметь дни, когда можешь прийти');
+    const arabic = await createEvent(t.app, { language: 'ar' });
+    const arabicPage = await t.app.inject({
+      method: 'GET',
+      url: `/e/${arabic.id}`,
+    });
+    expect(arabicPage.body).toContain('<html lang="ar" dir="rtl">');
+    expect(arabicPage.body).toContain('حدّد الأيام التي تناسبك');
   });
 
   it('answers a language it does not speak, or a capitalised one, with a 404', async () => {
@@ -532,16 +696,16 @@ describe('pages', () => {
     );
     expect(locs).toEqual([
       'https://owl.example.org/',
-      ...['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt'].map(
-        (language) => `https://owl.example.org/${language}`
-      ),
+      ...LANGUAGES.map((language) => `https://owl.example.org/${language}`),
       'https://owl.example.org/privacy',
     ]);
     expect(response.body).not.toContain('/imprint');
     expect(response.body).not.toContain(id);
     expect(response.body).not.toContain('/e/');
-    // Each start page names all nine versions.
-    expect(response.body.match(/hreflang=/g)).toHaveLength(9 * 9);
+    // Each start page names all language versions and the default.
+    expect(response.body.match(/hreflang=/g)).toHaveLength(
+      (LANGUAGES.length + 1) ** 2
+    );
   });
 
   it('lists /imprint in the sitemap, after the privacy page, when it is configured', async () => {
@@ -1163,5 +1327,119 @@ describe('logs', () => {
     expect(logs).not.toContain('203.0.113.77');
     expect(logs).not.toContain('127.0.0.1');
     expect(logs).not.toContain(id);
+  });
+});
+
+describe('dictionary chunks from the build manifest', () => {
+  const MANIFEST = {
+    'index.html': {
+      file: 'assets/index-abc.js',
+      isEntry: true,
+      dynamicImports: ['src/i18n/fa.ts', 'src/i18n/ja.ts'],
+    },
+    'src/i18n/fa.ts': {
+      file: 'assets/fa-123.js',
+      isDynamicEntry: true,
+      imports: ['index.html', '_shared-x.js'],
+    },
+    // A shared chunk that imports the language back: no endless walk.
+    '_shared-x.js': { file: 'assets/shared-x.js', imports: ['src/i18n/fa.ts'] },
+    'src/i18n/ja.ts': { file: 'assets/ja-1.js', isDynamicEntry: true },
+    'src/i18n/ko.ts': { file: '../outside.js', isDynamicEntry: true },
+    'src/i18n/xx.ts': { file: 'assets/xx.js', isDynamicEntry: true },
+    'src/i18n/index.tsx': { file: 'assets/i.js' },
+  };
+
+  it('lists each known language with its chunk and that chunk’s imports', () => {
+    const chunks = dictionaryChunks(MANIFEST);
+    expect(Object.keys(chunks).sort()).toEqual([...LANGUAGES].sort());
+    expect(chunks.fa).toEqual(['/assets/fa-123.js', '/assets/shared-x.js']);
+    expect(chunks.ja).toEqual(['/assets/ja-1.js']);
+    // In the main bundle, missing, or a file name that is not plain.
+    expect(chunks.en).toEqual([]);
+    expect(chunks.de).toEqual([]);
+    expect(chunks.ko).toEqual([]);
+    expect(chunks.ar).toEqual([]);
+  });
+
+  it('refuses what is not a manifest', () => {
+    expect(() => dictionaryChunks(null)).toThrow();
+    expect(() => dictionaryChunks([])).toThrow();
+    expect(() => dictionaryChunks({ x: { file: 3 } })).toThrow();
+    expect(dictionaryChunks({})).toEqual(
+      Object.fromEntries(LANGUAGES.map((language) => [language, []]))
+    );
+  });
+
+  it('writes the data block so that no text can end it', () => {
+    expect(dataBlock('owl-i18n', { fa: ['</script><b>'] })).toBe(
+      '<script type="application/json" id="owl-i18n">{"fa":["\\u003c/script>\\u003cb>"]}</script>'
+    );
+  });
+
+  describe('in the pages', () => {
+    const dirs: string[] = [];
+    afterEach(() => {
+      for (const dir of dirs.splice(0))
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** A copy of the test client with this manifest, or none. */
+    const clientWith = (manifest: string | null): string => {
+      const dir = mkdtempSync(joinPath(tmpdir(), 'owl-client-'));
+      dirs.push(dir);
+      cpSync(CLIENT_DIR, dir, { recursive: true });
+      if (manifest !== null) {
+        mkdirSync(joinPath(dir, '.vite'));
+        writeFileSync(joinPath(dir, '.vite', 'manifest.json'), manifest);
+      }
+      return dir;
+    };
+    const BLOCK = '<script type="application/json" id="owl-i18n">';
+
+    it('puts the chunks before the inline script on every page', async () => {
+      t = await testApp({
+        env: { CLIENT_DIR: clientWith(JSON.stringify(MANIFEST)) },
+      });
+      const { id } = await createEvent(t.app);
+      for (const url of ['/', '/fa', `/e/${id}`, '/privacy', '/no-such-page']) {
+        const body = (await t.app.inject({ method: 'GET', url })).body;
+        const start = body.indexOf(BLOCK);
+        expect(start, url).toBeGreaterThan(-1);
+        expect(start, url).toBeLessThan(body.indexOf('<script>'));
+        const json = body.slice(
+          start + BLOCK.length,
+          body.indexOf('</script>', start)
+        );
+        expect(JSON.parse(json), url).toEqual(dictionaryChunks(MANIFEST));
+      }
+    });
+
+    it('keeps the policy’s script hashes, and never serves the manifest', async () => {
+      t = await testApp({
+        env: { CLIENT_DIR: clientWith(JSON.stringify(MANIFEST)) },
+      });
+      const withManifest = await t.app.inject({ method: 'GET', url: '/' });
+      expect(
+        (await t.app.inject({ method: 'GET', url: '/.vite/manifest.json' }))
+          .statusCode
+      ).toBe(404);
+      await t.app.close();
+      t = await testApp({ env: { CLIENT_DIR: clientWith(null) } });
+      const without = await t.app.inject({ method: 'GET', url: '/' });
+      expect(without.body).not.toContain(BLOCK);
+      expect(withManifest.headers['content-security-policy']).toBe(
+        without.headers['content-security-policy']
+      );
+    });
+
+    it('refuses to start with a manifest it cannot read', async () => {
+      await expect(
+        testApp({ env: { CLIENT_DIR: clientWith('{ not json') } })
+      ).rejects.toThrow('is not a Vite build manifest');
+      await expect(
+        testApp({ env: { CLIENT_DIR: clientWith('{"a":{"file":1}}') } })
+      ).rejects.toThrow('is not a Vite build manifest');
+    });
   });
 });

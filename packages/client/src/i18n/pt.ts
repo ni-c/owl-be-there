@@ -1,11 +1,12 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/pt';
 import type { Dictionary } from './en.ts';
 
 export const pt: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.pt,
 
-  ...HOME_TEXTS.pt,
+  ...HOME,
   'home.cta': 'Planear um evento',
   'home.example.title': 'Experimenta',
   'home.example.text':
@@ -149,7 +150,7 @@ export const pt: Dictionary = {
   'mine.none': 'Nenhum',
   'mine.noneWork': 'Nenhum destes dias me serve',
   'mine.noneSaved': 'Guardado: nenhum destes dias te serve.',
-  'mine.note': 'Nota (opcional)',
+  'mine.note': 'Observação (opcional)',
   'mine.notePlaceholder': 'Por ex., só depois das 18h',
   'mine.newDays_one': 'Foi acrescentado {count} dia. Dá uma vista de olhos.',
   'mine.newDays_other':
@@ -211,7 +212,7 @@ export const pt: Dictionary = {
   'day.maybe': 'Talvez',
   'day.cannot': 'Não podem',
   'day.open': 'Sem resposta',
-  'day.notes': 'Notas',
+  'day.notes': 'Observações',
   'day.close': 'Fechar',
 
   'share.title': 'Partilhar com o grupo',
@@ -261,6 +262,8 @@ export const pt: Dictionary = {
   'admin.noPeople': 'Ainda não há ninguém.',
 
   'footer.language': 'Idioma',
+  'language.loadFailed':
+    'Não foi possível carregar {language}. Verifica a tua ligação e recarrega a página.',
   'footer.theme': 'Aspeto',
   'footer.privacy': 'Privacidade',
   'footer.imprint': 'Informação legal',
@@ -276,7 +279,7 @@ export const pt: Dictionary = {
   'privacy.stored.event':
     'De cada evento guardamos o título, o ícone, os dias possíveis e as definições. A descrição, o local e o nome de quem organiza são opcionais.',
   'privacy.stored.person':
-    'De cada pessoa guardamos o nome e os dias marcados. Também guardamos uma nota e um hash da palavra-passe, se forem adicionados.',
+    'De cada pessoa guardamos o nome e os dias marcados. Também guardamos uma observação e um hash da palavra-passe, se forem adicionados.',
   'privacy.stored.nothingElse':
     'Não há contas, endereços de e-mail, cookies nem estatísticas. A aplicação não contacta outros serviços nem guarda endereços IP. A única exceção é a ligação para o Google Calendar: ao clicares, o Google abre com o título, a descrição, o local e a ligação do evento.',
   'privacy.visible.title': 'Quem pode ver',

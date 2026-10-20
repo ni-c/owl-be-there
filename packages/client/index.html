@@ -32,6 +32,64 @@
           /* A blocked localStorage is not worth a blank page. */
         }
       })();
+      /*
+       * Fetch the dictionary of the language the app will start in alongside
+       * the app, not after it. The server lists each language's files in
+       * #owl-i18n; the choice follows detectLanguage in lib/languageStore.ts:
+       * the address, the stored choice, the browser. A wrong guess costs one
+       * request, never a wrong language: the app decides for itself.
+       */
+      (function () {
+        try {
+          var block = document.getElementById('owl-i18n');
+          if (!block) return;
+          var files = JSON.parse(block.textContent);
+          var known = function (code) {
+            return (
+              typeof code === 'string' &&
+              Object.prototype.hasOwnProperty.call(files, code)
+            );
+          };
+          var path = /^\/([a-z]{2}(?:-[A-Za-z0-9]+)?)\/?$/.exec(
+            location.pathname
+          );
+          var language = path && known(path[1]) ? path[1] : null;
+          if (!language) {
+            try {
+              var stored = JSON.parse(localStorage.getItem('owl.lang'));
+              if (known(stored)) language = stored;
+            } catch (error) {
+              /* Nothing stored, or nothing readable. */
+            }
+          }
+          var tags = navigator.languages || [];
+          for (var i = 0; !language && i < tags.length; i++) {
+            var tag = String(tags[i]).toLowerCase();
+            var base = tag.split('-')[0];
+            if (/^zh-(hant|tw|hk|mo)(-|$)/.test(tag)) language = 'zh-Hant';
+            else if (tag === 'zh' || /^zh-(hans|cn|sg)(-|$)/.test(tag))
+              language = 'zh-Hans';
+            else if (/^pt-br(-|$)/.test(tag)) language = 'pt-BR';
+            else if (/^es-(?!es(-|$))/.test(tag)) language = 'es-419';
+            else if (base === 'no') language = 'nb';
+            else if (known(base)) language = base;
+          }
+          var list = language ? files[language] : [];
+          for (var j = 0; j < list.length; j++) {
+            // Only a file of our own build: never another origin or scheme.
+            var file = /^\/assets\/([\w.-]+\.js)$/.exec(list[j]);
+            if (!file) continue;
+            var link = document.createElement('link');
+            link.rel = 'modulepreload';
+            link.crossOrigin = '';
+            // The name is plain already; the encoding says so to a scanner.
+            link.href = '/assets/' + encodeURIComponent(file[1]);
+            document.head.appendChild(link);
+          }
+        } catch (error) {
+          /* A preload is only a head start. */
+        }
+      })();
     </script>
   </head>
   <body>

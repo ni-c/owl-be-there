@@ -1,0 +1,367 @@
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/pl';
+import type { CountedKey, Dictionary } from './en.ts';
+
+export const pl = {
+  'app.name': APP_NAME,
+  'app.tagline': TAGLINES.pl,
+  ...HOME,
+  'home.cta': 'Zaplanuj wydarzenie',
+  'home.example.title': 'Wypróbuj',
+  'home.example.text':
+    'Zaznacz dostępne dni jako Anna i zobacz, jak zmienia się kalendarz grupy.',
+  'home.example.eventTitle': 'Kolacja z zespołem',
+  'home.example.hint':
+    'To przykładowe wydarzenie do wypróbowania — nic nie zostanie zapisane.',
+  'home.example.reset': 'Zacznij od nowa',
+  'home.example.noteBen':
+    'W tygodniu mam ciasno — w czwartki może, od połowy miesiąca.',
+  'home.example.noteMax':
+    'Do połowy miesiąca w czwartki mam próby chóru, potem jestem wolny.',
+  'event.planOwn.title': 'Chcesz zaplanować własne wydarzenie?',
+  'event.planOwn.text':
+    'Utwórz własne wydarzenie w minutę, bez zakładania konta.',
+  'home.myEvents': 'Twoje wydarzenia',
+  'home.organiser': 'organizator',
+  'home.forget': 'Usuń {title} z tej listy',
+  'home.forgetOrganiser.title': 'Usunąć to wydarzenie z tego urządzenia?',
+  'home.forgetOrganiser.text':
+    'Na tym urządzeniu jest zapisany link organizatora do wydarzenia „{title}”. Jeśli usuniesz wydarzenie, usuniesz też ten link. Bez jego kopii nie zamkniesz już głosowania, nie wybierzesz terminu ani nie usuniesz wydarzenia z tego urządzenia.',
+  'home.forgetOrganiser.yes': 'Usuń z tego urządzenia',
+  'home.creationDisabled': 'Nie możesz teraz tworzyć tutaj nowych wydarzeń.',
+
+  'create.title': 'Zaplanuj wydarzenie',
+  'create.step': 'Krok {current} z {total}',
+  'create.what': 'Co planujesz?',
+  'create.titleLabel': 'Nazwa',
+  'create.titlePlaceholder': 'Mecz w parku',
+  'create.emoji': 'Ikona',
+  'create.description': 'Opis (opcjonalnie)',
+  'create.descriptionHint':
+    'Linki są wyświetlane jako zwykły tekst. Nie można ich kliknąć.',
+  'create.location': 'Miejsce (opcjonalnie)',
+  'create.locationPlaceholder': 'Boisko północne',
+  'create.creator': 'Twoje imię (opcjonalnie)',
+  'create.creatorHint':
+    'Twoje imię pojawi się przy „organizuje”. Swoje dni zaznaczysz później.',
+  'create.when': 'Kiedy mogłoby się odbyć?',
+  'create.from': 'Od',
+  'create.to': 'Do',
+  'create.weekdays': 'Tylko w te dni tygodnia',
+  'create.weekdaysHint':
+    'Nie zaznaczaj niczego, jeśli chcesz uwzględnić wszystkie dni.',
+  'create.duration': 'Liczba kolejnych dni',
+  'create.durationHint':
+    'Planujesz cały weekend? Wybierz 2, a poszukamy dwóch kolejnych dogodnych dni.',
+  'create.fineTune':
+    'Kliknij lub przeciągnij po kalendarzu, aby wykluczyć dni.',
+  'create.dayCount_one': '{count} dzień do wyboru',
+  'create.dayCount_other': '{count} dni do wyboru',
+  'create.who': 'Kto przyjdzie?',
+  'create.roster': 'Imiona (opcjonalnie)',
+  'create.rosterHint':
+    'Jedno imię w wierszu. Każdy wybierze później swoje imię. Zobaczysz też, kto jeszcze nie odpowiedział.',
+  'create.minCount': 'Minimalna liczba osób (opcjonalnie)',
+  'create.minCountHint':
+    'Wyróżnimy dni, w które może przyjść wystarczająco dużo osób.',
+  'create.back': 'Wstecz',
+  'create.next': 'Dalej',
+  'create.submit': 'Utwórz wydarzenie',
+  'create.creating': 'Tworzenie…',
+  'create.durationLess': 'Skróć o jeden dzień',
+  'create.durationMore': 'Wydłuż o jeden dzień',
+
+  'error.titleRequired': 'Podaj nazwę wydarzenia.',
+  'error.range': 'Data końcowa jest wcześniejsza od początkowej.',
+  'error.rangeTooLong': 'Zakres dat nie może przekraczać roku.',
+  'error.noDays': 'Wybierz co najmniej jeden dzień.',
+  'error.tooManyDays': 'Maksymalna liczba dni: {max}.',
+  'error.noBlock': 'Brak ciągu {count} dni do wyboru.',
+  'error.past': 'Ten dzień już minął.',
+  'error.tooFar':
+    'To zbyt odległy termin. Wybierz dni w ciągu najbliższych pięciu lat.',
+  'error.slowDown':
+    'Zbyt wiele błędnych haseł dla tego imienia. Spróbuj ponownie za kilka minut.',
+  'error.daysChanged':
+    'W międzyczasie ktoś zmienił proponowane dni. Sprawdź je i zapisz ponownie.',
+  'error.generic': 'Nie udało się. Spróbuj ponownie.',
+  'error.offline': 'Chyba jesteś offline. Spróbuj później.',
+  'error.rateLimited': 'To było trochę za szybko. Poczekaj chwilę.',
+  'error.forbidden': 'Z tym linkiem tego nie zrobisz.',
+  'error.nameTaken': 'Ktoś już używa tego imienia.',
+  'error.numberRange': 'Wpisz liczbę od {min} do {max}.',
+  'error.rosterLine': 'Imię może mieć najwyżej {max} znaków.',
+  'error.rosterTooMany': 'Najwyżej {max} imion naraz.',
+  'error.busy': 'Serwer jest teraz zajęty. Spróbuj ponownie za chwilę.',
+  'error.changed': 'Ten wpis został właśnie zmieniony. Spróbuj ponownie.',
+  'error.invalid':
+    'Niektóre dane są nieprawidłowe. Sprawdź je i spróbuj ponownie.',
+
+  'event.loading': 'Ładowanie wydarzenia…',
+  'event.notFound.title': 'Nie znaleźliśmy tego wydarzenia.',
+  'event.notFound.text': 'Mogło zostać usunięte albo link jest niepełny.',
+  'event.deleted': 'To wydarzenie zostało usunięte.',
+  'event.stale': 'Widzisz ostatnio pobrane dane. Trwa ponowne łączenie…',
+  'event.organisedBy': 'organizuje: {name}',
+  'event.duration_one': '{count} dzień',
+  'event.duration_other': '{count} dni z rzędu',
+  'event.minCount_one': 'wymagana co najmniej {count} osoba',
+  'event.minCount_other': 'wymaganych co najmniej {count} osób',
+  'event.adminRefused':
+    'Ten link organizatora nie został zaakceptowany. Narzędzia organizatora usunięto z tego urządzenia; otwórz ponownie pełny link organizatora, aby odzyskać dostęp.',
+  'event.expires':
+    'To wydarzenie zostanie automatycznie usunięte {date}, jeśli wcześniej nic się nie zmieni.',
+  'event.share': 'Udostępnij',
+  'event.tabs': 'Widoki',
+  'event.tabMine': 'Moje dni',
+  'event.tabGroup': 'Grupa',
+  'event.answers_one': '{count} odpowiedź',
+  'event.answers_other': '{count} odpowiedzi',
+  'event.closed': 'Głosowanie nad terminem jest zamknięte.',
+  'event.decided': 'Termin został ustalony!',
+  'event.addToCalendar': 'Dodaj do kalendarza',
+  'event.icsFile': 'Plik kalendarza',
+  'event.google': 'Kalendarz Google',
+
+  'who.title': 'Jak masz na imię?',
+  'who.pick': 'Wybierz swoje imię:',
+  'who.someoneElse': 'Ktoś inny',
+  'who.name': 'Twoje imię',
+  'who.password': 'Hasło',
+  'who.addPassword': 'Chroń mój wpis hasłem',
+  'who.passwordHint':
+    'Bez hasła każda osoba z linkiem może wpisać twoje imię i zmienić twoje dni.',
+  'who.continue': 'Kontynuuj',
+  'who.protected':
+    'Wpis „{name}” jest chroniony. Podaj hasło, aby kontynuować.',
+  'who.wrongPassword': 'Nieprawidłowe hasło.',
+  'who.passwordTooShort': 'Hasło musi mieć co najmniej {min} znaków.',
+  'who.closed': 'Głosowanie jest zamknięte. Nowe osoby nie mogą dołączyć.',
+  'who.full': 'To wydarzenie jest już pełne.',
+
+  'mine.hello': 'Cześć, {name}!',
+  'mine.notYou': 'To nie ty?',
+  'mine.brush': 'Zaznacz dni jako',
+  'mine.brushYes': 'Mogę',
+  'mine.brushMaybe': 'Być może',
+  'mine.hint':
+    'Kliknij dzień lub przeciągnij przez kilka dni. Kliknij ponownie, aby usunąć zaznaczenie.',
+  'mine.undo': 'Cofnij',
+  'mine.all': 'Wszystkie',
+  'mine.none': 'Żadne',
+  'mine.noneWork': 'Żaden z tych dni mi nie pasuje',
+  'mine.noneSaved': 'Zapisano: żaden z tych dni ci nie pasuje.',
+  'mine.note': 'Uwagi (opcjonalnie)',
+  'mine.notePlaceholder': 'np. dopiero po 18:00',
+  'mine.newDays_one': 'Dodano {count} nowy dzień. Sprawdź go.',
+  'mine.newDays_other': 'Dodano {count} nowych dni. Sprawdź je.',
+  'mine.saved': 'Zapisano',
+  'mine.saving': 'Zapisywanie…',
+  'mine.retrying': 'Brak połączenia. Spróbujemy ponownie…',
+  'mine.failed': 'Nie udało się zapisać zmian.',
+  'mine.closed':
+    'Głosowanie jest zamknięte. Nie możesz teraz zmieniać swoich dni.',
+  'mine.entry': 'Edytuj wpis',
+  'mine.rename': 'Imię',
+  'mine.setPassword': 'Ustaw hasło',
+  'mine.newPassword': 'Nowe hasło',
+  'mine.removePassword': 'Usuń hasło',
+  'mine.deleteEntry': 'Usuń mój wpis',
+  'mine.deleteConfirm': 'Usunąć twój wpis i wszystkie twoje dni?',
+  'mine.save': 'Zapisz',
+  'mine.cancel': 'Anuluj',
+  'mine.editingFor': 'Wypełniasz w imieniu: {name}',
+  'mine.stopEditing': 'Gotowe',
+
+  'cal.label': 'Kalendarz',
+  'cal.weekdayAll': '{weekday} w każdym tygodniu',
+  'cal.weekToggle': 'Tydzień {number}',
+  'cal.week': 'T{number}',
+  'cal.yes': 'może przyjść',
+  'cal.maybe': 'być może',
+  'cal.no': 'niezaznaczony',
+  'cal.off': 'poza propozycjami',
+  'cal.on': 'proponowany',
+  'cal.new': 'nowy',
+  'cal.past': 'minął',
+  'cal.othersCan_one': 'jeszcze {count} osoba może przyjść',
+  'cal.othersCan_other': 'jeszcze {count} osób może przyjść',
+  'cal.heat': 'może: {yes}, być może: {maybe}, nie może: {no}',
+  'cal.gap': 'Pominięto tygodnie bez proponowanych dni',
+  'cal.changed_one': 'Zmieniono {count} dzień',
+  'cal.changed_other': 'Zmieniono {count} dni',
+
+  'group.empty.title': 'Nie ma jeszcze odpowiedzi',
+  'group.empty.text':
+    'Wyślij link pozostałym osobom. Ich odpowiedzi pojawią się tutaj.',
+  'group.legend': 'Więcej osób może przyjść',
+  'group.legendFew': 'niewiele',
+  'group.legendAll': 'wszyscy',
+  'group.best': 'Najlepsze dni',
+  'group.count': 'Może przyjść: {yes} z {total}',
+  'group.maybeCount': '+{count} być może',
+  'group.enough': 'wystarczająco dużo osób',
+  'group.enoughMaybe': 'wystarczająco dużo osób, licząc odpowiedzi „być może”',
+  'group.choose': 'Wybierz ten termin',
+  'group.chosen': 'Wybrano',
+  'group.people': 'Osoby uwzględnione w wyniku',
+  'group.hiddenHint': 'Kliknij imię, aby wyłączyć tę osobę z obliczeń.',
+  'group.showAll': 'Uwzględnij wszystkich',
+  'group.waiting': 'Bez odpowiedzi: {names}',
+  'group.noBlocks': 'Nie ma już pasującego ciągu dni.',
+
+  'day.can': 'Może przyjść',
+  'day.maybe': 'Być może',
+  'day.cannot': 'Nie może przyjść',
+  'day.open': 'Brak odpowiedzi',
+  'day.notes': 'Uwagi',
+  'day.close': 'Zamknij',
+
+  'share.title': 'Udostępnij grupie',
+  'share.created': 'Gotowe! Wyślij link pozostałym osobom.',
+  'share.link': 'Link dla wszystkich',
+  'share.copy': 'Kopiuj',
+  'share.copied': 'Skopiowano!',
+  'share.native': 'Udostępnij…',
+  'share.qr': 'Zeskanuj, aby otworzyć',
+  'share.inviteText':
+    '{emoji} {title} — kiedy możesz przyjść? Zaznacz swoje dni: {url}',
+  'share.adminTitle': 'Twój link organizatora',
+  'share.adminWarning':
+    'Zachowaj ten link dla siebie. Każda osoba, która go ma, może zmienić lub usunąć wydarzenie. Przechowuj go bezpiecznie — będzie potrzebny do zarządzania wydarzeniem na innym urządzeniu.',
+
+  'admin.title': 'Narzędzia organizatora',
+  'admin.close': 'Zamknij głosowanie',
+  'admin.reopen': 'Otwórz ponownie głosowanie',
+  'admin.unchoose': 'Cofnij wybór terminu',
+  'admin.chooseHint': 'Wybierz termin w sekcji „Najlepsze dni” w widoku grupy.',
+  'admin.edit': 'Szczegóły',
+  'admin.days': 'Dni',
+  'admin.addDays': 'Dodaj dni do',
+  'admin.people': 'Osoby',
+  'admin.addNames': 'Dodaj imiona',
+  'admin.addNamesHint': 'Jedno imię w wierszu',
+  'admin.fillIn': 'Wypełnij',
+  'admin.resetPassword': 'Usuń hasło',
+  'admin.resetPasswordConfirm':
+    'Usunąć hasło dla: {name}? Każda osoba z linkiem do wydarzenia będzie wtedy mogła zmienić ten wpis.',
+  'admin.remove': 'Usuń',
+  'admin.removeConfirm': 'Usunąć tę osobę ({name}) i jej zaznaczone dni?',
+  'admin.delete': 'Usuń wydarzenie',
+  'admin.deleteConfirm':
+    'Usunąć to wydarzenie dla wszystkich? Tej czynności nie można cofnąć.',
+  'admin.deleteYes': 'Usuń na zawsze',
+  'admin.saved': 'Zapisano',
+  'admin.lossTitle': 'Zapisać te zmiany?',
+  'admin.lossMarks_one': 'To trwale usunie {count} odpowiedź z usuniętych dni.',
+  'admin.lossMarks_other':
+    'To trwale usunie {count} odpowiedzi z usuniętych dni.',
+  'admin.lossDateShort': 'Wybrany termin zostanie skrócony.',
+  'admin.lossDateDropped':
+    'Wybrany termin przestanie pasować i zostanie cofnięty. Głosowanie pozostanie zamknięte.',
+  'admin.lossConfirm': 'Zapisz mimo to',
+  'admin.noPeople': 'Nikogo tu jeszcze nie ma.',
+
+  'footer.language': 'Język',
+  'language.loadFailed':
+    'Nie udało się wczytać języka {language}. Sprawdź połączenie i odśwież stronę.',
+  'footer.theme': 'Motyw',
+  'footer.privacy': 'Prywatność',
+  'footer.imprint': 'Informacje prawne',
+  'footer.source': 'Projekt open source Williego Thiela',
+  'theme.system': 'Systemowy',
+  'theme.light': 'Jasny',
+  'theme.dark': 'Ciemny',
+
+  'privacy.title': 'Prywatność',
+  'privacy.intro':
+    'Owl Be There przechowuje tylko dane potrzebne do zaplanowania wydarzenia. Oto jakie dane zapisujemy i kiedy je usuwamy.',
+  'privacy.stored.title': 'Co przechowujemy',
+  'privacy.stored.event':
+    'Dla każdego wydarzenia zapisujemy nazwę, ikonę, proponowane dni i ustawienia. Opis, miejsce i imię organizatora są opcjonalne.',
+  'privacy.stored.person':
+    'Dla każdej osoby zapisujemy imię i zaznaczone dni. Jeśli doda uwagi lub hasło, przechowujemy też uwagi i skrót hasła.',
+  'privacy.stored.nothingElse':
+    'Nie ma kont, adresów e-mail, plików cookie ani analityki. Aplikacja nie wysyła żądań do innych usług i nie przechowuje adresów IP. Jedyny wyjątek to link do Kalendarza Google: po kliknięciu otwiera Google z nazwą, opisem, miejscem i linkiem do wydarzenia.',
+  'privacy.visible.title': 'Kto może zobaczyć dane',
+  'privacy.visible.text':
+    'Każda osoba z linkiem do wydarzenia może zobaczyć imiona i zaznaczone dni. Wyszukiwarki otrzymują polecenie, by nie indeksować stron wydarzeń.',
+  'privacy.device.title': 'Na twoim urządzeniu',
+  'privacy.device.text':
+    'Przeglądarka zapisuje na tym urządzeniu otwarte wydarzenia, w tym twoje imię w danym wydarzeniu i twoje ustawienia. Możesz usunąć wydarzenia z listy na stronie głównej.',
+  'privacy.retention.title': 'Kiedy usuwamy dane',
+  'privacy.retention.text':
+    'Usuwamy wydarzenie {days} dni po ostatniej zmianie. Gdy ktoś już odpowiedział, wydarzenie pozostaje co najmniej do końca ostatniego proponowanego dnia. Organizator może je usunąć w każdej chwili.',
+  'privacy.logs_one':
+    'Serwer WWW zapisuje odwiedziny wraz z adresami IP, aby zapobiegać nadużyciom. Dzienniki są usuwane po {count} dniu.',
+  'privacy.logs_other':
+    'Serwer WWW zapisuje odwiedziny wraz z adresami IP, aby zapobiegać nadużyciom. Dzienniki są usuwane po {count} dniach.',
+  'privacy.logs.none': 'Serwer WWW nie przechowuje dzienników odwiedzin.',
+  'privacy.backups_one':
+    'Kopie zapasowe są przechowywane przez {count} dzień. Potem usunięte wydarzenie znika również z nich.',
+  'privacy.backups_other':
+    'Kopie zapasowe są przechowywane przez {count} dni. Potem usunięte wydarzenie znika również z nich.',
+  'privacy.backups.none': 'Nie przechowujemy kopii zapasowych.',
+  'privacy.instance.loading': 'Ładowanie danych operatora…',
+  'privacy.instance.failed':
+    'Nie udało się pobrać danych operatora. Odśwież stronę i spróbuj ponownie.',
+  'privacy.operator.title': 'Kto prowadzi tę instancję',
+  'privacy.operator.contact': 'Kontakt: {contact}',
+  'privacy.source':
+    'Owl Be There ma otwarty kod źródłowy. Możesz go przeczytać lub uruchomić aplikację na własnym serwerze.',
+
+  'imprint.title': 'Informacje prawne',
+  'imprint.provider.title':
+    'Dane usługodawcy zgodnie z § 5 DDG oraz § 18 ust. 1 MStV',
+  'imprint.contact.title': 'Kontakt',
+  'imprint.contact.label': 'E-mail:',
+  'imprint.about.title': 'O Owl Be There',
+  'imprint.about.text':
+    'Owl Be There to prywatny, niekomercyjny projekt, z którego można korzystać bezpłatnie. Nie ma tu reklam ani płatnych treści.',
+  'imprint.dispute.title': 'Rozstrzyganie sporów konsumenckich',
+  'imprint.dispute.text':
+    'Nie mamy obowiązku ani zamiaru uczestniczyć w postępowaniu przed organem polubownego rozstrzygania sporów konsumenckich (§ 36 VSBG).',
+  'imprint.liability.title': 'Odpowiedzialność za treści i linki',
+  'imprint.liability.text':
+    'Treści tej aplikacji przygotowano z należytą starannością. Za treści zewnętrznych stron odpowiadają ich dostawcy; w chwili dodania linków nie stwierdzono naruszeń prawa. Osoby organizujące wydarzenia i biorące w nich udział same odpowiadają za wprowadzane przez siebie treści.',
+
+  'notFound.title': 'Nie znaleźliśmy tej strony.',
+  'notFound.home': 'Przejdź do strony głównej',
+
+  'emoji.owl': 'Sowa',
+  'emoji.soccer': 'Piłka nożna',
+  'emoji.basketball': 'Koszykówka',
+  'emoji.volleyball': 'Siatkówka',
+  'emoji.handball': 'Piłka ręczna',
+  'emoji.tennis': 'Tenis',
+  'emoji.badminton': 'Badminton',
+  'emoji.tableTennis': 'Tenis stołowy',
+  'emoji.hockey': 'Hokej',
+  'emoji.running': 'Bieganie',
+  'emoji.cycling': 'Jazda na rowerze',
+  'emoji.swimming': 'Pływanie',
+  'emoji.hiking': 'Wędrówki',
+  'emoji.climbing': 'Wspinaczka',
+  'emoji.skiing': 'Narciarstwo',
+  'emoji.rowing': 'Wioślarstwo',
+  'emoji.golf': 'Golf',
+  'emoji.bowling': 'Kręgle',
+  'emoji.frisbee': 'Frisbee',
+  'emoji.yoga': 'Joga',
+  'emoji.fitness': 'Fitness',
+  'emoji.darts': 'Rzutki',
+  'emoji.chess': 'Szachy',
+  'emoji.trophy': 'Turniej',
+  'emoji.party': 'Impreza',
+  'emoji.barbecue': 'Grill',
+  'emoji.drinks': 'Drinki',
+  'emoji.picnic': 'Piknik',
+  'emoji.camping': 'Biwak',
+  'emoji.music': 'Muzyka',
+} satisfies Dictionary;
+
+export const plFew = {
+  'event.minCount': 'wymagane co najmniej {count} osoby',
+  'mine.newDays': 'Dodano {count} nowe dni. Sprawdź je.',
+  'cal.othersCan': 'jeszcze {count} osoby mogą przyjść',
+} satisfies Partial<Record<CountedKey, string>>;

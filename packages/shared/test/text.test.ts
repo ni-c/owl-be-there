@@ -315,7 +315,8 @@ describe('invisible characters between a letter and its accent', () => {
         }
       }
     }
-  });
+    // A million code points: about 4 s on a CI runner, more under coverage.
+  }, 30_000);
 });
 
 describe('noncharacters', () => {

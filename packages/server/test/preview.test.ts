@@ -1,4 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { isRtl, LANGUAGES, LOCALES, SERVER_TEXTS } from '@owl/shared';
 import { Resvg } from '@resvg/resvg-wasm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -295,13 +298,13 @@ describe('a failed start', () => {
     const { id } = await createEvent(t.app);
     const data = snapshot(t.db, id)!;
     const { PreviewRenderer: Renderer, reads } = await flakyRenderer({
-      read: (path) => path.includes('nunito-latin-400'),
+      read: (path) => path.includes('nunito-400'),
     });
     const renderer = new Renderer(null, 'owl.example.org', 5, { budget: null });
     await expect(renderer.render(data)).rejects.toThrow('too many open files');
     const png = await renderer.render(data);
     expect(png.subarray(0, 8)).toEqual(PNG);
-    expect(reads.filter((p) => p.includes('nunito-latin-400'))).toHaveLength(2);
+    expect(reads.filter((p) => p.includes('nunito-400'))).toHaveLength(2);
   });
 
   it('is not kept: the WebAssembly starts again, in a new renderer too', async () => {
@@ -370,6 +373,34 @@ describe('titles in scripts the fonts may not cover', () => {
     expect(a.equals(b)).toBe(false);
     expect(ext.equals(name)).toBe(false);
     expect(ext.equals(a)).toBe(false);
+  });
+
+  it('draws Arabic titles with the bundled font', async () => {
+    t = await testApp();
+    const baseline = await pictureOf('Owl Be There', REAL_CLIENT);
+    const arabic = await pictureOf('عشاء الفريق', REAL_CLIENT);
+    expect(arabic.subarray(0, 8)).toEqual(PNG);
+    expect(arabic.equals(baseline)).toBe(false);
+    expect(drawableTitle('عشاء الفريق', 'Owl Be There', false, true)).toBe(
+      'عشاء الفريق'
+    );
+  });
+
+  it('draws Simplified Chinese titles with the bundled SC font', async () => {
+    t = await testApp();
+    const { id } = await createEvent(t.app, {
+      language: 'zh-Hans',
+      title: '团队聚餐',
+    });
+    const data = snapshot(t.db, id)!;
+    const without = await new PreviewRenderer(null, host, 5, {
+      budget: null,
+    }).render(data);
+    const withFont = await new PreviewRenderer(REAL_CLIENT, host, 5, {
+      budget: null,
+    }).render(data);
+    expect(withFont.subarray(0, 8)).toEqual(PNG);
+    expect(withFont.equals(without)).toBe(false);
   });
 
   it('wraps Cyrillic titles to the width it draws them in: nothing runs under the calendar panel', async () => {
@@ -730,5 +761,105 @@ describe('the budget for new pictures', () => {
     ).toBe(200);
     // The same version stays refused until the budget refills.
     expect((await get()).statusCode).toBe(503);
+  });
+});
+
+/** The code points a TrueType font maps to a glyph, from its format 4 and 12 cmaps. */
+function mappedCodePoints(font: Uint8Array): Set<number> {
+  const view = new DataView(font.buffer, font.byteOffset, font.byteLength);
+  let cmap = 0;
+  for (let index = 0; index < view.getUint16(4); index += 1) {
+    const record = 12 + index * 16;
+    if (String.fromCharCode(...font.subarray(record, record + 4)) === 'cmap')
+      cmap = view.getUint32(record + 8);
+  }
+  const points = new Set<number>();
+  for (let index = 0; index < view.getUint16(cmap + 2); index += 1) {
+    const table = cmap + view.getUint32(cmap + 8 + index * 8);
+    const format = view.getUint16(table);
+    if (format === 12) {
+      for (let group = 0; group < view.getUint32(table + 12); group += 1) {
+        const start = view.getUint32(table + 16 + group * 12);
+        const end = view.getUint32(table + 20 + group * 12);
+        for (let code = start; code <= end; code += 1) points.add(code);
+      }
+    } else if (format === 4) {
+      const segments = view.getUint16(table + 6) / 2;
+      const ends = table + 14;
+      const starts = ends + segments * 2 + 2;
+      const deltas = starts + segments * 2;
+      const offsets = deltas + segments * 2;
+      for (let segment = 0; segment < segments; segment += 1) {
+        const start = view.getUint16(starts + segment * 2);
+        const end = view.getUint16(ends + segment * 2);
+        const delta = view.getUint16(deltas + segment * 2);
+        const offset = view.getUint16(offsets + segment * 2);
+        for (let code = start; code <= end && code !== 0xffff; code += 1) {
+          const glyph =
+            offset === 0
+              ? (code + delta) & 0xffff
+              : view.getUint16(
+                  offsets + segment * 2 + offset + (code - start) * 2
+                );
+          if (glyph !== 0) points.add(code);
+        }
+      }
+    }
+  }
+  return points;
+}
+
+describe('the merged Nunito files', () => {
+  it('draw every letter the Latin, Cyrillic and Vietnamese previews use, in both weights', async () => {
+    const wawoff2 = createRequire(import.meta.url)('wawoff2') as {
+      decompress(woff2: Uint8Array): Promise<Uint8Array>;
+    };
+    const fonts: Set<number>[] = [];
+    for (const weight of [400, 800]) {
+      const woff2 = await readFile(
+        new URL(`../fonts/nunito-${weight}.woff2`, import.meta.url)
+      );
+      fonts.push(mappedCodePoints((await wawoff2.decompress(woff2)).slice()));
+    }
+    const needed = new Set<string>();
+    const add = (text: string) => {
+      for (const char of text) if (!/\s/u.test(char)) needed.add(char);
+    };
+    // Arabic-script languages draw with Noto Sans Arabic, CJK with Noto Sans CJK.
+    const own = LANGUAGES.filter(
+      (language) =>
+        !isRtl(language) &&
+        !['ja', 'ko', 'zh-Hans', 'zh-Hant'].includes(language)
+    );
+    for (const language of own) {
+      for (const value of Object.values(SERVER_TEXTS[language]))
+        if (typeof value === 'string') add(value);
+        else
+          for (const count of [0, 1, 2, 5, 21, 22])
+            add((value as (count: number) => string)(count));
+      const months = new Intl.DateTimeFormat(LOCALES[language], {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
+      for (let month = 0; month < 12; month += 1)
+        add(months.formatRange(Date.UTC(2026, month), Date.UTC(2027, month)));
+    }
+    // Every letter of the scripts, too, for titles: Latin-1, Latin Extended-A,
+    // the Vietnamese letters and Russian and Ukrainian Cyrillic. Not letters:
+    // × and ÷; not in Nunito, and archaic: the ij ligature and the long s.
+    const skipped = [0xd7, 0xf7, 0x132, 0x133, 0x17f];
+    for (const [from, to] of [
+      [0xc0, 0x17f],
+      [0x1ea0, 0x1ef9],
+      [0x400, 0x45f],
+    ] as const)
+      for (let code = from; code <= to; code += 1)
+        if (!skipped.includes(code)) add(String.fromCodePoint(code));
+    for (const font of fonts)
+      expect(
+        [...needed].filter((char) => !font.has(char.codePointAt(0)!))
+      ).toEqual([]);
+    expect([...fonts[0]!].sort()).toEqual([...fonts[1]!].sort());
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  arabicPunctuation,
   monthRange,
   PREVIEW_MAX_WEEKS,
   previewCalendar,
@@ -114,6 +115,23 @@ describe('previewCalendar', () => {
     );
     const cells = new Map(weeks[0]!.map((c) => [c.day, c.level]));
     expect(cells.get('2026-11-06')).toBe(0);
+  });
+
+  it('draws a day only some have seen no warmer than one more can make', () => {
+    // All three can on Friday; Saturday was added later and only Anna has
+    // seen it: one of three, not one of one.
+    const weeks = previewWeeks(
+      snapshot({
+        people: [
+          { name: 'Anna', yes: ['2026-11-06', '2026-11-07'] },
+          { name: 'Ben', yes: ['2026-11-06'], unseen: ['2026-11-07'] },
+          { name: 'Cem', yes: ['2026-11-06'], unseen: ['2026-11-07'] },
+        ],
+      })
+    );
+    const cells = new Map(weeks[0]!.map((c) => [c.day, c.level]));
+    expect(cells.get('2026-11-06')).toBe(5);
+    expect(cells.get('2026-11-07')).toBe(2);
   });
 
   it('starts the week on Monday, and on Sunday in Japanese', () => {
@@ -525,7 +543,138 @@ describe('monthRange', () => {
   });
 });
 
+describe('arabicPunctuation', () => {
+  it('swaps dashes and middle dots in lines with Arabic letters only', () => {
+    expect(arabicPunctuation('')).toBe('');
+    expect(arabicPunctuation('October – November · 5')).toBe(
+      'October – November · 5'
+    );
+    expect(arabicPunctuation('Шашлики — 5 · 2')).toBe('Шашлики — 5 · 2');
+    expect(arabicPunctuation('أكتوبر – نوفمبر 2026')).toBe(
+      'أكتوبر - نوفمبر 2026'
+    );
+    expect(arabicPunctuation('أكتوبر—نوفمبر')).toBe('أكتوبر-نوفمبر');
+    expect(arabicPunctuation('حدّد الأيام · 5 إجابات')).toBe(
+      'حدّد الأيام، 5 إجابات'
+    );
+    expect(arabicPunctuation('أ·ب · ج')).toBe('أ،ب، ج');
+    expect(arabicPunctuation('عشاء الفريق')).toBe('عشاء الفريق');
+  });
+});
+
 describe('previewSvg', () => {
+  it('mirrors the Arabic preview without exposing private details', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'عشاء الفريق',
+        description: 'Do not show this',
+        people: [{ name: 'Secret person' }],
+      }),
+      options
+    );
+    expect(svg).toContain('<rect x="48" y="48" width="456"');
+    expect(svg).toContain('direction="rtl" text-anchor="end"');
+    expect(visible(svg)).toContain('عشاء الفريق');
+    expect(visible(svg)).toContain('حدّد الأيام التي تناسبك');
+    expect(svg).not.toContain('Secret person');
+    expect(svg).not.toContain('Do not show this');
+  });
+
+  it('puts a truncation mark outside Arabic text so the font still draws the letters', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'بطولة كرة القدم مع الأصدقاء في عطلة نهاية الأسبوع',
+      }),
+      options
+    );
+    expect(svg).toContain('font-family="Nunito"');
+    expect(svg).toContain('>…</text>');
+    expect(svg).not.toMatch(/[\u0600-\u06ff]…<\/text>/u);
+  });
+
+  it('keeps dashes and middle dots out of Arabic lines, which the Arabic font cannot draw', () => {
+    const svg = previewSvg(
+      snapshot({
+        language: 'ar',
+        title: 'عشاء الفريق',
+        days: ['2026-10-30', '2026-11-02'],
+        people: [{ name: 'Anna', yes: ['2026-10-30'] }],
+      }),
+      options
+    );
+    const text = visible(svg);
+    expect(text).toContain('تناسبك،');
+    expect(text).toMatch(/أكتوبر - نوفمبر/u);
+    expect(text).not.toMatch(/[–—·]/u);
+  });
+
+  it('mirrors the Persian and Urdu previews and keeps their lines drawable', () => {
+    for (const language of ['fa', 'ur'] as const) {
+      const svg = previewSvg(
+        snapshot({
+          language,
+          title: 'شام',
+          days: ['2026-10-30', '2026-11-02'],
+          people: [{ name: 'Anna', yes: ['2026-10-30'] }],
+        }),
+        options
+      );
+      expect(svg, language).toContain('<rect x="48" y="48" width="456"');
+      expect(svg, language).toContain('direction="rtl" text-anchor="end"');
+      expect(svg, language).toContain(
+        `font-family="'Noto Sans Arabic', Nunito"`
+      );
+      expect(visible(svg), language).not.toMatch(/[–—·]/u);
+    }
+    // Gregorian months with Persian digits.
+    expect(
+      visible(
+        previewSvg(
+          snapshot({ language: 'fa', days: ['2026-10-30', '2026-11-02'] }),
+          options
+        )
+      )
+    ).toContain('اکتبر تا نوامبر ۲۰۲۶');
+  });
+
+  it('draws Persian day numbers and Urdu weekday names, not Latin stand-ins', () => {
+    const days = ['2026-10-30', '2026-11-02'];
+    const persian = visible(
+      previewSvg(snapshot({ language: 'fa', days }), options)
+    );
+    expect(persian).toContain('۳۰');
+    expect(persian).toContain('۲');
+    expect(persian).not.toMatch(/\b\d{1,2}\b/);
+    const urdu = previewSvg(snapshot({ language: 'ur', days }), options);
+    expect(visible(urdu)).toContain('پیر');
+    expect(visible(urdu)).not.toMatch(/(^| )[MTWFS]( |$)/);
+    // The longest name fits a cell, so the headings shrink.
+    expect(urdu).toMatch(/font-size="1\d" font-weight="800"[^>]*>جمعرات</u);
+    // Single letters elsewhere keep the full size.
+    expect(previewSvg(snapshot({ language: 'de', days }), options)).toMatch(
+      /font-size="22" font-weight="800"[^>]*>M</
+    );
+  });
+
+  it('names the Arabic font first on Arabic lines only', () => {
+    const arabic = previewSvg(
+      snapshot({ language: 'ar', title: 'عشاء الفريق' }),
+      options
+    );
+    expect(arabic).toMatch(
+      /font-weight="800" font-family="'Noto Sans Arabic', Nunito"[^>]*>عشاء الفريق</u
+    );
+    expect(arabic).toMatch(
+      /font-weight="400" font-family="'Noto Sans Arabic', Nunito"[^>]*>حدّد/u
+    );
+    expect(arabic).not.toMatch(/Noto Sans Arabic', Nunito"[^>]*>Owl Be There</);
+    expect(previewSvg(snapshot(), options)).not.toContain(
+      `'Noto Sans Arabic', Nunito`
+    );
+  });
+
   it('shows the title and the state, never names or the description', () => {
     const svg = previewSvg(
       snapshot({
@@ -629,6 +778,13 @@ describe('previewNeedsCjk', () => {
     expect(previewNeedsCjk(snapshot())).toBe(false);
     expect(previewNeedsCjk(snapshot({ title: 'Grillabend Ü' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ language: 'ja' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'zh-Hant' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'zh-Hans' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'ko' }))).toBe(true);
+    expect(previewNeedsCjk(snapshot({ language: 'vi' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'uk' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'fa' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'ur' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ title: '忘年会' }))).toBe(true);
   });
 

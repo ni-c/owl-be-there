@@ -38,6 +38,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
       <div className="flex gap-2">
         <input
           id={id}
+          dir="ltr"
           readOnly
           value={value}
           onFocus={(event) => event.target.select()}

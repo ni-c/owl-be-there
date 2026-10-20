@@ -179,16 +179,17 @@ export function rankBlocks(input: RankingInput): RankedBlock[] {
 }
 
 /**
- * How warm a day is on the heatmap, from 0 to 1: the share of people who
- * answered for that day and can come, a maybe counting half. People who have
- * not answered are left out of the share rather than counted as a no, so the
- * first three answers already paint a meaningful picture.
+ * How warm a day is on the heatmap, from 0 to 1: the share of `respondents`
+ * (the people who have answered at all) who can come, a maybe counting half.
+ * People who have not answered are left out rather than counted as a no, so
+ * the first three answers already paint a meaningful picture. The share is of
+ * the same people on every day: a day added after some of them answered is
+ * not yet a yes from them, and must not outshine a day more people can make.
  */
-export function heatOf(dayTally: Tally): number {
-  const answered =
-    dayTally.yes.length + dayTally.maybe.length + dayTally.no.length;
-  if (answered === 0) return 0;
-  return (dayTally.yes.length + dayTally.maybe.length / 2) / answered;
+export function heatOf(dayTally: Tally, respondents: number): number {
+  if (!(respondents > 0)) return 0;
+  const warmth = dayTally.yes.length + dayTally.maybe.length / 2;
+  return Math.min(1, warmth / respondents);
 }
 
 /** The heat in six steps for the colour scale: 0 is no one, 5 is everyone. */

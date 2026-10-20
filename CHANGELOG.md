@@ -10,18 +10,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-20
+
 ### Added
 
 - Notes are easier to find: the group view marks everyone who wrote one with a speech bubble and lists all notes under a heading of their own, below "Who is counted". A note stays listed while its writer is left out of the count.
 - Ben and Max in the start page example each have a note, so the example shows what notes look like.
+- Sixteen more interface languages: Arabic, Czech, Finnish, Indonesian, Korean, Norwegian Bokmål, Persian, Polish, Russian, Simplified Chinese, Swedish, Traditional Chinese, Turkish, Ukrainian, Urdu and Vietnamese, and Brazilian Portuguese and Latin American Spanish next to the European ones. The start page (`/ar`, `/ko` …), link previews and calendar files speak them too, and a browser set to one of them opens in it.
+- Arabic, Persian and Urdu read right to left: the layout is mirrored and the arrow keys in the calendar follow the reading direction. Arabic-script and Simplified Chinese text use bundled Noto Sans Arabic and Noto Sans CJK SC fonts, so no request leaves for a font service.
 
 ### Changed
 
 - The day sheet lists people as small chips in the colour of their answer instead of in heading-sized bold type, and an empty group shows only its heading. Notes have a block of their own at the end of the sheet, each next to its writer's name in the colour of their answer for that day. Neither page shows a notes block when nobody has written one.
+- Only English and German ship with the app; every other language loads when it is needed, and a page fetches its language alongside the app, so the code every visitor loads halves (from 925 kB to 471 kB). Should a language fail to load, for example after an update while the page was open, the page reloads once and otherwise says so.
+- The language picker names the European variants as such: Español (España) and Português (Portugal).
+- Small actions look like buttons, with a frame, instead of like links: All, None and Undo above the calendar (Undo now last), Edit entry, Not you?, Show all and Start over. Delete my entry looks like Delete event.
+- The organiser's list of people is a plain list of names that reads the same in every language and on every screen: each row shows the name, a lock for a password, a speech bubble for a note and "Not answered" for someone who has not answered yet. A tap opens a sheet with the person's note and full-width buttons to fill in, remove the password or remove the person; the two removals ask on a second step of the same sheet.
+- The save status sits below the note, turns green once saved and confirms a saved note too. "Saved: none of these days work for you." is part of it instead of a line of its own under the calendar.
+- A note is called a remark or comment in German, French, Spanish, Portuguese and Japanese (Anmerkung, remarque, comentario, observação, コメント), not a memo to oneself or a word that also means a grade.
+- The database gains one migration that lets events store the new languages. It rebuilds the `events` table once on the first start; events, participants and their days are kept.
 
 ### Fixed
 
+- A day added later, which only some have seen yet, is no longer coloured warmer than a day more people can make. The heatmap measured each day against those who had answered for that very day, so four of the four who had seen a new day outshone six of eight; now every day is measured against everyone who has answered, and the colour follows the count. The link preview picture follows suit.
 - An organiser key kept on a device is checked as soon as the event opens. After the organiser link had been issued anew, the old key still showed the organiser tools until the first change, which the server then refused and which was lost; now the page says at once that the link was not accepted.
+- Japanese pages no longer fetch the full Japanese font for characters the small interface font lacked.
+- Link preview pictures draw Vietnamese letters instead of boxes, and bold Cyrillic and accented Latin letters (č, ł, ş …) in bold instead of regular.
 
 ## [0.4.2] - 2026-10-14
 
@@ -295,7 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ni-c/owl-be-there/compare/v0.3.0...v0.4.0

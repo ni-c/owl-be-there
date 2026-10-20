@@ -20,7 +20,8 @@
     // Pointed at the sources, the same as the Vitest alias: a type check that
     // silently depends on a fresh build would one day check last week's types.
     "paths": {
-      "@owl/shared": ["./packages/shared/src/index.ts"]
+      "@owl/shared": ["./packages/shared/src/index.ts"],
+      "@owl/shared/*": ["./packages/shared/src/*.ts"]
     }
   },
   "include": [

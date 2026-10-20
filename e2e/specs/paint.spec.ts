@@ -139,7 +139,14 @@ test.describe('painting days', () => {
     await day(grid, D(6)).click();
     await expect(day(grid, D(6))).toHaveAttribute('data-state', 'maybe');
     await expect(day(grid, D(6))).toHaveAttribute('aria-pressed', 'mixed');
-    await page.getByRole('button', { name: 'Undo' }).click();
+    const undo = page.getByRole('button', { name: 'Undo' });
+    // Undo stands last, after All and None.
+    await expect(undo.locator('..').getByRole('button')).toHaveText([
+      'All',
+      'None',
+      'Undo',
+    ]);
+    await undo.click();
     await expect(day(grid, D(6))).toHaveAttribute('data-state', 'none');
 
     await page.getByRole('radio', { name: 'Can' }).click();
@@ -211,10 +218,37 @@ test.describe('painting days', () => {
     await page
       .getByRole('button', { name: 'None of these days work for me' })
       .click();
+    // The save status says what was saved.
     await expect(
-      page.getByText('Saved: none of these days work for you.')
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Saved: none of these days work for you.' })
     ).toBeVisible();
     expect((await myMarks(request, id, 'Emil')).answered).toBe(true);
+  });
+
+  test('the save status stands below the note, confirms a typed note and is green', async ({
+    page,
+    request,
+  }) => {
+    const { id } = await createEvent(request);
+    await page.goto(`/e/${id}`);
+    await joinAs(page, 'Finn');
+    const status = page.getByRole('status').filter({ hasText: 'Saved' });
+    await expect(status).toHaveCount(0);
+    const note = page.getByLabel('Note (optional)');
+    await note.fill('only after 6 pm');
+    // Enter leaves the field, which saves the note.
+    await note.press('Enter');
+    await expect(status).toHaveText(/^\s*Saved$/);
+    await expect(status).toHaveCSS('color', 'rgb(26, 112, 85)');
+    const noteBox = await note.boundingBox();
+    const statusBox = await status.boundingBox();
+    expect(statusBox!.y).toBeGreaterThan(noteBox!.y + noteBox!.height);
+    const me = (await snapshot(request, id)).participants.find(
+      (p: { name: string }) => p.name === 'Finn'
+    );
+    expect(me.note).toBe('only after 6 pm');
   });
 
   test('the keyboard can do everything', async ({

@@ -30,6 +30,7 @@
   --owl-danger-soft: #fde8e6;
   --owl-yes: #268262;
   --owl-yes-ink: #ffffff;
+  --owl-yes-text: #1a7055;
   --owl-maybe: #e0a020;
   --owl-maybe-ink: #2a2118;
   --owl-heat-0: #f1e8da;
@@ -75,6 +76,7 @@
     --owl-danger-soft: #3d2230;
     --owl-yes: #2c9572;
     --owl-yes-ink: #0c1f18;
+    --owl-yes-text: #4fb393;
     --owl-maybe: #b8821c;
     --owl-maybe-ink: #1b1308;
     --owl-heat-0: #23263f;
@@ -114,6 +116,7 @@
   --owl-danger-soft: #3d2230;
   --owl-yes: #2c9572;
   --owl-yes-ink: #0c1f18;
+  --owl-yes-text: #4fb393;
   --owl-maybe: #b8821c;
   --owl-maybe-ink: #1b1308;
   --owl-heat-0: #23263f;
@@ -169,6 +172,7 @@
   --color-danger-soft: var(--owl-danger-soft);
   --color-yes: var(--owl-yes);
   --color-yes-ink: var(--owl-yes-ink);
+  --color-yes-text: var(--owl-yes-text);
   --color-maybe: var(--owl-maybe);
   --color-maybe-ink: var(--owl-maybe-ink);
   --shadow-card: var(--owl-shadow);
@@ -189,6 +193,40 @@ html {
 body {
   font-family: var(--font-sans);
   padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  src: url('/fonts/owl-noto-sans-arabic-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  src: url('/fonts/owl-noto-sans-arabic-bold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+html:lang(ar) body,
+html:lang(fa) body,
+html:lang(ur) body {
+  font-family: 'Noto Sans Arabic', 'Nunito Variable', sans-serif;
+}
+
+html:lang(ar) input[type='date'],
+html:lang(ar) input[type='email'],
+html:lang(ar) input[type='url'],
+html:lang(fa) input[type='date'],
+html:lang(fa) input[type='email'],
+html:lang(fa) input[type='url'],
+html:lang(ur) input[type='date'],
+html:lang(ur) input[type='email'],
+html:lang(ur) input[type='url'] {
+  direction: ltr;
 }
 
 footer {
@@ -251,10 +289,37 @@ footer {
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Noto Sans CJK SC UI';
+  src: url('/fonts/noto-sans-cjk-sc-ui.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans CJK SC';
+  src: url('/fonts/noto-sans-cjk-sc-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 html:lang(ja) body {
   font-family:
     'Nunito Variable', 'Noto Sans CJK JP UI', 'Noto Sans CJK JP', ui-rounded,
     system-ui, sans-serif;
+}
+
+html:lang(zh-Hans) body {
+  font-family:
+    'Nunito Variable', 'Noto Sans CJK SC UI', 'Noto Sans CJK SC', ui-rounded,
+    system-ui, sans-serif;
+}
+
+/* Korean wraps between words, not between syllables. */
+html:lang(ko) body {
+  word-break: keep-all;
 }
 
 /*
@@ -336,6 +401,10 @@ html:lang(ja) body {
 
 .cal-cell[data-month-start='true'] {
   box-shadow: inset 3px 0 0 var(--owl-line-strong);
+}
+
+[dir='rtl'] .cal-cell[data-month-start='true'] {
+  box-shadow: inset -3px 0 0 var(--owl-line-strong);
 }
 
 .cal-cell[data-kind='outside'] {

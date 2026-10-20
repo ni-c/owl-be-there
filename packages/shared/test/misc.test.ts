@@ -18,17 +18,20 @@ import {
   isId,
   isLanguage,
   isoFromDayNumber,
+  isRtl,
   LAST_DAY,
   LANGUAGE_NAMES,
   LANGUAGES,
   languagesByName,
   LIMITS,
+  LOCALES,
   makeId,
   MarksBody,
   maxISODate,
   nameKey,
   NewPassword,
   RETENTION_DAYS,
+  RTL_LANGUAGES,
   SERVER_TEXTS,
   APP_NAME,
   DESCRIPTION_EN,
@@ -708,30 +711,173 @@ describe('texts', () => {
     expect(SERVER_TEXTS.de.previewOpen(1)).toContain('bisher 1 Antwort');
     expect(SERVER_TEXTS.de.previewOpen(0)).not.toMatch(/\d/);
     expect(SERVER_TEXTS.en.previewOpen(3)).toContain('3 answers so far');
+    expect(SERVER_TEXTS.pl.previewOpen(0)).toContain('Bez rejestracji.');
+    expect(SERVER_TEXTS.pl.previewOpen(1)).toContain('1 odpowiedź');
+    expect(SERVER_TEXTS.pl.previewOpen(2)).toContain('2 odpowiedzi');
+    expect(SERVER_TEXTS.pl.previewOpen(5)).toContain('5 odpowiedzi');
+    expect(SERVER_TEXTS.pl.previewMoreDays(1)).toBe('+ 1 dzień więcej');
+    expect(SERVER_TEXTS.pl.previewMoreDays(22)).toBe('+ 22 dni więcej');
+    expect(SERVER_TEXTS.nb.previewOpen(0)).not.toMatch(/\d/);
+    expect(SERVER_TEXTS.nb.previewOpen(1)).toContain('1 svar så langt');
+    expect(SERVER_TEXTS.nb.previewOpen(2)).toContain('2 svar så langt');
+    expect(SERVER_TEXTS.nb.previewMoreDays(1)).toBe('+ 1 dag til');
+    expect(SERVER_TEXTS.nb.previewMoreDays(5)).toBe('+ 5 dager til');
+    expect(SERVER_TEXTS.sv.previewOpen(0)).not.toMatch(/\d/);
+    expect(SERVER_TEXTS.sv.previewOpen(1)).toContain('1 svar hittills');
+    expect(SERVER_TEXTS.sv.previewOpen(2)).toContain('2 svar hittills');
+    expect(SERVER_TEXTS.sv.previewMoreDays(1)).toBe('+ 1 dag till');
+    expect(SERVER_TEXTS.sv.previewMoreDays(5)).toBe('+ 5 dagar till');
+    expect(SERVER_TEXTS.fi.previewOpen(0)).not.toMatch(/\d/);
+    expect(SERVER_TEXTS.fi.previewOpen(1)).toContain('1 vastaus');
+    expect(SERVER_TEXTS.fi.previewOpen(2)).toContain('2 vastausta');
+    expect(SERVER_TEXTS.fi.previewMoreDays(1)).toBe('+ 1 päivä lisää');
+    expect(SERVER_TEXTS.fi.previewMoreDays(5)).toBe('+ 5 päivää lisää');
+    expect(SERVER_TEXTS.ar.previewOpen(0)).not.toMatch(/\d/);
+    expect(SERVER_TEXTS.ar.previewOpen(1)).toContain('إجابة واحدة (1)');
+    expect(SERVER_TEXTS.ar.previewOpen(2)).toContain('إجابتان (2)');
+    expect(SERVER_TEXTS.ar.previewOpen(3)).toContain('3 إجابات');
+    expect(SERVER_TEXTS.ar.previewOpen(11)).toContain('11 إجابة');
+    expect(SERVER_TEXTS.ar.previewMoreDays(1)).toBe('يوم آخر (1)');
+    expect(SERVER_TEXTS.ar.previewMoreDays(2)).toBe('يومان آخران (2)');
+    expect(SERVER_TEXTS.ar.previewMoreDays(3)).toBe('3 أيام أخرى');
+    expect(SERVER_TEXTS.ar.previewMoreDays(11)).toBe('11 يوماً آخر');
+    for (const [count, answer, days] of [
+      [0, '', '+ ещё 0 дней'],
+      [1, '1 ответ', '+ ещё 1 день'],
+      [2, '2 ответа', '+ ещё 2 дня'],
+      [4, '4 ответа', '+ ещё 4 дня'],
+      [5, '5 ответов', '+ ещё 5 дней'],
+      [11, '11 ответов', '+ ещё 11 дней'],
+      [21, '21 ответ', '+ ещё 21 день'],
+      [22, '22 ответа', '+ ещё 22 дня'],
+    ] as const) {
+      if (count === 0)
+        expect(SERVER_TEXTS.ru.previewOpen(count)).not.toMatch(/\d/);
+      else expect(SERVER_TEXTS.ru.previewOpen(count)).toContain(answer);
+      expect(SERVER_TEXTS.ru.previewMoreDays(count)).toBe(days);
+    }
+    for (const [count, answer, days] of [
+      [0, '0 odpovědí', '+ 0 dalších dní'],
+      [1, '1 odpověď', '+ 1 další den'],
+      [2, '2 odpovědi', '+ 2 další dny'],
+      [4, '4 odpovědi', '+ 4 další dny'],
+      [5, '5 odpovědí', '+ 5 dalších dní'],
+      [12, '12 odpovědí', '+ 12 dalších dní'],
+      [22, '22 odpovědí', '+ 22 dalších dní'],
+    ] as const) {
+      if (count === 0)
+        expect(SERVER_TEXTS.cs.previewOpen(count)).not.toMatch(/\d/);
+      else expect(SERVER_TEXTS.cs.previewOpen(count)).toContain(answer);
+      expect(SERVER_TEXTS.cs.previewMoreDays(count)).toBe(days);
+    }
   });
 
   it('knows its languages', () => {
+    expect(isLanguage('ar')).toBe(true);
+    expect(isLanguage('cs')).toBe(true);
     expect(isLanguage('de')).toBe(true);
     expect(isLanguage('es')).toBe(true);
+    expect(isLanguage('fi')).toBe(true);
     expect(isLanguage('fr')).toBe(true);
+    expect(isLanguage('id')).toBe(true);
     expect(isLanguage('pt')).toBe(true);
     expect(isLanguage('it')).toBe(true);
     expect(isLanguage('ja')).toBe(true);
+    expect(isLanguage('nb')).toBe(true);
     expect(isLanguage('nl')).toBe(true);
-    expect(isLanguage('sv')).toBe(false);
+    expect(isLanguage('no')).toBe(false);
+    expect(isLanguage('pl')).toBe(true);
+    expect(isLanguage('ru')).toBe(true);
+    expect(isLanguage('zh-Hant')).toBe(true);
+    expect(isLanguage('zh-Hans')).toBe(true);
+    expect(isLanguage('sv')).toBe(true);
+    expect(isLanguage('tr')).toBe(true);
+    expect(isLanguage('uk')).toBe(true);
+    expect(isLanguage('vi')).toBe(true);
+    expect(isLanguage('ko')).toBe(true);
+    expect(isLanguage('pt-BR')).toBe(true);
+    expect(isLanguage('es-419')).toBe(true);
+    expect(isLanguage('es-MX')).toBe(false);
+    expect(isLanguage('fa')).toBe(true);
+    expect(isLanguage('ur')).toBe(true);
+    expect(isLanguage('da')).toBe(false);
+  });
+
+  it('knows which languages are written right to left', () => {
+    expect(RTL_LANGUAGES).toEqual(['ar', 'fa', 'ur']);
+    expect(isRtl('ar')).toBe(true);
+    expect(isRtl('fa')).toBe(true);
+    expect(isRtl('ur')).toBe(true);
+    expect(isRtl('en')).toBe(false);
+    expect(isRtl('he' as never)).toBe(false);
+    expect(LANGUAGES.filter(isRtl)).toEqual([...RTL_LANGUAGES]);
+  });
+
+  it('formats Persian dates in the Gregorian calendar, with Persian digits', () => {
+    const format = new Intl.DateTimeFormat(LOCALES.fa, {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    });
+    expect(format.format(Date.UTC(2026, 9, 23))).toBe('۲۳ اکتبر');
   });
 
   it('lists its languages by code, and by their own names for the picker', () => {
-    expect(LANGUAGES).toEqual(['de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt']);
+    expect(LANGUAGES).toEqual([
+      'ar',
+      'cs',
+      'de',
+      'en',
+      'es',
+      'es-419',
+      'fa',
+      'fi',
+      'fr',
+      'id',
+      'it',
+      'ja',
+      'ko',
+      'nb',
+      'nl',
+      'pl',
+      'pt',
+      'pt-BR',
+      'ru',
+      'sv',
+      'tr',
+      'uk',
+      'ur',
+      'vi',
+      'zh-Hans',
+      'zh-Hant',
+    ]);
     expect(languagesByName().map((code) => LANGUAGE_NAMES[code])).toEqual([
+      'Bahasa Indonesia',
+      'Čeština',
       'Deutsch',
       'English',
-      'Español',
+      'Español (España)',
+      'Español (Latinoamérica)',
       'Français',
       'Italiano',
       'Nederlands',
-      'Português',
+      'Norsk (bokmål)',
+      'Polski',
+      'Português (Brasil)',
+      'Português (Portugal)',
+      'Suomi',
+      'Svenska',
+      'Tiếng Việt',
+      'Türkçe',
+      'Русский',
+      'Українська',
+      'اردو',
+      'العربية',
+      'فارسی',
+      '한국어',
       '日本語',
+      '简体中文',
+      '繁體中文',
     ]);
     expect([...languagesByName()].sort()).toEqual([...LANGUAGES]);
     // A fresh copy each time, so sorting never reorders LANGUAGES itself.
@@ -750,7 +896,10 @@ describe('texts', () => {
             : value;
         expect(text.trim(), language).not.toBe('');
       }
-      expect(texts.previewOpen(2), language).toMatch(/2/);
+      // Persian counts in its own digits, as its dates do.
+      expect(texts.previewOpen(2), language).toMatch(
+        language === 'fa' ? /۲/ : /2/
+      );
       expect(texts.previewDecided('X'), language).toContain('X');
     }
   });

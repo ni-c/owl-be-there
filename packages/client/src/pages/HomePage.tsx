@@ -93,7 +93,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
             {myEvents.map((event) => (
               <li
                 key={event.id}
-                className="flex items-center gap-2 rounded-3xl border border-line bg-surface p-2 pl-4 shadow-card"
+                className="flex items-center gap-2 rounded-3xl border border-line bg-surface p-2 ps-4 shadow-card"
               >
                 <Link
                   href={`/e/${event.id}`}

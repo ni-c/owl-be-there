@@ -1,16 +1,82 @@
 import { charCount, LANGUAGES, LIMITS, LOCALES, PEOPLE } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
+import { ar, arForms } from '../src/i18n/ar.ts';
+import { cs, csFew } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
+import { es419 } from '../src/i18n/es-419.ts';
+import { fa } from '../src/i18n/fa.ts';
+import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
-import { interpolate } from '../src/i18n/index.tsx';
+import { id } from '../src/i18n/id.ts';
+import { dictionaries } from '../src/i18n/dictionaries.ts';
+import { interpolate, translator } from '../src/i18n/index.tsx';
 import { it as italian } from '../src/i18n/it.ts';
 import { ja } from '../src/i18n/ja.ts';
+import { ko } from '../src/i18n/ko.ts';
+import { nb } from '../src/i18n/nb.ts';
 import { nl } from '../src/i18n/nl.ts';
+import { pl } from '../src/i18n/pl.ts';
 import { pt } from '../src/i18n/pt.ts';
+import { ptBr } from '../src/i18n/pt-BR.ts';
+import { ru } from '../src/i18n/ru.ts';
+import { sv } from '../src/i18n/sv.ts';
+import { tr } from '../src/i18n/tr.ts';
+import { uk } from '../src/i18n/uk.ts';
+import { ur } from '../src/i18n/ur.ts';
+import { vi } from '../src/i18n/vi.ts';
+import { zhHans } from '../src/i18n/zh-Hans.ts';
+import { zhHant } from '../src/i18n/zh-Hant.ts';
 
-const DICTIONARIES = { de, en, es, fr, it: italian, ja, nl, pt } as const;
+const DICTIONARIES = {
+  ar,
+  cs,
+  de,
+  en,
+  es,
+  'es-419': es419,
+  fa,
+  fi,
+  fr,
+  id,
+  it: italian,
+  ja,
+  ko,
+  nb,
+  nl,
+  pl,
+  pt,
+  'pt-BR': ptBr,
+  ru,
+  sv,
+  tr,
+  uk,
+  ur,
+  vi,
+  'zh-Hans': zhHans,
+  'zh-Hant': zhHant,
+} as const;
+
+describe('dictionaries, loaded when needed', () => {
+  it('ships English and German, and loads the rest as their own modules', async () => {
+    expect(dictionaries.peek('en')?.texts).toBe(en);
+    expect(dictionaries.peek('de')?.texts).toBe(de);
+    expect(dictionaries.peek('fa')).toBeUndefined();
+    expect(() => translator('fa')).toThrow('The fa texts are not loaded');
+    for (const language of LANGUAGES) {
+      const pack = await dictionaries.load(language);
+      expect(pack.texts, language).toBe(DICTIONARIES[language]);
+    }
+    expect(translator('fa').t('footer.language')).toBe(fa['footer.language']);
+  });
+
+  it('brings each language’s own plural forms along', async () => {
+    expect((await dictionaries.load('cs')).forms).toEqual({ few: csFew });
+    expect((await dictionaries.load('ar')).forms).toBe(arForms);
+    expect((await dictionaries.load('fr')).forms).toBeUndefined();
+  });
+});
 
 describe('interpolate', () => {
   it('leaves placeholders named like Object.prototype members visible', () => {
@@ -62,7 +128,9 @@ describe('texts that must agree with the rest of the app', () => {
     for (const language of LANGUAGES) {
       const dictionary = DICTIONARIES[language];
       expect(dictionary['privacy.stored.nothingElse'], language).toContain(
-        language === 'ja' ? 'Google' : dictionary['event.google']
+        language === 'ja' || language === 'pl'
+          ? 'Google'
+          : dictionary['event.google']
       );
     }
   });

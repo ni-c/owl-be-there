@@ -450,30 +450,99 @@ describe('rankBlocks', () => {
 });
 
 describe('heat', () => {
+  /** The heat of each day, as the group view works it out. */
+  const heatsOf = (people: Respondent[], days: string[]) => {
+    const respondents = people.filter((p) => p.answered).length;
+    return days.map((day) => heatOf(tally(people, [day]), respondents));
+  };
+
   it('is the share of those who answered, a maybe counting half', () => {
     expect(
-      heatOf(
-        tally(
-          [person('a', ['d']), person('b', [], ['d']), person('c', [])],
-          ['d']
-        )
-      )
+      heatsOf(
+        [person('a', ['d']), person('b', [], ['d']), person('c', [])],
+        ['d']
+      )[0]
     ).toBeCloseTo(0.5);
   });
 
   it('ignores people who have not answered', () => {
     expect(
-      heatOf(
-        tally(
-          [person('a', ['d']), person('b', [], [], { answered: false })],
-          ['d']
-        )
-      )
+      heatsOf(
+        [person('a', ['d']), person('b', [], [], { answered: false })],
+        ['d']
+      )[0]
     ).toBe(1);
   });
 
-  it('is zero when nobody answered', () => {
-    expect(heatOf({ yes: [], maybe: [], no: [], open: ['x'] })).toBe(0);
+  it('is zero when nobody answered, and never more than one', () => {
+    expect(heatOf({ yes: [], maybe: [], no: [], open: ['x'] }, 0)).toBe(0);
+    for (const respondents of [0, -1, Number.NaN])
+      expect(
+        heatOf({ yes: ['a'], maybe: [], no: [], open: [] }, respondents)
+      ).toBe(0);
+    expect(heatOf({ yes: ['a', 'b'], maybe: [], no: [], open: [] }, 1)).toBe(1);
+  });
+
+  it('does not warm a day added later above a day more people can make', () => {
+    // Eight answered; six can on Sunday 29 November. Sunday 6 December came
+    // later: four have seen it and can, four have not seen it yet.
+    const sunday = '2026-11-29';
+    const later = '2026-12-06';
+    const people = Array.from({ length: 8 }, (_, i) =>
+      person(
+        `p${i}`,
+        [...(i < 6 ? [sunday] : []), ...(i < 4 ? [later] : [])],
+        [],
+        { unseen: i >= 4 ? [later] : [] }
+      )
+    );
+    const [full, added] = heatsOf(people, [sunday, later]);
+    expect(full).toBeCloseTo(0.75);
+    expect(added).toBeCloseTo(0.5);
+    expect(heatLevel(full!)).toBe(4);
+    expect(heatLevel(added!)).toBe(3);
+  });
+
+  it('never gives a day with more people who can a cooler colour', () => {
+    const days = ['d1', 'd2', 'd3'];
+    const answer = fc.constantFrom('yes', 'maybe', 'no', 'unseen');
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            answered: fc.boolean(),
+            answers: fc.tuple(answer, answer, answer),
+          }),
+          { maxLength: 12 }
+        ),
+        (rows) => {
+          const people = rows.map((row, i) =>
+            person(
+              `p${i}`,
+              days.filter((_, d) => row.answers[d] === 'yes'),
+              days.filter((_, d) => row.answers[d] === 'maybe'),
+              {
+                answered: row.answered,
+                unseen: days.filter((_, d) => row.answers[d] === 'unseen'),
+              }
+            )
+          );
+          const warmth = days.map((day) => {
+            const t = tally(people, [day]);
+            return t.yes.length + t.maybe.length / 2;
+          });
+          const heats = heatsOf(people, days);
+          for (let a = 0; a < days.length; a++)
+            for (let b = 0; b < days.length; b++)
+              if (warmth[a]! > warmth[b]!) {
+                expect(heats[a]).toBeGreaterThan(heats[b]!);
+                expect(heatLevel(heats[a]!)).toBeGreaterThanOrEqual(
+                  heatLevel(heats[b]!)
+                );
+              }
+        }
+      )
+    );
   });
 
   it('maps to six steps, keeping any warmth above zero visible', () => {

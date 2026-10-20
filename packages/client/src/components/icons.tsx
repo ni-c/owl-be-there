@@ -38,6 +38,18 @@ export const ChevronDownIcon = ({ size }: P) => (
     <path d="m6 9 6 6 6-6" />
   </Icon>
 );
+/** Points to the end of the line; mirror it for right-to-left (`rtl:-scale-x-100`). */
+export const ChevronEndIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <path d="m9 6 6 6-6 6" />
+  </Icon>
+);
+export const PencilIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+    <path d="m13.5 6.5 4 4" />
+  </Icon>
+);
 export const ShareIcon = ({ size }: P) => (
   <Icon size={size}>
     <path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />

@@ -1,11 +1,12 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/nl';
 import type { Dictionary } from './en.ts';
 
 export const nl: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.nl,
 
-  ...HOME_TEXTS.nl,
+  ...HOME,
   'home.cta': 'Plan een evenement',
   'home.example.title': 'Probeer het',
   'home.example.text':
@@ -264,6 +265,8 @@ export const nl: Dictionary = {
   'admin.noPeople': 'Er is nog niemand.',
 
   'footer.language': 'Taal',
+  'language.loadFailed':
+    '{language} kon niet worden geladen. Controleer je verbinding en laad de pagina opnieuw.',
   'footer.theme': 'Weergave',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Colofon',

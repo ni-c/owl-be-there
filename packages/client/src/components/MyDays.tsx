@@ -29,7 +29,8 @@ import { marksSender } from '../lib/marksSender.ts';
 import { noteChange } from '../lib/note.ts';
 import type { Session } from '../lib/prefs.ts';
 import { SaveQueue, type SaveStatus } from '../lib/saveQueue.ts';
-import { CheckIcon, LockIcon } from './icons.tsx';
+import { shownStatus, type NoteStatus } from '../lib/saveStatus.ts';
+import { CheckIcon, LockIcon, TrashIcon } from './icons.tsx';
 import { MarksEditor } from './MarksEditor.tsx';
 import { Button, Chip, Field, Notice, TextInput } from './ui.tsx';
 
@@ -351,18 +352,17 @@ function Greeting({
         <p className="text-lg font-extrabold">
           {t('mine.hello', { name: participant.name })}
         </p>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-2">
           {!locked && (
             <Button
               size="sm"
-              variant="ghost"
               aria-expanded={open}
               onClick={() => setOpen(!open)}
             >
               {t('mine.entry')}
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => onSession(null)}>
+          <Button size="sm" onClick={() => onSession(null)}>
             {t('mine.notYou')}
           </Button>
         </div>
@@ -446,8 +446,11 @@ function Greeting({
                 </Button>
               </>
             ) : (
-              <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
-                {t('mine.deleteEntry')}
+              <Button
+                variant="dangerOutline"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <TrashIcon size={18} /> {t('mine.deleteEntry')}
               </Button>
             )}
           </div>
@@ -477,6 +480,7 @@ function Painter(
   const [saveError, setSaveError] = useState<unknown>(null);
   const [note, setNote] = useState(participant.note ?? '');
   const [noteFailed, setNoteFailed] = useState(false);
+  const [noteStatus, setNoteStatus] = useState<NoteStatus>('idle');
   const noteFocused = useRef(false);
   // The note as the server holds it, to tell a change from a mere blur.
   const savedNote = useRef(participant.note);
@@ -563,6 +567,10 @@ function Painter(
     retrying: t('mine.retrying'),
     failed: errorMessage(saveError, t),
   };
+  const shown = shownStatus(status, noteStatus);
+  // Answered without a single day: the saved state says what was saved.
+  const noDays = !locked && marks.size === 0 && participant.answered;
+  const done = shown === 'saved' || (shown === 'idle' && noDays);
 
   // The note changed elsewhere — another device, the organiser: show it, unless
   // it is being typed in, and compare against it from now on.
@@ -575,6 +583,7 @@ function Painter(
     const change = noteChange(note, savedNote.current);
     setNote(change.cleaned);
     if (!change.send) return;
+    setNoteStatus('saving');
     try {
       await api.updateParticipant(
         eventId,
@@ -584,9 +593,11 @@ function Painter(
       );
       savedNote.current = change.value;
       setNoteFailed(false);
+      setNoteStatus('saved');
       void store.refresh();
     } catch {
       setNoteFailed(true);
+      setNoteStatus('idle');
     }
   };
 
@@ -603,15 +614,6 @@ function Painter(
         today={today}
         label={t('event.tabMine')}
       />
-      <div className="flex min-h-6 items-center justify-between gap-3 text-sm">
-        <span
-          role="status"
-          aria-live="polite"
-          className={`inline-flex items-center gap-1 font-bold ${status === 'failed' ? 'text-danger' : 'text-muted'}`}
-        >
-          {status === 'saved' && <CheckIcon size={14} />} {statusText[status]}
-        </span>
-      </div>
       {!locked && marks.size === 0 && !participant.answered && (
         <div>
           <Button onClick={() => queue.push(new Map())}>
@@ -619,12 +621,6 @@ function Painter(
           </Button>
         </div>
       )}
-      {!locked &&
-        marks.size === 0 &&
-        participant.answered &&
-        (status === 'idle' || status === 'saved') && (
-          <p className="text-sm text-muted">{t('mine.noneSaved')}</p>
-        )}
       {!locked && (
         <Field
           label={t('mine.note')}
@@ -641,6 +637,7 @@ function Painter(
               onChange={(event) => {
                 setNote(event.target.value);
                 setNoteFailed(false);
+                setNoteStatus('idle');
               }}
               onFocus={() => {
                 noteFocused.current = true;
@@ -657,6 +654,22 @@ function Painter(
           )}
         </Field>
       )}
+      <div className="flex min-h-6 items-center text-sm">
+        <span
+          role="status"
+          aria-live="polite"
+          className={`inline-flex items-center gap-1 font-bold ${
+            shown === 'failed'
+              ? 'text-danger'
+              : done
+                ? 'text-yes-text'
+                : 'text-muted'
+          }`}
+        >
+          {done && <CheckIcon size={14} />}{' '}
+          {done && noDays ? t('mine.noneSaved') : statusText[shown]}
+        </span>
+      </div>
     </div>
   );
 }

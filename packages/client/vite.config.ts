@@ -6,12 +6,20 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      // The sources, not a build: the client is bundled from them directly.
-      '@owl/shared': fileURLToPath(
-        new URL('../shared/src/index.ts', import.meta.url)
-      ),
-    },
+    // The sources, not a build: the client is bundled from them directly. Two
+    // patterns, as a plain string would also rewrite `@owl/shared/home/fa`.
+    alias: [
+      {
+        find: /^@owl\/shared$/,
+        replacement: fileURLToPath(
+          new URL('../shared/src/index.ts', import.meta.url)
+        ),
+      },
+      {
+        find: /^@owl\/shared\/(.+)$/,
+        replacement: `${fileURLToPath(new URL('../shared/src/', import.meta.url))}$1.ts`,
+      },
+    ],
   },
   server: {
     port: 5173,
@@ -25,5 +33,8 @@ export default defineConfig({
     target: 'es2022',
     // A source map would be a publicly fetchable copy of the sources.
     sourcemap: false,
+    // dist/.vite/manifest.json: the server reads which chunk holds which
+    // language. It is never served, being a dotfile directory.
+    manifest: true,
   },
 });

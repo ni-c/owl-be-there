@@ -86,6 +86,20 @@ describe('browserBacking', () => {
     }
   });
 
+  it('hands out sessionStorage when asked for it', () => {
+    const local = new MemoryStorage();
+    const session = new MemoryStorage();
+    setWindow({ localStorage: local, sessionStorage: session });
+    try {
+      expect(browserBacking('sessionStorage')).toBe(session);
+      expect(browserBacking()).toBe(local);
+      setWindow({ localStorage: local, sessionStorage: new RefusingBacking() });
+      expect(browserBacking('sessionStorage')).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
   it('gives null when the browser refuses storage', () => {
     setWindow({ localStorage: new RefusingBacking() });
     try {

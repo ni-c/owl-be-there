@@ -615,16 +615,99 @@ test('the organiser removes a password only after confirming it', async ({
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await page.locator('summary', { hasText: 'People' }).click();
-  await page.getByRole('button', { name: 'Remove password' }).click();
-  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: /^Maxi/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Maxi' });
+  const unlock = dialog.getByRole('button', { name: 'Remove password' });
+  await unlock.click();
   await expect(dialog).toContainText('Anyone with the event link');
+  // Cancel goes back to the person's actions, not out of the sheet.
   await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(dialog).toBeHidden();
+  await expect(unlock).toBeFocused();
   expect(await protectedEntry()).toBe(true);
 
-  await page.getByRole('button', { name: 'Remove password' }).click();
+  await unlock.click();
   await dialog.getByRole('button', { name: 'Remove password' }).click();
+  await expect(dialog).toBeHidden();
   await expect.poll(protectedEntry).toBe(false);
+});
+
+test('a person’s row opens a sheet to fill in for them or remove them', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await createEvent(request, {
+    roster: ['Anna', 'Ben'],
+  });
+  await answer(request, id, 'Anna', [D(5)]);
+  const ben = (await snapshot(request, id)).participants.find(
+    (p: { name: string }) => p.name === 'Ben'
+  );
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const people = await openSection(page, 'People');
+  const annaRow = people.getByRole('button', { name: /^Anna/ });
+  const benRow = people.getByRole('button', { name: /^Ben/ });
+  // Who has not answered says so under the name; nobody has any buttons inline.
+  await expect(annaRow).toHaveAccessibleName('Anna');
+  await expect(benRow).toHaveAccessibleName(/^Ben\s+Not answered$/);
+  await expect(people.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+
+  await benRow.click();
+  const sheet = page.getByRole('dialog', { name: 'Ben' });
+  await sheet.getByRole('button', { name: 'Fill in' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText('Filling in for Ben')).toBeVisible();
+
+  await annaRow.click();
+  await page
+    .getByRole('dialog', { name: 'Anna' })
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await expect(page.getByRole('dialog', { name: 'Anna' })).toContainText(
+    'Remove Anna and their days?'
+  );
+  await page
+    .getByRole('dialog', { name: 'Anna' })
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await expect(annaRow).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      (await snapshot(request, id)).participants.map(
+        (p: { id: string }) => p.id
+      )
+    )
+    .toEqual([ben.id]);
+});
+
+test('on a phone every row of the people list is as tall as the next', async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 400, height: 800 });
+  const { id, adminToken } = await createEvent(request, {
+    roster: ['Al', 'Maximiliane Theresa von Hohenberg', 'Bo'],
+  });
+  for (const name of ['Al', 'Maximiliane Theresa von Hohenberg', 'Bo'])
+    await answer(request, id, name, [D(5)]);
+  const session = await request.post(`/api/events/${id}/session`, {
+    data: { name: 'Bo' },
+  });
+  const { participantId, token } = await session.json();
+  await request.patch(`/api/events/${id}/participants/${participantId}`, {
+    headers: { 'x-participant-token': token },
+    data: { password: 'secret-1', note: 'only after 6 pm' },
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const people = await openSection(page, 'People');
+  // The rows' buttons: the last list item has no divider and is 1 px shorter.
+  const rows = people.getByRole('list').getByRole('button');
+  await expect(rows).toHaveCount(3);
+  const heights = await rows.evaluateAll((buttons) =>
+    buttons.map((button) => button.getBoundingClientRect().height)
+  );
+  // A long name may wrap, but a password or a note never adds a line.
+  expect(heights[2]).toBe(heights[0]);
+  expect(heights[1]).toBeGreaterThanOrEqual(heights[0]!);
 });
 
 test('the organiser chooses the best day; everyone gets a calendar file', async ({
@@ -832,6 +915,35 @@ test('the start page has an address per language, and choosing another follows i
     page.getByRole('button', { name: 'Event planen' })
   ).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test('Arabic mirrors the page and calendar, then restores LTR on language change', async ({
+  page,
+}) => {
+  await page.goto('/ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(
+    page.getByRole('heading', { name: 'اعثر على يوم يناسب الجميع.' })
+  ).toBeVisible();
+  const days = page.locator('[data-browser-frame] .cal-row [data-day]');
+  await expect(days.nth(1)).toBeVisible();
+  // Two days side by side: a month that starts on a Sunday has that day
+  // alone in its first row.
+  const boxes = await days.evaluateAll((cells) =>
+    cells.map((cell) => cell.getBoundingClientRect().toJSON() as DOMRect)
+  );
+  const pair = boxes.findIndex((box, i) => boxes[i + 1]?.y === box.y);
+  expect(pair).toBeGreaterThanOrEqual(0);
+  expect(boxes[pair]!.x).toBeGreaterThan(boxes[pair + 1]!.x);
+  await days.nth(pair).focus();
+  await days.nth(pair).press('ArrowLeft');
+  await expect(days.nth(pair + 1)).toBeFocused();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth)
+  ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth + 1));
+
+  await page.getByLabel('اللغة').selectOption('en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 });
 
 test('the start page answers the common questions', async ({ page }) => {
@@ -1722,12 +1834,20 @@ test('confirming a save that costs answers moves focus into the organiser panel,
   await expect(panel).toBeFocused();
   await expect.poll(async () => (await current()).durationDays).toBe(2);
 
-  // The dialogs of the people list still return to the row's own button.
+  // A person's sheet: Cancel on the second step returns to the button that led
+  // there, and closing the sheet returns to the person's row.
   const people = await openSection(page, 'People');
-  const remove = people.getByRole('button', { name: 'Remove', exact: true });
+  const row = people.getByRole('button', { name: /^Anna/ });
+  await row.focus();
+  await page.keyboard.press('Enter');
+  const sheet = page.getByRole('dialog', { name: 'Anna' });
+  const remove = sheet.getByRole('button', { name: 'Remove', exact: true });
   await remove.focus();
   await page.keyboard.press('Enter');
-  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await expect(sheet.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(remove).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(row).toBeFocused();
 });

@@ -130,6 +130,48 @@ ALTER TABLE events_new RENAME TO events;
 CREATE INDEX events_expires_on ON events (expires_on);
 `,
   },
+  {
+    version: 3,
+    rebuildsReferencedTable: true,
+    sql: `
+CREATE TABLE events_new (
+  id TEXT PRIMARY KEY,
+  admin_hash TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  description TEXT CHECK (description IS NULL OR length(description) <= 500),
+  location TEXT CHECK (location IS NULL OR length(location) <= 120),
+  emoji TEXT NOT NULL,
+  creator_name TEXT CHECK (creator_name IS NULL OR length(creator_name) <= 40),
+  language TEXT NOT NULL CHECK (language IN ('ar', 'cs', 'de', 'en', 'es', 'es-419', 'fa', 'fi', 'fr', 'id', 'it', 'ja', 'ko', 'nb', 'nl', 'pl', 'pt', 'pt-BR', 'ru', 'sv', 'tr', 'uk', 'ur', 'vi', 'zh-Hans', 'zh-Hant')),
+  duration_days INTEGER NOT NULL CHECK (duration_days BETWEEN 1 AND 14),
+  min_count INTEGER CHECK (min_count IS NULL OR min_count >= 1),
+  closed_at INTEGER,
+  final_start TEXT,
+  final_end TEXT,
+  created_at INTEGER NOT NULL,
+  last_write_at INTEGER NOT NULL,
+  expires_on TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  CHECK ((final_start IS NULL) = (final_end IS NULL)),
+  CHECK (final_start IS NULL OR closed_at IS NOT NULL)
+) STRICT;
+
+INSERT INTO events_new (
+  id, admin_hash, title, description, location, emoji, creator_name,
+  language, duration_days, min_count, closed_at, final_start, final_end,
+  created_at, last_write_at, expires_on, version
+)
+SELECT
+  id, admin_hash, title, description, location, emoji, creator_name,
+  language, duration_days, min_count, closed_at, final_start, final_end,
+  created_at, last_write_at, expires_on, version
+FROM events;
+
+DROP TABLE events;
+ALTER TABLE events_new RENAME TO events;
+CREATE INDEX events_expires_on ON events (expires_on);
+`,
+  },
 ];
 
 export class MigrationError extends Error {

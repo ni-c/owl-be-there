@@ -1,4 +1,5 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/en';
 
 /**
  * The English texts, and the type every other language must match: a key
@@ -9,7 +10,7 @@ export const en = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.en,
 
-  ...HOME_TEXTS.en,
+  ...HOME,
   'home.cta': 'Plan an event',
   'home.example.title': 'Try it out',
   'home.example.text':
@@ -259,6 +260,8 @@ export const en = {
   'admin.noPeople': 'Nobody here yet.',
 
   'footer.language': 'Language',
+  'language.loadFailed':
+    'Couldn’t load {language}. Check your connection and reload the page.',
   'footer.theme': 'Theme',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Imprint',
@@ -356,3 +359,19 @@ export const en = {
 
 export type TranslationKey = keyof typeof en;
 export type Dictionary = Record<TranslationKey, string>;
+
+/** Keys that come in `_one` / `_other` pairs, without the suffix. */
+export type CountedKey = {
+  [K in TranslationKey]: K extends `${infer Base}_other` ? Base : never;
+}[TranslationKey];
+
+/** A language's counted texts for the plural categories beyond one and other. */
+export type PluralForms = Partial<
+  Record<Intl.LDMLPluralRule, Partial<Record<CountedKey, string>>>
+>;
+
+/** A language as it is loaded: its texts, and the plural forms it adds. */
+export interface Pack {
+  texts: Dictionary;
+  forms?: PluralForms;
+}
