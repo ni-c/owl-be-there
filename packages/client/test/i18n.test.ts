@@ -1,4 +1,4 @@
-import { LANGUAGES, LOCALES, PEOPLE } from '@owl/shared';
+import { charCount, LANGUAGES, LIMITS, LOCALES, PEOPLE } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
@@ -73,6 +73,23 @@ describe('texts that must agree with the rest of the app', () => {
       expect(DICTIONARIES[language]['home.example.text'], language).toContain(
         name
       );
+    }
+  });
+
+  it('gives the example’s two notes in every language, within a note’s length', () => {
+    for (const language of LANGUAGES) {
+      for (const key of [
+        'home.example.noteBen',
+        'home.example.noteMax',
+      ] as const) {
+        const text = DICTIONARIES[language][key];
+        expect(text.trim(), `${language} ${key}`).not.toBe('');
+        expect(charCount(text), `${language} ${key}`).toBeLessThanOrEqual(
+          LIMITS.note
+        );
+        if (language !== 'en')
+          expect(text, `${language} ${key}`).not.toBe(en[key]);
+      }
     }
   });
 

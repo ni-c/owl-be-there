@@ -36,9 +36,17 @@ export function ExampleDemo() {
   const [round, setRound] = useState(0);
 
   const title = t('home.example.eventTitle');
+  const noteBen = t('home.example.noteBen');
+  const noteMax = t('home.example.noteMax');
   const data = useMemo(
-    () => exampleSnapshot({ today, title, anna }),
-    [today, title, anna]
+    () =>
+      exampleSnapshot({
+        today,
+        title,
+        anna,
+        notes: { Ben: noteBen, Max: noteMax },
+      }),
+    [today, title, anna, noteBen, noteMax]
   );
   const annaId = data.participants[0]!.id;
   const hints = useMemo(

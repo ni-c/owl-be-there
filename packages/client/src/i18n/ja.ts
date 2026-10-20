@@ -13,6 +13,10 @@ export const ja: Dictionary = {
   'home.example.eventTitle': 'チームの食事会',
   'home.example.hint': '試すための架空の予定だよ。何も保存されません。',
   'home.example.reset': '最初から',
+  'home.example.noteBen':
+    '平日は厳しいです。木曜なら月の半ば以降でたぶん大丈夫。',
+  'home.example.noteMax':
+    '月の半ばまでは木曜に合唱の練習。そのあとは空いてます。',
   'event.planOwn.title': '自分でも何か計画する？',
   'event.planOwn.text': '1分で自分の予定を作れるよ。アカウントは不要。',
   'home.myEvents': '自分の予定',
@@ -199,7 +203,7 @@ export const ja: Dictionary = {
   'day.maybe': 'たぶん行ける人',
   'day.cannot': '行けない人',
   'day.open': '未回答',
-  'day.nobody': 'なし',
+  'day.notes': 'メモ',
   'day.close': '閉じる',
 
   'share.title': 'みんなに共有',

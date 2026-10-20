@@ -106,3 +106,8 @@ export const StarIcon = ({ size }: P) => (
     <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />
   </Icon>
 );
+export const NoteIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+  </Icon>
+);

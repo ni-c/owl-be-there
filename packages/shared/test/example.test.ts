@@ -6,6 +6,7 @@ import {
   monthAfter,
   PEOPLE,
   splitMarks,
+  weekdayOf,
 } from '../src/index.js';
 
 describe('monthAfter', () => {
@@ -98,6 +99,45 @@ describe('exampleSnapshot', () => {
       yes: ['2026-11-02'],
       maybe: ['2026-11-03'],
     });
+  });
+
+  it('has no notes unless the caller gives some', () => {
+    const snapshot = exampleSnapshot({ today, title: 'x', anna });
+    expect(snapshot.participants.every((p) => p.note === null)).toBe(true);
+  });
+
+  it('gives each note to the person it is keyed by, and no one else', () => {
+    const snapshot = exampleSnapshot({
+      today,
+      title: 'x',
+      anna,
+      notes: { Ben: 'Weekends', Max: '', Nobody: 'lost' },
+    });
+    expect(() => EventSnapshot.parse(snapshot)).not.toThrow();
+    const notes = Object.fromEntries(
+      snapshot.participants.map((p) => [p.name, p.note])
+    );
+    // An empty note stays empty; a name not in the example is ignored.
+    expect(notes).toMatchObject({ Ben: 'Weekends', Max: '', Anna: null });
+    expect(
+      snapshot.participants.filter((p) => p.note !== null).map((p) => p.name)
+    ).toEqual(['Ben', 'Max']);
+  });
+
+  it('puts Ben at maybe and Max at yes on the Thursdays their notes are about', () => {
+    for (const start of ['2026-10-04', '2027-01-31', '2028-06-15']) {
+      const month = monthAfter(start);
+      const ben = splitMarks(marksOf(PEOPLE[1]!.rule, month));
+      const max = splitMarks(marksOf(PEOPLE[9]!.rule, month));
+      const thursday = (day: string) =>
+        weekdayOf(day) === 3 && Number(day.slice(8)) >= 15;
+      const late = month.filter(thursday);
+      expect(late.length, start).toBeGreaterThan(0);
+      for (const day of late) {
+        expect(ben.maybe, day).toContain(day);
+        expect(max.yes, day).toContain(day);
+      }
+    }
   });
 
   it('shows Anna as not answered once she has no days', () => {

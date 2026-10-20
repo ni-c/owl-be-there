@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Notes are easier to find: the group view marks everyone who wrote one with a speech bubble and lists all notes under a heading of their own, below "Who is counted". A note stays listed while its writer is left out of the count.
+- Ben and Max in the start page example each have a note, so the example shows what notes look like.
+
+### Changed
+
+- The day sheet lists people as small chips in the colour of their answer instead of in heading-sized bold type, and an empty group shows only its heading. Notes have a block of their own at the end of the sheet, each next to its writer's name in the colour of their answer for that day. Neither page shows a notes block when nobody has written one.
+
 ### Fixed
 
 - An organiser key kept on a device is checked as soon as the event opens. After the organiser link had been issued anew, the old key still showed the organiser tools until the first change, which the server then refused and which was lost; now the page says at once that the link was not accepted.

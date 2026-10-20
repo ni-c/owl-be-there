@@ -13,6 +13,10 @@ export const es: Dictionary = {
   'home.example.eventTitle': 'Cena de equipo',
   'home.example.hint': 'Un evento inventado para probar: no se guarda nada.',
   'home.example.reset': 'Empezar de nuevo',
+  'home.example.noteBen':
+    'Entre semana lo tengo difícil; los jueves quizá, a partir de mediados de mes.',
+  'home.example.noteMax':
+    'Los jueves tengo coro hasta mediados de mes; después, libre.',
   'event.planOwn.title': '¿Organizas algo tú?',
   'event.planOwn.text': 'Crea tu propio evento en un minuto, sin cuenta.',
   'home.myEvents': 'Tus eventos',
@@ -206,7 +210,7 @@ export const es: Dictionary = {
   'day.maybe': 'Quizá',
   'day.cannot': 'No pueden',
   'day.open': 'Sin respuesta',
-  'day.nobody': 'nadie',
+  'day.notes': 'Notas',
   'day.close': 'Cerrar',
 
   'share.title': 'Compartir con el grupo',
