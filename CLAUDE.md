@@ -8,24 +8,25 @@ A group finds a **day** (or a block of consecutive days) for an event: the organ
 
 All commands need Node 26 (`.nvmrc`). Install with `npm ci`, never `npm install` (see Traps).
 
-| Command                 | Purpose                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `npm run dev`           | API on :8080 and the client with hot reload on :5173                                                                                                   |
-| `npm run lint`          | ESLint + Prettier                                                                                                                                      |
-| `npm run typecheck`     | every package, the tests and the end-to-end tree                                                                                                       |
-| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`)                                                                                |
-| `npm run test:coverage` | the same with thresholds                                                                                                                               |
-| `npm run test:tz`       | shared and client tests under five time zones                                                                                                          |
-| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch                                                                                         |
-| `npm run ci:local`      | lint, typecheck, audit, secret scan, tests and e2e; CI also builds and scans the image, runs CodeQL and dependency review, and renders the screenshots |
-| `npm run build`         | shared → server → client                                                                                                                               |
-| `npm run screenshot`    | after a build: the README's pictures of the start page example (`docs/`) and `og.png`                                                                  |
+| Command                 | Purpose                                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`           | API on :8080 and the client with hot reload on :5173                                                                                                                     |
+| `npm run lint`          | ESLint + Prettier                                                                                                                                                        |
+| `npm run typecheck`     | every package, the tests and the end-to-end tree                                                                                                                         |
+| `npm test`              | unit and API tests (in-process: SQLite in memory, Fastify via `inject`)                                                                                                  |
+| `npm run test:coverage` | the same with thresholds                                                                                                                                                 |
+| `npm run test:tz`       | shared and client tests under five time zones                                                                                                                            |
+| `npm run test:e2e`      | Playwright: Chromium and WebKit, desktop and mobile with touch                                                                                                           |
+| `npm run ci:local`      | lint, typecheck, audit, secret scan, tests, the bundle check and e2e; CI also builds and scans the image, runs CodeQL and dependency review, and renders the screenshots |
+| `npm run build`         | shared → server → client                                                                                                                                                 |
+| `npm run screenshot`    | after a build: the README's pictures of the start page example (`docs/`) and `og.png`                                                                                    |
+| `npm run check:bundle`  | after a build: the entry under its budget, with the English and German texts and no other language's                                                                     |
 
 ## Layout
 
 - `packages/shared` — pure domain logic and zod schemas, used by both sides: dates, candidate days, the week grid, rectangle selection, toggles, ranking of days and blocks, retention, `.ics`, QR codes, limits.
-- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id` and its picture `/e/:id/og.png` (`preview.ts`: the SVG comes from `shared/preview.ts`, resvg turns it into a PNG), the start page per language (`/de` …) with `hreflang`, JSON-LD and its text written into `#root` for readers without scripts (texts in `shared/home.ts`, shared with the client), `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`commands.ts` holds the logic, `cli.ts` is the entry).
-- `packages/client` — React 19 + Vite + Tailwind 4. No router library and no state library: `lib/route.ts`, `useSyncExternalStore` stores, a `SaveQueue` for auto-save. `lib/` is unit-tested in Node; components are tested end to end.
+- `packages/server` — Fastify. `db/sqlite.ts` is the only module that imports `node:sqlite`; `db/repo.ts` holds every query. Also: tokens and passwords, rate limits, security headers, the SSE hub, link-preview injection for `/e/:id` and its picture `/e/:id/og.png` (`preview.ts`: the SVG comes from `shared/preview.ts`, resvg turns it into a PNG), the start page per language (`/de` …) with `hreflang`, JSON-LD and its text written into `#root` for readers without scripts (texts in `shared/home/<code>.ts`, assembled for the server in `shared/home-texts.ts`; the client takes one language at a time), `robots.txt` and `sitemap.xml`, the retention sweep and the operator CLI (`commands.ts` holds the logic, `cli.ts` is the entry).
+- `packages/client` — React 19 + Vite + Tailwind 4. No router library and no state library: `lib/route.ts`, `useSyncExternalStore` stores, a `SaveQueue` for auto-save. English and German ship in the entry; `i18n/dictionaries.ts` loads every other language as a chunk of its own. `lib/` is unit-tested in Node; components are tested end to end.
 - `e2e/` — Playwright specs and the harness that starts a real server.
 
 ## Rules not up for discussion
@@ -74,7 +75,7 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **The SSE route hijacks the response**, so the `onSend` header hook does not run for it; it sets `ctx.headers` itself. Hang up on a stream through the hub (`hangUp`), which forgets it before ending it — a write to an ended response is an uncaught error. The hub closes in `preClose`: the server waits for open connections before `onClose`, and a live stream never ends on its own.
 - **`events.version` moves on every write, marks included.** It is no concurrency token for the organiser's edits; the day list carries `baseDays` instead.
 - **Anything async in a route happens before `db.tx`** (scrypt hashing above all), so what was checked before the `await` is checked again inside the transaction — the participant's `token_gen` and password hash included.
-- **`index.html` has two markers the server needs:** the `owl:head` block and `<!--owl:root-->` inside `#root`; `PageTemplate` refuses a file without either. The start page's server-written text is hidden by the `js` class the inline script sets, so it never flashes before the app replaces it; a text on the start page belongs in `shared/home.ts`, or the two drift apart.
+- **`index.html` has two markers the server needs:** the `owl:head` block and `<!--owl:root-->` inside `#root`; `PageTemplate` refuses a file without either. The start page's server-written text is hidden by the `js` class the inline script sets, so it never flashes before the app replaces it; a text on the start page belongs in `shared/home/<code>.ts`, or the two drift apart. The server adds the `#owl-i18n` data block after the head block of every page; a data block is never run, so it needs no hash.
 - **`snapshot()` returns a cached object** shared by every caller of that event version. Never mutate it, and never cache inside a transaction (a rollback would reuse the version number for other data).
 - **resvg-wasm objects must be freed.** `Resvg` and the rendered image live in WebAssembly memory that V8 does not see; without `free()` every new picture leaks about 3 MB.
 - **Node ignores `requestTimeout` while `headersTimeout` is longer**, so both are set together.
@@ -82,6 +83,13 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **The CSP e2e check listens for `securitypolicyviolation`, not the console.** WebKit logs the `<style>` elements Playwright injects for itself (1.64 and later) on the console, but tells the page only about its own violations. The one WebKit report it skips is `style-src-attr` on a `<select>` without a style attribute, which comes from the select's own shadow tree. The client sets `z.config({ jitless: true })` in `lib/zod-config.ts`, the first import of `main.tsx`: zod reads the setting when a schema is created, and without it probes for eval with `Function('')`, which the CSP refuses.
 - **An `aria-label` starts with the control's visible text** (WCAG 2.5.3, axe `label-content-name-mismatch`, serious since axe 4.14): `Mon: All Mondays`, `W44: Week 44`. axe joins every text node of a button without spaces, so the heat counts are drawn with `.cal-count::before { content: attr(data-count) }`; as text they would run into the day number.
 - **A stored organiser key is checked when the event page opens** (`GET /api/events/:id/admin`). An organiser link issued anew leaves the old key on every device that had it; unchecked, the panel showed until the first change was refused and took it away, change included. A check that fails on the network keeps the key.
+- **Lazy dictionaries need literal `import()` calls** (`i18n/dictionaries.ts`): Vite splits only what it can read, and the server finds each chunk in `dist/.vite/manifest.json` under `src/i18n/<code>.ts`. A static import of a lazy dictionary anywhere pulls it back into the entry; `npm run check:bundle` notices.
+- **No top-level `await` in `main.tsx`.** The dictionary chunks import from the entry chunk, and an entry that waits for them never finishes evaluating; the app renders once `startI18n()` resolves.
+- **`translator()` throws for a language whose texts are not loaded.** Client tests that translate synchronously preload them (`beforeAll(preloadAllDictionaries)`).
+- **The language select shows `choice`, not `language`**: a controlled select would jump back while the chosen language loads.
+- **A dictionary that fails to load reloads the page once** (`lib/reloadGuard.ts`, flag `owl.i18n-reload` in sessionStorage), as an old hashed chunk is gone after a deploy: never offline (marks waiting to be saved would go with the page), never without a flag that survives the reload, never twice for one language. The flag goes once that language loads.
+- **The inline script of `index.html` repeats `detectLanguage`** to preload the starting language's chunk from `#owl-i18n`; `indexHtml.test.ts` runs both side by side. A wrong guess costs a request, never a wrong language.
+- **`HOME_TEXTS` is never exported from the shared index**, or the client carries every language again; the server imports `@owl/shared/home-texts`.
 - **Wrong passwords are counted before the check**, not after it: a miss recorded only after the `await` let parallel guesses all pass the wait.
 
 ## Working agreements

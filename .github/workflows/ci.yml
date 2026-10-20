@@ -107,6 +107,7 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
       - run: npm run build
+      - run: npm run check:bundle
       - run: npm run test:e2e
       # The README and start page pictures must still be renderable; they are
       # written to a scratch directory here, never committed.

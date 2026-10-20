@@ -171,6 +171,12 @@ test('the app talks to nobody but its own server and breaks no CSP rule', async 
   );
   await page.goto('/');
   await (await instance).finished();
+  // A language loaded later, preloaded by the inline script: its own server too.
+  await page.goto('/fa');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
+  // Back to English, which the steps below speak: an address is a choice.
+  await page.goto('/en');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.goto(`/e/${id}`);
   await joinAs(page, 'Carla');
   await day(myCalendar(page), dayFromNow(4)).click();

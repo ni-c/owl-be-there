@@ -844,12 +844,17 @@ test('Arabic mirrors the page and calendar, then restores LTR on language change
   ).toBeVisible();
   const days = page.locator('[data-browser-frame] .cal-row [data-day]');
   await expect(days.nth(1)).toBeVisible();
-  const first = await days.first().boundingBox();
-  const second = await days.nth(1).boundingBox();
-  expect(first!.x).toBeGreaterThan(second!.x);
-  await days.first().focus();
-  await days.first().press('ArrowLeft');
-  await expect(days.nth(1)).toBeFocused();
+  // Two days side by side: a month that starts on a Sunday has that day
+  // alone in its first row.
+  const boxes = await days.evaluateAll((cells) =>
+    cells.map((cell) => cell.getBoundingClientRect().toJSON() as DOMRect)
+  );
+  const pair = boxes.findIndex((box, i) => boxes[i + 1]?.y === box.y);
+  expect(pair).toBeGreaterThanOrEqual(0);
+  expect(boxes[pair]!.x).toBeGreaterThan(boxes[pair + 1]!.x);
+  await days.nth(pair).focus();
+  await days.nth(pair).press('ArrowLeft');
+  await expect(days.nth(pair + 1)).toBeFocused();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth)
   ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth + 1));

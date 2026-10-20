@@ -19,16 +19,17 @@ Always install with `npm ci`. A plain `npm install` on some machines drops the o
 
 ## Checks
 
-| Command                 | What it does                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `npm run lint`          | ESLint (including accessibility rules for the client) and Prettier                   |
-| `npm run typecheck`     | TypeScript over every package, the tests and the end-to-end suite                    |
-| `npm test`              | The unit and API tests — no database server, no browser                              |
-| `npm run test:coverage` | The same, with coverage thresholds                                                   |
-| `npm run test:tz`       | The date-handling tests under five time zones, at a minute before and after midnight |
-| `npm run test:e2e`      | Playwright in Chromium and WebKit, desktop and mobile with touch                     |
-| `npm run ci:local`      | All of the above, plus `npm audit` and a secret scan                                 |
-| `npm run screenshot`    | After a build: the README's pictures of the start page example, and `og.png`         |
+| Command                 | What it does                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`          | ESLint (including accessibility rules for the client) and Prettier                                               |
+| `npm run typecheck`     | TypeScript over every package, the tests and the end-to-end suite                                                |
+| `npm test`              | The unit and API tests — no database server, no browser                                                          |
+| `npm run test:coverage` | The same, with coverage thresholds                                                                               |
+| `npm run test:tz`       | The date-handling tests under five time zones, at a minute before and after midnight                             |
+| `npm run test:e2e`      | Playwright in Chromium and WebKit, desktop and mobile with touch                                                 |
+| `npm run ci:local`      | All of the above, plus `npm audit` and a secret scan                                                             |
+| `npm run screenshot`    | After a build: the README's pictures of the start page example, and `og.png`                                     |
+| `npm run check:bundle`  | After a build: the code every visitor loads stays under its budget, and holds no language but English and German |
 
 The end-to-end suite needs the browsers once: `npx playwright install chromium webkit`. On a Linux distribution Playwright does not support, WebKit will not start; run the suite in the official image instead, after `npm run build`:
 
@@ -61,8 +62,8 @@ The image must carry Node 26; if its Node is older, mount a Node 26 installation
 A new language is registered in these places:
 
 1. `packages/shared/src/texts.ts`: `LANGUAGES`, `LOCALES`, `LANGUAGE_NAMES`, `TAGLINES` and `SERVER_TEXTS`.
-2. `packages/shared/src/home.ts`: `HOME_TEXTS`.
-3. `packages/client/src/i18n/<code>.ts`, listed in `i18n/index.tsx` (`DICTIONARIES`, `FEW_FORMS`, and `detectLanguage` when browser tags need mapping, as for `zh` and `no`).
+2. `packages/shared/src/home/<code>.ts` with the start page's texts, listed in `home-texts.ts`.
+3. `packages/client/src/i18n/<code>.ts`, taking its start page texts from `@owl/shared/home/<code>` and loaded on demand: a literal `import()` in `LOADERS` in `i18n/dictionaries.ts`, with its extra plural forms as `forms`. When browser tags need mapping, as for `zh` and `no`, extend `detectLanguage` in `lib/languageStore.ts` and the inline script of `packages/client/index.html` alike.
 4. The `language` check in `packages/server/src/db/migrations.ts`. A released migration never changes: add one that rebuilds the `events` table with the longer list.
 5. Scripts Nunito does not cover (it has Latin, Cyrillic and Vietnamese): a bundled font in `packages/client/public/fonts` with its rule in `styles.css`, and the font choice for link previews in `shared/preview.ts` and `server/src/preview.ts`. A right-to-left language goes into `RTL_LANGUAGES` in `texts.ts`; a language whose short weekday names are the full ones heads the calendar columns with letters (`weekdayHeading` in `client/src/lib/locale.ts`). A locale whose default calendar is not the Gregorian one pins it (`fa-IR-u-ca-gregory`).
 6. The language lists in the tests and in the README.

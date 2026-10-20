@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The day sheet lists people as small chips in the colour of their answer instead of in heading-sized bold type, and an empty group shows only its heading. Notes have a block of their own at the end of the sheet, each next to its writer's name in the colour of their answer for that day. Neither page shows a notes block when nobody has written one.
+- Only English and German ship with the app; every other language loads when it is needed, and a page fetches its language alongside the app, so the code every visitor loads halves (from 925 kB to 471 kB). Should a language fail to load, for example after an update while the page was open, the page reloads once and otherwise says so.
 - The language picker names the European variants as such: Español (España) and Português (Portugal).
 - The database gains one migration that lets events store the new languages. It rebuilds the `events` table once on the first start; events, participants and their days are kept.
 
