@@ -8,15 +8,17 @@ export interface Backing {
 }
 
 /**
- * `localStorage`, or null when the browser refuses it.
+ * `localStorage` (or `sessionStorage`), or null when the browser refuses it.
  *
  * Safari in private mode, some in-app browsers and a "block all site data"
  * setting all throw on access rather than returning nothing. Probed once with a
  * write, because a few of them allow reading and refuse only the write.
  */
-export function browserBacking(): Backing | null {
+export function browserBacking(
+  kind: 'localStorage' | 'sessionStorage' = 'localStorage'
+): Backing | null {
   try {
-    const storage = window.localStorage;
+    const storage = window[kind];
     const probe = '__owl_probe__';
     storage.setItem(probe, probe);
     storage.removeItem(probe);

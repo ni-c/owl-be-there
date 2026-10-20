@@ -256,6 +256,8 @@ export const fi = {
   'admin.noPeople': 'Täällä ei ole vielä ketään.',
 
   'footer.language': 'Kieli',
+  'language.loadFailed':
+    'Kieltä {language} ei voitu ladata. Tarkista yhteys ja lataa sivu uudelleen.',
   'footer.theme': 'Teema',
   'footer.privacy': 'Tietosuoja',
   'footer.imprint': 'Palveluntarjoajan tiedot',

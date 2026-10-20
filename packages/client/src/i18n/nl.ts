@@ -265,6 +265,8 @@ export const nl: Dictionary = {
   'admin.noPeople': 'Er is nog niemand.',
 
   'footer.language': 'Taal',
+  'language.loadFailed':
+    '{language} kon niet worden geladen. Controleer je verbinding en laad de pagina opnieuw.',
   'footer.theme': 'Weergave',
   'footer.privacy': 'Privacy',
   'footer.imprint': 'Colofon',

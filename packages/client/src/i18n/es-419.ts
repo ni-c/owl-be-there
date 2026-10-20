@@ -259,6 +259,8 @@ export const es419: Dictionary = {
   'admin.noPeople': 'Todavía no hay nadie.',
 
   'footer.language': 'Idioma',
+  'language.loadFailed':
+    'No se pudo cargar {language}. Revisa tu conexión y vuelve a cargar la página.',
   'footer.theme': 'Apariencia',
   'footer.privacy': 'Privacidad',
   'footer.imprint': 'Aviso legal',

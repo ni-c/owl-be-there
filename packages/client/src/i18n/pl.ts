@@ -1,7 +1,6 @@
 import { APP_NAME, TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/pl';
-import type { Dictionary } from './en.ts';
-import type { CountedKey } from './index.tsx';
+import type { CountedKey, Dictionary } from './en.ts';
 
 export const pl = {
   'app.name': APP_NAME,
@@ -260,6 +259,8 @@ export const pl = {
   'admin.noPeople': 'Nikogo tu jeszcze nie ma.',
 
   'footer.language': 'Język',
+  'language.loadFailed':
+    'Nie udało się wczytać języka {language}. Sprawdź połączenie i odśwież stronę.',
   'footer.theme': 'Motyw',
   'footer.privacy': 'Prywatność',
   'footer.imprint': 'Informacje prawne',

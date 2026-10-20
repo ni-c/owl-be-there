@@ -7,8 +7,9 @@ import {
 } from '@owl/shared';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Owl } from './components/Owl.tsx';
-import { Select } from './components/ui.tsx';
+import { Notice, Select } from './components/ui.tsx';
 import { I18nProvider, useI18n } from './i18n/index.tsx';
+import type { LanguageStore } from './lib/languageStore.ts';
 import { api } from './lib/api.ts';
 import {
   INSTANCE_LOADING,
@@ -32,9 +33,9 @@ import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { ImprintPage } from './pages/ImprintPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
 
-export function App() {
+export function App({ languages }: { languages: LanguageStore }) {
   return (
-    <I18nProvider>
+    <I18nProvider store={languages}>
       <Shell />
     </I18nProvider>
   );
@@ -65,13 +66,20 @@ function Shell() {
   const route = parseRoute(usePathname());
   const instanceState = useInstance();
   const instance = instanceState.info;
-  const { t, language, setLanguage } = useI18n();
+  const { t, language, choice, loadFailed, setLanguage } = useI18n();
 
-  // `/fr` reached by the back button or a link: the page follows the address.
+  // `/fr` reached by the back button or a link: the page follows the address,
+  // unless French is already on its way or has just failed to load.
   const pathLanguage = route.page === 'home' ? route.language : undefined;
   useEffect(() => {
-    if (pathLanguage && pathLanguage !== language) setLanguage(pathLanguage);
-  }, [pathLanguage, language, setLanguage]);
+    if (
+      pathLanguage &&
+      pathLanguage !== language &&
+      pathLanguage !== choice &&
+      pathLanguage !== loadFailed
+    )
+      setLanguage(pathLanguage);
+  }, [pathLanguage, language, choice, loadFailed, setLanguage]);
 
   // An imprint without its operator details renders the not-found page.
   const heading =
@@ -129,6 +137,16 @@ function Shell() {
         tabIndex={-1}
         className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-12 outline-none! sm:px-6"
       >
+        {loadFailed && (
+          <div className="mb-4">
+            <Notice tone="error">
+              {t('language.loadFailed', {
+                // Isolated, so a name written right to left keeps its place.
+                language: `\u2068${LANGUAGE_NAMES[loadFailed]}\u2069`,
+              })}
+            </Notice>
+          </div>
+        )}
         {page}
       </main>
       <Footer instance={instance} route={route} />
@@ -190,7 +208,7 @@ function Footer({
   instance: InstanceInfoData | null;
   route: Route;
 }) {
-  const { t, language, setLanguage } = useI18n();
+  const { t, choice, setLanguage } = useI18n();
   const imprint = imprintLink(instance);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const choose = (next: ThemeChoice) => {
@@ -207,7 +225,9 @@ function Footer({
             <span className="font-bold">{t('footer.language')}</span>
             <Select
               className={selectClass}
-              value={language}
+              // The choice, not the shown language: a controlled select would
+              // jump back while the new language's texts load.
+              value={choice}
               onChange={(event) => {
                 const next = event.target.value;
                 if (!isLanguage(next)) return;

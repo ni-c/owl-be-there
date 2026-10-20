@@ -1,7 +1,6 @@
 import { APP_NAME, TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/uk';
-import type { Dictionary } from './en.ts';
-import type { CountedKey } from './index.tsx';
+import type { CountedKey, Dictionary } from './en.ts';
 
 export const uk = {
   'app.name': APP_NAME,
@@ -251,6 +250,8 @@ export const uk = {
   'admin.noPeople': 'Тут ще нікого немає.',
 
   'footer.language': 'Мова',
+  'language.loadFailed':
+    'Не вдалося завантажити мову: {language}. Перевір з’єднання й перезавантаж сторінку.',
   'footer.theme': 'Тема',
   'footer.privacy': 'Конфіденційність',
   'footer.imprint': 'Правова інформація',

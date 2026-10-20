@@ -1,7 +1,7 @@
 import { charCount, LANGUAGES, LIMITS, LOCALES, PEOPLE } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
-import { ar } from '../src/i18n/ar.ts';
-import { cs } from '../src/i18n/cs.ts';
+import { ar, arForms } from '../src/i18n/ar.ts';
+import { cs, csFew } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
@@ -10,7 +10,8 @@ import { fa } from '../src/i18n/fa.ts';
 import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
 import { id } from '../src/i18n/id.ts';
-import { interpolate } from '../src/i18n/index.tsx';
+import { dictionaries } from '../src/i18n/dictionaries.ts';
+import { interpolate, translator } from '../src/i18n/index.tsx';
 import { it as italian } from '../src/i18n/it.ts';
 import { ja } from '../src/i18n/ja.ts';
 import { ko } from '../src/i18n/ko.ts';
@@ -56,6 +57,26 @@ const DICTIONARIES = {
   'zh-Hans': zhHans,
   'zh-Hant': zhHant,
 } as const;
+
+describe('dictionaries, loaded when needed', () => {
+  it('ships English and German, and loads the rest as their own modules', async () => {
+    expect(dictionaries.peek('en')?.texts).toBe(en);
+    expect(dictionaries.peek('de')?.texts).toBe(de);
+    expect(dictionaries.peek('fa')).toBeUndefined();
+    expect(() => translator('fa')).toThrow('The fa texts are not loaded');
+    for (const language of LANGUAGES) {
+      const pack = await dictionaries.load(language);
+      expect(pack.texts, language).toBe(DICTIONARIES[language]);
+    }
+    expect(translator('fa').t('footer.language')).toBe(fa['footer.language']);
+  });
+
+  it('brings each language’s own plural forms along', async () => {
+    expect((await dictionaries.load('cs')).forms).toEqual({ few: csFew });
+    expect((await dictionaries.load('ar')).forms).toBe(arForms);
+    expect((await dictionaries.load('fr')).forms).toBeUndefined();
+  });
+});
 
 describe('interpolate', () => {
   it('leaves placeholders named like Object.prototype members visible', () => {

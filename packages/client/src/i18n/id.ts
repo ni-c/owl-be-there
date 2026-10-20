@@ -256,6 +256,8 @@ export const id = {
   'admin.noPeople': 'Belum ada peserta.',
 
   'footer.language': 'Bahasa',
+  'language.loadFailed':
+    'Gagal memuat {language}. Periksa koneksimu lalu muat ulang halaman.',
   'footer.theme': 'Tema',
   'footer.privacy': 'Privasi',
   'footer.imprint': 'Informasi hukum',

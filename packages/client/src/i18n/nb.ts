@@ -256,6 +256,8 @@ export const nb = {
   'admin.noPeople': 'Ingen her ennå.',
 
   'footer.language': 'Språk',
+  'language.loadFailed':
+    'Kunne ikke laste inn {language}. Sjekk tilkoblingen og last inn siden på nytt.',
   'footer.theme': 'Tema',
   'footer.privacy': 'Personvern',
   'footer.imprint': 'Juridisk informasjon',

@@ -248,6 +248,8 @@ export const ko: Dictionary = {
   'admin.noPeople': '아직 아무도 없어요.',
 
   'footer.language': '언어',
+  'language.loadFailed':
+    '{language} 언어를 불러오지 못했어요. 연결을 확인하고 페이지를 새로고침해 주세요.',
   'footer.theme': '테마',
   'footer.privacy': '개인정보',
   'footer.imprint': '법적 고지',

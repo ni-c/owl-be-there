@@ -262,6 +262,8 @@ export const es: Dictionary = {
   'admin.noPeople': 'Aún no hay nadie.',
 
   'footer.language': 'Idioma',
+  'language.loadFailed':
+    'No se ha podido cargar {language}. Comprueba tu conexión y vuelve a cargar la página.',
   'footer.theme': 'Apariencia',
   'footer.privacy': 'Privacidad',
   'footer.imprint': 'Aviso legal',

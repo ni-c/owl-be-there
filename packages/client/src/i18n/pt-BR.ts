@@ -255,6 +255,8 @@ export const ptBr: Dictionary = {
   'admin.noPeople': 'Ninguém por aqui ainda.',
 
   'footer.language': 'Idioma',
+  'language.loadFailed':
+    'Não foi possível carregar {language}. Verifique sua conexão e recarregue a página.',
   'footer.theme': 'Tema',
   'footer.privacy': 'Privacidade',
   'footer.imprint': 'Informações legais',

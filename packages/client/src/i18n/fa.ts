@@ -256,6 +256,8 @@ export const fa = {
   'admin.noPeople': 'هنوز کسی اینجا نیست.',
 
   'footer.language': 'زبان',
+  'language.loadFailed':
+    'بارگیری {language} ممکن نشد. اتصالت را بررسی کن و صفحه را دوباره بارگیری کن.',
   'footer.theme': 'پوسته',
   'footer.privacy': 'حریم خصوصی',
   'footer.imprint': 'اطلاعات حقوقی',

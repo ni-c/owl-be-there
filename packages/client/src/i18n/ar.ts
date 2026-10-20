@@ -1,7 +1,6 @@
 import { APP_NAME, TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ar';
-import type { Dictionary } from './en.ts';
-import type { CountedKey } from './index.tsx';
+import type { CountedKey, Dictionary } from './en.ts';
 
 export const ar = {
   'app.name': APP_NAME,
@@ -247,6 +246,8 @@ export const ar = {
   'admin.noPeople': 'لا أحد هنا بعد.',
 
   'footer.language': 'اللغة',
+  'language.loadFailed':
+    'تعذّر تحميل {language}. تحقّق من اتصالك وأعد تحميل الصفحة.',
   'footer.theme': 'المظهر',
   'footer.privacy': 'الخصوصية',
   'footer.imprint': 'البيانات القانونية',

@@ -253,6 +253,8 @@ export const tr = {
   'admin.noPeople': 'Henüz kimse yok.',
 
   'footer.language': 'Dil',
+  'language.loadFailed':
+    '{language} yüklenemedi. Bağlantını kontrol et ve sayfayı yenile.',
   'footer.theme': 'Tema',
   'footer.privacy': 'Gizlilik',
   'footer.imprint': 'Yasal bilgiler',

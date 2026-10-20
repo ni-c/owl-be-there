@@ -251,6 +251,8 @@ export const ja: Dictionary = {
   'admin.noPeople': 'まだ参加者がいません。',
 
   'footer.language': '言語',
+  'language.loadFailed':
+    '{language}を読み込めませんでした。接続を確認して、ページを再読み込みしてください。',
   'footer.theme': '表示',
   'footer.privacy': 'プライバシー',
   'footer.imprint': '運営者情報',

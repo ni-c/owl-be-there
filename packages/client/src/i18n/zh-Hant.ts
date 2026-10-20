@@ -240,6 +240,8 @@ export const zhHant = {
   'admin.noPeople': '目前還沒有參加者。',
 
   'footer.language': '語言',
+  'language.loadFailed':
+    '無法載入{language}。請檢查網路連線，然後重新整理頁面。',
   'footer.theme': '主題',
   'footer.privacy': '隱私',
   'footer.imprint': '法律資訊',

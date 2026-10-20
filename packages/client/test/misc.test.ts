@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ar, arForms } from '../src/i18n/ar.ts';
 import { cs, csFew } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
@@ -25,6 +25,7 @@ import { ur } from '../src/i18n/ur.ts';
 import { vi as vietnamese } from '../src/i18n/vi.ts';
 import { zhHans } from '../src/i18n/zh-Hans.ts';
 import { zhHant } from '../src/i18n/zh-Hant.ts';
+import { preloadAllDictionaries } from '../src/i18n/dictionaries.ts';
 import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
@@ -43,6 +44,9 @@ import {
   subscribeToRoute,
 } from '../src/lib/route.ts';
 import { installBrowser } from './browser.ts';
+
+// translator() needs a language's texts loaded; here, every language.
+beforeAll(preloadAllDictionaries);
 
 afterEach(() => {
   vi.unstubAllGlobals();

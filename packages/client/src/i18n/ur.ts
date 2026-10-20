@@ -253,6 +253,8 @@ export const ur = {
   'admin.noPeople': 'ابھی یہاں کوئی نہیں۔',
 
   'footer.language': 'زبان',
+  'language.loadFailed':
+    '{language} زبان لوڈ نہیں ہو سکی۔ اپنا کنکشن چیک کریں اور صفحہ دوبارہ لوڈ کریں۔',
   'footer.theme': 'تھیم',
   'footer.privacy': 'رازداری',
   'footer.imprint': 'قانونی معلومات',

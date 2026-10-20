@@ -240,6 +240,8 @@ export const zhHans = {
   'admin.noPeople': '目前还没有参与者。',
 
   'footer.language': '语言',
+  'language.loadFailed':
+    '无法加载{language}。请检查网络连接，然后重新加载页面。',
   'footer.theme': '主题',
   'footer.privacy': '隐私',
   'footer.imprint': '法律信息',

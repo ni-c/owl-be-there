@@ -252,6 +252,8 @@ export const vi = {
   'admin.noPeople': 'Chưa có ai.',
 
   'footer.language': 'Ngôn ngữ',
+  'language.loadFailed':
+    'Không tải được {language}. Hãy kiểm tra kết nối rồi tải lại trang.',
   'footer.theme': 'Giao diện',
   'footer.privacy': 'Quyền riêng tư',
   'footer.imprint': 'Thông tin pháp lý',

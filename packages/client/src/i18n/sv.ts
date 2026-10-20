@@ -254,6 +254,8 @@ export const sv = {
   'admin.noPeople': 'Ingen här ännu.',
 
   'footer.language': 'Språk',
+  'language.loadFailed':
+    'Det gick inte att läsa in {language}. Kontrollera anslutningen och ladda om sidan.',
   'footer.theme': 'Tema',
   'footer.privacy': 'Integritet',
   'footer.imprint': 'Juridisk information',
