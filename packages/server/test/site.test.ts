@@ -393,6 +393,19 @@ describe('pages', () => {
     expect(arabic.statusCode).toBe(200);
     expect(arabic.body).toContain('<html lang="ar" dir="rtl">');
     expect(arabic.body).toContain('اعثر على يوم يناسب الجميع.');
+    for (const [url, html] of [
+      ['/fa', '<html lang="fa" dir="rtl">'],
+      ['/ur', '<html lang="ur" dir="rtl">'],
+      ['/es-419', '<html lang="es-419">'],
+      ['/pt-BR', '<html lang="pt-BR">'],
+    ] as const) {
+      const page = await t.app.inject({ method: 'GET', url });
+      expect(page.statusCode, url).toBe(200);
+      expect(page.body, url).toContain(html);
+      expect(page.body, url).toContain(
+        `<link rel="canonical" href="https://owl.example.org${url}" />`
+      );
+    }
   });
 
   it('names every language version of the start page, and / as the default', async () => {

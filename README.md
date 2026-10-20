@@ -31,12 +31,12 @@ It is a cross between [Rallly](https://github.com/lukevella/rallly) (whole-day p
 - **No accounts:** your name, and a password only if you want one. The organiser gets a private admin link to edit the event, correct entries, close it, and choose the date — with a calendar file and a Google Calendar link for everyone.
 - **Sharing:** the system share sheet with a ready-made invitation, the link to copy, and a QR code. Messengers show a link preview with the title, the state of the poll and the candidate days as a small calendar coloured like the heatmap — never names, never the description.
 - **Minimal data:** no e-mail addresses, no IP addresses, no cookies, no tracking, no third-party requests. Events delete themselves 90 days after the last change; an event nobody answered goes even if its days lie later, an answered one never before its last candidate day.
-- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Arabic (right to left), Czech, Dutch, English, Finnish, French, German, Indonesian, Italian, Japanese, Korean, Norwegian Bokmål, Polish, Portuguese, Russian, Simplified Chinese, Spanish, Swedish, Traditional Chinese, Turkish, Ukrainian and Vietnamese.
+- **Made for phones:** the whole range in one calendar, big tap targets, dark mode, Arabic, Persian and Urdu (right to left), Czech, Dutch, English, Finnish, French, German, Indonesian, Italian, Japanese, Korean, Norwegian Bokmål, Polish, Portuguese (Portugal and Brazil), Russian, Simplified Chinese, Spanish (Spain and Latin America), Swedish, Traditional Chinese, Turkish, Ukrainian and Vietnamese.
 - **Self-hostable:** one container, one SQLite file.
 
 The Japanese interface, and the link previews in Japanese, Korean and Traditional Chinese, use a locally hosted Noto Sans CJK JP font (© 2014–2021 Adobe). Its SIL Open Font License is included with the font files.
 The Simplified Chinese interface and link previews use a locally hosted Noto Sans CJK SC font under the same license.
-The Arabic interface and link previews use locally hosted Noto Sans Arabic fonts. Their Apache License 2.0 is included with the font files.
+The Arabic, Persian and Urdu interface and link previews use locally hosted Noto Sans Arabic fonts. Their Apache License 2.0 is included with the font files.
 Link previews draw everything else in Nunito, bundled with the server under its SIL Open Font License.
 
 ## Self-hosting

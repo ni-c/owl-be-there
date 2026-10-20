@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
 import {
+  isRtl,
   previewNeedsCjk,
   previewSvg,
   PREVIEW_WIDTH,
@@ -289,7 +290,7 @@ export class PreviewRenderer {
       }
     }
     let arabic = false;
-    if (data.event.language === 'ar' || hasArabic(data.event.title)) {
+    if (isRtl(data.event.language) || hasArabic(data.event.title)) {
       const loaded = await this.arabic.get();
       if (loaded) {
         fonts.push(...loaded);

@@ -1,4 +1,4 @@
-import { LANGUAGES, LOCALES, type Language } from '@owl/shared';
+import { isRtl, LANGUAGES, LOCALES, type Language } from '@owl/shared';
 import {
   createContext,
   useCallback,
@@ -14,6 +14,8 @@ import { cs, csFew } from './cs.ts';
 import { de } from './de.ts';
 import { en, type Dictionary, type TranslationKey } from './en.ts';
 import { es } from './es.ts';
+import { es419 } from './es-419.ts';
+import { fa } from './fa.ts';
 import { fi } from './fi.ts';
 import { fr } from './fr.ts';
 import { id } from './id.ts';
@@ -24,10 +26,12 @@ import { nb } from './nb.ts';
 import { nl } from './nl.ts';
 import { pl, plFew } from './pl.ts';
 import { pt } from './pt.ts';
+import { ptBr } from './pt-BR.ts';
 import { ru, ruFew } from './ru.ts';
 import { sv } from './sv.ts';
 import { tr } from './tr.ts';
 import { uk, ukFew } from './uk.ts';
+import { ur } from './ur.ts';
 import { vi } from './vi.ts';
 import { zhHans } from './zh-Hans.ts';
 import { zhHant } from './zh-Hant.ts';
@@ -38,6 +42,8 @@ const DICTIONARIES: Record<Language, Dictionary> = {
   de,
   en,
   es,
+  'es-419': es419,
+  fa,
   fi,
   fr,
   id,
@@ -48,10 +54,12 @@ const DICTIONARIES: Record<Language, Dictionary> = {
   nl,
   pl,
   pt,
+  'pt-BR': ptBr,
   ru,
   sv,
   tr,
   uk,
+  ur,
   vi,
   'zh-Hans': zhHans,
   'zh-Hant': zhHant,
@@ -94,6 +102,9 @@ export function detectLanguage(
     if (/^zh-(hant|tw|hk|mo)(-|$)/.test(normalized)) return 'zh-Hant';
     if (normalized === 'zh' || /^zh-(hans|cn|sg)(-|$)/.test(normalized))
       return 'zh-Hans';
+    if (/^pt-br(-|$)/.test(normalized)) return 'pt-BR';
+    // Spain says vosotros; every other region gets the Latin American texts.
+    if (/^es-(?!es(-|$))/.test(normalized)) return 'es-419';
     const base = normalized.split('-')[0]!;
     if (base === 'no') return 'nb';
     const match = LANGUAGES.find((language) => language === base);
@@ -105,8 +116,20 @@ export function detectLanguage(
 export function translator(language: Language) {
   const dictionary = DICTIONARIES[language];
   const plural = new Intl.PluralRules(LOCALES[language]);
+  const digits = new Intl.NumberFormat(LOCALES[language], {
+    useGrouping: false,
+  });
+  /** A number in the language's own digits: Persian writes ۲۳, as its dates do. */
+  const number = (value: number): string => digits.format(value);
+  const localized = (params: Params = {}): Params =>
+    Object.fromEntries(
+      Object.entries(params).map(([name, value]) => [
+        name,
+        typeof value === 'number' ? number(value) : value,
+      ])
+    );
   const t = (key: TranslationKey, params?: Params): string =>
-    interpolate(dictionary[key], params);
+    interpolate(dictionary[key], localized(params));
   /** A counted text: `{count}` is filled in and the plural form chosen. */
   const tn = (key: CountedKey, count: number, params: Params = {}): string => {
     const category = plural.select(count);
@@ -118,12 +141,9 @@ export function translator(language: Language) {
       dictionary[
         `${key}_${category === 'one' ? 'one' : 'other'}` as TranslationKey
       ];
-    return interpolate(text, {
-      ...params,
-      count,
-    });
+    return interpolate(text, localized({ ...params, count }));
   };
-  return { t, tn };
+  return { t, tn, number };
 }
 
 interface I18n {
@@ -132,6 +152,7 @@ interface I18n {
   setLanguage(language: Language): void;
   t(key: TranslationKey, params?: Params): string;
   tn(key: CountedKey, count: number, params?: Params): string;
+  number(value: number): string;
 }
 
 const I18nContext = createContext<I18n | null>(null);
@@ -150,7 +171,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
   const value = useMemo<I18n>(() => {
     document.documentElement.lang = language;
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.dir = isRtl(language) ? 'rtl' : 'ltr';
     return {
       language,
       locale: LOCALES[language],

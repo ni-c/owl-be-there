@@ -11,7 +11,7 @@ import { buildWeeks } from './grid.js';
 import { heatLevel, heatOf, respondentOf, tally } from './ranking.js';
 import type { EventSnapshotData } from './schemas.js';
 import { escapeMarkup } from './text.js';
-import { LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
+import { isRtl, LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
 
 /**
  * The picture link previews show for an event: its title, the state of the
@@ -232,7 +232,7 @@ export function previewSvg(
   const e = escapeMarkup;
   const status = previewStatus(texts, data, locale);
 
-  const rtl = event.language === 'ar';
+  const rtl = isRtl(event.language);
   const left = rtl ? 1128 : 72;
   const textAttributes = rtl ? ' direction="rtl" text-anchor="end"' : '';
   const columnWidth = 590;
@@ -317,25 +317,34 @@ export function previewSvg(
   const headY = top + 84;
   // An event has at least one candidate day, so there is a first week.
   const rowStart = weeks[0]![0]!.day;
-  for (let index = 0; index < 7; index += 1) {
-    const name = formatDay(addDays(rowStart, index), locale, {
-      weekday: 'narrow',
-    });
+  // Urdu's narrow weekday names are Latin letters: it takes the short ones, in
+  // a size that fits the widest into a cell.
+  const names = Array.from({ length: 7 }, (_, index) =>
+    formatDay(addDays(rowStart, index), locale, {
+      weekday: locale.startsWith('ur') ? 'short' : 'narrow',
+    })
+  );
+  const headSize = Math.min(
+    22,
+    Math.floor(cell / Math.max(...names.map((name) => textWidth(name, 1))))
+  );
+  names.forEach((name, index) => {
     parts.push(
-      `<text x="${gridX + (rtl ? 6 - index : index) * (cell + gap) + cell / 2}" y="${headY}" font-size="22" font-weight="800"${arabicFont(name)} text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
+      `<text x="${gridX + (rtl ? 6 - index : index) * (cell + gap) + cell / 2}" y="${headY}" font-size="${headSize}" font-weight="800"${arabicFont(name)} text-anchor="middle" fill="${PREVIEW_COLOURS.muted}">${e(name)}</text>`
     );
-  }
+  });
   weeks.forEach((row, rowIndex) => {
     const cy = headY + 20 + rowIndex * (cell + gap);
     row.forEach((c, index) => {
       const cx = gridX + (rtl ? 6 - index : index) * (cell + gap);
+      // Without what follows the digits ("23日"); Persian digits are digits too.
       const number = formatDay(c.day, locale, { day: 'numeric' }).replace(
-        /\D+$/,
+        /\P{Nd}+$/u,
         ''
       );
       if (c.level === null) {
         parts.push(
-          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" text-anchor="middle" fill="${PREVIEW_COLOURS.line}">${e(number)}</text>`
+          `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22"${arabicFont(number)} text-anchor="middle" fill="${PREVIEW_COLOURS.line}">${e(number)}</text>`
         );
         return;
       }
@@ -349,7 +358,7 @@ export function previewSvg(
           : '';
       parts.push(
         `<rect x="${cx}" y="${cy}" width="${cell}" height="${cell}" rx="14" fill="${fill}"${stroke}/>`,
-        `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" font-weight="800" text-anchor="middle" fill="${ink}">${e(number)}</text>`
+        `<text x="${cx + cell / 2}" y="${cy + 34}" font-size="22" font-weight="800"${arabicFont(number)} text-anchor="middle" fill="${ink}">${e(number)}</text>`
       );
     });
   });

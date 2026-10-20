@@ -38,11 +38,21 @@ export function weekdayName(
   return formatDay(addDays('2024-01-01', weekday), locale, { weekday: style });
 }
 
-/** A calendar column's heading. Arabic has no short names, only full ones and letters. */
+/**
+ * A calendar column's heading. Arabic and Persian have no short names, only
+ * full ones and letters, and Vietnamese calendars head columns T2 … CN; Urdu's
+ * letters are Latin, so it keeps its short names.
+ */
 export function weekdayHeading(weekday: Weekday, locale: string): string {
+  const base = locale.split('-')[0];
   return weekdayName(
     weekday,
     locale,
-    locale.split('-')[0] === 'ar' ? 'narrow' : 'short'
+    base === 'ar' || base === 'fa' || base === 'vi' ? 'narrow' : 'short'
   );
+}
+
+/** Whether the column headings need the small size: Urdu's full names (جمعرات) in a wide script. */
+export function longWeekdayHeadings(locale: string): boolean {
+  return locale.split('-')[0] === 'ur';
 }

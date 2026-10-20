@@ -36,7 +36,7 @@ const BEST_SHOWN = 5;
 
 export function GroupView(props: GroupViewProps) {
   const { data, adminToken, today, store } = props;
-  const { t, locale } = useI18n();
+  const { t, locale, number } = useI18n();
   const { event } = data;
   const [hiddenIds, setHidden] = useState<Set<string>>(new Set());
   const [openDayState, setOpenDay] = useState<ISODate | null>(null);
@@ -180,7 +180,11 @@ export function GroupView(props: GroupViewProps) {
                       onClick={() => setSelected(isSelected ? null : block)}
                     >
                       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-sunken font-black">
-                        {index === 0 ? <StarIcon size={16} /> : index + 1}
+                        {index === 0 ? (
+                          <StarIcon size={16} />
+                        ) : (
+                          number(index + 1)
+                        )}
                       </span>
                       <span className="flex flex-col">
                         <span className="font-extrabold">
@@ -330,7 +334,7 @@ function DayDetails({
   everyone: Respondent[];
   names: Map<string, { name: string; note: string | null }>;
 }) {
-  const { t } = useI18n();
+  const { t, number } = useI18n();
   const dayTally = tally(people, [day]);
   const style = {
     yes: {
@@ -387,7 +391,8 @@ function DayDetails({
                 }`}
                 aria-hidden="true"
               />
-              {group.label} <span className="text-muted">· {ids.length}</span>
+              {group.label}{' '}
+              <span className="text-muted">· {number(ids.length)}</span>
             </h4>
             {!empty && (
               <ul className="flex flex-wrap gap-1.5">

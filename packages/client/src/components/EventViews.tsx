@@ -33,7 +33,7 @@ export function EventViews(props: {
   headingLevel?: 2 | 3;
 }) {
   const { mine, group, answered, tab, onTab } = props;
-  const { t, tn } = useI18n();
+  const { t, tn, number } = useI18n();
   const wide = useWide();
   const id = useId();
   const Heading = props.headingLevel === 3 ? 'h3' : 'h2';
@@ -99,7 +99,7 @@ export function EventViews(props: {
                   aria-hidden="true"
                   className="ms-1.5 inline-grid min-w-6 place-items-center rounded-full bg-line px-1.5 text-sm text-ink"
                 >
-                  {answered}
+                  {number(answered)}
                 </span>
                 <span className="sr-only">
                   , {tn('event.answers', answered)}

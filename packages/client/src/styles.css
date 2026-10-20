@@ -207,13 +207,21 @@ body {
   font-display: swap;
 }
 
-html:lang(ar) body {
+html:lang(ar) body,
+html:lang(fa) body,
+html:lang(ur) body {
   font-family: 'Noto Sans Arabic', 'Nunito Variable', sans-serif;
 }
 
 html:lang(ar) input[type='date'],
 html:lang(ar) input[type='email'],
-html:lang(ar) input[type='url'] {
+html:lang(ar) input[type='url'],
+html:lang(fa) input[type='date'],
+html:lang(fa) input[type='email'],
+html:lang(fa) input[type='url'],
+html:lang(ur) input[type='date'],
+html:lang(ur) input[type='email'],
+html:lang(ur) input[type='url'] {
   direction: ltr;
 }
 

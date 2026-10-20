@@ -172,6 +172,62 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.privacy.q': '¿Qué pasa con nuestros datos?',
     'home.faq.privacy.a': `Solo se guardan los nombres y los días que introducís: ni correos electrónicos, ni direcciones IP, ni cookies. Los eventos se borran solos, normalmente ${RETENTION_DAYS} días después del último cambio.`,
   },
+  'es-419': {
+    'home.lead':
+      '¿Cuándo pueden juntarse todos? Marquen sus días en el calendario y descúbranlo. Sin registro ni rastreo.',
+    'home.feature.heat.title': 'Vean qué día les queda mejor',
+    'home.feature.heat.text':
+      'El calendario se convierte en un mapa de calor y muestra los días en que puede venir más gente. También sirve para fines de semana o torneos de varios días.',
+    'home.feature.private.title': 'Sin cuentas',
+    'home.feature.private.text':
+      'Basta con tu nombre. Sin correo electrónico, cookies ni rastreo. Los eventos viejos se eliminan solos.',
+    'home.faq.title': 'Preguntas',
+    'home.faq.free.q': '¿Cuesta algo?',
+    'home.faq.free.a':
+      'No. Owl Be There es gratuito y de código abierto, y cualquiera puede instalarlo en su propio servidor.',
+    'home.faq.account.q': '¿Necesito una cuenta?',
+    'home.faq.account.a':
+      'No. Cada persona elige un nombre y listo. Quien organiza el evento recibe un enlace privado para administrarlo.',
+    'home.faq.doodle.q': '¿En qué se diferencia de Doodle?',
+    'home.faq.doodle.a':
+      'Owl Be There está pensado para días completos: cada persona marca los días en que puede y el mapa de calor muestra de un vistazo qué día queda mejor. No hay cuentas ni rastreo, y los eventos viejos se eliminan solos.',
+    'home.faq.days.q': '¿Podemos buscar un fin de semana completo?',
+    'home.faq.days.a':
+      'Sí. Pidan dos o más días seguidos y Owl Be There ordena los bloques en los que puede más gente, con un mínimo de asistentes si lo necesitan.',
+    'home.faq.messenger.q': '¿Cómo invito al grupo?',
+    'home.faq.messenger.a':
+      'Envía el enlace al chat del grupo o muestra el código QR. WhatsApp, Telegram y otras apps de mensajería muestran una vista previa con el título y los días posibles. Nadie tiene que instalar nada.',
+    'home.faq.privacy.q': '¿Qué pasa con nuestros datos?',
+    'home.faq.privacy.a': `Solo se guardan los nombres y los días que ingresan: ni correos electrónicos, ni direcciones IP, ni cookies. Los eventos se eliminan solos, normalmente ${RETENTION_DAYS} días después del último cambio.`,
+  },
+  fa: {
+    'home.lead':
+      'همهٔ شما کی می‌توانید؟ روزهایتان را در تقویم علامت بزنید و پیدایش کنید. بدون ثبت‌نام و بدون ردیابی.',
+    'home.feature.heat.title': 'ببینید کی جور درمی‌آید',
+    'home.feature.heat.text':
+      'تقویم به نقشهٔ حرارتی تبدیل می‌شود و روزهایی را نشان می‌دهد که بیشترِ افراد می‌توانند؛ حتی برای آخر هفته‌ها یا مسابقه‌های چندروزه.',
+    'home.feature.private.title': 'بدون حساب کاربری',
+    'home.feature.private.text':
+      'یک نام کافی است. بدون ایمیل، کوکی یا ردیابی. رویدادهای قدیمی خودکار پاک می‌شوند.',
+    'home.faq.title': 'پرسش‌ها',
+    'home.faq.free.q': 'هزینه‌ای دارد؟',
+    'home.faq.free.a':
+      'نه. Owl Be There رایگان و متن‌باز است و هر کسی می‌تواند آن را روی سرور خودش اجرا کند.',
+    'home.faq.account.q': 'به حساب کاربری نیاز دارم؟',
+    'home.faq.account.a':
+      'نه. هر کس فقط یک نام انتخاب می‌کند. کسی که رویداد را برنامه‌ریزی می‌کند، یک لینک خصوصی برای مدیریت آن می‌گیرد.',
+    'home.faq.doodle.q': 'چه فرقی با Doodle دارد؟',
+    'home.faq.doodle.a':
+      'Owl Be There برای روزهای کامل ساخته شده است: همه روزهایی را که می‌توانند علامت می‌زنند و نقشهٔ حرارتی با یک نگاه نشان می‌دهد کدام روز بهتر است. نه حساب کاربری در کار است و نه ردیابی، و رویدادهای قدیمی خودکار پاک می‌شوند.',
+    'home.faq.days.q': 'می‌توانیم دنبال یک آخر هفتهٔ کامل بگردیم؟',
+    'home.faq.days.a':
+      'بله. دو روز یا بیشتر پشت سر هم بخواهید تا Owl Be There بازه‌هایی را که بیشترِ افراد می‌توانند به ترتیب نشان دهد؛ اگر لازم باشد با حداقل تعداد نفرات.',
+    'home.faq.messenger.q': 'گروه را چطور دعوت کنم؟',
+    'home.faq.messenger.a':
+      'لینک را در گروه چت بفرست یا کد QR را نشان بده. واتس‌اپ، تلگرام و پیام‌رسان‌های دیگر پیش‌نمایشی با عنوان و روزهای پیشنهادی نشان می‌دهند. لازم نیست کسی چیزی نصب کند.',
+    'home.faq.privacy.q': 'با داده‌های ما چه می‌شود؟',
+    'home.faq.privacy.a': `فقط نام‌ها و روزهایی که وارد می‌کنید ذخیره می‌شوند: نه نشانی ایمیل، نه نشانی IP، نه کوکی. رویدادها خودشان پاک می‌شوند، معمولاً ${RETENTION_DAYS} روز پس از آخرین تغییر.`,
+  },
   fi: {
     'home.lead':
       'Milloin kaikille sopii? Merkitse sopivat päivät kalenteriin ja ota selvää. Ei rekisteröitymistä eikä seurantaa.',
@@ -424,6 +480,34 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
     'home.faq.privacy.q': 'O que acontece aos nossos dados?',
     'home.faq.privacy.a': `Só são guardados os nomes e os dias que introduzem: nada de e-mails, endereços IP ou cookies. Os eventos apagam-se sozinhos, normalmente ${RETENTION_DAYS} dias depois da última alteração.`,
   },
+  'pt-BR': {
+    'home.lead':
+      'Quando todo mundo pode? Marquem seus dias no calendário e descubram. Sem cadastro nem rastreamento.',
+    'home.feature.heat.title': 'Vejam quando dá certo',
+    'home.feature.heat.text':
+      'O calendário vira um mapa de calor e mostra os dias em que mais gente pode — também para fins de semana ou torneios de vários dias.',
+    'home.feature.private.title': 'Sem contas',
+    'home.feature.private.text':
+      'Basta um nome. Sem e-mail, cookies nem rastreamento. Eventos antigos são excluídos automaticamente.',
+    'home.faq.title': 'Perguntas',
+    'home.faq.free.q': 'Custa alguma coisa?',
+    'home.faq.free.a':
+      'Não. O Owl Be There é gratuito e de código aberto, e qualquer pessoa pode hospedá-lo no próprio servidor.',
+    'home.faq.account.q': 'Preciso de uma conta?',
+    'home.faq.account.a':
+      'Não. Cada pessoa só escolhe um nome. Quem organiza o evento recebe um link privado para gerenciá-lo.',
+    'home.faq.doodle.q': 'Qual é a diferença para o Doodle?',
+    'home.faq.doodle.a':
+      'O Owl Be There foi feito para dias inteiros: cada pessoa marca os dias em que pode, e o mapa de calor mostra de relance qual dia funciona melhor. Não há contas nem rastreamento, e eventos antigos são excluídos automaticamente.',
+    'home.faq.days.q': 'Dá para procurar um fim de semana inteiro?',
+    'home.faq.days.a':
+      'Sim. Peçam dois ou mais dias seguidos, e o Owl Be There ordena os blocos em que mais gente pode — com um número mínimo de pessoas, se precisarem.',
+    'home.faq.messenger.q': 'Como eu convido o grupo?',
+    'home.faq.messenger.a':
+      'Mande o link no chat do grupo ou mostre o código QR. O WhatsApp, o Signal e outros apps de mensagem mostram uma prévia com o título e os dias possíveis. Ninguém precisa instalar nada.',
+    'home.faq.privacy.q': 'O que acontece com os nossos dados?',
+    'home.faq.privacy.a': `Só ficam salvos os nomes e os dias que vocês informam: nada de e-mails, endereços IP ou cookies. Os eventos se excluem sozinhos, normalmente ${RETENTION_DAYS} dias depois da última alteração.`,
+  },
   ru: {
     'home.lead':
       'Когда всем удобно? Отметьте подходящие дни в календаре и найдите лучший вариант. Без регистрации и отслеживания.',
@@ -535,6 +619,34 @@ export const HOME_TEXTS: Record<Language, Record<HomeKey, string>> = {
       'Надішли посилання в груповий чат або покажи QR-код. WhatsApp, Signal та інші месенджери показують попередній перегляд із назвою і можливими днями. Нікому нічого не треба встановлювати.',
     'home.faq.privacy.q': 'Що відбувається з нашими даними?',
     'home.faq.privacy.a': `Зберігаються лише імена й дні, які ви вводите: жодних адрес електронної пошти, IP-адрес чи cookie. Події видаляються самі, зазвичай через ${RETENTION_DAYS} днів після останньої зміни.`,
+  },
+  ur: {
+    'home.lead':
+      'آپ سب کب آ سکتے ہیں؟ کیلنڈر پر اپنے دن نشان زد کریں اور جان لیں۔ نہ رجسٹریشن، نہ ٹریکنگ۔',
+    'home.feature.heat.title': 'دیکھیں کب بات بنتی ہے',
+    'home.feature.heat.text':
+      'کیلنڈر ہیٹ میپ بن جاتا ہے اور وہ دن دکھاتا ہے جن میں زیادہ تر لوگ آ سکیں، ویک اینڈ یا کئی دن کے ٹورنامنٹ کے لیے بھی۔',
+    'home.feature.private.title': 'کوئی اکاؤنٹ نہیں',
+    'home.feature.private.text':
+      'ایک نام کافی ہے۔ نہ ای میل، نہ کوکیز، نہ ٹریکنگ۔ پرانے ایونٹس خود بخود مٹ جاتے ہیں۔',
+    'home.faq.title': 'سوالات',
+    'home.faq.free.q': 'کیا اس کی کوئی قیمت ہے؟',
+    'home.faq.free.a':
+      'نہیں۔ Owl Be There مفت اور اوپن سورس ہے، اور کوئی بھی اسے اپنے سرور پر چلا سکتا ہے۔',
+    'home.faq.account.q': 'کیا اکاؤنٹ ضروری ہے؟',
+    'home.faq.account.a':
+      'نہیں۔ ہر کوئی بس ایک نام چنتا ہے۔ ایونٹ پلان کرنے والے کو اسے سنبھالنے کے لیے ایک نجی لنک ملتا ہے۔',
+    'home.faq.doodle.q': 'یہ Doodle سے کیسے مختلف ہے؟',
+    'home.faq.doodle.a':
+      'Owl Be There پورے دنوں کے لیے بنا ہے: ہر کوئی وہ دن نشان زد کرتا ہے جن میں وہ آ سکے، اور ہیٹ میپ ایک نظر میں دکھاتا ہے کہ کون سا دن سب سے بہتر ہے۔ نہ اکاؤنٹ ہیں نہ ٹریکنگ، اور پرانے ایونٹس خود بخود مٹ جاتے ہیں۔',
+    'home.faq.days.q': 'کیا ہم پورا ویک اینڈ تلاش کر سکتے ہیں؟',
+    'home.faq.days.a':
+      'جی ہاں۔ مسلسل دو یا زیادہ دن مانگیں، اور Owl Be There وہ سلسلے ترتیب سے دکھاتا ہے جن میں زیادہ تر لوگ آ سکیں، چاہیں تو کم از کم تعداد کے ساتھ۔',
+    'home.faq.messenger.q': 'میں گروپ کو کیسے بلاؤں؟',
+    'home.faq.messenger.a':
+      'لنک اپنے گروپ چیٹ میں بھیجیں یا QR کوڈ دکھائیں۔ WhatsApp، Signal اور دوسرے میسنجر عنوان اور ممکنہ دنوں کے ساتھ پیش منظر دکھاتے ہیں۔ کسی کو کچھ انسٹال نہیں کرنا پڑتا۔',
+    'home.faq.privacy.q': 'ہمارے ڈیٹا کا کیا ہوتا ہے؟',
+    'home.faq.privacy.a': `صرف وہ نام اور دن محفوظ ہوتے ہیں جو آپ درج کریں: نہ ای میل پتے، نہ IP پتے، نہ کوکیز۔ ایونٹس عام طور پر آخری تبدیلی کے ${RETENTION_DAYS} دن بعد خود بخود مٹ جاتے ہیں۔`,
   },
   vi: {
     'home.lead':

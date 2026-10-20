@@ -18,17 +18,20 @@ import {
   isId,
   isLanguage,
   isoFromDayNumber,
+  isRtl,
   LAST_DAY,
   LANGUAGE_NAMES,
   LANGUAGES,
   languagesByName,
   LIMITS,
+  LOCALES,
   makeId,
   MarksBody,
   maxISODate,
   nameKey,
   NewPassword,
   RETENTION_DAYS,
+  RTL_LANGUAGES,
   SERVER_TEXTS,
   APP_NAME,
   DESCRIPTION_EN,
@@ -792,7 +795,31 @@ describe('texts', () => {
     expect(isLanguage('uk')).toBe(true);
     expect(isLanguage('vi')).toBe(true);
     expect(isLanguage('ko')).toBe(true);
+    expect(isLanguage('pt-BR')).toBe(true);
+    expect(isLanguage('es-419')).toBe(true);
+    expect(isLanguage('es-MX')).toBe(false);
+    expect(isLanguage('fa')).toBe(true);
+    expect(isLanguage('ur')).toBe(true);
     expect(isLanguage('da')).toBe(false);
+  });
+
+  it('knows which languages are written right to left', () => {
+    expect(RTL_LANGUAGES).toEqual(['ar', 'fa', 'ur']);
+    expect(isRtl('ar')).toBe(true);
+    expect(isRtl('fa')).toBe(true);
+    expect(isRtl('ur')).toBe(true);
+    expect(isRtl('en')).toBe(false);
+    expect(isRtl('he' as never)).toBe(false);
+    expect(LANGUAGES.filter(isRtl)).toEqual([...RTL_LANGUAGES]);
+  });
+
+  it('formats Persian dates in the Gregorian calendar, with Persian digits', () => {
+    const format = new Intl.DateTimeFormat(LOCALES.fa, {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    });
+    expect(format.format(Date.UTC(2026, 9, 23))).toBe('۲۳ اکتبر');
   });
 
   it('lists its languages by code, and by their own names for the picker', () => {
@@ -802,6 +829,8 @@ describe('texts', () => {
       'de',
       'en',
       'es',
+      'es-419',
+      'fa',
       'fi',
       'fr',
       'id',
@@ -812,10 +841,12 @@ describe('texts', () => {
       'nl',
       'pl',
       'pt',
+      'pt-BR',
       'ru',
       'sv',
       'tr',
       'uk',
+      'ur',
       'vi',
       'zh-Hans',
       'zh-Hant',
@@ -825,20 +856,24 @@ describe('texts', () => {
       'Čeština',
       'Deutsch',
       'English',
-      'Español',
+      'Español (España)',
+      'Español (Latinoamérica)',
       'Français',
       'Italiano',
       'Nederlands',
       'Norsk (bokmål)',
       'Polski',
-      'Português',
+      'Português (Brasil)',
+      'Português (Portugal)',
       'Suomi',
       'Svenska',
       'Tiếng Việt',
       'Türkçe',
       'Русский',
       'Українська',
+      'اردو',
       'العربية',
+      'فارسی',
       '한국어',
       '日本語',
       '简体中文',
@@ -861,7 +896,10 @@ describe('texts', () => {
             : value;
         expect(text.trim(), language).not.toBe('');
       }
-      expect(texts.previewOpen(2), language).toMatch(/2/);
+      // Persian counts in its own digits, as its dates do.
+      expect(texts.previewOpen(2), language).toMatch(
+        language === 'fa' ? /۲/ : /2/
+      );
       expect(texts.previewDecided('X'), language).toContain('X');
     }
   });

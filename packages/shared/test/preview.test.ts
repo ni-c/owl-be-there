@@ -593,6 +593,54 @@ describe('previewSvg', () => {
     expect(text).not.toMatch(/[–—·]/u);
   });
 
+  it('mirrors the Persian and Urdu previews and keeps their lines drawable', () => {
+    for (const language of ['fa', 'ur'] as const) {
+      const svg = previewSvg(
+        snapshot({
+          language,
+          title: 'شام',
+          days: ['2026-10-30', '2026-11-02'],
+          people: [{ name: 'Anna', yes: ['2026-10-30'] }],
+        }),
+        options
+      );
+      expect(svg, language).toContain('<rect x="48" y="48" width="456"');
+      expect(svg, language).toContain('direction="rtl" text-anchor="end"');
+      expect(svg, language).toContain(
+        `font-family="'Noto Sans Arabic', Nunito"`
+      );
+      expect(visible(svg), language).not.toMatch(/[–—·]/u);
+    }
+    // Gregorian months with Persian digits.
+    expect(
+      visible(
+        previewSvg(
+          snapshot({ language: 'fa', days: ['2026-10-30', '2026-11-02'] }),
+          options
+        )
+      )
+    ).toContain('اکتبر تا نوامبر ۲۰۲۶');
+  });
+
+  it('draws Persian day numbers and Urdu weekday names, not Latin stand-ins', () => {
+    const days = ['2026-10-30', '2026-11-02'];
+    const persian = visible(
+      previewSvg(snapshot({ language: 'fa', days }), options)
+    );
+    expect(persian).toContain('۳۰');
+    expect(persian).toContain('۲');
+    expect(persian).not.toMatch(/\b\d{1,2}\b/);
+    const urdu = previewSvg(snapshot({ language: 'ur', days }), options);
+    expect(visible(urdu)).toContain('پیر');
+    expect(visible(urdu)).not.toMatch(/(^| )[MTWFS]( |$)/);
+    // The longest name fits a cell, so the headings shrink.
+    expect(urdu).toMatch(/font-size="1\d" font-weight="800"[^>]*>جمعرات</u);
+    // Single letters elsewhere keep the full size.
+    expect(previewSvg(snapshot({ language: 'de', days }), options)).toMatch(
+      /font-size="22" font-weight="800"[^>]*>M</
+    );
+  });
+
   it('names the Arabic font first on Arabic lines only', () => {
     const arabic = previewSvg(
       snapshot({ language: 'ar', title: 'عشاء الفريق' }),
@@ -718,6 +766,8 @@ describe('previewNeedsCjk', () => {
     expect(previewNeedsCjk(snapshot({ language: 'ko' }))).toBe(true);
     expect(previewNeedsCjk(snapshot({ language: 'vi' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ language: 'uk' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'fa' }))).toBe(false);
+    expect(previewNeedsCjk(snapshot({ language: 'ur' }))).toBe(false);
     expect(previewNeedsCjk(snapshot({ title: '忘年会' }))).toBe(true);
   });
 

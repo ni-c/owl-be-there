@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { LANGUAGES, LOCALES, SERVER_TEXTS } from '@owl/shared';
+import { isRtl, LANGUAGES, LOCALES, SERVER_TEXTS } from '@owl/shared';
 import { Resvg } from '@resvg/resvg-wasm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -825,8 +825,11 @@ describe('the merged Nunito files', () => {
     const add = (text: string) => {
       for (const char of text) if (!/\s/u.test(char)) needed.add(char);
     };
+    // Arabic-script languages draw with Noto Sans Arabic, CJK with Noto Sans CJK.
     const own = LANGUAGES.filter(
-      (language) => !['ar', 'ja', 'ko', 'zh-Hans', 'zh-Hant'].includes(language)
+      (language) =>
+        !isRtl(language) &&
+        !['ja', 'ko', 'zh-Hans', 'zh-Hant'].includes(language)
     );
     for (const language of own) {
       for (const value of Object.values(SERVER_TEXTS[language]))

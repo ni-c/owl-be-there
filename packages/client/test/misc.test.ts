@@ -4,6 +4,8 @@ import { cs, csFew } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
+import { es419 } from '../src/i18n/es-419.ts';
+import { fa } from '../src/i18n/fa.ts';
 import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
 import { id } from '../src/i18n/id.ts';
@@ -14,10 +16,12 @@ import { nb } from '../src/i18n/nb.ts';
 import { nl } from '../src/i18n/nl.ts';
 import { pl, plFew } from '../src/i18n/pl.ts';
 import { pt } from '../src/i18n/pt.ts';
+import { ptBr } from '../src/i18n/pt-BR.ts';
 import { ru, ruFew } from '../src/i18n/ru.ts';
 import { sv } from '../src/i18n/sv.ts';
 import { tr } from '../src/i18n/tr.ts';
 import { uk, ukFew } from '../src/i18n/uk.ts';
+import { ur } from '../src/i18n/ur.ts';
 import { vi as vietnamese } from '../src/i18n/vi.ts';
 import { zhHans } from '../src/i18n/zh-Hans.ts';
 import { zhHant } from '../src/i18n/zh-Hant.ts';
@@ -26,6 +30,7 @@ import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
 import {
   firstWeekdayFor,
+  longWeekdayHeadings,
   weekdayHeading,
   weekdayName,
   weekdayOrder,
@@ -52,6 +57,8 @@ describe('i18n', () => {
       cs,
       de,
       es,
+      es419,
+      fa,
       fi,
       fr,
       id,
@@ -62,10 +69,12 @@ describe('i18n', () => {
       nl,
       pl,
       pt,
+      ptBr,
       ru,
       sv,
       tr,
       uk,
+      ur,
       vietnamese,
       zhHans,
       zhHant,
@@ -78,6 +87,16 @@ describe('i18n', () => {
         expect(dictionary[key].trim(), key).not.toBe('');
       }
     }
+  });
+
+  it("writes numbers in the language's own digits, without grouping", () => {
+    expect(translator('fa').number(2026)).toBe('۲۰۲۶');
+    expect(translator('fa').tn('create.dayCount', 23)).toContain('۲۳');
+    expect(translator('fa').tn('create.dayCount', 23)).not.toMatch(/\d/);
+    expect(translator('en').number(1000)).toBe('1000');
+    expect(translator('de').number(0)).toBe('0');
+    expect(translator('ar').number(12)).toBe('12');
+    expect(translator('en').t('mine.hello', { name: 'Anna' })).toBe('Hi Anna!');
   });
 
   it('fills placeholders and leaves unknown ones visible', () => {
@@ -382,6 +401,18 @@ describe('i18n', () => {
     expect(detectLanguage(null, ['vi-VN', 'en-GB'])).toBe('vi');
     expect(detectLanguage(null, ['ko-KR', 'en-GB'])).toBe('ko');
     expect(detectLanguage(null, ['ko'])).toBe('ko');
+    expect(detectLanguage(null, ['pt-BR', 'en-GB'])).toBe('pt-BR');
+    expect(detectLanguage(null, ['pt-br'])).toBe('pt-BR');
+    expect(detectLanguage(null, ['pt-PT'])).toBe('pt');
+    expect(detectLanguage(null, ['pt-AO'])).toBe('pt');
+    expect(detectLanguage(null, ['pt'])).toBe('pt');
+    expect(detectLanguage(null, ['es-MX', 'en-GB'])).toBe('es-419');
+    expect(detectLanguage(null, ['es-419'])).toBe('es-419');
+    expect(detectLanguage(null, ['es-US'])).toBe('es-419');
+    expect(detectLanguage(null, ['es-ES'])).toBe('es');
+    expect(detectLanguage(null, ['es'])).toBe('es');
+    expect(detectLanguage(null, ['fa-IR', 'en-GB'])).toBe('fa');
+    expect(detectLanguage(null, ['ur-PK', 'en-GB'])).toBe('ur');
     expect(detectLanguage(null, ['zh-TW', 'en-GB'])).toBe('zh-Hant');
     expect(detectLanguage(null, ['zh-Hant-HK'])).toBe('zh-Hant');
     expect(detectLanguage(null, ['zh-CN', 'en-GB'])).toBe('zh-Hans');
@@ -446,6 +477,27 @@ describe('weekdayHeading', () => {
     expect(weekdayName(0, 'ar', 'short')).toBe('الاثنين');
     expect(weekdayHeading(0, 'ar')).toBe('ن');
     expect(weekdayHeading(6, 'ar-EG')).toBe('ح');
+    expect(weekdayHeading(0, 'fa-IR-u-ca-gregory')).toBe('د');
+    // Urdu's letters are Latin, so it keeps the short names.
+    expect(weekdayHeading(0, 'ur-PK')).toBe('پیر');
+    expect(weekdayHeading(0, 'vi-VN')).toBe('T2');
+  });
+
+  it('shrinks the headings for the long Urdu names only', () => {
+    expect(longWeekdayHeadings('ur-PK')).toBe(true);
+    for (const locale of [
+      'en-GB',
+      'de-DE',
+      'pt-BR',
+      'pl-PL',
+      'nb-NO',
+      'vi-VN',
+      'ar',
+      'fa-IR-u-ca-gregory',
+      'ko-KR',
+      'zh-TW',
+    ])
+      expect(longWeekdayHeadings(locale), locale).toBe(false);
   });
 });
 
@@ -480,6 +532,9 @@ describe('routes', () => {
   it('reads the start page in a language from its address', () => {
     expect(parseRoute('/de')).toEqual({ page: 'home', language: 'de' });
     expect(parseRoute('/ja/')).toEqual({ page: 'home', language: 'ja' });
+    expect(parseRoute('/es-419')).toEqual({ page: 'home', language: 'es-419' });
+    expect(parseRoute('/pt-BR/')).toEqual({ page: 'home', language: 'pt-BR' });
+    expect(parseRoute('/es-123')).toEqual({ page: 'not-found' });
     expect(parseRoute('/zh-Hant')).toEqual({
       page: 'home',
       language: 'zh-Hant',

@@ -142,7 +142,7 @@ CREATE TABLE events_new (
   location TEXT CHECK (location IS NULL OR length(location) <= 120),
   emoji TEXT NOT NULL,
   creator_name TEXT CHECK (creator_name IS NULL OR length(creator_name) <= 40),
-  language TEXT NOT NULL CHECK (language IN ('ar', 'cs', 'de', 'en', 'es', 'fi', 'fr', 'id', 'it', 'ja', 'ko', 'nb', 'nl', 'pl', 'pt', 'ru', 'sv', 'tr', 'uk', 'vi', 'zh-Hans', 'zh-Hant')),
+  language TEXT NOT NULL CHECK (language IN ('ar', 'cs', 'de', 'en', 'es', 'es-419', 'fa', 'fi', 'fr', 'id', 'it', 'ja', 'ko', 'nb', 'nl', 'pl', 'pt', 'pt-BR', 'ru', 'sv', 'tr', 'uk', 'ur', 'vi', 'zh-Hans', 'zh-Hant')),
   duration_days INTEGER NOT NULL CHECK (duration_days BETWEEN 1 AND 14),
   min_count INTEGER CHECK (min_count IS NULL OR min_count >= 1),
   closed_at INTEGER,

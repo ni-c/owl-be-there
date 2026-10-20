@@ -5,6 +5,8 @@ import { cs } from '../src/i18n/cs.ts';
 import { de } from '../src/i18n/de.ts';
 import { en } from '../src/i18n/en.ts';
 import { es } from '../src/i18n/es.ts';
+import { es419 } from '../src/i18n/es-419.ts';
+import { fa } from '../src/i18n/fa.ts';
 import { fi } from '../src/i18n/fi.ts';
 import { fr } from '../src/i18n/fr.ts';
 import { id } from '../src/i18n/id.ts';
@@ -16,10 +18,12 @@ import { nb } from '../src/i18n/nb.ts';
 import { nl } from '../src/i18n/nl.ts';
 import { pl } from '../src/i18n/pl.ts';
 import { pt } from '../src/i18n/pt.ts';
+import { ptBr } from '../src/i18n/pt-BR.ts';
 import { ru } from '../src/i18n/ru.ts';
 import { sv } from '../src/i18n/sv.ts';
 import { tr } from '../src/i18n/tr.ts';
 import { uk } from '../src/i18n/uk.ts';
+import { ur } from '../src/i18n/ur.ts';
 import { vi } from '../src/i18n/vi.ts';
 import { zhHans } from '../src/i18n/zh-Hans.ts';
 import { zhHant } from '../src/i18n/zh-Hant.ts';
@@ -30,6 +34,8 @@ const DICTIONARIES = {
   de,
   en,
   es,
+  'es-419': es419,
+  fa,
   fi,
   fr,
   id,
@@ -40,10 +46,12 @@ const DICTIONARIES = {
   nl,
   pl,
   pt,
+  'pt-BR': ptBr,
   ru,
   sv,
   tr,
   uk,
+  ur,
   vi,
   'zh-Hans': zhHans,
   'zh-Hant': zhHant,

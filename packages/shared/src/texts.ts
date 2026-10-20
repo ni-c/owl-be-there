@@ -8,6 +8,8 @@ export const LANGUAGES = [
   'de',
   'en',
   'es',
+  'es-419',
+  'fa',
   'fi',
   'fr',
   'id',
@@ -18,10 +20,12 @@ export const LANGUAGES = [
   'nl',
   'pl',
   'pt',
+  'pt-BR',
   'ru',
   'sv',
   'tr',
   'uk',
+  'ur',
   'vi',
   'zh-Hans',
   'zh-Hant',
@@ -33,6 +37,13 @@ export function isLanguage(value: string): value is Language {
   return (LANGUAGES as readonly string[]).includes(value);
 }
 
+/** The languages written right to left. */
+export const RTL_LANGUAGES: readonly Language[] = ['ar', 'fa', 'ur'];
+
+export function isRtl(language: Language): boolean {
+  return RTL_LANGUAGES.includes(language);
+}
+
 /** The locale used to format dates for a language. */
 export const LOCALES: Record<Language, string> = {
   ar: 'ar',
@@ -40,6 +51,9 @@ export const LOCALES: Record<Language, string> = {
   de: 'de-DE',
   en: 'en-GB',
   es: 'es-ES',
+  'es-419': 'es-419',
+  // Persian digits, but the Gregorian calendar the candidate days are in.
+  fa: 'fa-IR-u-ca-gregory',
   fi: 'fi-FI',
   fr: 'fr-FR',
   id: 'id-ID',
@@ -50,10 +64,12 @@ export const LOCALES: Record<Language, string> = {
   nl: 'nl-NL',
   pl: 'pl-PL',
   pt: 'pt-PT',
+  'pt-BR': 'pt-BR',
   ru: 'ru-RU',
   sv: 'sv-SE',
   tr: 'tr-TR',
   uk: 'uk-UA',
+  ur: 'ur-PK',
   vi: 'vi-VN',
   'zh-Hans': 'zh-CN',
   'zh-Hant': 'zh-TW',
@@ -65,7 +81,9 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   cs: 'Čeština',
   de: 'Deutsch',
   en: 'English',
-  es: 'Español',
+  es: 'Español (España)',
+  'es-419': 'Español (Latinoamérica)',
+  fa: 'فارسی',
   fi: 'Suomi',
   fr: 'Français',
   id: 'Bahasa Indonesia',
@@ -75,11 +93,13 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   nb: 'Norsk (bokmål)',
   nl: 'Nederlands',
   pl: 'Polski',
-  pt: 'Português',
+  pt: 'Português (Portugal)',
+  'pt-BR': 'Português (Brasil)',
   ru: 'Русский',
   sv: 'Svenska',
   tr: 'Türkçe',
   uk: 'Українська',
+  ur: 'اردو',
   vi: 'Tiếng Việt',
   'zh-Hans': '简体中文',
   'zh-Hant': '繁體中文',
@@ -127,6 +147,8 @@ export const TAGLINES: Record<Language, string> = {
   de: 'Findet einen Tag, an dem alle können.',
   en: 'Find a day everyone can make.',
   es: 'Encontrad un día que os venga bien a todos.',
+  'es-419': 'Encuentren un día que les quede bien a todos.',
+  fa: 'روزی پیدا کنید که همه بتوانند بیایند.',
   fi: 'Löydä päivä, joka sopii kaikille.',
   fr: 'Trouvez une date qui convient à tout le monde.',
   id: 'Temukan hari yang cocok untuk semua.',
@@ -137,10 +159,12 @@ export const TAGLINES: Record<Language, string> = {
   nl: 'Vind een dag waarop iedereen kan.',
   pl: 'Znajdź dzień, który pasuje wszystkim.',
   pt: 'Encontrem um dia em que todos possam.',
+  'pt-BR': 'Encontrem um dia em que todo mundo possa.',
   ru: 'Найдите день, который подходит всем.',
   sv: 'Hitta en dag som passar alla.',
   tr: 'Herkese uyan bir gün bulun.',
   uk: 'Знайдіть день, який підходить усім.',
+  ur: 'ایسا دن تلاش کریں جب سب آ سکیں۔',
   vi: 'Cùng tìm một ngày mọi người đều rảnh.',
   'zh-Hans': '找到大家都有空的日子。',
   'zh-Hant': '找出大家都方便的日子。',
@@ -155,6 +179,8 @@ export const DESCRIPTION_EN =
   'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.';
 
 const russianPlural = new Intl.PluralRules('ru-RU');
+/** Persian digits, as Persian dates have them. */
+const persianNumber = new Intl.NumberFormat('fa-IR', { useGrouping: false });
 const arabicPlural = new Intl.PluralRules('ar');
 
 function arabicAnswerCount(count: number): string {
@@ -282,6 +308,43 @@ export const SERVER_TEXTS = {
     previewMoreDays: (days: number): string =>
       `+ ${days} ${days === 1 ? 'día más' : 'días más'}`,
     calendarNote: 'Fecha elegida con Owl Be There',
+  },
+  'es-419': {
+    appName: APP_NAME,
+    tagline: TAGLINES['es-419'],
+    description:
+      '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni rastreo.',
+    previewOpen: (answers: number): string =>
+      answers === 0
+        ? 'Marca los días que puedes. Sin registro.'
+        : `Marca los días que puedes · ${answers} ${answers === 1 ? 'respuesta' : 'respuestas'} hasta ahora`,
+    previewDecided: (when: string): string => `Ya hay fecha: ${when}`,
+    previewClosed: 'Esta encuesta está cerrada.',
+    previewImageAlt: 'Un búho con un calendario',
+    previewCalendarAlt:
+      'Los días posibles en un calendario, con colores según cuántos pueden',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'día más' : 'días más'}`,
+    calendarNote: 'Fecha elegida con Owl Be There',
+  },
+  fa: {
+    appName: APP_NAME,
+    tagline: TAGLINES.fa,
+    description:
+      'همه کی می‌توانند؟ روزهایت را در تقویم علامت بزن و پیدایش کن. بدون ثبت‌نام و بدون ردیابی.',
+    previewOpen: (answers: number): string =>
+      answers === 0
+        ? 'روزهایی را که می‌توانی علامت بزن. بدون ثبت‌نام.'
+        : `روزهایی را که می‌توانی علامت بزن، تا حالا ${persianNumber.format(answers)} پاسخ`,
+    previewDecided: (when: string): string => `تاریخ نهایی شد: ${when}`,
+    previewClosed: 'نظرسنجی بسته شده است.',
+    previewImageAlt: 'جغدی با یک تقویم',
+    previewCalendarAlt:
+      'روزهای پیشنهادی در تقویم، رنگ‌شده بر اساس تعداد کسانی که می‌توانند',
+    // No plus sign: Noto Sans Arabic has none, and the words already say "more".
+    previewMoreDays: (days: number): string =>
+      `${persianNumber.format(days)} روز دیگر`,
+    calendarNote: 'تاریخ با Owl Be There انتخاب شد',
   },
   fi: {
     appName: APP_NAME,
@@ -459,6 +522,24 @@ export const SERVER_TEXTS = {
       `+ ${days} ${days === 1 ? 'outro dia' : 'outros dias'}`,
     calendarNote: 'Data escolhida com Owl Be There',
   },
+  'pt-BR': {
+    appName: APP_NAME,
+    tagline: TAGLINES['pt-BR'],
+    description:
+      'Quando todo mundo pode? Marque seus dias no calendário e descubra. Sem cadastro nem rastreamento.',
+    previewOpen: (answers: number): string =>
+      answers === 0
+        ? 'Marque os dias em que você pode. Sem cadastro.'
+        : `Marque os dias em que você pode · ${answers} ${answers === 1 ? 'resposta' : 'respostas'} até agora`,
+    previewDecided: (when: string): string => `A data está definida: ${when}`,
+    previewClosed: 'Esta votação está encerrada.',
+    previewImageAlt: 'Uma coruja com um calendário',
+    previewCalendarAlt:
+      'Os dias possíveis em um calendário, coloridos conforme quantas pessoas podem',
+    previewMoreDays: (days: number): string =>
+      `+ ${days} ${days === 1 ? 'outro dia' : 'outros dias'}`,
+    calendarNote: 'Data definida com o Owl Be There',
+  },
   ru: {
     appName: APP_NAME,
     tagline: TAGLINES.ru,
@@ -529,6 +610,24 @@ export const SERVER_TEXTS = {
     previewMoreDays: (days: number): string =>
       `+ ще ${days} ${russianForm(days, 'день', 'дні', 'днів')}`,
     calendarNote: 'Дату обрано за допомогою Owl Be There',
+  },
+  ur: {
+    appName: APP_NAME,
+    tagline: TAGLINES.ur,
+    description:
+      'سب کب آ سکتے ہیں؟ کیلنڈر پر اپنے دن نشان زد کریں اور جان لیں۔ نہ رجسٹریشن، نہ ٹریکنگ۔',
+    previewOpen: (answers: number): string =>
+      answers === 0
+        ? 'اپنے دن نشان زد کریں۔ رجسٹریشن کی ضرورت نہیں۔'
+        : `اپنے دن نشان زد کریں، اب تک ${answers} ${answers === 1 ? 'جواب' : 'جوابات'}`,
+    previewDecided: (when: string): string => `تاریخ طے ہو گئی: ${when}`,
+    previewClosed: 'ووٹنگ بند ہو چکی ہے۔',
+    previewImageAlt: 'کیلنڈر کے ساتھ ایک الو',
+    previewCalendarAlt:
+      'کیلنڈر میں ممکنہ دن، جن کا رنگ بتاتا ہے کہ کتنے لوگ آ سکتے ہیں',
+    // No plus sign: Noto Sans Arabic has none.
+    previewMoreDays: (days: number): string => `مزید ${days} دن`,
+    calendarNote: 'تاریخ Owl Be There کے ذریعے طے کی گئی',
   },
   vi: {
     appName: APP_NAME,

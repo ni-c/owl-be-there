@@ -14,12 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Notes are easier to find: the group view marks everyone who wrote one with a speech bubble and lists all notes under a heading of their own, below "Who is counted". A note stays listed while its writer is left out of the count.
 - Ben and Max in the start page example each have a note, so the example shows what notes look like.
-- Fourteen more interface languages: Arabic, Czech, Finnish, Indonesian, Korean, Norwegian Bokmål, Polish, Russian, Simplified Chinese, Swedish, Traditional Chinese, Turkish, Ukrainian and Vietnamese. The start page (`/ar`, `/ko` …), link previews and calendar files speak them too, and a browser set to one of them opens in it.
-- Arabic reads right to left: the layout is mirrored and the arrow keys in the calendar follow the reading direction. Arabic and Simplified Chinese text use bundled Noto Sans Arabic and Noto Sans CJK SC fonts, so no request leaves for a font service.
+- Sixteen more interface languages: Arabic, Czech, Finnish, Indonesian, Korean, Norwegian Bokmål, Persian, Polish, Russian, Simplified Chinese, Swedish, Traditional Chinese, Turkish, Ukrainian, Urdu and Vietnamese, and Brazilian Portuguese and Latin American Spanish next to the European ones. The start page (`/ar`, `/ko` …), link previews and calendar files speak them too, and a browser set to one of them opens in it.
+- Arabic, Persian and Urdu read right to left: the layout is mirrored and the arrow keys in the calendar follow the reading direction. Arabic-script and Simplified Chinese text use bundled Noto Sans Arabic and Noto Sans CJK SC fonts, so no request leaves for a font service.
 
 ### Changed
 
 - The day sheet lists people as small chips in the colour of their answer instead of in heading-sized bold type, and an empty group shows only its heading. Notes have a block of their own at the end of the sheet, each next to its writer's name in the colour of their answer for that day. Neither page shows a notes block when nobody has written one.
+- The language picker names the European variants as such: Español (España) and Português (Portugal).
 - The database gains one migration that lets events store the new languages. It rebuilds the `events` table once on the first start; events, participants and their days are kept.
 
 ### Fixed
