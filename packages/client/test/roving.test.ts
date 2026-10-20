@@ -39,6 +39,8 @@ describe('arrowTarget', () => {
     expect(arrowTarget('ArrowLeft', 0, 3, false, true)).toBe(1);
     expect(arrowTarget('ArrowRight', 0, 3, false, true)).toBe(2);
     expect(arrowTarget('ArrowDown', 0, 3, true, true)).toBe(1);
+    // The end of the row wraps to its start in either reading direction.
+    expect(arrowTarget('ArrowLeft', 2, 3, false, true)).toBe(0);
   });
 });
 

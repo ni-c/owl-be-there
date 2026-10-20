@@ -476,6 +476,10 @@ describe('heat', () => {
 
   it('is zero when nobody answered, and never more than one', () => {
     expect(heatOf({ yes: [], maybe: [], no: [], open: ['x'] }, 0)).toBe(0);
+    for (const respondents of [0, -1, Number.NaN])
+      expect(
+        heatOf({ yes: ['a'], maybe: [], no: [], open: [] }, respondents)
+      ).toBe(0);
     expect(heatOf({ yes: ['a', 'b'], maybe: [], no: [], open: [] }, 1)).toBe(1);
   });
 
