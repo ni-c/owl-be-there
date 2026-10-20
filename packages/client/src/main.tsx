@@ -1,3 +1,4 @@
+import './lib/zod-config.ts';
 import '@fontsource-variable/nunito';
 import './styles.css';
 import { StrictMode } from 'react';

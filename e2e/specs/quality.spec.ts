@@ -110,10 +110,29 @@ test('the app talks to nobody but its own server and breaks no CSP rule', async 
     )
       foreign.push(r.url());
   });
-  page.on('console', (message) => {
-    if (/Content Security Policy/i.test(message.text()))
-      violations.push(message.text());
-  });
+  // Not the console: WebKit logs the styles Playwright injects for itself
+  // there too. The page is told only about its own violations.
+  await page.exposeFunction('reportViolation', (violation: string) =>
+    violations.push(violation)
+  );
+  await page.addInitScript(() =>
+    document.addEventListener('securitypolicyviolation', (event) => {
+      // WebKit reports the inline style of a select's own shadow tree against
+      // the page, on a select that carries no style attribute.
+      const target = event.target;
+      if (
+        event.effectiveDirective === 'style-src-attr' &&
+        target instanceof HTMLSelectElement &&
+        !target.hasAttribute('style')
+      )
+        return;
+      const report = (window as unknown as Record<string, (v: string) => void>)
+        .reportViolation!;
+      report(
+        `${event.effectiveDirective} ${event.blockedURI} ${event.sourceFile}:${event.lineNumber}`
+      );
+    })
+  );
   page.on('pageerror', (error) => violations.push(error.message));
 
   const { id } = await createEvent(request);

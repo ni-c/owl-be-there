@@ -78,6 +78,7 @@ Touch drags are simulated two ways, because the browsers differ: CDP `Input.disp
 - **resvg-wasm objects must be freed.** `Resvg` and the rendered image live in WebAssembly memory that V8 does not see; without `free()` every new picture leaks about 3 MB.
 - **Node ignores `requestTimeout` while `headersTimeout` is longer**, so both are set together.
 - **Every rate limit is keyed per network** (`networkKey`: the IPv6 /48 or the IPv4 address), the live-stream cap included; a /64 is what one customer gets, a /48 what one attacker rents.
+- **The CSP e2e check listens for `securitypolicyviolation`, not the console.** WebKit logs the `<style>` elements Playwright injects for itself (1.64 and later) on the console, but tells the page only about its own violations. The one WebKit report it skips is `style-src-attr` on a `<select>` without a style attribute, which comes from the select's own shadow tree. The client sets `z.config({ jitless: true })` in `lib/zod-config.ts`, the first import of `main.tsx`: zod reads the setting when a schema is created, and without it probes for eval with `Function('')`, which the CSP refuses.
 - **Wrong passwords are counted before the check**, not after it: a miss recorded only after the `await` let parallel guesses all pass the wait.
 
 ## Working agreements
