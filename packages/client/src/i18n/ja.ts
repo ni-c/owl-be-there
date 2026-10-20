@@ -143,7 +143,7 @@ export const ja: Dictionary = {
   'mine.none': 'なし',
   'mine.noneWork': '行ける日がない',
   'mine.noneSaved': '保存しました：行ける日はありません。',
-  'mine.note': 'メモ（任意）',
+  'mine.note': 'コメント（任意）',
   'mine.notePlaceholder': '例：18時以降ならOK',
   'mine.newDays_one': '候補日が{count}日増えたよ。確認してね。',
   'mine.newDays_other': '候補日が{count}日増えたよ。確認してね。',
@@ -204,7 +204,7 @@ export const ja: Dictionary = {
   'day.maybe': 'たぶん行ける人',
   'day.cannot': '行けない人',
   'day.open': '未回答',
-  'day.notes': 'メモ',
+  'day.notes': 'コメント',
   'day.close': '閉じる',
 
   'share.title': 'みんなに共有',
@@ -268,7 +268,7 @@ export const ja: Dictionary = {
   'privacy.stored.event':
     '予定ごとに、タイトル、アイコン、候補日、設定を保存します。説明、場所、主催者名は任意です。',
   'privacy.stored.person':
-    '参加者ごとに名前と選んだ日を保存します。入力された場合はメモとパスワードのハッシュも保存します。',
+    '参加者ごとに名前と選んだ日を保存します。入力された場合はコメントとパスワードのハッシュも保存します。',
   'privacy.stored.nothingElse':
     'アカウント、メールアドレス、Cookie、アクセス解析はありません。アプリは外部サービスに接続せず、IPアドレスも保存しません。唯一の例外は Google カレンダーのリンクで、クリックすると予定のタイトル、説明、場所、リンクを入れた Google が開きます。',
   'privacy.visible.title': '誰が見られる？',

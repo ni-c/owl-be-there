@@ -150,7 +150,7 @@ export const es: Dictionary = {
   'mine.none': 'Ninguno',
   'mine.noneWork': 'No me viene bien ninguno de estos días',
   'mine.noneSaved': 'Guardado: no te viene bien ninguno de estos días.',
-  'mine.note': 'Nota (opcional)',
+  'mine.note': 'Comentario (opcional)',
   'mine.notePlaceholder': 'P. ej., solo a partir de las 18:00',
   'mine.newDays_one': 'Se ha añadido {count} día. Échale un vistazo.',
   'mine.newDays_other': 'Se han añadido {count} días. Échales un vistazo.',
@@ -211,7 +211,7 @@ export const es: Dictionary = {
   'day.maybe': 'Quizá',
   'day.cannot': 'No pueden',
   'day.open': 'Sin respuesta',
-  'day.notes': 'Notas',
+  'day.notes': 'Comentarios',
   'day.close': 'Cerrar',
 
   'share.title': 'Compartir con el grupo',
@@ -279,7 +279,7 @@ export const es: Dictionary = {
   'privacy.stored.event':
     'De cada evento guardamos el título, el icono, los días posibles y los ajustes. La descripción, el lugar y el nombre de quien organiza son opcionales.',
   'privacy.stored.person':
-    'De cada persona guardamos el nombre y los días que ha marcado. También guardamos una nota y un hash de la contraseña si los añade.',
+    'De cada persona guardamos el nombre y los días que ha marcado. También guardamos un comentario y un hash de la contraseña si los añade.',
   'privacy.stored.nothingElse':
     'No hay cuentas, correos electrónicos, cookies ni estadísticas. La aplicación no consulta otros servicios ni guarda direcciones IP. La única excepción es el enlace a Google Calendar: al hacer clic, se abre Google con el título, la descripción, el lugar y el enlace del evento.',
   'privacy.visible.title': 'Quién puede verlo',

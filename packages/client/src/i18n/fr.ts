@@ -152,7 +152,7 @@ export const fr: Dictionary = {
   'mine.none': 'Aucun',
   'mine.noneWork': 'Aucun de ces jours ne me convient',
   'mine.noneSaved': 'Enregistré : aucun de ces jours ne te convient.',
-  'mine.note': 'Note (facultatif)',
+  'mine.note': 'Remarque (facultatif)',
   'mine.notePlaceholder': 'Par ex. seulement après 18 h',
   'mine.newDays_one': '{count} nouveau jour a été ajouté. Jette un œil.',
   'mine.newDays_other': '{count} nouveaux jours ont été ajoutés. Jette un œil.',
@@ -215,7 +215,7 @@ export const fr: Dictionary = {
   'day.maybe': 'Peut-être',
   'day.cannot': 'Indisponibles',
   'day.open': 'Sans réponse',
-  'day.notes': 'Notes',
+  'day.notes': 'Remarques',
   'day.close': 'Fermer',
 
   'share.title': 'Partager avec le groupe',
@@ -283,7 +283,7 @@ export const fr: Dictionary = {
   'privacy.stored.event':
     'Pour chaque événement, nous gardons le titre, l’icône, les jours proposés et les réglages. La description, le lieu et le nom de la personne qui organise sont facultatifs.',
   'privacy.stored.person':
-    'Pour chaque personne, nous gardons son nom et les jours marqués. Nous gardons aussi une note et une empreinte du mot de passe si elle en ajoute.',
+    'Pour chaque personne, nous gardons son nom et les jours marqués. Nous gardons aussi une remarque et une empreinte du mot de passe si elle en ajoute.',
   'privacy.stored.nothingElse':
     'Il n’y a pas de compte, d’adresse e-mail, de cookies ni de statistiques. L’application ne contacte aucun autre service et ne garde pas les adresses IP. La seule exception est le lien vers Google Agenda : en cliquant dessus, Google s’ouvre avec le titre, la description, le lieu et le lien de l’événement.',
   'privacy.visible.title': 'Qui peut voir ces données',

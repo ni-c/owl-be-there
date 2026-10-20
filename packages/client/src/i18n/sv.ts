@@ -147,7 +147,7 @@ export const sv = {
   'mine.none': 'Ingen',
   'mine.noneWork': 'Ingen av dessa dagar passar mig',
   'mine.noneSaved': 'Sparat: ingen av dessa dagar passar dig.',
-  'mine.note': 'Anteckning (valfritt)',
+  'mine.note': 'Kommentar (valfritt)',
   'mine.notePlaceholder': 't.ex. först efter kl. 18',
   'mine.newDays_one': '{count} ny dag har lagts till. Ta en titt.',
   'mine.newDays_other': '{count} nya dagar har lagts till. Ta en titt.',
@@ -208,7 +208,7 @@ export const sv = {
   'day.maybe': 'Kanske',
   'day.cannot': 'Kan inte',
   'day.open': 'Inte svarat',
-  'day.notes': 'Anteckningar',
+  'day.notes': 'Kommentarer',
   'day.close': 'Stäng',
 
   'share.title': 'Dela med din grupp',
@@ -275,7 +275,7 @@ export const sv = {
   'privacy.stored.event':
     'För varje evenemang sparar vi titel, ikon, möjliga dagar och inställningar. Beskrivning, plats och arrangörens namn är valfria.',
   'privacy.stored.person':
-    'För varje person sparar vi namn och markerade dagar. Vi sparar också en anteckning och en hash av lösenordet om personen lägger till dem.',
+    'För varje person sparar vi namn och markerade dagar. Vi sparar också en kommentar och en hash av lösenordet om personen lägger till dem.',
   'privacy.stored.nothingElse':
     'Det finns inga konton, e-postadresser, kakor eller analysverktyg. Appen skickar inga förfrågningar till andra tjänster och sparar inga IP-adresser. Det enda undantaget är länken till Google Kalender: när du klickar på den öppnas Google med evenemangets titel, beskrivning, plats och länk.',
   'privacy.visible.title': 'Vem som kan se uppgifterna',

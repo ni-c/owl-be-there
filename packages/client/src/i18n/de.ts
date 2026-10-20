@@ -152,7 +152,7 @@ export const de: Dictionary = {
   'mine.none': 'Keine',
   'mine.noneWork': 'Ich kann an keinem dieser Tage',
   'mine.noneSaved': 'Gespeichert: Du kannst an keinem dieser Tage.',
-  'mine.note': 'Notiz (optional)',
+  'mine.note': 'Anmerkung (optional)',
   'mine.notePlaceholder': 'z. B. erst ab 18 Uhr',
   'mine.newDays_one': '{count} neuer Tag ist dazugekommen. Schau mal rein.',
   'mine.newDays_other': 'Es gibt {count} neue Tage. Schau mal rein.',
@@ -215,7 +215,7 @@ export const de: Dictionary = {
   'day.maybe': 'Vielleicht',
   'day.cannot': 'Kann nicht',
   'day.open': 'Noch keine Antwort',
-  'day.notes': 'Notizen',
+  'day.notes': 'Anmerkungen',
   'day.close': 'Schließen',
 
   'share.title': 'Mit der Gruppe teilen',
@@ -283,7 +283,7 @@ export const de: Dictionary = {
   'privacy.stored.event':
     'Für jedes Event speichern wir Titel, Symbol, mögliche Tage und Einstellungen. Beschreibung, Ort und der Name der organisierenden Person sind optional.',
   'privacy.stored.person':
-    'Zu jeder Person speichern wir den Namen und die markierten Tage. Falls angegeben, auch eine Notiz und einen Passwort-Hash.',
+    'Zu jeder Person speichern wir den Namen und die markierten Tage. Falls angegeben, auch eine Anmerkung und einen Passwort-Hash.',
   'privacy.stored.nothingElse':
     'Es gibt keine Konten, E-Mail-Adressen, Cookies oder Statistiken. Die App fragt keine anderen Dienste an und speichert keine IP-Adressen. Die einzige Ausnahme ist der Link zu Google Kalender: Mit einem Klick darauf öffnet sich Google mit Titel, Beschreibung, Ort und Link des Events.',
   'privacy.visible.title': 'Wer es sieht',

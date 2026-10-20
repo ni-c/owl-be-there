@@ -143,7 +143,7 @@ export const ko: Dictionary = {
   'mine.none': '지우기',
   'mine.noneWork': '가능한 날짜가 하나도 없어요',
   'mine.noneSaved': '저장됨: 가능한 날짜가 하나도 없어요.',
-  'mine.note': '메모 (선택)',
+  'mine.note': '코멘트 (선택)',
   'mine.notePlaceholder': '예: 오후 6시 이후만 가능',
   'mine.newDays_one': '새 날짜가 {count}일 추가됐어요. 확인해 보세요.',
   'mine.newDays_other': '새 날짜가 {count}일 추가됐어요. 확인해 보세요.',
@@ -205,7 +205,7 @@ export const ko: Dictionary = {
   'day.maybe': '아마도',
   'day.cannot': '불가',
   'day.open': '응답 안 함',
-  'day.notes': '메모',
+  'day.notes': '코멘트',
   'day.close': '닫기',
 
   'share.title': '그룹에 공유하기',
@@ -269,7 +269,7 @@ export const ko: Dictionary = {
   'privacy.stored.event':
     '모임마다 제목, 아이콘, 후보 날짜, 설정을 저장해요. 설명, 장소, 주최자 이름은 선택 사항이에요.',
   'privacy.stored.person':
-    '참여자마다 이름과 표시한 날짜를 저장해요. 메모와 비밀번호 해시는 입력한 경우에만 저장해요.',
+    '참여자마다 이름과 표시한 날짜를 저장해요. 코멘트와 비밀번호 해시는 입력한 경우에만 저장해요.',
   'privacy.stored.nothingElse':
     '계정, 이메일 주소, 쿠키, 분석 도구는 없어요. 앱은 다른 서비스에 요청을 보내지 않고 IP 주소도 저장하지 않아요. 유일한 예외는 Google 캘린더 링크예요. 클릭하면 모임의 제목, 설명, 장소, 링크가 담긴 Google이 열려요.',
   'privacy.visible.title': '누가 볼 수 있나요',

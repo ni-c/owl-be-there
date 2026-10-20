@@ -57,6 +57,7 @@ The image must carry Node 26; if its Node is older, mount a Node 26 installation
 - Typographic punctuation: ’ for apostrophes, — for dashes, … for an ellipsis, and the language's own quotation marks. Quote the event title inside a sentence: „{title}“, «{title}», ”{title}”, 「{title}」.
 - Localize examples and placeholders instead of translating them word for word: "Football in the park" is "Calcetto al parco" in Italian. The example person stays Anna, and "Willi Thiel" stays in Latin script.
 - One word per concept: event, organiser, organiser link, poll, answer, yes and maybe. Keep the candidate days apart from the chosen date — they must never share a word.
+- A note is a remark to the group, not a memo to oneself: Anmerkung, not Notiz; コメント, not メモ. Avoid words that also mean a grade (French "note", Spanish "nota").
 - Counted texts come in `_one` / `_other` pairs. Languages with a `few` category add its forms (`csFew`, `plFew`, `ruFew`, `ukFew`), Arabic adds `arForms`. Check 1, 2, 5, 21 and 22.
 
 A new language is registered in these places:
