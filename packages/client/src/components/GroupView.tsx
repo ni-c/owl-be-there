@@ -65,10 +65,11 @@ export function GroupView(props: GroupViewProps) {
 
   const heat = useMemo(() => {
     const map = new Map<ISODate, HeatInfo>();
+    const respondents = visible.filter((p) => p.answered).length;
     for (const day of event.days) {
       const dayTally = tally(visible, [day]);
       map.set(day, {
-        level: heatLevel(heatOf(dayTally)),
+        level: heatLevel(heatOf(dayTally, respondents)),
         yes: dayTally.yes.length,
         maybe: dayTally.maybe.length,
         no: dayTally.no.length,

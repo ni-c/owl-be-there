@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A day added later, which only some have seen yet, is no longer coloured warmer than a day more people can make. The heatmap measured each day against those who had answered for that very day, so four of the four who had seen a new day outshone six of eight; now every day is measured against everyone who has answered, and the colour follows the count. The link preview picture follows suit.
 - An organiser key kept on a device is checked as soon as the event opens. After the organiser link had been issued anew, the old key still showed the organiser tools until the first change, which the server then refused and which was lost; now the page says at once that the link was not accepted.
 - Japanese pages no longer fetch the full Japanese font for characters the small interface font lacked.
 - Link preview pictures draw Vietnamese letters instead of boxes, and bold Cyrillic and accented Latin letters (č, ł, ş …) in bold instead of regular.

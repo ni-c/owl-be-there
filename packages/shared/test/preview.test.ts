@@ -117,6 +117,23 @@ describe('previewCalendar', () => {
     expect(cells.get('2026-11-06')).toBe(0);
   });
 
+  it('draws a day only some have seen no warmer than one more can make', () => {
+    // All three can on Friday; Saturday was added later and only Anna has
+    // seen it: one of three, not one of one.
+    const weeks = previewWeeks(
+      snapshot({
+        people: [
+          { name: 'Anna', yes: ['2026-11-06', '2026-11-07'] },
+          { name: 'Ben', yes: ['2026-11-06'], unseen: ['2026-11-07'] },
+          { name: 'Cem', yes: ['2026-11-06'], unseen: ['2026-11-07'] },
+        ],
+      })
+    );
+    const cells = new Map(weeks[0]!.map((c) => [c.day, c.level]));
+    expect(cells.get('2026-11-06')).toBe(5);
+    expect(cells.get('2026-11-07')).toBe(2);
+  });
+
   it('starts the week on Monday, and on Sunday in Japanese', () => {
     expect(previewWeeks(snapshot())[0]![0]!.day).toBe('2026-11-02');
     expect(previewWeeks(snapshot({ language: 'ja' }))[0]![0]!.day).toBe(

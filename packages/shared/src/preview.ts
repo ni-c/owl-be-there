@@ -80,8 +80,12 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
   const { event } = data;
   const candidates = new Set(event.days);
   const people = data.participants.map(respondentOf);
+  const respondents = people.filter((p) => p.answered).length;
   const heat = new Map(
-    [...candidates].map((day) => [day, heatOf(tally(people, [day]))])
+    [...candidates].map((day) => [
+      day,
+      heatOf(tally(people, [day]), respondents),
+    ])
   );
   const firstWeekday = event.language === 'ja' ? 6 : 0;
   const chosen = (day: ISODate): boolean =>
