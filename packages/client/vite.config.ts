@@ -33,5 +33,8 @@ export default defineConfig({
     target: 'es2022',
     // A source map would be a publicly fetchable copy of the sources.
     sourcemap: false,
+    // dist/.vite/manifest.json: the server reads which chunk holds which
+    // language. It is never served, being a dotfile directory.
+    manifest: true,
   },
 });

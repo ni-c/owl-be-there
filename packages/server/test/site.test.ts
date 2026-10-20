@@ -16,7 +16,12 @@ import {
 } from '@owl/shared';
 import { HOME_TEXTS } from '@owl/shared/home-texts';
 import { snapshot } from '../src/db/repo.js';
-import { jsonLd, PageTemplate } from '../src/pages.js';
+import {
+  dataBlock,
+  dictionaryChunks,
+  jsonLd,
+  PageTemplate,
+} from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';
 import {
   CLIENT_DIR,
@@ -1309,5 +1314,119 @@ describe('logs', () => {
     expect(logs).not.toContain('203.0.113.77');
     expect(logs).not.toContain('127.0.0.1');
     expect(logs).not.toContain(id);
+  });
+});
+
+describe('dictionary chunks from the build manifest', () => {
+  const MANIFEST = {
+    'index.html': {
+      file: 'assets/index-abc.js',
+      isEntry: true,
+      dynamicImports: ['src/i18n/fa.ts', 'src/i18n/ja.ts'],
+    },
+    'src/i18n/fa.ts': {
+      file: 'assets/fa-123.js',
+      isDynamicEntry: true,
+      imports: ['index.html', '_shared-x.js'],
+    },
+    // A shared chunk that imports the language back: no endless walk.
+    '_shared-x.js': { file: 'assets/shared-x.js', imports: ['src/i18n/fa.ts'] },
+    'src/i18n/ja.ts': { file: 'assets/ja-1.js', isDynamicEntry: true },
+    'src/i18n/ko.ts': { file: '../outside.js', isDynamicEntry: true },
+    'src/i18n/xx.ts': { file: 'assets/xx.js', isDynamicEntry: true },
+    'src/i18n/index.tsx': { file: 'assets/i.js' },
+  };
+
+  it('lists each known language with its chunk and that chunk’s imports', () => {
+    const chunks = dictionaryChunks(MANIFEST);
+    expect(Object.keys(chunks).sort()).toEqual([...LANGUAGES].sort());
+    expect(chunks.fa).toEqual(['/assets/fa-123.js', '/assets/shared-x.js']);
+    expect(chunks.ja).toEqual(['/assets/ja-1.js']);
+    // In the main bundle, missing, or a file name that is not plain.
+    expect(chunks.en).toEqual([]);
+    expect(chunks.de).toEqual([]);
+    expect(chunks.ko).toEqual([]);
+    expect(chunks.ar).toEqual([]);
+  });
+
+  it('refuses what is not a manifest', () => {
+    expect(() => dictionaryChunks(null)).toThrow();
+    expect(() => dictionaryChunks([])).toThrow();
+    expect(() => dictionaryChunks({ x: { file: 3 } })).toThrow();
+    expect(dictionaryChunks({})).toEqual(
+      Object.fromEntries(LANGUAGES.map((language) => [language, []]))
+    );
+  });
+
+  it('writes the data block so that no text can end it', () => {
+    expect(dataBlock('owl-i18n', { fa: ['</script><b>'] })).toBe(
+      '<script type="application/json" id="owl-i18n">{"fa":["\\u003c/script>\\u003cb>"]}</script>'
+    );
+  });
+
+  describe('in the pages', () => {
+    const dirs: string[] = [];
+    afterEach(() => {
+      for (const dir of dirs.splice(0))
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** A copy of the test client with this manifest, or none. */
+    const clientWith = (manifest: string | null): string => {
+      const dir = mkdtempSync(joinPath(tmpdir(), 'owl-client-'));
+      dirs.push(dir);
+      cpSync(CLIENT_DIR, dir, { recursive: true });
+      if (manifest !== null) {
+        mkdirSync(joinPath(dir, '.vite'));
+        writeFileSync(joinPath(dir, '.vite', 'manifest.json'), manifest);
+      }
+      return dir;
+    };
+    const BLOCK = '<script type="application/json" id="owl-i18n">';
+
+    it('puts the chunks before the inline script on every page', async () => {
+      t = await testApp({
+        env: { CLIENT_DIR: clientWith(JSON.stringify(MANIFEST)) },
+      });
+      const { id } = await createEvent(t.app);
+      for (const url of ['/', '/fa', `/e/${id}`, '/privacy', '/no-such-page']) {
+        const body = (await t.app.inject({ method: 'GET', url })).body;
+        const start = body.indexOf(BLOCK);
+        expect(start, url).toBeGreaterThan(-1);
+        expect(start, url).toBeLessThan(body.indexOf('<script>'));
+        const json = body.slice(
+          start + BLOCK.length,
+          body.indexOf('</script>', start)
+        );
+        expect(JSON.parse(json), url).toEqual(dictionaryChunks(MANIFEST));
+      }
+    });
+
+    it('keeps the policy’s script hashes, and never serves the manifest', async () => {
+      t = await testApp({
+        env: { CLIENT_DIR: clientWith(JSON.stringify(MANIFEST)) },
+      });
+      const withManifest = await t.app.inject({ method: 'GET', url: '/' });
+      expect(
+        (await t.app.inject({ method: 'GET', url: '/.vite/manifest.json' }))
+          .statusCode
+      ).toBe(404);
+      await t.app.close();
+      t = await testApp({ env: { CLIENT_DIR: clientWith(null) } });
+      const without = await t.app.inject({ method: 'GET', url: '/' });
+      expect(without.body).not.toContain(BLOCK);
+      expect(withManifest.headers['content-security-policy']).toBe(
+        without.headers['content-security-policy']
+      );
+    });
+
+    it('refuses to start with a manifest it cannot read', async () => {
+      await expect(
+        testApp({ env: { CLIENT_DIR: clientWith('{ not json') } })
+      ).rejects.toThrow('is not a Vite build manifest');
+      await expect(
+        testApp({ env: { CLIENT_DIR: clientWith('{"a":{"file":1}}') } })
+      ).rejects.toThrow('is not a Vite build manifest');
+    });
   });
 });

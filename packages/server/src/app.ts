@@ -18,7 +18,11 @@ import { systemClock, type AppContext, type Clock } from './context.js';
 import { sweepExpired } from './db/repo.js';
 import type { Db } from './db/sqlite.js';
 import { ApiError, networkKey, ValidationError } from './http.js';
-import { PageTemplate } from './pages.js';
+import {
+  dictionaryChunks,
+  PageTemplate,
+  type DictionaryChunks,
+} from './pages.js';
 import { PreviewRenderer, type RenderBudget } from './preview.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerLiveRoutes } from './routes/live.js';
@@ -137,6 +141,27 @@ function securityHeaders(csp: string, https: boolean): Record<string, string> {
  */
 const PICTURE_PATH = /^\/(?:e\/[^/?#]+\/)?og\.png(?:\?|$)/;
 
+/**
+ * The dictionary chunks named in the client's build manifest. Without one
+ * (a build from before, or a test fixture) the pages preload nothing and the
+ * app still works; a manifest that cannot be read is a broken build.
+ */
+function readDictionaryChunks(clientDir: string): DictionaryChunks | null {
+  const path = join(clientDir, '.vite', 'manifest.json');
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  try {
+    return dictionaryChunks(JSON.parse(raw));
+  } catch {
+    throw new ConfigError([`${path} is not a Vite build manifest`]);
+  }
+}
+
 export async function buildApp(
   options: BuildAppOptions
 ): Promise<FastifyInstance> {
@@ -155,7 +180,8 @@ export async function buildApp(
   const template =
     config.clientDir !== null
       ? new PageTemplate(
-          readFileSync(join(config.clientDir, 'index.html'), 'utf8')
+          readFileSync(join(config.clientDir, 'index.html'), 'utf8'),
+          readDictionaryChunks(config.clientDir)
         )
       : null;
   const hub = new SseHub(options.streamLimits, options.heartbeatMs);

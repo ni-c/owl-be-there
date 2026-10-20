@@ -32,6 +32,7 @@ function deferred() {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const ok = () => Promise.resolve(PACK);
 
 function harness(
   loaders: Partial<Record<Language, () => Promise<Pack>>>,
@@ -107,6 +108,23 @@ describe('LanguageStore', () => {
     expect(remember.mock.calls).toEqual([['fa']]);
   });
 
+  it('ignores a failure of a switch that a later one replaced', async () => {
+    const ja = deferred();
+    const { store, reloadPage } = harness({ ja: ja.load, fa: ok });
+    const languages = store();
+    languages.request('ja');
+    languages.request('fa');
+    await settle();
+    ja.reject(new Error('gone'));
+    await settle();
+    expect(reloadPage).not.toHaveBeenCalled();
+    expect(languages.getState()).toEqual({
+      language: 'fa',
+      choice: 'fa',
+      failed: null,
+    });
+  });
+
   it('drops a switch under way when the shown language is chosen again', async () => {
     const ja = deferred();
     const { store, remember } = harness({ ja: ja.load });
@@ -177,7 +195,6 @@ describe('startLanguage', () => {
       browser,
       stored: () => stored,
     });
-  const ok = () => Promise.resolve(PACK);
 
   it('starts in the address language, then the stored one, then the browser', async () => {
     const h = harness({ fa: ok, ja: ok, ko: ok, 'pt-BR': ok });
