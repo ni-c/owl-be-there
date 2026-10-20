@@ -82,7 +82,8 @@
             var link = document.createElement('link');
             link.rel = 'modulepreload';
             link.crossOrigin = '';
-            link.href = '/assets/' + file[1];
+            // The name is plain already; the encoding says so to a scanner.
+            link.href = '/assets/' + encodeURIComponent(file[1]);
             document.head.appendChild(link);
           }
         } catch (error) {
