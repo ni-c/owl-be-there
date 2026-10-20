@@ -47,7 +47,8 @@ async function expectAccessible(page: Page, label: string): Promise<void> {
 
 for (const scheme of ['light', 'dark'] as const) {
   test(`pages pass axe in ${scheme} mode`, async ({ browser, request }) => {
-    // Eight axe scans take 24-28 s in WebKit, too close to the 30 s default.
+    // An axe scan takes about 3 s in WebKit (eight took 24-28 s), and there are
+    // thirteen: past the 30 s default.
     test.slow();
     const context = await browser.newContext({
       colorScheme: scheme,
@@ -119,6 +120,17 @@ for (const scheme of ['light', 'dark'] as const) {
       .click();
     await page.getByRole('button', { name: 'Share' }).click();
     await expectAccessible(page, 'share sheet');
+    await page.keyboard.press('Escape');
+    // The organiser's people list and a person's sheet.
+    const people = page.locator('details').filter({
+      has: page.locator('summary', { hasText: 'People' }),
+    });
+    await people.locator('summary').click();
+    await expectAccessible(page, 'people');
+    await people.getByRole('button', { name: /^Anna/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Anna' })).toBeVisible();
+    await expectAccessible(page, 'person sheet');
+    await page.keyboard.press('Escape');
 
     await page.goto('/privacy');
     await expectAccessible(page, 'privacy');

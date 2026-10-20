@@ -11,6 +11,8 @@ import {
   type Weekday,
 } from '@owl/shared';
 import {
+  useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -41,7 +43,13 @@ import {
 } from '../lib/forms.ts';
 import { forgetEvent } from '../lib/prefs.ts';
 import { CalendarGrid } from './CalendarGrid.tsx';
-import { LockIcon, TrashIcon } from './icons.tsx';
+import {
+  ChevronEndIcon,
+  LockIcon,
+  NoteIcon,
+  PencilIcon,
+  TrashIcon,
+} from './icons.tsx';
 import {
   Button,
   Card,
@@ -595,15 +603,12 @@ function People(
   const { t } = useI18n();
   const [names, setNames] = useState('');
   const [rosterProblem, setRosterProblem] = useState<Problem | null>(null);
-  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
+  const [sheet, setSheet] = useState<{ id: string; step: SheetStep } | null>(
     null
   );
-  // Removing a password opens the entry to everyone with the event link and
-  // ends the person's sessions, so it asks first like removing the person.
-  const [unlocking, setUnlocking] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  // Someone removed elsewhere takes their sheet with them.
+  const sheetPerson =
+    (sheet && data.participants.find((p) => p.id === sheet.id)) ?? null;
   const credentials = { admin: adminToken };
   return (
     <div className="flex flex-col gap-4">
@@ -612,38 +617,37 @@ function People(
       ) : (
         <ul className="flex flex-col divide-y divide-line">
           {data.participants.map((person) => (
-            <li
-              key={person.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-2"
-            >
-              <span className="font-bold">
-                {person.name}
-                {person.hasPassword && <LockIcon size={14} />}
-              </span>
-              <span className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => props.onFillIn(person.id)}>
-                  {t('admin.fillIn')}
-                </Button>
-                {person.hasPassword && (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      setUnlocking({ id: person.id, name: person.name })
-                    }
-                  >
-                    {t('admin.resetPassword')}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="dangerOutline"
-                  onClick={() =>
-                    setRemoving({ id: person.id, name: person.name })
-                  }
-                >
-                  {t('admin.remove')}
-                </Button>
-              </span>
+            <li key={person.id} className="py-1">
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                className="-mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-1.5 text-start hover:bg-sunken"
+                onClick={() => setSheet({ id: person.id, step: 'actions' })}
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      {person.name}
+                    </span>
+                    {person.hasPassword && (
+                      <span className="shrink-0">
+                        <LockIcon size={14} />
+                      </span>
+                    )}
+                    {person.note && (
+                      <span className="shrink-0">
+                        <NoteIcon size={14} />
+                      </span>
+                    )}
+                  </span>
+                  {!person.answered && (
+                    <span className="text-sm text-muted">{t('day.open')}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-muted rtl:-scale-x-100">
+                  <ChevronEndIcon size={18} />
+                </span>
+              </button>
             </li>
           ))}
         </ul>
@@ -689,68 +693,144 @@ function People(
           </Button>
         </div>
       </form>
-      <Dialog
-        open={removing !== null}
-        onClose={() => setRemoving(null)}
-        title={t('admin.remove')}
-      >
-        <div className="flex flex-col gap-4">
-          <p>{t('admin.removeConfirm', { name: removing?.name ?? '' })}</p>
-          <div className="flex justify-end gap-2">
-            <Button onClick={() => setRemoving(null)}>
-              {t('mine.cancel')}
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                const target = removing;
-                setRemoving(null);
-                if (target)
-                  void run(() =>
-                    api.deleteParticipant(data.event.id, target.id, credentials)
-                  );
-              }}
-            >
-              {t('admin.remove')}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-      <Dialog
-        open={unlocking !== null}
-        onClose={() => setUnlocking(null)}
-        title={t('admin.resetPassword')}
-      >
-        <div className="flex flex-col gap-4">
-          <p>
-            {t('admin.resetPasswordConfirm', { name: unlocking?.name ?? '' })}
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button onClick={() => setUnlocking(null)}>
-              {t('mine.cancel')}
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                const target = unlocking;
-                setUnlocking(null);
-                if (target)
-                  void run(
-                    async () =>
-                      void (await api.updateParticipant(
-                        data.event.id,
-                        target.id,
-                        { password: null },
-                        credentials
-                      ))
-                  );
-              }}
-            >
-              {t('admin.resetPassword')}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <PersonSheet
+        person={sheetPerson}
+        step={sheet?.step ?? 'actions'}
+        busy={busy}
+        onStep={(step) =>
+          setSheet((current) => current && { ...current, step })
+        }
+        onClose={() => setSheet(null)}
+        onFillIn={(id) => {
+          setSheet(null);
+          props.onFillIn(id);
+        }}
+        onRemove={(id) => {
+          setSheet(null);
+          void run(() => api.deleteParticipant(data.event.id, id, credentials));
+        }}
+        onUnlock={(id) => {
+          setSheet(null);
+          void run(
+            async () =>
+              void (await api.updateParticipant(
+                data.event.id,
+                id,
+                { password: null },
+                credentials
+              ))
+          );
+        }}
+      />
     </div>
+  );
+}
+
+type SheetStep = 'actions' | 'remove' | 'unlock';
+
+/**
+ * What the organiser can do about one person, behind their row: buttons as
+ * wide as the sheet, so no label in any language has to share a line with a
+ * name. Removing the person, or their password (which opens the entry to
+ * everyone with the link and ends their sessions), asks first on a second step.
+ */
+function PersonSheet(props: {
+  person: EventSnapshotData['participants'][number] | null;
+  step: SheetStep;
+  busy: boolean;
+  onStep(step: SheetStep): void;
+  onClose(): void;
+  onFillIn(id: string): void;
+  onRemove(id: string): void;
+  onUnlock(id: string): void;
+}) {
+  const { person, step, busy } = props;
+  const { t } = useI18n();
+  const open = person !== null;
+  const ids = { cancel: useId(), remove: useId(), unlock: useId() };
+  // The step left last: back on the actions, its button gets the focus again.
+  const left = useRef<SheetStep>('actions');
+  useEffect(() => {
+    if (!open) {
+      left.current = 'actions';
+      return;
+    }
+    if (step !== 'actions') document.getElementById(ids.cancel)?.focus();
+    else if (left.current !== 'actions')
+      document.getElementById(ids[left.current])?.focus();
+    left.current = step;
+    // The ids are stable for the component's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step]);
+  return (
+    <Dialog open={open} onClose={props.onClose} title={person?.name ?? ''}>
+      {person &&
+        (step === 'actions' ? (
+          <div className="flex flex-col gap-3">
+            {person.note && (
+              <p className="flex items-start gap-2 text-sm text-muted [overflow-wrap:anywhere]">
+                <span className="mt-0.5 shrink-0">
+                  <NoteIcon size={14} />
+                </span>
+                {person.note}
+              </p>
+            )}
+            <Button
+              variant="primary"
+              className="w-full"
+              disabled={busy}
+              onClick={() => props.onFillIn(person.id)}
+            >
+              <PencilIcon size={18} /> {t('admin.fillIn')}
+            </Button>
+            {person.hasPassword && (
+              <Button
+                id={ids.unlock}
+                className="w-full"
+                disabled={busy}
+                onClick={() => props.onStep('unlock')}
+              >
+                <LockIcon size={18} /> {t('admin.resetPassword')}
+              </Button>
+            )}
+            <Button
+              id={ids.remove}
+              variant="dangerOutline"
+              className="w-full"
+              disabled={busy}
+              onClick={() => props.onStep('remove')}
+            >
+              <TrashIcon size={18} /> {t('admin.remove')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p>
+              {t(
+                step === 'remove'
+                  ? 'admin.removeConfirm'
+                  : 'admin.resetPasswordConfirm',
+                { name: person.name }
+              )}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button id={ids.cancel} onClick={() => props.onStep('actions')}>
+                {t('mine.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={busy}
+                onClick={() =>
+                  step === 'remove'
+                    ? props.onRemove(person.id)
+                    : props.onUnlock(person.id)
+                }
+              >
+                {t(step === 'remove' ? 'admin.remove' : 'admin.resetPassword')}
+              </Button>
+            </div>
+          </div>
+        ))}
+    </Dialog>
   );
 }
