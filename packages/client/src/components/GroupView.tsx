@@ -12,14 +12,14 @@ import {
   type Respondent,
   type Weekday,
 } from '@owl/shared';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
 import { errorMessage } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { liveHidden, liveOpenDay, liveSelection } from '../lib/groupState.ts';
 import { CalendarGrid, type HeatInfo } from './CalendarGrid.tsx';
-import { CheckIcon, StarIcon } from './icons.tsx';
+import { CheckIcon, NoteIcon, StarIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
 import { Button, Chip, Dialog, Notice } from './ui.tsx';
 
@@ -42,6 +42,7 @@ export function GroupView(props: GroupViewProps) {
   const [openDayState, setOpenDay] = useState<ISODate | null>(null);
   const [selectedBlock, setSelected] = useState<RankedBlock | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const notesHeading = useId();
 
   const people: Respondent[] = useMemo(
     () => data.participants.map(respondentOf),
@@ -101,6 +102,8 @@ export function GroupView(props: GroupViewProps) {
       {t('group.waiting', { names: waiting.map((p) => p.name).join(', ') })}
     </p>
   );
+  // Every note, whether its writer is counted or has answered at all.
+  const notes = data.participants.filter((p) => p.note);
   const anyAnswered = data.participants.some((p) => p.answered);
   const openDay = liveOpenDay(openDayState, event.days, anyAnswered);
   // A day sheet that closed because its day or every answer went must not
@@ -246,6 +249,7 @@ export function GroupView(props: GroupViewProps) {
                 className={hidden.has(p.id) ? 'line-through' : ''}
               >
                 {p.name}
+                {p.note && <NoteIcon size={14} />}
               </Chip>
             ))}
           {hidden.size > 0 && (
@@ -261,6 +265,32 @@ export function GroupView(props: GroupViewProps) {
         {waitingNote}
       </section>
 
+      {notes.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 id={notesHeading} className="text-lg font-extrabold">
+            {t('day.notes')}
+          </h3>
+          <ul
+            className="flex flex-col gap-1 text-sm text-muted"
+            aria-labelledby={notesHeading}
+          >
+            {notes.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-start gap-1.5 [overflow-wrap:anywhere]"
+              >
+                <span className="mt-0.5 shrink-0">
+                  <NoteIcon size={14} />
+                </span>
+                <span className="min-w-0">
+                  <span className="font-bold">{p.name}:</span> {p.note}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <Dialog
         open={openDay !== null}
         onClose={() => setOpenDay(null)}
@@ -274,7 +304,14 @@ export function GroupView(props: GroupViewProps) {
             : ''
         }
       >
-        {openDay && <DayDetails day={openDay} people={visible} names={names} />}
+        {openDay && (
+          <DayDetails
+            day={openDay}
+            people={visible}
+            everyone={people}
+            names={names}
+          />
+        )}
       </Dialog>
     </div>
   );
@@ -283,62 +320,110 @@ export function GroupView(props: GroupViewProps) {
 function DayDetails({
   day,
   people,
+  everyone,
   names,
 }: {
   day: ISODate;
+  /** The people counted; the groups list them. */
   people: Respondent[];
+  /** Everyone, counted or not: a note is shown either way. */
+  everyone: Respondent[];
   names: Map<string, { name: string; note: string | null }>;
 }) {
   const { t } = useI18n();
   const dayTally = tally(people, [day]);
-  const groups = [
-    { key: 'yes' as const, label: t('day.can'), swatch: 'bg-yes' },
-    { key: 'maybe' as const, label: t('day.maybe'), swatch: 'bg-maybe hatch' },
-    { key: 'no' as const, label: t('day.cannot'), swatch: 'bg-line' },
-    {
-      key: 'open' as const,
+  const style = {
+    yes: {
+      label: t('day.can'),
+      swatch: 'bg-yes',
+      chip: 'border-yes/50 bg-yes/15',
+    },
+    maybe: {
+      label: t('day.maybe'),
+      swatch: 'bg-maybe hatch',
+      chip: 'border-maybe/50 bg-maybe/15',
+    },
+    no: {
+      label: t('day.cannot'),
+      swatch: 'bg-line',
+      chip: 'border-line bg-surface',
+    },
+    open: {
       label: t('day.open'),
       swatch: 'border-2 border-dashed border-line-strong',
+      chip: 'border-dashed border-line-strong',
     },
-  ];
+  };
+  const keys = ['yes', 'maybe', 'no', 'open'] as const;
+  const answerOf = new Map<string, (typeof keys)[number]>();
+  const everyoneTally = tally(everyone, [day]);
+  for (const key of keys) {
+    for (const id of everyoneTally[key]) answerOf.set(id, key);
+  }
+  const notes = [...names].filter(([, person]) => person.note);
+  const chip = (name: string | undefined, key: (typeof keys)[number]) => (
+    <span
+      className={`inline-flex max-w-full shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-semibold [overflow-wrap:anywhere] ${style[key].chip}`}
+    >
+      {name}
+    </span>
+  );
   return (
     <div className="flex flex-col gap-4">
-      {groups.map((group) => {
-        const ids = dayTally[group.key];
+      {keys.map((key) => {
+        const group = style[key];
+        const ids = dayTally[key];
+        const empty = ids.length === 0;
         return (
-          <section key={group.key}>
-            <h4 className="mb-1.5 flex items-center gap-2 font-extrabold">
+          <section key={key}>
+            <h4
+              className={`flex items-center gap-2 font-extrabold ${
+                empty ? 'text-muted' : 'mb-2'
+              }`}
+            >
               <span
-                className={`inline-block size-4 rounded ${group.swatch}`}
+                className={`inline-block size-4 rounded ${group.swatch} ${
+                  empty ? 'opacity-50' : ''
+                }`}
                 aria-hidden="true"
               />
               {group.label} <span className="text-muted">· {ids.length}</span>
             </h4>
-            {ids.length === 0 ? (
-              <p className="text-sm text-muted">{t('day.nobody')}</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {ids.map((id) => {
-                  const person = names.get(id);
-                  return (
-                    <li key={id}>
-                      <span className="font-bold [overflow-wrap:anywhere]">
-                        {person?.name}
-                      </span>
-                      {person?.note && (
-                        <span className="[overflow-wrap:anywhere] text-muted">
-                          {' '}
-                          — {person.note}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
+            {!empty && (
+              <ul className="flex flex-wrap gap-1.5">
+                {ids.map((id) => (
+                  <li key={id} className="max-w-full">
+                    {chip(names.get(id)?.name, key)}
+                  </li>
+                ))}
               </ul>
             )}
           </section>
         );
       })}
+      {notes.length > 0 && (
+        <section className="border-t border-line pt-4">
+          <h4 className="mb-2 flex items-center gap-2 font-extrabold">
+            <NoteIcon size={16} />
+            {t('day.notes')}{' '}
+            <span className="text-muted">· {notes.length}</span>
+          </h4>
+          <ul className="flex flex-col gap-2">
+            {notes.map(([id, person]) => {
+              const key = answerOf.get(id) ?? 'open';
+              return (
+                <li key={id} className="flex items-start gap-2">
+                  {chip(person.name, key)}
+                  <span className="sr-only"> ({style[key].label})</span>
+                  <p className="min-w-0 pt-0.5 text-sm text-muted [overflow-wrap:anywhere]">
+                    {person.note}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

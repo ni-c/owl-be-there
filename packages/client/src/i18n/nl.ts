@@ -14,6 +14,10 @@ export const nl: Dictionary = {
   'home.example.hint':
     'Een verzonnen evenement om uit te proberen – er wordt niets opgeslagen.',
   'home.example.reset': 'Opnieuw beginnen',
+  'home.example.noteBen':
+    'Doordeweeks wordt het krap — donderdag misschien, vanaf midden van de maand.',
+  'home.example.noteMax':
+    'Tot midden van de maand op donderdag koorrepetitie, daarna ben ik vrij.',
   'event.planOwn.title': 'Zelf iets plannen?',
   'event.planOwn.text':
     'Maak in een minuut je eigen evenement, zonder account.',
@@ -210,7 +214,7 @@ export const nl: Dictionary = {
   'day.maybe': 'Misschien',
   'day.cannot': 'Kunnen niet',
   'day.open': 'Nog geen antwoord',
-  'day.nobody': 'niemand',
+  'day.notes': 'Opmerkingen',
   'day.close': 'Sluiten',
 
   'share.title': 'Deel met je groep',

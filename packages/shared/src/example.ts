@@ -16,6 +16,7 @@ import { splitMarks, type Mark, type Marks } from './selection.js';
  * The answers are rules over weekdays and parts of the month, not dates, so the
  * example looks alike whichever month it shows: one evening in the third week
  * that nearly everyone can make, and a few more that reach the minimum of six.
+ * Ben and Max say why in a note, which the day sheet of that evening shows.
  */
 
 /** Every day of the month after the one `today` falls in. */
@@ -115,12 +116,13 @@ const personId = (index: number): string =>
 /**
  * The example event as the server would send it. Anna's marks come from the
  * caller — the start page lets visitors paint them — and everyone else's from
- * their rules.
+ * their rules. Notes are keyed by name and come translated, like the title.
  */
 export function exampleSnapshot(options: {
   today: ISODate;
   title: string;
   anna: Marks;
+  notes?: Readonly<Record<string, string>>;
 }): EventSnapshotData {
   const days = monthAfter(options.today);
   const last = days[days.length - 1]!;
@@ -154,7 +156,7 @@ export function exampleSnapshot(options: {
       return {
         id: personId(index),
         name: person.name,
-        note: null,
+        note: options.notes?.[person.name] ?? null,
         source: 'roster' as const,
         answered: marks.size > 0,
         hasPassword: false,

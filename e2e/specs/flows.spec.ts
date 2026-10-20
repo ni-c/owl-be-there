@@ -306,6 +306,76 @@ test('the start page example can be tried, sends nothing, and starts over', asyn
   expect(calls).toEqual([]);
 });
 
+test('the start page example shows two notes in the day sheet', async ({
+  page,
+}, testInfo) => {
+  const calls: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/events'))
+      calls.push(request.url());
+  });
+  await page.goto('/');
+  const frame = page.locator('[data-browser-frame]');
+  if (isMobile(testInfo))
+    await frame.getByRole('tab', { name: /^Group/ }).click();
+  const group = frame.getByRole('grid', { name: 'Group' });
+  // A Thursday from the middle of the month: Max can, Ben maybe.
+  const days = await group
+    .locator('[data-day]')
+    .evaluateAll((cells) =>
+      cells.map((cell) => cell.getAttribute('data-day')!)
+    );
+  const thursday = days.find(
+    (iso) => utcDateOf(iso).getUTCDay() === 4 && Number(iso.slice(8)) >= 15
+  )!;
+  await day(group, thursday).click();
+
+  const BEN = 'Weekdays are tight for me — Thursdays maybe, from mid-month.';
+  const MAX = 'Choir on Thursdays until mid-month, after that I’m free.';
+  const sheet = page.getByRole('dialog');
+  const section = (name: RegExp) =>
+    sheet
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { level: 4, name }) });
+  // The groups name people only; the notes have their own block at the end.
+  await expect(section(/^Maybe\b/).getByRole('listitem')).toHaveText(['Ben']);
+  await expect(section(/^Can\b/).getByText('Choir')).toHaveCount(0);
+  const notes = section(/^Notes · 2$/);
+  // Each name carries its answer for the day, for those who cannot see colour.
+  await expect(notes.getByRole('listitem')).toHaveText([
+    `Ben (Maybe)${BEN}`,
+    `Max (Can)${MAX}`,
+  ]);
+  await sheet.getByRole('button', { name: 'Close' }).click();
+
+  // The group view marks who wrote one and lists the notes under the names.
+  const chip = (name: string) =>
+    frame.getByRole('button', { name, exact: true });
+  await expect(chip('Ben').locator('svg')).toHaveCount(1);
+  await expect(chip('Max').locator('svg')).toHaveCount(1);
+  await expect(chip('Anna').locator('svg')).toHaveCount(0);
+  // The notes have a heading of their own, below "Who is counted".
+  await expect(
+    frame.getByRole('heading', { level: 3, name: 'Notes' })
+  ).toBeVisible();
+  const list = frame.getByRole('list', { name: 'Notes' }).getByRole('listitem');
+  await expect(list).toHaveText([`Ben: ${BEN}`, `Max: ${MAX}`]);
+
+  // Someone left out of the count keeps their note, here and on the day.
+  await chip('Ben').click();
+  await expect(chip('Ben')).toHaveAttribute('aria-pressed', 'false');
+  await expect(list).toHaveText([`Ben: ${BEN}`, `Max: ${MAX}`]);
+  await day(group, thursday).click();
+  await expect(section(/^Maybe\b/).getByRole('heading')).toHaveText(
+    'Maybe · 0'
+  );
+  await expect(notes.getByRole('listitem')).toHaveText([
+    `Ben (Maybe)${BEN}`,
+    `Max (Can)${MAX}`,
+  ]);
+  expect(calls).toEqual([]);
+});
+
 test('the start page example speaks the chosen language', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Language').selectOption('de');
@@ -409,12 +479,91 @@ test('two people see each other live, and the day sheet names them', async ({
   ).toBe('"1"');
   await expect(cell).toHaveAccessibleName(/: 1 can, 0 maybe, 0 cannot$/);
   await expect(two.getByText('Not answered yet: Ben')).toBeVisible();
+
+  // Without a note anywhere, neither page has a notes block.
+  const notesHeading = (scope: Page | Locator) =>
+    scope.getByRole('heading', { name: /^Notes\b/ });
+  await expect(notesHeading(two)).toHaveCount(0);
+  await cell.click();
+  await expect(
+    two.getByRole('dialog').getByRole('heading', { level: 4, name: /^Can\b/ })
+  ).toBeVisible();
+  await expect(notesHeading(two.getByRole('dialog'))).toHaveCount(0);
+  await two.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+
+  // Someone with a note: the day sheet gives it a block of its own.
+  const cleo = await (
+    await request.post(`/api/events/${id}/session`, { data: { name: 'Cleo' } })
+  ).json();
+  const headers = { 'x-participant-token': cleo.token };
+  const base = `/api/events/${id}/participants/${cleo.participantId}`;
+  expect(
+    (
+      await request.patch(base, { headers, data: { note: 'After six' } })
+    ).status()
+  ).toBe(200);
+  expect(
+    (
+      await request.put(`${base}/marks`, {
+        headers,
+        data: { baseRev: 0, yes: [D(5)], maybe: [] },
+      })
+    ).status()
+  ).toBe(200);
+  await expect(count).toHaveAttribute('data-count', '2', { timeout: 10_000 });
+
   await cell.click();
   const sheet = two.getByRole('dialog');
+  const can = sheet
+    .locator('section')
+    .filter({ has: two.getByRole('heading', { level: 4, name: /^Can\b/ }) });
+  await expect(can.getByRole('listitem')).toHaveText(['Anna', 'Cleo']);
+  const notes = sheet.locator('section').filter({
+    has: two.getByRole('heading', { level: 4, name: /^Notes\b/ }),
+  });
+  await expect(notes.getByRole('heading')).toHaveText('Notes · 1');
+  await expect(notes.getByRole('listitem')).toHaveText(['Cleo (Can)After six']);
+
+  // Ben has not answered yet, but his note shows, with the dashed chip.
+  const ben = await (
+    await request.post(`/api/events/${id}/session`, { data: { name: 'Ben' } })
+  ).json();
+  const benBase = `/api/events/${id}/participants/${ben.participantId}`;
+  const benHeaders = { 'x-participant-token': ben.token };
+  const noteOf = async (
+    path: string,
+    auth: Record<string, string>,
+    note: string | null
+  ) =>
+    expect(
+      (await request.patch(path, { headers: auth, data: { note } })).status()
+    ).toBe(200);
+  await noteOf(benBase, benHeaders, 'Abroad until the 9th');
+  await expect(notes.getByRole('heading')).toHaveText('Notes · 2', {
+    timeout: 10_000,
+  });
+  await expect(notes.getByRole('listitem')).toHaveText([
+    'Ben (Not answered)Abroad until the 9th',
+    'Cleo (Can)After six',
+  ]);
   await expect(
-    sheet.getByRole('heading', { level: 4, name: /^Can\b/ })
-  ).toBeVisible();
-  await expect(sheet.getByText('Anna')).toBeVisible();
+    notes.getByRole('listitem').first().locator('span.border-dashed')
+  ).toHaveCount(1);
+
+  // Notes taken back: the block goes again, here and in the group view.
+  await noteOf(benBase, benHeaders, null);
+  await noteOf(base, headers, null);
+  await expect(notes).toHaveCount(0, { timeout: 10_000 });
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(notesHeading(two)).toHaveCount(0);
+  await cell.click();
+  // An empty group is its heading alone.
+  const maybe = sheet
+    .locator('section')
+    .filter({ has: two.getByRole('heading', { level: 4, name: /^Maybe\b/ }) });
+  await expect(maybe.getByRole('heading')).toHaveText('Maybe · 0');
+  await expect(maybe.getByRole('list')).toHaveCount(0);
+  await expect(sheet.getByText('nobody')).toHaveCount(0);
   await sheet.getByRole('button', { name: 'Close' }).click();
   await one.close();
   await two.close();

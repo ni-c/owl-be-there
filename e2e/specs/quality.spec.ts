@@ -5,10 +5,12 @@ import {
   createEvent,
   day,
   dayFromNow,
+  groupCalendar,
   joinAs,
   myCalendar,
   saved,
   showView,
+  utcDateOf,
 } from '../helpers.ts';
 
 /** Fail on anything axe calls serious or critical against WCAG 2.2 AA. */
@@ -66,6 +68,24 @@ for (const scheme of ['light', 'dark'] as const) {
 
     await page.goto('/');
     await expectAccessible(page, 'home');
+    // The example's day sheet, with its notes block.
+    const frame = page.locator('[data-browser-frame]');
+    const groupTab = frame.getByRole('tab', { name: /^Group/ });
+    if (await groupTab.isVisible()) await groupTab.click();
+    const example = frame.getByRole('grid', { name: 'Group' });
+    const days = await example
+      .locator('[data-day]')
+      .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-day')!));
+    const thursday = days.find(
+      (iso) => utcDateOf(iso).getUTCDay() === 4 && Number(iso.slice(8)) >= 15
+    )!;
+    await day(example, thursday).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectAccessible(page, 'example day sheet');
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
     await page.getByRole('button', { name: 'Plan an event' }).click();
     await expectAccessible(page, 'wizard');
 
@@ -84,6 +104,14 @@ for (const scheme of ['light', 'dark'] as const) {
     await expectAccessible(page, 'my days, marked');
     await showView(page, 'group');
     await expectAccessible(page, 'group');
+    // The day sheet: names as chips in each group's colour, one group empty.
+    await day(groupCalendar(page), dayFromNow(5)).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectAccessible(page, 'day sheet');
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
     await page.getByRole('button', { name: 'Share' }).click();
     await expectAccessible(page, 'share sheet');
 

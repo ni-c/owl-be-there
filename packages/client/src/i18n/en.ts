@@ -17,6 +17,10 @@ export const en = {
   'home.example.eventTitle': 'Team dinner',
   'home.example.hint': 'A made-up event to try out — nothing is saved.',
   'home.example.reset': 'Start over',
+  'home.example.noteBen':
+    'Weekdays are tight for me — Thursdays maybe, from mid-month.',
+  'home.example.noteMax':
+    'Choir on Thursdays until mid-month, after that I’m free.',
   'event.planOwn.title': 'Planning something yourself?',
   'event.planOwn.text': 'Start your own event in a minute, no account needed.',
   'home.myEvents': 'Your events',
@@ -206,7 +210,7 @@ export const en = {
   'day.maybe': 'Maybe',
   'day.cannot': 'Cannot',
   'day.open': 'Not answered',
-  'day.nobody': 'nobody',
+  'day.notes': 'Notes',
   'day.close': 'Close',
 
   'share.title': 'Share with your group',
