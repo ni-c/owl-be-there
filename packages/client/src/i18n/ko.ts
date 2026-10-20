@@ -1,11 +1,12 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/ko';
 import type { Dictionary } from './en.ts';
 
 export const ko: Dictionary = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.ko,
 
-  ...HOME_TEXTS.ko,
+  ...HOME,
   'home.cta': '모임 만들기',
   'home.example.title': '직접 해 보기',
   'home.example.text':

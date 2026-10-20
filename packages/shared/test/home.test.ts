@@ -3,11 +3,14 @@ import {
   DESCRIPTION_EN,
   FAQ_TOPICS,
   FEATURES,
-  HOME_TEXTS,
   LANGUAGES,
   RETENTION_DAYS,
   type HomeKey,
 } from '../src/index.js';
+import { HOME_TEXTS } from '../src/home-texts.js';
+import { HOME as persian } from '../src/home/fa.js';
+import { HOME as simplifiedChinese } from '../src/home/zh-Hans.js';
+import * as shared from '../src/index.js';
 
 const keys = Object.keys(HOME_TEXTS.en) as HomeKey[];
 
@@ -95,5 +98,15 @@ describe('the privacy answer', () => {
       const answer = HOME_TEXTS[language]['home.faq.privacy.a'];
       expect(answer.match(/\d+/g), language).toEqual([String(RETENTION_DAYS)]);
     }
+  });
+});
+
+describe('the start page texts, one module per language', () => {
+  it('assembles every language from its own module, and keeps them out of the index', () => {
+    expect(Object.keys(HOME_TEXTS).sort()).toEqual([...LANGUAGES].sort());
+    expect(HOME_TEXTS.fa).toBe(persian);
+    expect(HOME_TEXTS['zh-Hans']).toBe(simplifiedChinese);
+    // The client loads one language at a time; the index must not pull all in.
+    expect('HOME_TEXTS' in shared).toBe(false);
   });
 });

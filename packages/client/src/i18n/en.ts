@@ -1,4 +1,5 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/en';
 
 /**
  * The English texts, and the type every other language must match: a key
@@ -9,7 +10,7 @@ export const en = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.en,
 
-  ...HOME_TEXTS.en,
+  ...HOME,
   'home.cta': 'Plan an event',
   'home.example.title': 'Try it out',
   'home.example.text':

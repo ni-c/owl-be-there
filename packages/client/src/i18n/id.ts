@@ -1,10 +1,11 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/id';
 import type { Dictionary } from './en.ts';
 
 export const id = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.id,
-  ...HOME_TEXTS.id,
+  ...HOME,
   'home.cta': 'Rencanakan acara',
   'home.example.title': 'Coba sekarang',
   'home.example.text':

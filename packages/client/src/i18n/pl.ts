@@ -1,11 +1,12 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/pl';
 import type { Dictionary } from './en.ts';
 import type { CountedKey } from './index.tsx';
 
 export const pl = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.pl,
-  ...HOME_TEXTS.pl,
+  ...HOME,
   'home.cta': 'Zaplanuj wydarzenie',
   'home.example.title': 'Wypróbuj',
   'home.example.text':

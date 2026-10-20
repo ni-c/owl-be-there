@@ -10,7 +10,8 @@
     "allowImportingTsExtensions": true,
     "types": [],
     "paths": {
-      "@owl/shared": ["../shared/src/index.ts"]
+      "@owl/shared": ["../shared/src/index.ts"],
+      "@owl/shared/*": ["../shared/src/*.ts"]
     }
   },
   "include": ["src/**/*", "test/**/*"]

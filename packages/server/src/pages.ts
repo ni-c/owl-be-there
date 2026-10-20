@@ -6,7 +6,6 @@ import {
   escapeMarkup,
   FAQ_TOPICS,
   FEATURES,
-  HOME_TEXTS,
   isRtl,
   LANGUAGES,
   LOCALES,
@@ -17,6 +16,7 @@ import {
   type EventSnapshotData,
   type Language,
 } from '@owl/shared';
+import { HOME_TEXTS } from '@owl/shared/home-texts';
 
 /**
  * The client's `index.html`, with a replaceable block of head tags and a place

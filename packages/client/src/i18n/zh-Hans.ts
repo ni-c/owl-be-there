@@ -1,10 +1,11 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/zh-Hans';
 import type { Dictionary } from './en.ts';
 
 export const zhHans = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES['zh-Hans'],
-  ...HOME_TEXTS['zh-Hans'],
+  ...HOME,
   'home.cta': '创建活动',
   'home.example.title': '试试看',
   'home.example.text': '以 Anna 的身份标记方便的日期，看看大家的日历如何变化。',

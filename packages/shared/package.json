@@ -11,6 +11,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./home-texts": {
+      "types": "./dist/home-texts.d.ts",
+      "import": "./dist/home-texts.js"
+    },
+    "./home/*": {
+      "types": "./dist/home/*.d.ts",
+      "import": "./dist/home/*.js"
     }
   },
   "files": [

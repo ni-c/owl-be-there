@@ -10,11 +10,11 @@ import {
   escapeMarkup,
   FAQ_TOPICS,
   FEATURES,
-  HOME_TEXTS,
   LANGUAGES,
   RETENTION_DAYS,
   SERVER_TEXTS,
 } from '@owl/shared';
+import { HOME_TEXTS } from '@owl/shared/home-texts';
 import { snapshot } from '../src/db/repo.js';
 import { jsonLd, PageTemplate } from '../src/pages.js';
 import { PreviewRenderer } from '../src/preview.js';

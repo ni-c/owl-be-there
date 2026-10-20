@@ -1,10 +1,11 @@
-import { APP_NAME, HOME_TEXTS, TAGLINES } from '@owl/shared';
+import { APP_NAME, TAGLINES } from '@owl/shared';
+import { HOME } from '@owl/shared/home/ur';
 import type { Dictionary } from './en.ts';
 
 export const ur = {
   'app.name': APP_NAME,
   'app.tagline': TAGLINES.ur,
-  ...HOME_TEXTS.ur,
+  ...HOME,
   'home.cta': 'ایونٹ پلان کریں',
   'home.example.title': 'آزما کر دیکھیں',
   'home.example.text':
