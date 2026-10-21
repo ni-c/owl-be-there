@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import fc from 'fast-check';
 import {
   addDays,
   arabicPunctuation,
@@ -1134,5 +1135,43 @@ describe('the state sentence of a poll', () => {
   it('does not count people who have not answered', () => {
     const data = snapshot({ people: [{ name: 'A' }] });
     expect(sentence(data)).toBe(SERVER_TEXTS.en.previewOpen(0));
+  });
+});
+
+describe('arabicPunctuation on long or odd input', () => {
+  // The old single regex, kept here as the reference for the linear version.
+  const reference = (line: string): string =>
+    line.replace(
+      /\s*\(([^()]*)\)\s*/g,
+      (all, inner: string, at: number, whole: string) =>
+        `${at === 0 ? '' : '، '}${inner.trim()}${at + all.length >= whole.length ? '' : '، '}`
+    );
+  const strip = (line: string): string =>
+    line
+      .replace(/[–—]/g, '-')
+      .replace(/\s?·/g, '،')
+      .replace(/\?/g, '؟')
+      .replace(/…/g, '...')
+      .replace(/[()+§]/g, '');
+
+  it('turns brackets into Arabic commas exactly as before', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.constantFrom('ي', 'م', ' ', '(', ')', '5', '?', '·'), {
+          maxLength: 24,
+        }),
+        (parts) => {
+          const line = `ع${parts.join('')}`;
+          expect(arabicPunctuation(line)).toBe(strip(reference(line)));
+        }
+      )
+    );
+  });
+
+  it('stays fast on a long run of spaces', () => {
+    const line = `ع${' '.repeat(50_000)}x`;
+    const started = performance.now();
+    expect(arabicPunctuation(line)).toBe(line);
+    expect(performance.now() - started).toBeLessThan(200);
   });
 });

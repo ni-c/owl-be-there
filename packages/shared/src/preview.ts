@@ -258,14 +258,34 @@ export function wrapText(
  * A line with Arabic letters gets the hyphen, the Arabic comma and question
  * mark; "(5)" becomes ", 5," and a lone bracket, plus or section sign goes.
  */
+// "(5)" → "، 5، " in one linear pass: a regex with \s* on both sides of the
+// brackets backtracks quadratically over long runs of spaces.
+function unbracket(line: string): string {
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const open = line.indexOf('(', from);
+    if (open < 0) return out + line.slice(from);
+    const close = line.indexOf(')', open + 1);
+    const nested = line.indexOf('(', open + 1);
+    if (close < 0 || (nested >= 0 && nested < close)) {
+      out += line.slice(from, open + 1);
+      from = open + 1;
+      continue;
+    }
+    const before = line.slice(from, open).trimEnd();
+    let after = close + 1;
+    while (after < line.length && /\s/.test(line[after]!)) after += 1;
+    const atStart = out === '' && before === '';
+    const atEnd = after >= line.length;
+    out += `${before}${atStart ? '' : '، '}${line.slice(open + 1, close).trim()}${atEnd ? '' : '، '}`;
+    from = after;
+  }
+}
+
 export function arabicPunctuation(line: string): string {
   if (!/\p{scx=Arabic}/u.test(line)) return line;
-  return line
-    .replace(
-      /\s*\(([^()]*)\)\s*/g,
-      (all, inner: string, at: number, whole: string) =>
-        `${at === 0 ? '' : '، '}${inner.trim()}${at + all.length >= whole.length ? '' : '، '}`
-    )
+  return unbracket(line)
     .replace(/[–—]/g, '-')
     .replace(/\s?·/g, '،')
     .replace(/\?/g, '؟')
