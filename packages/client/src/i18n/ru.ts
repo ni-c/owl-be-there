@@ -216,6 +216,7 @@ export const ru = {
   'day.cannot': 'Не может',
   'day.open': 'Без ответа',
   'day.notes': 'Комментарии',
+  'day.noteSep': ': ',
   'day.close': 'Закрыть',
 
   'share.title': 'Поделиться с группой',

@@ -225,6 +225,7 @@ export const pl = {
   'day.cannot': 'Nie może przyjść',
   'day.open': 'Brak odpowiedzi',
   'day.notes': 'Uwagi',
+  'day.noteSep': ': ',
   'day.close': 'Zamknij',
 
   'share.title': 'Udostępnij grupie',

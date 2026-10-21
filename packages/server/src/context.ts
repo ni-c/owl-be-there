@@ -37,7 +37,15 @@ export interface AppContext {
 export function limit(
   config: Config,
   max: number,
-  timeWindow: string
-): { rateLimit: { max: number; timeWindow: string } } {
-  return { rateLimit: { max: max * config.rateLimitMultiplier, timeWindow } };
+  timeWindow: string,
+  // The `error` code of the 429, where the route's limit is not the generic one.
+  code?: string
+): {
+  rateLimit: { max: number; timeWindow: string };
+  limitCode?: string;
+} {
+  return {
+    rateLimit: { max: max * config.rateLimitMultiplier, timeWindow },
+    ...(code !== undefined && { limitCode: code }),
+  };
 }

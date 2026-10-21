@@ -211,10 +211,113 @@ describe('EventStore', () => {
     source.readyState = 0;
     source.emit('error');
     source.emit('open');
+    source.readyState = 1;
+    source.readyState = 0; // dropped again
     source.emit('error');
-    await vi.advanceTimersByTimeAsync(30_000);
+    source.emit('open');
+    source.readyState = 1;
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(requests).toHaveLength(1);
+    expect(source.closed).toBe(false);
     store.stop();
+  });
+
+  describe('after a stream that had been open', () => {
+    /** An open stream whose connection then drops: the browser is reconnecting. */
+    async function dropped() {
+      const store = await started();
+      const source = FakeEventSource.instances[0]!;
+      source.readyState = 0;
+      source.emit('open');
+      source.readyState = 1;
+      source.readyState = 0; // the connection drops
+      return { store, source };
+    }
+
+    it('lets the browser reconnect through any number of failed attempts', async () => {
+      const { store, source } = await dropped();
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        source.emit('error');
+        await vi.advanceTimersByTimeAsync(2000);
+      }
+      expect(source.closed).toBe(false);
+      expect(requests).toHaveLength(1);
+      source.emit('open');
+      source.readyState = 1;
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(source.closed).toBe(false);
+      expect(requests).toHaveLength(1);
+      expect(FakeEventSource.instances).toHaveLength(1);
+      store.stop();
+    });
+
+    it('does not keep the stream from a short outage that ends just before the limit', async () => {
+      const { store, source } = await dropped();
+      source.emit('error');
+      await vi.advanceTimersByTimeAsync(14_000);
+      source.emit('error');
+      source.emit('open');
+      source.readyState = 1;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(source.closed).toBe(false);
+      expect(requests).toHaveLength(1);
+      store.stop();
+    });
+
+    it('gives the same grace again for every later drop', async () => {
+      const { store, source } = await dropped();
+      for (let drop = 0; drop < 3; drop += 1) {
+        source.emit('error');
+        source.emit('error');
+        await vi.advanceTimersByTimeAsync(10_000);
+        source.emit('open');
+        source.readyState = 1;
+        await vi.advanceTimersByTimeAsync(60_000);
+        source.readyState = 0;
+      }
+      expect(source.closed).toBe(false);
+      expect(requests).toHaveLength(1);
+      store.stop();
+    });
+
+    it('polls when it stays CONNECTING for longer than the limit', async () => {
+      const { store, source } = await dropped();
+      source.emit('error');
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(source.closed).toBe(false);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(source.closed).toBe(true);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(requests.length).toBeGreaterThanOrEqual(2);
+      // ... and the stream is tried again later.
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(FakeEventSource.instances).toHaveLength(2);
+      store.stop();
+    });
+
+    it('still gives up when the browser closes it for good', async () => {
+      const { store, source } = await dropped();
+      source.readyState = FakeEventSource.CLOSED;
+      source.emit('error');
+      expect(source.closed).toBe(true);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(requests.length).toBeGreaterThanOrEqual(2);
+      store.stop();
+    });
+
+    it('counts afresh on the next stream: it has not opened yet', async () => {
+      const { store, source } = await dropped();
+      source.readyState = FakeEventSource.CLOSED;
+      source.emit('error');
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      const next = FakeEventSource.instances[1]!;
+      next.readyState = 0;
+      next.emit('error');
+      expect(next.closed).toBe(false);
+      next.emit('error');
+      expect(next.closed).toBe(true);
+      store.stop();
+    });
   });
 
   it('does not poll after stop when the stream never opened', async () => {

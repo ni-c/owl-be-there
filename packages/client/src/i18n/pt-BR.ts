@@ -220,6 +220,7 @@ export const ptBr: Dictionary = {
   'day.cannot': 'Não podem',
   'day.open': 'Sem resposta',
   'day.notes': 'Observações',
+  'day.noteSep': ': ',
   'day.close': 'Fechar',
 
   'share.title': 'Compartilhar com o grupo',

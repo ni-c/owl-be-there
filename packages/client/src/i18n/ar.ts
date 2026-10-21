@@ -213,6 +213,7 @@ export const ar = {
   'day.cannot': 'لا يستطيع',
   'day.open': 'لم يُجب',
   'day.notes': 'ملاحظات',
+  'day.noteSep': ': ',
   'day.close': 'إغلاق',
 
   'share.title': 'شارك مع المجموعة',

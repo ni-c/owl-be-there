@@ -222,6 +222,7 @@ export const id = {
   'day.cannot': 'Tidak bisa hadir',
   'day.open': 'Belum menjawab',
   'day.notes': 'Catatan',
+  'day.noteSep': ': ',
   'day.close': 'Tutup',
 
   'share.title': 'Bagikan dengan grup',

@@ -98,7 +98,10 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           # A section of headings only has no release notes either.
-          if ! bash scripts/changelog-section.sh "$version" | grep -q '^[^#[:space:]]'; then
+          # Into a variable first: `grep -q` quits at the first match and the
+          # script on the left of a pipe would die of SIGPIPE under pipefail.
+          section=$(bash scripts/changelog-section.sh "$version" || true)
+          if ! grep -q '^[^#[:space:]]' <<< "$section"; then
             echo "No CHANGELOG section with content found for $version" >&2
             exit 1
           fi

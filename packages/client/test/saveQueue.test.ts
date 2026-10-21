@@ -48,7 +48,25 @@ class FakeServer {
   apply(index = this.oldestOpen()): SendResult {
     const entry = this.entries[index]!;
     if (entry.outcome === undefined) {
-      if (entry.request.baseRev !== this.rev) {
+      if (entry.request.baseRev !== this.rev && entry.request.touched) {
+        // Like the real server: a stale save with `touched` is merged.
+        const held = new Map<string, 'yes' | 'maybe'>();
+        for (const day of this.marks.yes) held.set(day, 'yes');
+        for (const day of this.marks.maybe) held.set(day, 'maybe');
+        for (const day of entry.request.touched) {
+          if (entry.request.yes.includes(day)) held.set(day, 'yes');
+          else if (entry.request.maybe.includes(day)) held.set(day, 'maybe');
+          else held.delete(day);
+        }
+        const of = (state: string) =>
+          [...held]
+            .filter(([, s]) => s === state)
+            .map(([d]) => d)
+            .sort();
+        this.rev += 1;
+        this.marks = { yes: of('yes'), maybe: of('maybe') };
+        entry.outcome = { ok: true, rev: this.rev, ...this.marks };
+      } else if (entry.request.baseRev !== this.rev) {
         entry.outcome = {
           ok: false,
           rev: this.rev,
@@ -73,6 +91,10 @@ class FakeServer {
   /** The request never gets an answer: a network error, a timeout. */
   fail(error: unknown, index = this.oldestOpen()): void {
     this.settle(index).reject(error);
+  }
+
+  openIndexes(): number[] {
+    return this.entries.flatMap((entry, i) => (entry.settled ? [] : [i]));
   }
 
   get open(): number {
@@ -112,19 +134,22 @@ class FakeTimers implements Timers {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const marks = (...yes: string[]): Marks => joinMarks(yes, []);
 
-function setup() {
+function setup(options: { marks?: Marks } = {}) {
   const server = new FakeServer();
   const timers = new FakeTimers();
   const statuses: SaveStatus[] = [];
   const saved: number[] = [];
+  const merged: Marks[] = [];
   const queue = new SaveQueue({
     baseRev: 0,
+    ...(options.marks && { marks: options.marks }),
     send: server.send,
     onStatus: (status) => statuses.push(status),
     onSaved: (rev) => saved.push(rev),
+    onMerged: (marks) => merged.push(marks),
     timers,
   });
-  return { server, timers, statuses, saved, queue };
+  return { server, timers, statuses, saved, queue, merged };
 }
 
 describe('SaveQueue', () => {
@@ -852,6 +877,152 @@ function scripted(options: { marks?: Marks } = {}) {
   return { queue, requests, waiting, timers, statuses, merged };
 }
 
+describe('SaveQueue, leaving while a save is under way', () => {
+  /** The first save is under way, a second state waits, the page is left. */
+  function leaving() {
+    const context = setup({ marks: new Map() });
+    context.queue.push(marks(D1)); // request 0, in flight
+    context.queue.push(marks(D1, D2)); // pending
+    context.queue.flushOnLeave(); // request 1
+    return context;
+  }
+
+  it('sends the pending state at once on the known revision, with the days it changed', () => {
+    const { server, queue } = leaving();
+    expect(server.requests).toHaveLength(2);
+    expect(server.requests[0]).not.toHaveProperty('touched');
+    expect(server.requests[1]).toEqual({
+      baseRev: 0,
+      yes: [D1, D2],
+      maybe: [],
+      touched: [D1, D2],
+    });
+    expect(queue.busy).toBe(true);
+  });
+
+  it('keeps the last tap when the save under way lands first', async () => {
+    const { server, queue, statuses } = leaving();
+    server.answer(0);
+    await tick();
+    server.answer(1); // stale on the server, merged
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(queue.baseRev).toBe(2);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('keeps the last tap when the request sent on leaving lands first', async () => {
+    const { server, queue, statuses } = leaving();
+    server.answer(1);
+    await tick();
+    server.answer(0); // stale, refused: the older state must not win
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(server.requests).toHaveLength(2);
+    expect(queue.baseRev).toBe(1);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('keeps the last tap when the save under way is lost on the way', async () => {
+    const { server, queue } = leaving();
+    server.fail(new Error('offline'), 0);
+    await tick();
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('never overwrites a day another device marked meanwhile', async () => {
+    const { server, queue } = leaving();
+    // Another device saved D4 first: the server is at rev 1.
+    server.rev = 1;
+    server.marks = { yes: [D4], maybe: [] };
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2, D4]);
+    server.answer(0); // refused as stale, with the server's marks
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2, D4]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('shows the marks that joined ours when the merge brought another device in', async () => {
+    const { server, merged } = leaving();
+    server.rev = 1;
+    server.marks = { yes: [D4], maybe: [] };
+    server.answer(1);
+    await tick();
+    expect(merged.at(-1)).toEqual(joinMarks([D1, D2, D4], []));
+  });
+
+  it('carries a removal as a touched day, not as a day left out', async () => {
+    const { server, queue } = setup({ marks: marks(D1, D2) });
+    queue.push(marks(D1, D2, D3)); // in flight
+    queue.push(marks(D2, D3)); // D1 removed, pending
+    queue.flushOnLeave();
+    expect(server.requests[1]).toEqual({
+      baseRev: 0,
+      yes: [D2, D3],
+      maybe: [],
+      touched: [D1, D3],
+    });
+    server.rev = 0;
+    server.marks = { yes: [D1, D2], maybe: [] };
+    server.answer(0);
+    await tick();
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D2, D3]);
+  });
+
+  it('leaves an empty selection as the last state, in either order', async () => {
+    for (const first of [0, 1]) {
+      const { server, queue } = setup({ marks: new Map() });
+      queue.push(marks(D1));
+      queue.push(new Map());
+      queue.flushOnLeave();
+      server.answer(first);
+      await tick();
+      server.answer(1 - first);
+      await tick();
+      expect(server.marks.yes, `first ${first}`).toEqual([]);
+      expect(queue.busy).toBe(false);
+    }
+  });
+
+  it('holds a newer state back until the merging request has answered, so a late merge cannot undo it', async () => {
+    const { server, queue } = leaving();
+    server.answer(0);
+    await tick();
+    queue.push(marks(D1)); // the page lives on: D2 removed again
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(true);
+    server.answer(1);
+    await tick();
+    expect(server.requests).toHaveLength(3);
+    expect(server.requests[2]).toMatchObject({ baseRev: 2, yes: [D1] });
+    server.answer(2);
+    await tick();
+    expect(server.marks.yes).toEqual([D1]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('sends nothing more with nothing pending, and defers when the server marks are unknown', async () => {
+    const known = setup({ marks: new Map() });
+    known.queue.push(marks(D1));
+    known.queue.flushOnLeave();
+    expect(known.server.requests).toHaveLength(1);
+    const unknown = setup();
+    unknown.queue.push(marks(D1));
+    unknown.queue.push(marks(D2));
+    unknown.queue.flushOnLeave();
+    expect(unknown.server.requests).toHaveLength(1);
+  });
+});
+
 describe('SaveQueue, answers out of order', () => {
   /** A failed (retry waiting), B sent on leaving (1), C pushed after it (2). */
   async function leaveThenSave() {
@@ -1123,8 +1294,15 @@ describe('SaveQueue, random schedules with a second device', () => {
             yes: [...new Set([...server.marks.yes, day])].sort(),
             maybe: server.marks.maybe,
           };
+        } else if (roll < 0.6) {
+          queue.flushOnLeave();
         } else if (server.open > 0) {
-          server.answer();
+          server.answer(
+            // Any open request may be handled first, not just the oldest.
+            server.openIndexes()[
+              Math.floor(random() * server.openIndexes().length)
+            ]!
+          );
         }
         await drain();
       }

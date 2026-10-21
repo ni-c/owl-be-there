@@ -293,7 +293,11 @@ jobs:
           done
           test -n "$ready"
           # The static client: the app root with its mount point.
-          curl -fsS --max-time 10 http://127.0.0.1:8080/ | grep -q 'id="root"'
+          # The body goes into a variable first: `grep -q` quits at the first
+          # match, and the curl on the left of a pipe then fails with exit 23
+          # (write error) under pipefail.
+          page=$(curl -fsS --max-time 10 http://127.0.0.1:8080/)
+          grep -q 'id="root"' <<< "$page"
           day=$(date -u -d '+7 day' +%F)
           # An Arabic and a Japanese title, so the lazily loaded fonts run.
           response=$(curl -fsS --max-time 10 -X POST http://127.0.0.1:8080/api/events \

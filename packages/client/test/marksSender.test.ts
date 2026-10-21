@@ -37,6 +37,27 @@ describe('marksSender', () => {
     });
   });
 
+  it('passes the touched days on, only those that are candidates, and none when there are none', async () => {
+    const put = vi.fn().mockResolvedValue(ok);
+    const send = marksSender({
+      put,
+      candidates: () => new Set(['2027-03-02']),
+    });
+    await send({
+      ...request(['2027-03-02']),
+      touched: ['2027-03-01', '2027-03-02'],
+    });
+    expect(put).toHaveBeenLastCalledWith(
+      expect.objectContaining({ touched: ['2027-03-02'] })
+    );
+    await send({ ...request([]), touched: [] });
+    expect(put).toHaveBeenLastCalledWith(
+      expect.objectContaining({ touched: [] })
+    );
+    await send(request([]));
+    expect(put.mock.lastCall![0]).not.toHaveProperty('touched');
+  });
+
   it('names every candidate day it knows, sorted, marked or not', async () => {
     const put = vi.fn().mockResolvedValue(ok);
     const send = marksSender({

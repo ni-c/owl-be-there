@@ -419,7 +419,13 @@ function answeredAt(
 }
 
 export type MarksResult =
-  | { ok: true; rev: number; version: number }
+  | {
+      ok: true;
+      rev: number;
+      version: number;
+      /** The marks now held; only when a stale save was merged. */
+      merged?: { yes: string[]; maybe: string[] };
+    }
   | { ok: false; rev: number; yes: string[]; maybe: string[] };
 
 /**
@@ -432,6 +438,11 @@ export type MarksResult =
  * hands back the current state, so the client can decide what wins.
  *
  * `known` is the sender's candidate days; omitted, every day counts as seen.
+ *
+ * `touched` is for a save sent as the page closes, when nobody is left to read
+ * a refusal: on a stale revision just those days are applied to the marks held
+ * now (a day in `yes` or `maybe` takes that state, any other is removed) and
+ * every other day stays, so another device's save is never overwritten.
  */
 export function replaceMarks(
   db: Db,
@@ -441,16 +452,28 @@ export function replaceMarks(
   yes: readonly ISODate[],
   maybe: readonly ISODate[],
   now: number,
-  known?: readonly ISODate[]
+  known?: readonly ISODate[],
+  touched?: readonly ISODate[]
 ): MarksResult {
   return db.tx(() => {
     const participant = getParticipant(db, eventId, participantId)!;
+    let merged: { yes: string[]; maybe: string[] } | undefined;
     if (participant.rev !== baseRev) {
-      return {
-        ok: false,
-        rev: participant.rev,
-        ...marksOf(db, eventId, participantId),
-      };
+      const current = marksOf(db, eventId, participantId);
+      if (touched === undefined || baseRev > participant.rev) {
+        return { ok: false, rev: participant.rev, ...current };
+      }
+      const held = new Map<string, 'yes' | 'maybe'>();
+      for (const day of current.yes) held.set(day, 'yes');
+      for (const day of current.maybe) held.set(day, 'maybe');
+      for (const day of touched) {
+        if (yes.includes(day)) held.set(day, 'yes');
+        else if (maybe.includes(day)) held.set(day, 'maybe');
+        else held.delete(day);
+      }
+      yes = [...held].filter(([, state]) => state === 'yes').map(([d]) => d);
+      maybe = [...held].filter(([, s]) => s === 'maybe').map(([d]) => d);
+      merged = { yes: [...yes].sort(), maybe: [...maybe].sort() };
     }
     db.run(
       'DELETE FROM marks WHERE participant_id = ? AND event_id = ?',
@@ -478,7 +501,12 @@ export function replaceMarks(
       eventId
     );
     const version = touch(db, eventId, now);
-    return { ok: true, rev: participant.rev + 1, version };
+    return {
+      ok: true,
+      rev: participant.rev + 1,
+      version,
+      ...(merged && { merged }),
+    };
   });
 }
 
@@ -552,11 +580,8 @@ export function deleteParticipant(
  * or a text out must not wait for one. Inside a larger transaction nothing is
  * written yet, so there is nothing to fold in.
  */
-/** How long a request waits for readers before it leaves the checkpoint to later. */
-export const REQUEST_CHECKPOINT_MS = 100;
-
 function scrub(db: Db): void {
-  if (!db.inTransaction) db.checkpoint(REQUEST_CHECKPOINT_MS);
+  if (!db.inTransaction) db.requestCheckpoint();
 }
 
 export interface EventPatch {

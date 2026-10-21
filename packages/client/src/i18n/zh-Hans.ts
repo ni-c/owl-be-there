@@ -205,6 +205,7 @@ export const zhHans = {
   'day.cannot': '无法参加',
   'day.open': '尚未回复',
   'day.notes': '备注',
+  'day.noteSep': '：',
   'day.close': '关闭',
 
   'share.title': '分享给大家',

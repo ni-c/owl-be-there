@@ -377,12 +377,12 @@ test('the start page example shows two notes in the day sheet', async ({
     frame.getByRole('heading', { level: 4, name: 'Notes' })
   ).toBeVisible();
   const list = frame.getByRole('list', { name: 'Notes' }).getByRole('listitem');
-  await expect(list).toHaveText([`Ben ${BEN}`, `Max ${MAX}`]);
+  await expect(list).toHaveText([`Ben: ${BEN}`, `Max: ${MAX}`]);
 
   // Someone left out of the count keeps their note, here and on the day.
   await chip('Ben').click();
   await expect(chip('Ben')).toHaveAttribute('aria-pressed', 'false');
-  await expect(list).toHaveText([`Ben ${BEN}`, `Max ${MAX}`]);
+  await expect(list).toHaveText([`Ben: ${BEN}`, `Max: ${MAX}`]);
   await day(group, thursday).click();
   await expect(section(/^Maybe\b/).getByRole('heading')).toHaveText(
     'Maybe · 0'

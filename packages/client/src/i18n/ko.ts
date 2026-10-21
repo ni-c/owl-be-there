@@ -216,6 +216,7 @@ export const ko: Dictionary = {
   'day.cannot': '불가',
   'day.open': '응답 안 함',
   'day.notes': '코멘트',
+  'day.noteSep': ': ',
   'day.close': '닫기',
 
   'share.title': '그룹에 공유하기',

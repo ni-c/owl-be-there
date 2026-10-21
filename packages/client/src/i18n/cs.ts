@@ -217,6 +217,7 @@ export const cs = {
   'day.cannot': 'Nemůže',
   'day.open': 'Bez odpovědi',
   'day.notes': 'Poznámky',
+  'day.noteSep': ': ',
   'day.close': 'Zavřít',
 
   'share.title': 'Sdílet se skupinou',

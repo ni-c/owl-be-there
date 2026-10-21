@@ -205,6 +205,7 @@ export const zhHant = {
   'day.cannot': '無法參加',
   'day.open': '尚未回覆',
   'day.notes': '備註',
+  'day.noteSep': '：',
   'day.close': '關閉',
 
   'share.title': '分享給群組',

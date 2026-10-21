@@ -257,6 +257,51 @@ describe('wrapText', () => {
     }
   });
 
+  it('carries an opening mark before the space the break was fixed at down to the next line', () => {
+    const cases: [string, number][] = [
+      ['(', 2.5],
+      ['「', 3],
+      ['【', 3],
+      ['“', 2.5],
+    ];
+    for (const [mark, limit] of cases) {
+      const lines = wrapText(`ab ${mark} cdefgh`, limit, 1, 10);
+      expect(lines[0], mark).toBe('ab');
+      expect(lines[1]!.startsWith(mark), mark).toBe(true);
+      expect(lines.join('').replace(/ /g, ''), mark).toBe(`ab${mark}cdefgh`);
+    }
+  });
+
+  it('loses no character at any width, with an opening mark before a space or not', () => {
+    const texts = [
+      'ab ( cdefgh ij',
+      'ab 「 cdefgh ij',
+      'ab 【 cdefgh 【 ij',
+      'ab “ cdefgh “ ij',
+      'ab ((  cdefgh',
+      '「 ab',
+      'ab 「',
+      '会議（仮）の日程 「 相談 」 です',
+      'abcd「efgh「ijkl',
+      '忘年会「ABC」の「日程」',
+    ];
+    for (const text of texts) {
+      const bare = text.replace(/\s/g, '');
+      for (let limit = 0.6; limit <= 8; limit += 0.1) {
+        const lines = wrapText(text, limit, 1, 100);
+        expect(lines.join('').replace(/\s/g, ''), `${text} @ ${limit}`).toBe(
+          bare
+        );
+      }
+    }
+  });
+
+  it('keeps the character before a break at a space when the mark is the only thing there', () => {
+    // A lone opening mark with nothing before it on the line cannot move.
+    const lines = wrapText('( abc', 0.7, 1, 10);
+    expect(lines.join('').replace(/ /g, '')).toBe('(abc');
+  });
+
   it('breaks a word longer than a line, and text without spaces', () => {
     const word = wrapText('A'.repeat(40), 300, 30, 5);
     expect(word.length).toBeGreaterThan(1);

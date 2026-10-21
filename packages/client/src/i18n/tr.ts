@@ -218,6 +218,7 @@ export const tr = {
   'day.cannot': 'Katılamaz',
   'day.open': 'Yanıt vermedi',
   'day.notes': 'Notlar',
+  'day.noteSep': ': ',
   'day.close': 'Kapat',
 
   'share.title': 'Grupla paylaş',

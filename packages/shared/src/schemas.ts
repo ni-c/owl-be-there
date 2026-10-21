@@ -136,6 +136,12 @@ export const MarksBody = z.strictObject({
   maybe: DayList,
   /** The candidate days the sender knew; omitted, the save counts as having seen every day. */
   days: DayList.optional(),
+  /**
+   * Sent when the page is left: the days this device changed. On a stale
+   * revision the server applies just these days on top of its current marks
+   * instead of refusing the save.
+   */
+  touched: DayList.optional(),
 });
 
 export const UpdateParticipantBody = z.strictObject({
@@ -197,7 +203,13 @@ export const SessionResponse = z.object({
   created: z.boolean(),
 });
 
-export const MarksResponse = z.object({ rev: z.int(), version: z.int() });
+export const MarksResponse = z.object({
+  rev: z.int(),
+  version: z.int(),
+  /** The marks now held, present when the server merged a stale save. */
+  yes: z.array(IsoDay).optional(),
+  maybe: z.array(IsoDay).optional(),
+});
 
 export const MarksConflict = z.object({
   error: z.literal('stale'),

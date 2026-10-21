@@ -5,7 +5,14 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'retrying' | 'failed';
 
 /** A stale answer may carry the server's marks, which the queue merges with. */
 export type SendResult =
-  | { ok: true; rev: number }
+  // `yes` and `maybe` come with a save the server merged (see `touched`): the
+  // marks it holds now, which differ from what was sent.
+  | {
+      ok: true;
+      rev: number;
+      yes?: string[] | undefined;
+      maybe?: string[] | undefined;
+    }
   | { ok: false; rev: number; yes?: string[]; maybe?: string[] };
 
 export interface SaveRequest {
@@ -14,6 +21,12 @@ export interface SaveRequest {
   maybe: string[];
   /** The candidate days the client knew; filled in by the send function. */
   days?: string[];
+  /**
+   * Sent on leaving the page: the days this device changed. On a stale
+   * revision the server applies just these on top of its current marks, where
+   * otherwise it refuses — nobody is left to take the 409 and send again.
+   */
+  touched?: string[];
 }
 
 /** A failure that retrying cannot fix — a revoked token, a closed poll. */
@@ -36,6 +49,13 @@ const realTimers: Timers = {
   clearTimeout: (handle) =>
     globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
+
+/** What the server holds after a save: its own merged set, else what was sent. */
+function savedSet(result: SendResult, sent: Marks): Marks {
+  return result.ok && result.yes && result.maybe
+    ? joinMarks(result.yes, result.maybe)
+    : sent;
+}
 
 /** Seconds between retries after a network error, the last one repeating. */
 export const RETRY_DELAYS_MS = [1000, 2000, 5000, 10_000];
@@ -61,6 +81,10 @@ export class SaveQueue {
   private landedSeq = 0;
   private inFlight = false;
   private leaving = 0;
+  // Of those, the ones that merge on a stale revision. What they carry is
+  // applied whenever they land, so nothing newer may be sent before they have
+  // answered: a late merge would put the older state back over it.
+  private merging = 0;
   private retry: unknown = null;
   private attempt = 0;
   private disposed = false;
@@ -136,13 +160,22 @@ export class SaveQueue {
    * Send what is pending without waiting, as the page goes away or is put in
    * the background. The send function is expected to use `keepalive`, so
    * that a request outlives the page, one already under way included.
+   *
+   * With a request under way the newest state still goes out, on the revision
+   * known so far — never a guessed one. Which request the server handles first
+   * is not ours to say: if the one under way, the older state, lands first, this
+   * one is stale, and carries `touched` so that the server applies our days on
+   * top of what it holds instead of refusing it; if this one lands first, the
+   * older one is the stale one and is refused. Either way the last tap is
+   * saved, and a day only another device touched is never overwritten.
    */
   flushOnLeave(): void {
     if (this.pending === null || this.disposed) return;
-    // A request is travelling (with `keepalive`, so it outlives the page). A
-    // second one could only guess the revision the first will make, and a wrong
-    // guess overwrites someone else's save; the state follows its answer.
-    if (this.inFlight) {
+    // Without the marks the server holds there is no telling our days from
+    // another device's, so a second request could only guess the revision the
+    // first will make; the state follows its answer instead.
+    const known = this.viewBase !== null && this.serverBase !== null;
+    if (this.inFlight && !known) {
       this.drain = true;
       return;
     }
@@ -154,15 +187,19 @@ export class SaveQueue {
       this.timers.clearTimeout(this.retry);
       this.retry = null;
     }
-    const { request, sent } = this.prepare(marks);
+    const { request, sent } = this.prepare(marks, true);
+    const merges = request.touched !== undefined;
     this.leaving += 1;
+    if (merges) this.merging += 1;
     this.sendFn(request).then(
       (result) => {
         this.leaving -= 1;
+        if (merges) this.merging -= 1;
         this.afterLeave(marks, sent, markSeq, result);
       },
       (error: unknown) => {
         this.leaving -= 1;
+        if (merges) this.merging -= 1;
         this.afterLeaveFailed(marks, markSeq, error);
       }
     );
@@ -180,7 +217,7 @@ export class SaveQueue {
   ): void {
     if (this.disposed) return;
     if (result.ok) {
-      this.landed(marks, sent, markSeq, result.rev);
+      this.landed(marks, savedSet(result, sent), markSeq, result.rev);
       this.baseRev = Math.max(this.baseRev, result.rev);
       this.landedSeq = Math.max(this.landedSeq, markSeq);
       this.onSaved(result.rev);
@@ -254,7 +291,10 @@ export class SaveQueue {
   }
 
   /** The request for `marks`, and the set it will leave on the server. */
-  private prepare(marks: Marks): { request: SaveRequest; sent: Marks } {
+  private prepare(
+    marks: Marks,
+    leaving = false
+  ): { request: SaveRequest; sent: Marks } {
     const { viewBase, serverBase } = this;
     let sent = marks;
     if (viewBase && serverBase) {
@@ -270,7 +310,13 @@ export class SaveQueue {
       sent = merged;
     }
     return {
-      request: { baseRev: this.baseRev, ...splitMarks(sent) },
+      request: {
+        baseRev: this.baseRev,
+        ...splitMarks(sent),
+        ...(leaving &&
+          viewBase &&
+          serverBase && { touched: [...this.touched].sort() }),
+      },
       sent,
     };
   }
@@ -345,6 +391,8 @@ export class SaveQueue {
   private async flush(): Promise<void> {
     const marks = this.pending;
     if (marks === null || (this.disposed && !this.drain)) return;
+    // The answer to a merging leave request resumes sending.
+    if (this.merging > 0) return;
     const markSeq = this.pendingSeq;
     this.pending = null;
     if (this.disposed) this.drain = false;

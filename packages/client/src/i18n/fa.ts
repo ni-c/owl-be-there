@@ -221,6 +221,7 @@ export const fa = {
   'day.cannot': 'نمی‌توانند',
   'day.open': 'بدون پاسخ',
   'day.notes': 'توضیحات',
+  'day.noteSep': ': ',
   'day.close': 'بستن',
 
   'share.title': 'با گروهت به اشتراک بگذار',

@@ -1304,6 +1304,42 @@ describe('rate limits', () => {
       payload: eventBody(),
     });
     expect(response.statusCode).toBe(429);
+    expect(response.json().error).toBe('creation_limit');
+  });
+
+  it('name the instance-wide hourly ceiling on new events the same way', async () => {
+    t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
+    // 30 networks of 10 events fill the ceiling of 300; each stays within
+    // its own limit.
+    for (let n = 1; n <= 30; n += 1) {
+      for (let i = 0; i < 10; i += 1) {
+        const response = await t.app.inject({
+          method: 'POST',
+          url: '/api/events',
+          payload: eventBody(),
+          remoteAddress: `203.0.113.${n}`,
+        });
+        expect(response.statusCode).toBe(201);
+      }
+    }
+    const refused = await t.app.inject({
+      method: 'POST',
+      url: '/api/events',
+      payload: eventBody(),
+      remoteAddress: '203.0.113.200',
+    });
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json().error).toBe('creation_limit');
+  });
+
+  it('keep the generic code on every other limited route', async () => {
+    t = await testApp({ env: { RATE_LIMIT_MULTIPLIER: '1' } });
+    const { id } = await createEvent(t.app);
+    for (let i = 0; i < 10; i += 1)
+      await sessionRequest(t.app, id, { name: `A${i}` });
+    const blocked = await sessionRequest(t.app, id, { name: 'A10' });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json().error).toBe('rate_limited');
   });
 });
 

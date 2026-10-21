@@ -216,6 +216,7 @@ export const vi = {
   'day.cannot': 'Không đi được',
   'day.open': 'Chưa trả lời',
   'day.notes': 'Ghi chú',
+  'day.noteSep': ': ',
   'day.close': 'Đóng',
 
   'share.title': 'Chia sẻ với nhóm của bạn',

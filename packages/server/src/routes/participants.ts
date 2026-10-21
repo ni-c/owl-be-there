@@ -31,7 +31,6 @@ import {
   updateParticipant,
   type EventRow,
   type ParticipantRow,
-  REQUEST_CHECKPOINT_MS,
 } from '../db/repo.js';
 import {
   ApiError,
@@ -294,7 +293,8 @@ export function registerParticipantRoutes(
         yes,
         maybe,
         ctx.clock.now(),
-        body.days
+        body.days,
+        body.touched && normalizeDays(body.touched.filter(onCandidate))
       );
       if (!result.ok) {
         return reply.code(409).send({
@@ -305,7 +305,11 @@ export function registerParticipantRoutes(
         });
       }
       ctx.hub.changed(event.id, result.version);
-      return { rev: result.rev, version: result.version };
+      return {
+        rev: result.rev,
+        version: result.version,
+        ...result.merged,
+      };
     }
   );
 
@@ -355,7 +359,7 @@ export function registerParticipantRoutes(
       });
       // The old name or note must not outlive the change in the log.
       if (name !== undefined || body.note !== undefined)
-        ctx.db.checkpoint(REQUEST_CHECKPOINT_MS);
+        ctx.db.requestCheckpoint();
       published(ctx, event.id);
       return {
         // A changed password revokes the old token; the person who changed it

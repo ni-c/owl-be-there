@@ -215,6 +215,7 @@ export const ja: Dictionary = {
   'day.cannot': '行けない人',
   'day.open': '未回答',
   'day.notes': 'コメント',
+  'day.noteSep': '：',
   'day.close': '閉じる',
 
   'share.title': 'みんなに共有',

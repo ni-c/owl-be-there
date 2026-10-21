@@ -7,6 +7,7 @@ import { PermanentSaveError } from './saveQueue.ts';
 
 const BY_CODE: Partial<Record<string, TranslationKey>> = {
   rate_limited: 'error.rateLimited',
+  creation_limit: 'error.createLimit',
   forbidden: 'error.forbidden',
   name_taken: 'error.nameTaken',
   creation_disabled: 'home.creationDisabled',
@@ -151,13 +152,19 @@ export function errorMessage(
 }
 
 /**
- * The text for a failed create. The server limits creation per network to a
- * few an hour, which "please wait a moment" understates.
+ * The text for a failed create. The server limits creation per network and
+ * per hour, which "please wait a moment" understates; it names that limit
+ * `creation_limit`, and a plain `rate_limited` stays the generic text.
+ * `params` carries the run length (`count`) for a `no_block` refusal.
  */
-export function createErrorMessage(error: unknown, t: Translate): string {
-  if (error instanceof ApiFailure && error.status === 429)
+export function createErrorMessage(
+  error: unknown,
+  t: Translate,
+  params: Params = {}
+): string {
+  if (error instanceof ApiFailure && error.code === 'creation_limit')
     return t('error.createLimit');
-  return errorMessage(error, t);
+  return errorMessage(error, t, params);
 }
 
 /**

@@ -29,6 +29,9 @@ export function marksSender(options: {
       yes: request.yes.filter((day) => candidates.has(day)),
       maybe: request.maybe.filter((day) => candidates.has(day)),
       days: [...candidates].sort(),
+      ...(request.touched && {
+        touched: request.touched.filter((day) => candidates.has(day)),
+      }),
     };
     try {
       return await options.put(kept);

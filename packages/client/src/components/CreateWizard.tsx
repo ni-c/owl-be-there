@@ -178,7 +178,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
       );
       navigate(`/e/${created.id}`, { state: { created: true } });
     } catch (error) {
-      setSubmitError(createErrorMessage(error, t));
+      setSubmitError(createErrorMessage(error, t, { count: duration }));
       setSubmitting(false);
     }
   };

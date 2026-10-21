@@ -222,6 +222,7 @@ export const es: Dictionary = {
   'day.cannot': 'No pueden',
   'day.open': 'Sin respuesta',
   'day.notes': 'Comentarios',
+  'day.noteSep': ': ',
   'day.close': 'Cerrar',
 
   'share.title': 'Compartir con el grupo',

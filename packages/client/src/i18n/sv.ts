@@ -219,6 +219,7 @@ export const sv = {
   'day.cannot': 'Kan inte',
   'day.open': 'Inte svarat',
   'day.notes': 'Kommentarer',
+  'day.noteSep': ': ',
   'day.close': 'Stäng',
 
   'share.title': 'Dela med din grupp',

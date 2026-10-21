@@ -28,7 +28,7 @@ import {
   insertParticipant,
   updateEvent,
 } from '../src/db/repo.js';
-import { Db } from '../src/db/sqlite.js';
+import { CHECKPOINT_RETRY_MS, Db } from '../src/db/sqlite.js';
 import {
   adminHeaders,
   createEvent,
@@ -248,6 +248,101 @@ describe('checkpoint waiting', () => {
     );
     reader.exec('COMMIT');
     expect(db.checkpoint(0)).toBe(true);
+  });
+});
+
+describe('a checkpoint a reader held up', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A database with a reader holding the log, and a person just deleted. */
+  const held = (file = 'owl.db') => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const path = join(dir, file);
+    const db = open(path);
+    seed(db);
+    const max = person(db, 'Max');
+    const reader = open(path);
+    reader.exec('BEGIN');
+    reader.get('SELECT count(*) FROM participants');
+    return { path, db, reader, max };
+  };
+
+  it('is tried again in the background, and folds the log in once the reader is gone', () => {
+    const { path, db, reader, max } = held();
+    const started = Date.now();
+    deleteParticipant(db, ID, max.id, NOW);
+    // The request itself does not wait for the reader.
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(statSync(`${path}-wal`).size).toBeGreaterThan(0);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    expect(statSync(`${path}-wal`).size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps retrying, with longer pauses, while the reader stays', () => {
+    const { db, reader, max } = held();
+    const spy = vi.spyOn(db, 'checkpoint');
+    deleteParticipant(db, ID, max.id, NOW);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]! - 1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[1]!);
+    expect(spy).toHaveBeenCalledTimes(3);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[2]!);
+    expect(spy).toHaveBeenCalledTimes(4);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('is scheduled once, however many requests were held up', () => {
+    const { db, reader, max } = held();
+    deleteParticipant(db, ID, max.id, NOW);
+    updateEvent(db, ID, { title: 'Other title' }, NOW);
+    updateEvent(db, ID, { title: 'Yet another' }, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    reader.exec('COMMIT');
+  });
+
+  it('is dropped when a later request gets through, and when the database closes', () => {
+    const { db, reader, max } = held();
+    deleteParticipant(db, ID, max.id, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    reader.exec('COMMIT');
+    expect(db.requestCheckpoint()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+
+    const second = held('second.db');
+    deleteParticipant(second.db, ID, second.max.id, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    second.db.close();
+    expect(vi.getTimerCount()).toBe(0);
+    second.reader.exec('COMMIT');
+  });
+
+  it('starts over with the short pause after one that succeeded', () => {
+    const { db, reader, max } = held();
+    const spy = vi.spyOn(db, 'checkpoint');
+    deleteParticipant(db, ID, max.id, NOW);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[1]!);
+    expect(vi.getTimerCount()).toBe(0);
+    // Held up again: the pause is the first one, not the third.
+    const again = open(join(dir, 'owl.db'));
+    again.exec('BEGIN');
+    again.get('SELECT count(*) FROM participants');
+    updateEvent(db, ID, { title: 'New title' }, NOW);
+    const calls = spy.mock.calls.length;
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    expect(spy.mock.calls.length).toBe(calls + 1);
+    again.exec('COMMIT');
   });
 });
 

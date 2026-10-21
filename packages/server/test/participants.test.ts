@@ -392,6 +392,109 @@ describe('marks', () => {
     );
   });
 
+  describe('a save sent as the page closes (touched)', () => {
+    const put = (
+      who: { participantId: string; token: string },
+      payload: Record<string, unknown>
+    ) =>
+      t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/participants/${who.participantId}/marks`,
+        headers: { 'x-participant-token': who.token },
+        payload,
+      });
+
+    it('applies only the touched days on a stale revision and keeps the rest', async () => {
+      const max = await join(t.app, id, 'Max');
+      // Another device saved 03-06 as maybe at rev 1.
+      await mark(t.app, id, max, [], ['2027-03-06'], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: ['2027-03-07'],
+        maybe: [],
+        touched: ['2027-03-07'],
+      });
+      expect(late.statusCode).toBe(200);
+      expect(late.json()).toMatchObject({
+        rev: 2,
+        yes: ['2027-03-07'],
+        maybe: ['2027-03-06'],
+      });
+      const person = (await getSnapshot(t.app, id)).participants[0];
+      expect(person).toMatchObject({
+        yes: ['2027-03-07'],
+        maybe: ['2027-03-06'],
+        rev: 2,
+      });
+    });
+
+    it('removes a touched day the save does not carry, and changes a state', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06', '2027-03-07'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: ['2027-03-07'],
+        touched: ['2027-03-06', '2027-03-07'],
+      });
+      expect(late.json()).toMatchObject({
+        rev: 2,
+        yes: [],
+        maybe: ['2027-03-07'],
+      });
+    });
+
+    it('with no touched day changes nothing but the revision', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: [],
+        touched: [],
+      });
+      expect(late.json()).toMatchObject({ rev: 2, yes: ['2027-03-06'] });
+    });
+
+    it('ignores a touched day that is no candidate', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: [],
+        touched: ['2031-01-01'],
+      });
+      expect(late.statusCode).toBe(200);
+      expect(late.json()).toMatchObject({ yes: ['2027-03-06'] });
+    });
+
+    it('answers a current revision like any save, without the merged marks', async () => {
+      const max = await join(t.app, id, 'Max');
+      const saved = await put(max, {
+        baseRev: 0,
+        yes: ['2027-03-06'],
+        maybe: [],
+        touched: ['2027-03-06'],
+      });
+      expect(saved.statusCode).toBe(200);
+      expect(Object.keys(saved.json()).sort()).toEqual(['rev', 'version']);
+    });
+
+    it('still refuses a save from a revision ahead of the server, and one without touched', async () => {
+      const max = await join(t.app, id, 'Max');
+      const ahead = await put(max, {
+        baseRev: 5,
+        yes: ['2027-03-06'],
+        maybe: [],
+        touched: ['2027-03-06'],
+      });
+      expect(ahead.statusCode).toBe(409);
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      expect((await mark(t.app, id, max, [], [], 0)).statusCode).toBe(409);
+    });
+  });
+
   it('refuses a day marked as both yes and maybe', async () => {
     const max = await join(t.app, id, 'Max');
     const response = await mark(t.app, id, max, ['2027-03-06'], ['2027-03-06']);

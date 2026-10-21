@@ -303,9 +303,13 @@ export async function buildApp(
     }
     const status = error.statusCode ?? 500;
     if (status === 429) {
+      // A route may name its limit (`limit(…, code)`): creation has its own.
+      const { limitCode } = request.routeOptions.config as {
+        limitCode?: string;
+      };
       return reply
         .code(429)
-        .send({ error: 'rate_limited', message: error.message });
+        .send({ error: limitCode ?? 'rate_limited', message: error.message });
     }
     if (status >= 400 && status < 500) {
       // The static handler's refusal (dotfile, odd path) is a missing page.

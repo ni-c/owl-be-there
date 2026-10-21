@@ -221,6 +221,7 @@ export const nb = {
   'day.cannot': 'Kan ikke',
   'day.open': 'Ikke svart',
   'day.notes': 'Merknader',
+  'day.noteSep': ': ',
   'day.close': 'Lukk',
 
   'share.title': 'Del med gruppen din',

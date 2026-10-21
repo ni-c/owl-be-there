@@ -32,7 +32,6 @@ import {
   getDays,
   getEvent,
   insertEvent,
-  REQUEST_CHECKPOINT_MS,
   setStatus,
   snapshot,
   updateEvent,
@@ -179,7 +178,7 @@ export function registerEventRoutes(
 
   app.post(
     '/api/events',
-    { config: limit(config, 10, '1 hour') },
+    { config: limit(config, 10, '1 hour', 'creation_limit') },
     async (request, reply) => {
       if (!config.creationEnabled) {
         throw new ApiError(
@@ -200,7 +199,7 @@ export function registerEventRoutes(
       ) {
         throw new ApiError(
           429,
-          'rate_limited',
+          'creation_limit',
           'Too many new events right now'
         );
       }
@@ -363,7 +362,7 @@ export function registerEventRoutes(
       requireAdmin(request, event);
       deleteEvent(ctx.db, event.id);
       ctx.hub.deleted(event.id);
-      ctx.db.checkpoint(REQUEST_CHECKPOINT_MS);
+      ctx.db.requestCheckpoint();
       return reply.code(204).send();
     }
   );

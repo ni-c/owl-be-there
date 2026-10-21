@@ -15,9 +15,9 @@ const REFETCH_DELAY_MS = 400;
 const POLL_MS = 30_000;
 /** How long to poll before trying the live stream again. */
 const STREAM_RETRY_MS = 5 * 60_000;
-/** How long a stream may stay CONNECTING before polling takes over. */
+/** How long a stream may stay CONNECTING, at the start or after a drop, before polling takes over. */
 const STREAM_OPEN_MS = 15_000;
-/** Errors in a row without ever opening that count as a dead stream. */
+/** Errors in a row without this stream ever opening that count as a dead one. */
 const STREAM_CONNECT_ERRORS = 2;
 /** The longest pause between attempts to catch up with an announced version. */
 const CATCH_UP_MAX_MS = 30_000;
@@ -208,13 +208,41 @@ export class EventStore extends Observable<EventState> {
     source.addEventListener('deleted', () => {
       this.markDeleted();
     });
+    // Per stream, so a new `EventSource` starts afresh: a stream that has been
+    // open and drops reconnects by itself, however many attempts that takes,
+    // and is only given up on when it stays CONNECTING too long.
     let connectErrors = 0;
+    let opened = false;
     source.addEventListener('open', () => {
+      opened = true;
       connectErrors = 0;
       this.clearOpenTimer();
     });
     // A request that never completes (blocked, aborted, a proxy that swallows
     // it) leaves the source CONNECTING for good and never reports CLOSED.
+    this.armOpenTimer(source);
+    source.addEventListener('error', () => {
+      if (this.stopped || this.source !== source) return;
+      // EventSource reconnects by itself after a dropped connection. Only a
+      // refusal (429, 404, a proxy's 502 during a deploy) closes it for good;
+      // then poll instead, and try the stream again after a while. Errors in
+      // a row without ever opening mean the stream is not coming; after an
+      // open they are the browser reconnecting, which gets STREAM_OPEN_MS.
+      if (source.readyState === CONNECTING) {
+        if (!opened) connectErrors += 1;
+        else if (this.openTimer === null) this.armOpenTimer(source);
+      }
+      if (
+        source.readyState === EventSource.CLOSED ||
+        (!opened && connectErrors >= STREAM_CONNECT_ERRORS)
+      ) {
+        this.giveUpStream(source);
+      }
+    });
+  }
+
+  /** Give up on `source` if it is still CONNECTING after STREAM_OPEN_MS. */
+  private armOpenTimer(source: EventSource): void {
     this.clearOpenTimer();
     this.openTimer = setTimeout(() => {
       this.openTimer = null;
@@ -222,20 +250,6 @@ export class EventStore extends Observable<EventState> {
         this.giveUpStream(source);
       }
     }, STREAM_OPEN_MS);
-    source.addEventListener('error', () => {
-      if (this.stopped || this.source !== source) return;
-      // EventSource reconnects by itself after a dropped connection. Only a
-      // refusal (429, 404, a proxy's 502 during a deploy) closes it for good;
-      // then poll instead, and try the stream again after a while. Errors in
-      // a row without ever opening mean the stream is not coming.
-      if (source.readyState === CONNECTING) connectErrors += 1;
-      if (
-        source.readyState === EventSource.CLOSED ||
-        connectErrors >= STREAM_CONNECT_ERRORS
-      ) {
-        this.giveUpStream(source);
-      }
-    });
   }
 
   private clearOpenTimer(): void {

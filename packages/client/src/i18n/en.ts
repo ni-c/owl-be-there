@@ -222,6 +222,7 @@ export const en = {
   'day.cannot': 'Cannot',
   'day.open': 'Not answered',
   'day.notes': 'Notes',
+  'day.noteSep': ': ',
   'day.close': 'Close',
 
   'share.title': 'Share with your group',

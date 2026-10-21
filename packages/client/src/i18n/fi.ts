@@ -220,6 +220,7 @@ export const fi = {
   'day.cannot': 'Ei pääse',
   'day.open': 'Ei vastannut',
   'day.notes': 'Kommentit',
+  'day.noteSep': ': ',
   'day.close': 'Sulje',
 
   'share.title': 'Jaa ryhmällesi',

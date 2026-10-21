@@ -226,6 +226,7 @@ export const de: Dictionary = {
   'day.cannot': 'Kann nicht',
   'day.open': 'Noch keine Antwort',
   'day.notes': 'Anmerkungen',
+  'day.noteSep': ': ',
   'day.close': 'Schließen',
 
   'share.title': 'Mit der Gruppe teilen',

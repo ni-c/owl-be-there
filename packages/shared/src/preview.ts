@@ -200,7 +200,8 @@ export function wrapText(
     const w = charWidth(char);
     if (width + w > limit && i > start) {
       const wordBreak = char !== ' ' && lastSpace > start;
-      let end = wordBreak ? lastSpace : i;
+      const cut = wordBreak ? lastSpace : i;
+      let end = cut;
       // No space on the line: break before the narrow run at its end (a date).
       if (!wordBreak && char !== ' ') {
         let run = i;
@@ -220,7 +221,16 @@ export function wrapText(
       )
         end -= 1;
       lines.push(chars.slice(start, end).join('').trimEnd());
-      start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : end;
+      // The space the break was fixed at is not carried over; but once kinsoku
+      // has pulled `end` back before it, what was pulled back starts the next line.
+      start =
+        end < cut
+          ? end
+          : wordBreak
+            ? lastSpace + 1
+            : char === ' '
+              ? i + 1
+              : end;
       width = 0;
       lastSpace = -1;
       i = start;

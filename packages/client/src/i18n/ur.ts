@@ -220,6 +220,7 @@ export const ur = {
   'day.cannot': 'نہیں',
   'day.open': 'جواب نہیں دیا',
   'day.notes': 'تبصرے',
+  'day.noteSep': ': ',
   'day.close': 'بند کریں',
 
   'share.title': 'اپنے گروپ کے ساتھ شیئر کریں',

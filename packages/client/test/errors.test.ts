@@ -301,9 +301,33 @@ describe('errorMessage for names the server refuses', () => {
 });
 
 describe('createErrorMessage', () => {
-  it('says the creation limit for a 429, not "wait a moment"', () => {
-    expect(createErrorMessage(failure(429, 'rate_limited'), t)).toBe(
+  it('says the creation limit for the server\u2019s creation_limit, not "wait a moment"', () => {
+    expect(createErrorMessage(failure(429, 'creation_limit'), t)).toBe(
       en['error.createLimit']
+    );
+  });
+
+  it('keeps the generic rate limit text for a plain rate_limited, whatever the status', () => {
+    expect(createErrorMessage(failure(429, 'rate_limited'), t)).toBe(
+      en['error.rateLimited']
+    );
+    expect(createErrorMessage(failure(429, 'slow_down'), t)).toBe(
+      en['error.slowDown']
+    );
+    expect(errorMessage(failure(429, 'creation_limit'), t)).toBe(
+      en['error.createLimit']
+    );
+  });
+
+  it('names the run length for a refusal with no block, and falls back without it', () => {
+    expect(createErrorMessage(failure(400, 'no_block'), t, { count: 3 })).toBe(
+      t('error.noBlock', { count: 3 })
+    );
+    expect(
+      createErrorMessage(failure(400, 'no_block'), t, { count: 1 })
+    ).toContain('1');
+    expect(createErrorMessage(failure(400, 'no_block'), t)).toBe(
+      en['error.generic']
     );
   });
 

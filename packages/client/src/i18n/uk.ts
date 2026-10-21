@@ -217,6 +217,7 @@ export const uk = {
   'day.cannot': 'Не може',
   'day.open': 'Без відповіді',
   'day.notes': 'Коментарі',
+  'day.noteSep': ': ',
   'day.close': 'Закрити',
 
   'share.title': 'Поділися з групою',

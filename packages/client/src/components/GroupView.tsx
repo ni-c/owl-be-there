@@ -301,7 +301,9 @@ export function GroupView(props: GroupViewProps) {
                   <NoteIcon size={14} />
                 </span>
                 <span className="min-w-0">
-                  <bdi className="font-bold">{p.name}</bdi> <bdi>{p.note}</bdi>
+                  <bdi className="font-bold">{p.name}</bdi>
+                  {t('day.noteSep')}
+                  <bdi>{p.note}</bdi>
                 </span>
               </li>
             ))}

@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The translations in 22 languages were read against English and the style rules: one word each for poll, answer and chosen date, informal address throughout, French no-break spaces, Polish plural forms and shorter labels where buttons ran out of room.
 - Calendar weekday headings in the app and in link previews follow one rule; Portuguese (Portugal) shows `seg.` instead of the full day name. Korean link previews start the week on Sunday.
 - The default link preview picture no longer carries the English tagline.
-- Validation errors from the API carry the zod issue `code` and, for names and titles, a stable `reason` (`invisible`, `mixed_scripts`); the client no longer reads English messages. `PATCH …/participants/:pid` answers with `{ token }` only.
+- Validation errors from the API carry the zod issue `code` and, for names and titles, a stable `reason` (`invisible`, `mixed_scripts`); the client no longer reads English messages. `PATCH …/participants/:pid` answers with `{ token }` only. `PUT …/marks` accepts `touched`, the days a device changed: on a stale revision the server applies just those days to the current marks and answers with the merged result, so a change sent while the page closes is neither lost nor allowed to overwrite another device. `POST /api/events` refuses a creation over the hourly limits with `creation_limit` instead of `rate_limited`.
 
 ### Fixed
 
@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The calendar's week and month labels are no longer cut off in Vietnamese, Arabic and other languages: their column fits the longest label. Urdu weekday headings no longer touch on small phones.
 - Week buttons, footer links and the "protect with a password" checkbox are at least 24 by 24 pixels on touch screens.
 - Korean day cells start their accessible name with the day number, so it matches what is shown.
-- A database written by a newer version stops start-up with a clear message; checkpoints on request paths wait at most 100 ms; unexpected errors are logged with their type.
+- A database written by a newer version stops start-up with a clear message; checkpoints on request paths wait at most 100 ms and one a reader held up is retried in the background; unexpected errors are logged with their type.
 
 ### Removed
 
