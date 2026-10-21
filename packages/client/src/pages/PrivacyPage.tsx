@@ -75,7 +75,7 @@ export function PrivacyPage({ instance: state }: { instance: InstanceState }) {
           ]}
         />
       )}
-      <p className="text-muted wrap-anywhere">{t('privacy.source')}</p>
+      <p className="text-muted break-words">{t('privacy.source')}</p>
     </LegalPage>
   );
 }

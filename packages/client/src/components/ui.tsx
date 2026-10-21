@@ -310,7 +310,7 @@ export function Dialog({
           <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
             <h2
               id={titleId}
-              className="min-w-0 text-lg font-extrabold wrap-anywhere"
+              className="min-w-0 text-lg font-extrabold break-words"
             >
               {title}
             </h2>

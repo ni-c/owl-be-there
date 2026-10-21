@@ -1,6 +1,6 @@
 import { formatDay, LOCALES } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
-import { formattingLocale } from '../src/lib/locale.ts';
+import { formattingLocale, nameWithNumber } from '../src/lib/locale.ts';
 
 const day = (locale: string) =>
   formatDay('2026-10-20', locale, { day: 'numeric', month: 'long' });
@@ -70,5 +70,30 @@ describe('formattingLocale', () => {
     expect(formattingLocale('es-419', ['es-MX'])).toBe('es-MX');
     expect(formattingLocale('es', ['es-MX'])).toBe(LOCALES.es);
     expect(formattingLocale('es', ['es-ES'])).toBe('es-ES');
+  });
+});
+
+describe('nameWithNumber', () => {
+  it('leaves a name that holds the number as a word', () => {
+    expect(nameWithNumber('1', 'Sunday 1 November: not marked')).toBe(
+      'Sunday 1 November: not marked'
+    );
+    expect(nameWithNumber('12', '12 de noviembre')).toBe('12 de noviembre');
+  });
+
+  it('puts the number first where it only sits inside "1일"', () => {
+    expect(nameWithNumber('1', '11월 1일 일요일: 가능')).toBe(
+      '1, 11월 1일 일요일: 가능'
+    );
+    expect(nameWithNumber('31', '12월 31일 목요일')).toBe(
+      '31, 12월 31일 목요일'
+    );
+  });
+
+  it('does not take a digit of a longer number for the number', () => {
+    expect(nameWithNumber('1', 'Tuesday 11 November')).toBe(
+      '1, Tuesday 11 November'
+    );
+    expect(nameWithNumber('1', '')).toBe('1, ');
   });
 });

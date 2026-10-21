@@ -21,7 +21,7 @@ export function LegalPage({
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Owl mood="thinking" size={88} />
-        <h1 className="min-w-0 flex-1 text-2xl font-black wrap-anywhere sm:text-3xl">
+        <h1 className="min-w-0 flex-1 text-2xl font-black break-words sm:text-3xl">
           {title}
         </h1>
       </div>
@@ -44,10 +44,10 @@ export function LegalSection({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-xl font-extrabold wrap-anywhere">{title}</h2>
+      <h2 className="text-xl font-extrabold break-words">{title}</h2>
       {paragraphs.map((content, index) =>
         content ? (
-          <p key={index} className="leading-relaxed wrap-anywhere">
+          <p key={index} className="leading-relaxed break-words">
             {content}
           </p>
         ) : null

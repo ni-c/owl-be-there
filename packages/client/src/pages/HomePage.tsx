@@ -6,6 +6,7 @@ import {
   type InstanceInfoData,
 } from '@owl/shared';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
 import { ExampleDemo } from '../components/ExampleDemo.tsx';
@@ -38,19 +39,21 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   const creationDisabled = instance?.creationEnabled === false;
 
   const start = () => {
-    setCreating(true);
-    requestAnimationFrame(() => {
-      const wizard = wizardRef.current;
-      // Focus already moved into the form (typing right after the click):
-      // pulling it out would drop the keystrokes.
-      if (!wizard?.contains(document.activeElement)) {
-        wizard?.focus({ preventScroll: true });
-      }
+    // Rendered at once, so the focus moves in the same task as the click: the
+    // start button goes away and the focus must not rest on the page meanwhile.
+    flushSync(() => setCreating(true));
+    const wizard = wizardRef.current;
+    // Focus already moved into the form (the form focuses its first field):
+    // pulling it out would drop the keystrokes.
+    if (!wizard?.contains(document.activeElement)) {
+      wizard?.focus({ preventScroll: true });
+    }
+    requestAnimationFrame(() =>
       wizard?.scrollIntoView({
         behavior: scrollBehavior(),
         block: 'start',
-      });
-    });
+      })
+    );
   };
 
   // The start button is gone while the wizard is open: give focus back to it.
@@ -146,7 +149,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
                     {EMOJIS[event.emoji]}
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <span className="wrap-anywhere" dir="auto">
+                    <span className="break-words" dir="auto">
                       {event.title}
                     </span>
                     {event.role === 'organiser' && (
@@ -181,7 +184,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
         returnFocus={afterForget}
       >
         <div className="flex flex-col gap-5">
-          <p className="leading-relaxed wrap-anywhere">
+          <p className="leading-relaxed break-words">
             {forgetting &&
               t('home.forgetOrganiser.text', {
                 title: isolate(forgetting.title),

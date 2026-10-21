@@ -260,17 +260,23 @@ function Footer({
         </div>
         <nav className="flex flex-wrap items-center gap-4 font-bold">
           {route.page !== 'home' && (
-            <Link href="/" className="underline-offset-4 hover:underline">
+            <Link
+              href="/"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
+            >
               {t('home.cta')}
             </Link>
           )}
-          <Link href="/privacy" className="underline-offset-4 hover:underline">
+          <Link
+            href="/privacy"
+            className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
+          >
             {t('footer.privacy')}
           </Link>
           {imprint?.kind === 'internal' && (
             <Link
               href={imprint.href}
-              className="underline-offset-4 hover:underline"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
             >
               {t('footer.imprint')}
             </Link>
@@ -279,7 +285,7 @@ function Footer({
             <a
               href={imprint.href}
               rel="noopener noreferrer"
-              className="underline-offset-4 hover:underline"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
             >
               {t('footer.imprint')}
             </a>
@@ -287,7 +293,7 @@ function Footer({
           <a
             href="https://github.com/ni-c/owl-be-there"
             rel="noopener noreferrer"
-            className="underline-offset-4 hover:underline"
+            className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
           >
             {t('footer.source')}
           </a>

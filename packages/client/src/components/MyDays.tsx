@@ -283,13 +283,16 @@ function WhoAreYou({
               <input
                 id={`${formId}-protect`}
                 type="checkbox"
-                className="mt-1 size-5 accent-[var(--owl-brand)]"
+                className="size-6 shrink-0 accent-[var(--owl-brand)]"
                 checked={wantPassword}
                 aria-describedby={`${formId}-protect-hint`}
                 onChange={(event) => setWantPassword(event.target.checked)}
               />
               <div>
-                <label htmlFor={`${formId}-protect`} className="font-bold">
+                <label
+                  htmlFor={`${formId}-protect`}
+                  className="inline-block min-h-6 font-bold"
+                >
                   {t('who.addPassword')}
                 </label>
                 <p id={`${formId}-protect-hint`} className="text-sm text-muted">

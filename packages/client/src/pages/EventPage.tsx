@@ -409,14 +409,18 @@ function EventHeader({
   ].filter(Boolean) as { icon: ReactNode; text: string; user?: boolean }[];
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <h1 className="flex min-w-0 items-start gap-3 text-3xl leading-tight font-black sm:text-4xl">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <h1 className="flex max-w-full min-w-0 flex-auto items-start gap-3 text-3xl leading-tight font-black sm:text-4xl">
           <span aria-hidden="true">{EMOJIS[event.emoji]}</span>
-          <span dir="auto" className="min-w-0 wrap-anywhere">
+          <span dir="auto" className="min-w-0 break-words">
             {event.title}
           </span>
         </h1>
-        <Button variant="primary" onClick={onShare} className="shrink-0">
+        <Button
+          variant="primary"
+          onClick={onShare}
+          className="ms-auto shrink-0"
+        >
           <ShareIcon />
           <span>{t('event.share')}</span>
         </Button>
@@ -426,7 +430,7 @@ function EventHeader({
           {meta.map((item) => (
             <li
               key={item.text}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1 text-sm font-bold wrap-anywhere"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1 text-sm font-bold break-words"
             >
               {item.icon}
               {item.user ? <bdi>{item.text}</bdi> : item.text}
@@ -438,7 +442,7 @@ function EventHeader({
         // Plain text on purpose: nothing an organiser writes becomes a link.
         <p
           dir="auto"
-          className="leading-relaxed wrap-anywhere whitespace-pre-line text-muted"
+          className="leading-relaxed break-words whitespace-pre-line text-muted"
         >
           {event.description}
         </p>

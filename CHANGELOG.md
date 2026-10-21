@@ -56,6 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A too-short password shows the app's own message instead of the browser's English bubble; the minimum is counted on the normalised form both sides hash. Hitting the password-hashing budget no longer claims too many wrong passwords.
 - The imprint labels only an e-mail address as e-mail and keeps its heading while loading; addresses may contain the zero-width joiners Persian and Indic spelling needs.
 - A failed language download no longer reloads the page while there is unsaved input.
+- The calendar's week and month labels are no longer cut off in Vietnamese, Arabic and other languages: their column fits the longest label. Urdu weekday headings no longer touch on small phones.
+- Week buttons, footer links and the "protect with a password" checkbox are at least 24 by 24 pixels on touch screens.
+- Korean day cells start their accessible name with the day number, so it matches what is shown.
 - A database written by a newer version stops start-up with a clear message; checkpoints on request paths wait at most 100 ms; unexpected errors are logged with their type.
 
 ### Removed

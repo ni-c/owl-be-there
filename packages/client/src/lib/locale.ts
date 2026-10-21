@@ -96,3 +96,22 @@ export function formattingLocale(
   }
   return fallback;
 }
+
+/**
+ * An accessible name that starts with what the control shows (WCAG 2.5.3).
+ * A day cell shows its number. axe compares words after decomposing Hangul
+ * into jamo, and then "1일" is one word, not "1": the name "11월 1일 일요일"
+ * does not hold the number. It leads there: "1, 11월 1일 일요일". Names that
+ * hold it as a word ("Sunday 1 November", "11月1日") stay as they are.
+ */
+export function nameWithNumber(number: string, name: string): string {
+  const text = name.normalize('NFKD');
+  const words =
+    typeof Intl.Segmenter === 'function'
+      ? Array.from(
+          new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text),
+          (part) => part.segment
+        )
+      : text.split(/[\s,:]+/);
+  return words.includes(number.normalize('NFKD')) ? name : `${number}, ${name}`;
+}

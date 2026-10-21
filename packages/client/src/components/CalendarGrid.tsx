@@ -29,6 +29,7 @@ import { useI18n } from '../i18n/index.tsx';
 import { shortcutKey } from '../lib/roving.ts';
 import {
   longWeekdayHeadings,
+  nameWithNumber,
   weekdayHeading,
   weekdayName,
   weekdayOrder,
@@ -528,12 +529,12 @@ export function CalendarGrid(props: CalendarGridProps) {
             <span
               role="columnheader"
               key={weekday}
-              className="grid place-items-center"
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)] place-items-center"
             >
               {paint && !disabled ? (
                 <button
                   type="button"
-                  className={`min-h-9 w-full rounded-lg ${headingSize} font-bold text-muted hover:bg-sunken hover:text-ink`}
+                  className={`min-h-9 w-full min-w-0 rounded-lg ${headingSize} font-bold text-muted hover:bg-sunken hover:text-ink`}
                   onClick={() => toggleTargets(weekdayTargets(weekday))}
                   // The name starts with what is shown (WCAG 2.5.3).
                   aria-label={`${weekdayHeading(weekday, locale)}: ${t(
@@ -557,11 +558,7 @@ export function CalendarGrid(props: CalendarGridProps) {
             </span>
           ))}
         </div>
-        <div
-          ref={bodyRef}
-          className="cal-body flex flex-col gap-1"
-          onPointerDown={onPointerDown}
-        >
+        <div ref={bodyRef} className="cal-body" onPointerDown={onPointerDown}>
           {rows.map((row) => {
             const weekTargets = row.days.filter((day) => selectable(day));
             return (
@@ -574,7 +571,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                     <span
                       aria-label={t('cal.gap')}
                       role="img"
-                      className="-mt-1 text-base leading-none"
+                      className="absolute inset-x-0 top-0 -translate-y-1/2 text-center text-base leading-none"
                     >
                       ⋮
                     </span>
@@ -588,7 +585,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                     <button
                       type="button"
                       tabIndex={-1}
-                      className="cal-rowtext rounded-md px-0.5 py-0.5 hover:bg-sunken hover:text-ink"
+                      className="cal-rowtext rounded-md px-0.5 hover:bg-sunken hover:text-ink"
                       onClick={() => toggleTargets(weekTargets)}
                       aria-label={`${t('cal.week', {
                         number: row.weekNumber,
@@ -644,7 +641,10 @@ export function CalendarGrid(props: CalendarGridProps) {
                           data-kind={past ? 'past' : 'day'}
                           data-best={props.highlighted.has(day)}
                           data-selected={props.selected.has(day)}
-                          aria-label={`${fullDate}: ${stateLabel(day)}${past ? `, ${t('cal.past')}` : ''}`}
+                          aria-label={nameWithNumber(
+                            digits(number),
+                            `${fullDate}: ${stateLabel(day)}${past ? `, ${t('cal.past')}` : ''}`
+                          )}
                         >
                           <span className="absolute top-1 start-1.5 text-[0.625rem] font-bold">
                             {digits(number)}
@@ -694,7 +694,10 @@ export function CalendarGrid(props: CalendarGridProps) {
                                 : false
                         }
                         aria-disabled={!canPaint}
-                        aria-label={`${fullDate}: ${stateLabel(day)}${unseen ? `, ${t('cal.new')}` : ''}${past ? `, ${t('cal.past')}` : ''}${hint ? `, ${tn('cal.othersCan', hint.yes)}` : ''}`}
+                        aria-label={nameWithNumber(
+                          digits(number),
+                          `${fullDate}: ${stateLabel(day)}${unseen ? `, ${t('cal.new')}` : ''}${past ? `, ${t('cal.past')}` : ''}${hint ? `, ${tn('cal.othersCan', hint.yes)}` : ''}`
+                        )}
                       >
                         <span className="text-base">{digits(number)}</span>
                         {props.mode === 'paint' && (
