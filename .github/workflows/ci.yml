@@ -36,6 +36,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -55,6 +56,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -128,12 +130,15 @@ jobs:
             test-results/
           retention-days: 7
 
+  # Advisory: not a required check of `protect-main`, so a red result informs
+  # the merge but does not block it.
   # What a pull request *changes* in the dependency tree, against the advisory
   # database — `npm audit` below sees the tree as it is and cannot tell a bump
   # that introduced a vulnerable release from one that has always been there.
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -147,6 +152,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -163,6 +169,7 @@ jobs:
 
   codeql:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -179,6 +186,7 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -211,6 +219,7 @@ jobs:
   container-scan:
     name: container-scan (${{ matrix.tag }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -239,7 +248,9 @@ jobs:
           tags: owl-be-there:scan-${{ matrix.tag }}
           build-args: APK_SECURITY_EPOCH=${{ steps.epoch.outputs.day }}
           cache-from: type=gha,scope=scan-${{ matrix.tag }}
-          cache-to: type=gha,mode=max,scope=scan-${{ matrix.tag }}
+          # Pull requests only read the cache: each one writing its own copy
+          # filled the 10 GB repository cache.
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,mode=max,scope=scan-{0}', matrix.tag) || '' }}
       # Report first, gate second: the report step never fails, so the SARIF is
       # uploaded before the gate can turn the job red.
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -275,13 +286,34 @@ jobs:
           docker run -d --name owl --platform ${{ matrix.platform }} --read-only --tmpfs /tmp \
             --cap-drop ALL --security-opt no-new-privileges:true \
             -p 127.0.0.1:8080:8080 owl-be-there:scan-${{ matrix.tag }}
+          ready=
           for _ in $(seq 1 60); do
-            curl -fsS http://127.0.0.1:8080/api/health && break
+            curl -fsS --max-time 10 http://127.0.0.1:8080/api/health && ready=1 && break
             sleep 2
           done
+          test -n "$ready"
+          # The static client: the app root with its mount point.
+          curl -fsS --max-time 10 http://127.0.0.1:8080/ | grep -q 'id="root"'
           day=$(date -u -d '+7 day' +%F)
-          curl -fsS -X POST http://127.0.0.1:8080/api/events \
+          # An Arabic and a Japanese title, so the lazily loaded fonts run.
+          response=$(curl -fsS --max-time 10 -X POST http://127.0.0.1:8080/api/events \
             -H 'content-type: application/json' \
-            -d "{\"title\":\"Smoke\",\"emoji\":\"owl\",\"language\":\"en\",\"durationDays\":1,\"days\":[\"$day\"]}"
+            -d "{\"title\":\"مرحبا こんにちは\",\"emoji\":\"owl\",\"language\":\"en\",\"durationDays\":1,\"days\":[\"$day\"]}")
+          id=$(printf '%s' "$response" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0, "utf8")).id)')
+          curl -fsS --max-time 60 -o "$RUNNER_TEMP/og.png" "http://127.0.0.1:8080/e/$id/og.png"
+          # The PNG signature.
+          test "$(head -c 8 "$RUNNER_TEMP/og.png" | od -An -tx1 | tr -d ' \n')" = 89504e470d0a1a0a
           docker exec owl node packages/server/dist/cli.js stats
-          docker rm -f owl
+          # The image's own HEALTHCHECK, not just the endpoint.
+          for _ in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' owl)
+            test "$status" = healthy && break
+            sleep 2
+          done
+          test "$status" = healthy
+      - name: Container log
+        if: failure()
+        run: docker logs owl
+      - name: Remove the container
+        if: always()
+        run: docker rm -f owl

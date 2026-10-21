@@ -10,6 +10,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-21
+
+### Security
+
+- Name matching folds Arabic and Persian letter variants (ي/ى/ی, ك/ک, أ/إ/آ, ة/ه), ignores Arabic vowel marks and tatweel, treats Turkish İ/ı as i, ß as ss and wide blank fillers as a space, so none of them can create a second look-alike entry for a name. The mixed-script check also refuses Armenian, Cherokee, Coptic and Lisu look-alikes inside Latin words. Stored names are re-keyed once on the first start; where two entries of one event would collide, the younger keeps its old key.
+- An answered event lives at most about two years past its last change, so one request can no longer park a junk event for five years.
+- An existing `secret.key` is tightened to mode 0600 at start-up.
+- The container image runs as the numeric user `1000:1000`; the base image, the Dockerfile syntax and the emulator, BuildKit and SBOM scanner images of the release job are pinned by digest. `fast-uri` is updated past the advisories of 19 October.
+
+### Added
+
+- English dates follow the browser's region ("October 20" in the US, "20 October" in the UK and Australia); other languages do the same where the browser's region matches the interface language. The calendar stays Gregorian.
+- The client build writes Brotli and gzip copies of its text files and the server sends them; the API stays uncompressed. Fonts carry a version suffix and are cached for a year.
+- `npm run lint` runs knip, which fails on unused files, exports and dependencies. `npm run fonts:subset` cuts the Japanese and Chinese interface fonts from the texts.
+- An end-to-end check renders the start page, an event and the organiser panel in all 26 languages on a phone and a desktop and fails on horizontal overflow, raw text keys, a wrong `lang` or `dir` and a download of a full CJK font.
+
+### Changed
+
+- The translations in 22 languages were read against English and the style rules: one word each for poll, answer and chosen date, informal address throughout, French no-break spaces, Polish plural forms and shorter labels where buttons ran out of room.
+- Calendar weekday headings in the app and in link previews follow one rule; Portuguese (Portugal) shows `seg.` instead of the full day name. Korean link previews start the week on Sunday.
+- The default link preview picture no longer carries the English tagline.
+- Validation errors from the API carry the zod issue `code` and, for names and titles, a stable `reason` (`invisible`, `mixed_scripts`); the client no longer reads English messages. `PATCH …/participants/:pid` answers with `{ token }` only.
+
+### Fixed
+
+- Japanese and Simplified Chinese pages no longer download the 11 MB full font: the interface fonts lacked characters such as 平, 厳, 比 and 许, and Hangul in the language picker fell through to the full font.
+- Text the organiser and participants write — titles, places, descriptions, names and notes — keeps its own direction inside translated sentences, so Arabic in an English page and Latin in an Arabic page read correctly. Lists of names follow the interface language.
+- Persian and Arabic-Indic digits typed into number fields count, and Persian shows its own digits everywhere.
+- Pressing Enter to confirm an input-method candidate in the note no longer saves the note half-typed. The calendar's y, m and Ctrl+Z shortcuts work on Cyrillic, Arabic, Persian and CJK keyboard layouts.
+- A note being typed is saved when the page is hidden; leaving the note field without typing no longer overwrites a note changed on another device.
+- A stale save answer rebases the person's own changes onto the server's marks instead of resending everything, so marks saved on another device survive; leaving the page while a save is in flight no longer sends a request on a guessed revision; the save status says whether a retry is due to being offline, a rate limit or a busy server.
+- Crossing the two-column breakpoint (rotating a tablet) no longer remounts "My days" and the group view and loses a save or typed input.
+- The event page falls back to polling when the live stream never connects and reopens a silently dead stream when the page becomes visible again; a 404 that is not the API's own "no such event" no longer shows the event as deleted and forgets the organiser key.
+- A page left open past midnight moves on to the new day; the event's emoji leaves the tab icon once the event is deleted.
+- The create wizard and the organiser panel refuse the names and titles the server refuses and say which field or line is wrong; the creation limit is named as such. Back is disabled while an event is being created.
+- The days editor's date field, calendar and selection agree on the latest day, Save stays disabled while nothing changed, and an organiser edit that changes nothing no longer wakes every open page or extends the event's life.
+- A save refused because the poll closed says so and locks the calendar; a revoked participant link ends the session for every kind of change.
+- Swedish, Japanese and Chinese day ranges in previews and calendar files no longer come out zero-padded or as bare numbers; server texts use the plural rules of every language.
+- Link preview titles are filtered by the glyphs the fonts really have, so no hollow boxes remain; Arabic preview lines no longer turn into boxes for parentheses or question marks; CJK titles break by the line-start and line-end rules; Chinese month ranges are written out.
+- Conditional requests match weak validators and lists in `If-None-Match`, so a compressing proxy no longer turns every 304 into a full answer.
+- Focus is managed when the wizard opens, closes and changes step, after joining, after "Not you?", after removing a remembered event and when an event turns out deleted or missing. Programmatic scrolling honours reduced motion, heading levels no longer skip, Undo and the copy confirmation are announced, roster chips say "password-protected" and "answered", past days in the heat map say so, and the best and selected days stay visible in forced-colors mode.
+- Right-to-left pages no longer mirror the "+n?" badge, the owl's "?" and "z", the safe-area insets or the month edge over the best-day rings; the undo and note icons mirror.
+- The tagline, the decided-date label and the "new" badge no longer use letter-spacing or capitals that break Arabic joining or overflow their cell; month and week labels fit; calendar texts are at least 10px; long names and operator details wrap; the privacy title wraps on phones; the segmented control wraps long labels. Korean and Traditional Chinese use named system fonts.
+- A too-short password shows the app's own message instead of the browser's English bubble; the minimum is counted on the normalised form both sides hash. Hitting the password-hashing budget no longer claims too many wrong passwords.
+- The imprint labels only an e-mail address as e-mail and keeps its heading while loading; addresses may contain the zero-width joiners Persian and Indic spelling needs.
+- A failed language download no longer reloads the page while there is unsaved input.
+- A database written by a newer version stops start-up with a clear message; checkpoints on request paths wait at most 100 ms; unexpected errors are logged with their type.
+
+### Removed
+
+- Unused exports, the unused `participantViewOf` query, the `start`, `format` and `test:watch` npm scripts and the obsolete `shell-quote` override.
+
 ## [0.5.0] - 2026-10-20
 
 ### Added
@@ -309,7 +361,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A release workflow that publishes the image to `ghcr.io/ni-c/owl-be-there` with an SBOM and build provenance, and a README with self-hosting instructions.
 - End-to-end tests in Chromium and WebKit, on desktop and on phones with touch, including accessibility checks in light and dark mode.
 
-[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ni-c/owl-be-there/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/ni-c/owl-be-there/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/ni-c/owl-be-there/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/ni-c/owl-be-there/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ni-c/owl-be-there/compare/v0.4.0...v0.4.1

@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Owl Be There: the API with the built client inside it, one SQLite file on a
 # volume.
@@ -14,12 +14,13 @@
 # is per architecture, and it compiles nothing; a multi-arch build therefore
 # needs no emulation except for one `apk upgrade`.
 
-# Pinned by digest to the multi-arch index; Dependabot moves it within the
-# major. Node 26 becomes the active LTS line on 2026-10-28.
-ARG NODE_IMAGE=node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
+# Every stage names the base image literally, pinned by digest to the
+# multi-arch index, so Dependabot's docker ecosystem finds and moves all three
+# lines in one pull request (an ARG hides the reference from it). Node 26
+# becomes the active LTS line on 2026-10-28. Currently Node v26.12.0.
 
 # --------------------------------------------------------------------- build
-FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS build
 WORKDIR /app
 
 # The manifests alone first, so editing a source file does not re-run the
@@ -37,13 +38,15 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 COPY packages/client packages/client
+# Run by the client build: writes the .br and .gz copies.
+COPY scripts/precompress.ts scripts/precompress.ts
 # Shared, then server, then client; the order is in the script. The client
 # build emits no source maps (a publicly fetchable copy of the sources).
 RUN npm run build \
   && mkdir /data-template
 
 # ---------------------------------------------------------- production deps
-FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS deps
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/package.json
@@ -54,7 +57,7 @@ COPY packages/client/package.json packages/client/package.json
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace @owl/server
 
 # ------------------------------------------------------------------- runtime
-FROM ${NODE_IMAGE} AS runtime
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS runtime
 
 # Expires the layer below once a day, so a security fix in the Alpine base
 # reaches the image without waiting for a new base digest. CI passes the date.
@@ -87,7 +90,8 @@ COPY --from=build /app/packages/client/dist packages/client/dist
 # stays root-owned, and the container runs with a read-only root filesystem.
 COPY --from=build --chown=node:node /data-template /data
 
-USER node
+# Numeric, so Kubernetes `runAsNonRoot` can verify it: the node user.
+USER 1000:1000
 VOLUME ["/data"]
 EXPOSE 8080
 

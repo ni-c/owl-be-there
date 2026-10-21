@@ -142,7 +142,7 @@ const font = (weight: 400 | 800) =>
 const fontFace = (weight: 400 | 800) =>
   `@font-face { font-family: 'Nunito'; font-weight: ${weight}; src: url(data:font/woff2;base64,${font(weight)}) format('woff2'); }`;
 
-/** The default link-preview picture: the owl, the name and a strip of heat. */
+/** The default link-preview picture, the same in every language: the owl, the name and a strip of heat. */
 async function shootOg(browser: Browser): Promise<void> {
   const owl = readFileSync(
     join(root, 'packages/client/public/favicon.svg'),
@@ -152,21 +152,18 @@ async function shootOg(browser: Browser): Promise<void> {
   const { heat } = PREVIEW_COLOURS;
   const cells = [heat[0], heat[1], heat[0], heat[2], heat[3], heat[5], heat[4]];
   const html = `<!doctype html><html><head><style>
-  ${fontFace(400)}
   ${fontFace(800)}
   html, body { margin: 0; width: 1200px; height: 630px; }
   body { display: flex; align-items: center; justify-content: center; gap: 64px;
     background: ${PREVIEW_COLOURS.bg}; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; color: ${PREVIEW_COLOURS.ink}; }
   .owl { width: 340px; height: 352px; }
   h1 { font-size: 92px; margin: 0; font-weight: 800; letter-spacing: -2px; }
-  p { font-size: 40px; margin: 16px 0 0; color: ${PREVIEW_COLOURS.muted}; font-weight: 400; max-width: 640px; }
   .cal { display: grid; grid-template-columns: repeat(7, 46px); gap: 8px; margin-top: 36px; }
   .cal span { height: 46px; border-radius: 12px; }
 </style></head><body>
   <div class="owl">${owl}</div>
   <div>
     <h1>Owl Be There</h1>
-    <p>Find a day everyone can make.</p>
     <div class="cal">${cells
       .map((c) => `<span style="background:${c}"></span>`)
       .join('')}</div>
@@ -178,19 +175,8 @@ async function shootOg(browser: Browser): Promise<void> {
   });
   try {
     await page.setContent(html);
-    await page.evaluate(() =>
-      Promise.all([
-        document.fonts.load('800 92px Nunito'),
-        document.fonts.load('400 40px Nunito'),
-      ])
-    );
-    if (
-      !(await page.evaluate(
-        () =>
-          document.fonts.check('800 92px Nunito') &&
-          document.fonts.check('400 40px Nunito')
-      ))
-    )
+    await page.evaluate(() => document.fonts.load('800 92px Nunito'));
+    if (!(await page.evaluate(() => document.fonts.check('800 92px Nunito'))))
       throw new Error('The bundled Nunito did not load');
     await page.locator('.owl svg').evaluate((svg) => {
       svg.setAttribute('width', '340');

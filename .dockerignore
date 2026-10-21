@@ -10,6 +10,8 @@
 e2e
 docs
 scripts
+# The client build precompresses its output with this one.
+!scripts/precompress.ts
 playwright-report
 test-results
 data
