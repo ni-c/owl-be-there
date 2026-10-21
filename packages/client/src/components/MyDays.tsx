@@ -1,5 +1,4 @@
 import {
-  charCount,
   cleanLine,
   joinMarks,
   onCandidates,
@@ -20,16 +19,24 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type RefObject,
+  type ReactNode,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api, ApiFailure, type Credentials } from '../lib/api.ts';
+import { isolate } from '../lib/bidi.ts';
 import { errorMessage, sessionRevoked } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { marksSender } from '../lib/marksSender.ts';
-import { noteChange } from '../lib/note.ts';
+import { isImeKey, noteChange, passwordLongEnough } from '../lib/note.ts';
 import type { Session } from '../lib/prefs.ts';
 import { SaveQueue, type SaveStatus } from '../lib/saveQueue.ts';
-import { shownStatus, type NoteStatus } from '../lib/saveStatus.ts';
+import {
+  closedFailure,
+  saveMessageKey,
+  shownStatus,
+  type NoteStatus,
+} from '../lib/saveStatus.ts';
 import { CheckIcon, LockIcon, TrashIcon } from './icons.tsx';
 import { MarksEditor } from './MarksEditor.tsx';
 import { Button, Chip, Field, Notice, TextInput } from './ui.tsx';
@@ -59,6 +66,9 @@ export function MyDays(props: MyDaysProps) {
   // to forget who they are.
   // A session that came from storage was known before this visit, so a
   // participant missing from the first snapshot really is gone.
+  // Where focus goes once the next screen is up: the form or the greeting
+  // that replaces the one the user just used. Null on the first render.
+  const focusNext = useRef<'greeting' | 'who' | null>(null);
   const seen = useRef(
     new Set<string>(session && !editingFor ? [session.participantId] : [])
   );
@@ -83,11 +93,21 @@ export function MyDays(props: MyDaysProps) {
     }
   }, [data, session, editingFor, store, onSession, onStopEditing]);
 
+  const moveFocus = (to: 'greeting' | 'who', next: Session | null) => {
+    if (to === 'greeting' || next === null) focusNext.current = to;
+    props.onSession(next);
+  };
   if (!participant) {
     if (session && !editingFor && !seen.current.has(session.participantId)) {
       return <p className="text-muted">{t('event.loading')}</p>;
     }
-    return <WhoAreYou data={data} onSession={props.onSession} />;
+    return (
+      <WhoAreYou
+        data={data}
+        focusNext={focusNext}
+        onSession={(next) => moveFocus('greeting', next)}
+      />
+    );
   }
   const credentials: Credentials = editingFor
     ? { admin: adminToken }
@@ -98,7 +118,7 @@ export function MyDays(props: MyDaysProps) {
         <Notice>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-bold">
-              {t('mine.editingFor', { name: participant.name })}
+              {t('mine.editingFor', { name: isolate(participant.name) })}
             </span>
             <Button size="sm" onClick={props.onStopEditing}>
               {t('mine.stopEditing')}
@@ -110,7 +130,8 @@ export function MyDays(props: MyDaysProps) {
           data={data}
           participant={participant}
           session={session!}
-          onSession={props.onSession}
+          focusNext={focusNext}
+          onSession={(next) => moveFocus('who', next)}
           store={props.store}
         />
       )}
@@ -128,9 +149,11 @@ export function MyDays(props: MyDaysProps) {
 
 function WhoAreYou({
   data,
+  focusNext,
   onSession,
 }: {
   data: EventSnapshotData;
+  focusNext: RefObject<'greeting' | 'who' | null>;
   onSession(session: Session): void;
 }) {
   const { t } = useI18n();
@@ -142,10 +165,16 @@ function WhoAreYou({
   const [password, setPassword] = useState('');
   const [wantPassword, setWantPassword] = useState(false);
   const [needPassword, setNeedPassword] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode>(null);
   const [busy, setBusy] = useState(false);
   const closed = data.event.status !== 'open';
   const formId = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focusNext.current !== 'who') return;
+    focusNext.current = null;
+    titleRef.current?.focus();
+  }, [focusNext]);
 
   const join = async (who: string, secret?: string) => {
     setBusy(true);
@@ -165,7 +194,7 @@ function WhoAreYou({
         setNeedPassword(who);
         setName(who);
         setMode('type');
-        setError(t('who.protected', { name: who.trim() }));
+        setError(t('who.protected', { name: isolate(who.trim()) }));
       } else {
         setError(errorMessage(failure, t));
       }
@@ -178,12 +207,22 @@ function WhoAreYou({
     event.preventDefault();
     if (name.trim() === '') return;
     if ((wantPassword || needPassword) && password === '') return;
+    if (wantPassword && !needPassword && !passwordLongEnough(password)) {
+      setError(t('who.passwordTooShort', { min: LIMITS.passwordMin }));
+      return;
+    }
     void join(name, wantPassword || needPassword ? password : undefined);
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-xl font-extrabold">{t('who.title')}</h3>
+      <h3
+        ref={titleRef}
+        tabIndex={-1}
+        className="text-xl font-extrabold outline-none"
+      >
+        {t('who.title')}
+      </h3>
       {mode === 'pick' && (
         <div className="flex flex-col gap-3">
           <p className="text-muted">{t('who.pick')}</p>
@@ -203,8 +242,14 @@ function WhoAreYou({
                 }}
               >
                 {person.hasPassword && <LockIcon size={16} />}
-                {person.name}
+                <bdi>{person.name}</bdi>
                 {person.answered && <CheckIcon size={16} />}
+                {(person.hasPassword || person.answered) && (
+                  <span className="sr-only">
+                    {person.hasPassword && t('who.hasPassword')}{' '}
+                    {person.answered && t('who.answered')}
+                  </span>
+                )}
               </Chip>
             ))}
             {!closed && (
@@ -216,7 +261,7 @@ function WhoAreYou({
         </div>
       )}
       {mode === 'type' && (
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <Field label={t('who.name')}>
             {({ id }) => (
               <TextInput
@@ -224,6 +269,7 @@ function WhoAreYou({
                 value={name}
                 maxLength={LIMITS.name}
                 autoComplete="nickname"
+                dir="auto"
                 onChange={(event) => {
                   setName(event.target.value);
                   setNeedPassword(null);
@@ -237,13 +283,16 @@ function WhoAreYou({
               <input
                 id={`${formId}-protect`}
                 type="checkbox"
-                className="mt-1 size-5 accent-[var(--owl-brand)]"
+                className="size-6 shrink-0 accent-[var(--owl-brand)]"
                 checked={wantPassword}
                 aria-describedby={`${formId}-protect-hint`}
                 onChange={(event) => setWantPassword(event.target.checked)}
               />
               <div>
-                <label htmlFor={`${formId}-protect`} className="font-bold">
+                <label
+                  htmlFor={`${formId}-protect`}
+                  className="inline-block min-h-6 font-bold"
+                >
                   {t('who.addPassword')}
                 </label>
                 <p id={`${formId}-protect-hint`} className="text-sm text-muted">
@@ -259,7 +308,6 @@ function WhoAreYou({
                   id={id}
                   type="password"
                   value={password}
-                  minLength={needPassword ? undefined : LIMITS.passwordMin}
                   maxLength={LIMITS.passwordMax}
                   autoComplete={
                     needPassword ? 'current-password' : 'new-password'
@@ -290,16 +338,24 @@ function Greeting({
   data,
   participant,
   session,
+  focusNext,
   onSession,
   store,
 }: {
   data: EventSnapshotData;
   participant: ParticipantViewData;
   session: Session;
+  focusNext: RefObject<'greeting' | 'who' | null>;
   onSession(session: Session | null): void;
   store: EventStore;
 }) {
   const { t } = useI18n();
+  const helloRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (focusNext.current !== 'greeting') return;
+    focusNext.current = null;
+    helloRef.current?.focus();
+  }, [focusNext]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(participant.name);
   const [password, setPassword] = useState('');
@@ -329,6 +385,10 @@ function Greeting({
       setMessage({ tone: 'success', text: t('admin.saved') });
       void store.refresh();
     } catch (failure) {
+      if (sessionRevoked(failure, credentials)) {
+        onSession(null);
+        return;
+      }
       setMessage({ tone: 'error', text: errorMessage(failure, t) });
     }
   };
@@ -339,6 +399,10 @@ function Greeting({
       onSession(null);
       void store.refresh();
     } catch (failure) {
+      if (sessionRevoked(failure, credentials)) {
+        onSession(null);
+        return;
+      }
       setMessage({
         tone: 'error',
         text: errorMessage(failure, t),
@@ -349,8 +413,12 @@ function Greeting({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-lg font-extrabold">
-          {t('mine.hello', { name: participant.name })}
+        <p
+          ref={helloRef}
+          tabIndex={-1}
+          className="text-lg font-extrabold outline-none"
+        >
+          {t('mine.hello', { name: isolate(participant.name) })}
         </p>
         <div className="flex flex-wrap gap-2">
           {!locked && (
@@ -385,6 +453,7 @@ function Greeting({
                     id={id}
                     value={name}
                     maxLength={LIMITS.name}
+                    dir="auto"
                     onChange={(e) => setName(e.target.value)}
                   />
                 )}
@@ -396,8 +465,7 @@ function Greeting({
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
-              if (charCount(password) >= LIMITS.passwordMin)
-                void update({ password });
+              if (passwordLongEnough(password)) void update({ password });
               else
                 setMessage({
                   tone: 'error',
@@ -482,10 +550,16 @@ function Painter(
   const [noteFailed, setNoteFailed] = useState(false);
   const [noteStatus, setNoteStatus] = useState<NoteStatus>('idle');
   const noteFocused = useRef(false);
+  // Typed and not yet stored: only then does leaving the field write the note.
+  const noteDirty = useRef(false);
+  const noteText = useRef(note);
+  noteText.current = note;
   // The note as the server holds it, to tell a change from a mere blur.
   const savedNote = useRef(participant.note);
   const credentialsRef = useRef(credentials);
   credentialsRef.current = credentials;
+  const participantRef = useRef(participant);
+  participantRef.current = participant;
   const onSessionRef = useRef(props.onSession);
   onSessionRef.current = props.onSession;
 
@@ -499,6 +573,8 @@ function Painter(
     () =>
       new SaveQueue({
         baseRev: participant.rev,
+        marks: joinMarks(participant.yes, participant.maybe),
+        onMerged: (merged) => setMarks(merged),
         send: marksSender({
           put: (request) =>
             api.putMarks(
@@ -511,7 +587,13 @@ function Painter(
         }),
         onStatus: (next, error) => {
           setStatus(next);
-          setSaveError(next === 'failed' ? error : null);
+          setSaveError(next === 'failed' || next === 'retrying' ? error : null);
+          // The poll closed under unsaved marks: show what the server holds.
+          if (next === 'failed' && closedFailure(error)) {
+            const server = participantRef.current;
+            setMarks(joinMarks(server.yes, server.maybe));
+            void store.refresh();
+          }
           // The token was revoked, say by a new password set elsewhere:
           // nothing can be saved with it any more, so ask who this is again.
           if (
@@ -535,8 +617,8 @@ function Painter(
   // Another device saved: take its marks, unless we have unsaved changes.
   useEffect(() => {
     if (!queue.busy && participant.rev > queue.baseRev) {
-      queue.baseRev = participant.rev;
       const server = joinMarks(participant.yes, participant.maybe);
+      queue.adopt(participant.rev, server);
       setMarks((current) => (sameMarks(current, server) ? current : server));
     }
   }, [participant, queue]);
@@ -564,8 +646,10 @@ function Painter(
     idle: '',
     saving: t('mine.saving'),
     saved: t('mine.saved'),
-    retrying: t('mine.retrying'),
-    failed: errorMessage(saveError, t),
+    retrying: t(saveMessageKey('retrying', saveError) ?? 'mine.retrying'),
+    failed: saveMessageKey('failed', saveError)
+      ? t('mine.closed')
+      : errorMessage(saveError, t),
   };
   const shown = shownStatus(status, noteStatus);
   // Answered without a single day: the saved state says what was saved.
@@ -576,30 +660,59 @@ function Painter(
   // it is being typed in, and compare against it from now on.
   useEffect(() => {
     savedNote.current = participant.note;
-    if (!noteFocused.current) setNote(participant.note ?? '');
+    if (!noteDirty.current) setNote(participant.note ?? '');
   }, [participant.note]);
 
-  const saveNote = async () => {
-    const change = noteChange(note, savedNote.current);
+  const saveNote = async (keepalive = false) => {
+    if (!noteDirty.current) return;
+    const typed = noteText.current;
+    const change = noteChange(typed, savedNote.current);
     setNote(change.cleaned);
-    if (!change.send) return;
+    if (!change.send) {
+      noteDirty.current = false;
+      return;
+    }
     setNoteStatus('saving');
     try {
       await api.updateParticipant(
         eventId,
         participant.id,
         { note: change.value },
-        credentials
+        credentials,
+        { keepalive }
       );
       savedNote.current = change.value;
+      if (noteText.current === typed) noteDirty.current = false;
       setNoteFailed(false);
       setNoteStatus('saved');
       void store.refresh();
-    } catch {
+    } catch (failure) {
+      if (sessionRevoked(failure, credentialsRef.current)) {
+        onSessionRef.current(null);
+        return;
+      }
       setNoteFailed(true);
       setNoteStatus('idle');
     }
   };
+
+  // A note still being typed goes out when the page is hidden or the panel
+  // goes away, as the marks do.
+  const saveNoteRef = useRef(saveNote);
+  saveNoteRef.current = saveNote;
+  useEffect(() => {
+    const leave = (): void => void saveNoteRef.current(true);
+    const hide = (): void => {
+      if (document.visibilityState === 'hidden') leave();
+    };
+    window.addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', hide);
+    return () => {
+      window.removeEventListener('pagehide', leave);
+      document.removeEventListener('visibilitychange', hide);
+      leave();
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -634,7 +747,9 @@ function Painter(
               value={note}
               maxLength={LIMITS.note}
               placeholder={t('mine.notePlaceholder')}
+              dir="auto"
               onChange={(event) => {
+                noteDirty.current = true;
                 setNote(event.target.value);
                 setNoteFailed(false);
                 setNoteStatus('idle');
@@ -647,7 +762,7 @@ function Painter(
                 void saveNote();
               }}
               onKeyDown={(event) => {
-                if (event.key === 'Enter')
+                if (event.key === 'Enter' && !isImeKey(event.nativeEvent))
                   (event.target as HTMLInputElement).blur();
               }}
             />

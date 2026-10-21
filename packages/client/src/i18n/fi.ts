@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/fi';
 import type { Dictionary } from './en.ts';
 
 export const fi = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.fi,
   ...HOME,
   'home.cta': 'Suunnittele tapahtuma',
@@ -91,6 +90,15 @@ export const fi = {
   'error.rosterTooMany': 'Kerralla voi lisätä enintään {max} nimeä.',
   'error.busy': 'Palvelimella on juuri nyt ruuhkaa. Yritä hetken kuluttua.',
   'error.changed': 'Tätä vastausta muutettiin juuri. Yritä uudelleen.',
+  'error.textInvisible': 'Tähän tarvitaan vähintään yksi näkyvä merkki.',
+  'error.rosterInvisible': 'Rivillä {line} ei ole yhtään näkyvää merkkiä.',
+  'error.rosterMixed':
+    'Rivi {line}: yksi sana sekoittaa latinalaisia kirjaimia kyrillisiin tai kreikkalaisiin.',
+  'error.nameInvisible': 'Nimessä on oltava vähintään yksi näkyvä merkki.',
+  'error.nameMixed':
+    'Nimen yksi sana sekoittaa latinalaisia kirjaimia kyrillisiin tai kreikkalaisiin.',
+  'error.createLimit':
+    'Tästä verkosta on äskettäin luotu paljon tapahtumia. Yritä myöhemmin uudelleen.',
   'error.invalid': 'Osa tiedoista ei kelpaa. Tarkista ne ja yritä uudelleen.',
 
   'event.loading': 'Ladataan tapahtumaa…',
@@ -129,6 +137,8 @@ export const fi = {
     'Ilman salasanaa kuka tahansa linkin saanut voi käyttää nimeäsi ja muuttaa päiviäsi.',
   'who.continue': 'Jatka',
   'who.protected': '”{name}” on suojattu. Anna salasana jatkaaksesi.',
+  'who.hasPassword': 'salasanalla suojattu',
+  'who.answered': 'vastannut',
   'who.wrongPassword': 'Väärä salasana.',
   'who.passwordTooShort': 'Anna vähintään {min} merkkiä.',
   'who.closed': 'Äänestys on suljettu. Uusia nimiä ei voi lisätä.',
@@ -169,7 +179,7 @@ export const fi = {
   'mine.stopEditing': 'Valmis',
 
   'cal.label': 'Kalenteri',
-  'cal.weekdayAll': 'Kaikki {weekday}t',
+  'cal.weekdayAll': 'Joka {weekday}',
   'cal.weekToggle': 'Viikko {number}',
   'cal.week': 'V{number}',
   'cal.yes': 'pääsee',
@@ -210,6 +220,7 @@ export const fi = {
   'day.cannot': 'Ei pääse',
   'day.open': 'Ei vastannut',
   'day.notes': 'Kommentit',
+  'day.noteSep': ': ',
   'day.close': 'Sulje',
 
   'share.title': 'Jaa ryhmällesi',

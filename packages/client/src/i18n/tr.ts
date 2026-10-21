@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/tr';
 import type { Dictionary } from './en.ts';
 
 export const tr = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.tr,
   ...HOME,
   'home.cta': 'Etkinlik planla',
@@ -88,6 +87,15 @@ export const tr = {
   'error.rosterTooMany': 'Bir seferde en fazla {max} ad eklenebilir.',
   'error.busy': 'Sunucu şu anda meşgul. Lütfen biraz sonra yeniden dene.',
   'error.changed': 'Bu yanıt az önce değiştirildi. Lütfen yeniden dene.',
+  'error.textInvisible': 'Burada en az bir görünür karakter olmalı.',
+  'error.rosterInvisible': '{line}. satırda görünür bir karakter yok.',
+  'error.rosterMixed':
+    '{line}. satır: bir sözcükte Latin harfleri Kiril veya Yunan harfleriyle karışmış.',
+  'error.nameInvisible': 'Adda en az bir görünür karakter olmalı.',
+  'error.nameMixed':
+    'Addaki bir sözcükte Latin harfleri Kiril veya Yunan harfleriyle karışmış.',
+  'error.createLimit':
+    'Bu ağdan kısa süre önce çok sayıda etkinlik oluşturuldu. Lütfen sonra tekrar dene.',
   'error.invalid': 'Bazı bilgiler geçersiz. Kontrol edip yeniden dene.',
 
   'event.loading': 'Etkinlik yükleniyor…',
@@ -127,6 +135,8 @@ export const tr = {
   'who.continue': 'Devam et',
   'who.protected':
     '“{name}” parolayla korunuyor. Devam etmek için parolayı gir.',
+  'who.hasPassword': 'parola korumalı',
+  'who.answered': 'yanıtladı',
   'who.wrongPassword': 'Parola yanlış.',
   'who.passwordTooShort': 'Parola en az {min} karakter olmalı.',
   'who.closed': 'Tarih oylaması kapandı. Yeni kişiler katılamaz.',
@@ -135,8 +145,8 @@ export const tr = {
   'mine.hello': 'Merhaba {name}!',
   'mine.notYou': 'Sen değil misin?',
   'mine.brush': 'Günleri şöyle işaretle',
-  'mine.brushYes': 'Katılabilirim',
-  'mine.brushMaybe': 'Belki katılabilirim',
+  'mine.brushYes': 'Müsaitim',
+  'mine.brushMaybe': 'Belki',
   'mine.hint':
     'Bir güne dokun veya birkaç gün boyunca sürükle. İşareti kaldırmak için yeniden dokun.',
   'mine.undo': 'Geri al',
@@ -201,13 +211,14 @@ export const tr = {
   'group.hiddenHint': 'Bir kişiyi hesaptan çıkarmak için adına dokun.',
   'group.showAll': 'Herkesi hesaba kat',
   'group.waiting': 'Henüz yanıt vermeyenler: {names}',
-  'group.noBlocks': 'Uygun bir ardışık gün aralığı kalmadı.',
+  'group.noBlocks': 'Uygun art arda gün aralığı kalmadı.',
 
   'day.can': 'Katılabilir',
   'day.maybe': 'Belki katılabilir',
   'day.cannot': 'Katılamaz',
   'day.open': 'Yanıt vermedi',
   'day.notes': 'Notlar',
+  'day.noteSep': ': ',
   'day.close': 'Kapat',
 
   'share.title': 'Grupla paylaş',

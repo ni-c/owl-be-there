@@ -1,9 +1,8 @@
 import { addressLines } from '@owl/shared';
-import { Card, Notice } from '../components/ui.tsx';
-import { Owl } from '../components/Owl.tsx';
+import { LegalPage, LegalSection } from '../components/LegalPage.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { instanceNotice, type InstanceState } from '../lib/instanceStore.ts';
-import { mailtoHref } from '../lib/imprint.ts';
+import { imprintOperator, mailtoHref } from '../lib/imprint.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
 /**
@@ -14,81 +13,67 @@ import { NotFoundPage } from './NotFoundPage.tsx';
  */
 export function ImprintPage({ instance: state }: { instance: InstanceState }) {
   const { t } = useI18n();
-  const instance = state.info;
   const status = instanceNotice(state);
   if (status !== 'loaded') {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <Notice tone={status === 'failed' ? 'error' : 'info'}>
-          {t(
+      <LegalPage
+        title={t('imprint.title')}
+        notice={{
+          tone: status === 'failed' ? 'error' : 'info',
+          text: t(
             status === 'failed'
               ? 'privacy.instance.failed'
               : 'privacy.instance.loading'
-          )}
-        </Notice>
-      </div>
+          ),
+        }}
+      />
     );
   }
-  if (
-    !instance?.operatorName ||
-    !instance.operatorAddress ||
-    !instance.operatorContact
-  ) {
-    return <NotFoundPage />;
-  }
-  const mailto = mailtoHref(instance.operatorContact);
+  const operator = imprintOperator(state.info);
+  if (!operator) return <NotFoundPage />;
+  const mailto = mailtoHref(operator.contact);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Owl mood="thinking" size={88} />
-        <h1 className="text-3xl font-black">{t('imprint.title')}</h1>
-      </div>
-      <Card className="flex flex-col gap-6">
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-extrabold">
-            {t('imprint.provider.title')}
-          </h2>
-          <p className="leading-relaxed">
-            {instance.operatorName}
-            {addressLines(instance.operatorAddress).map((line, index) => (
-              <span key={index} className="block">
+    <LegalPage title={t('imprint.title')}>
+      <LegalSection
+        title={t('imprint.provider.title')}
+        paragraphs={[
+          <>
+            <bdi>{operator.name}</bdi>
+            {addressLines(operator.address).map((line, index) => (
+              <bdi key={index} className="block">
                 {line}
-              </span>
+              </bdi>
             ))}
-          </p>
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-extrabold">
-            {t('imprint.contact.title')}
-          </h2>
-          <p className="leading-relaxed">
-            {t('imprint.contact.label')}{' '}
-            {mailto ? (
+          </>,
+        ]}
+      />
+      <LegalSection
+        title={t('imprint.contact.title')}
+        paragraphs={[
+          mailto ? (
+            <>
+              {t('imprint.contact.label')}{' '}
               <a href={mailto} className="underline underline-offset-4">
-                {instance.operatorContact}
+                <bdi>{operator.contact}</bdi>
               </a>
-            ) : (
-              instance.operatorContact
-            )}
-          </p>
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-extrabold">{t('imprint.about.title')}</h2>
-          <p className="leading-relaxed">{t('imprint.about.text')}</p>
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-extrabold">
-            {t('imprint.dispute.title')}
-          </h2>
-          <p className="leading-relaxed">{t('imprint.dispute.text')}</p>
-        </section>
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-extrabold">
-            {t('imprint.liability.title')}
-          </h2>
-          <p className="leading-relaxed">{t('imprint.liability.text')}</p>
-        </section>
-      </Card>
-    </div>
+            </>
+          ) : (
+            <bdi>{operator.contact}</bdi>
+          ),
+        ]}
+      />
+      <LegalSection
+        title={t('imprint.about.title')}
+        paragraphs={[t('imprint.about.text')]}
+      />
+      <LegalSection
+        title={t('imprint.dispute.title')}
+        paragraphs={[t('imprint.dispute.text')]}
+      />
+      <LegalSection
+        title={t('imprint.liability.title')}
+        paragraphs={[t('imprint.liability.text')]}
+      />
+    </LegalPage>
   );
 }

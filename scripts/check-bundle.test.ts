@@ -1,13 +1,14 @@
 import { LANGUAGES, type Language } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  decodeSpaceEscapes,
   chunkLanguages,
   initialFiles,
   problems,
-  STATIC_LANGUAGES,
   uniqueMarkers,
   type Manifest,
 } from './check-bundle.ts';
+import { STATIC_LANGUAGES } from '../packages/client/src/i18n/dictionaries.ts';
 
 const LAZY = LANGUAGES.filter((code) => !STATIC_LANGUAGES.includes(code));
 
@@ -81,6 +82,19 @@ describe('chunkLanguages', () => {
         'src/lib/other.ts': { file: 'w', isDynamicEntry: true },
       })
     ).toEqual(['fa', 'zh-Hant']);
+  });
+});
+
+describe('decodeSpaceEscapes', () => {
+  it('turns the escapes a bundler writes for a no-break space into the character', () => {
+    expect(decodeSpaceEscapes('a\\xA0b \\xa0 \\u00A0 \\u{a0}')).toBe(
+      'a\u00a0b \u00a0 \u00a0 \u00a0'
+    );
+  });
+
+  it('leaves other escapes and plain text alone', () => {
+    expect(decodeSpaceEscapes('')).toBe('');
+    expect(decodeSpaceEscapes('\\xA1 \\n plain')).toBe('\\xA1 \\n plain');
   });
 });
 

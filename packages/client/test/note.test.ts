@@ -1,5 +1,6 @@
+import { charCount, LIMITS } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
-import { noteChange } from '../src/lib/note.ts';
+import { isImeKey, noteChange, passwordLongEnough } from '../src/lib/note.ts';
 
 describe('noteChange', () => {
   it('sends a changed note, cleaned', () => {
@@ -48,5 +49,39 @@ describe('noteChange', () => {
 
   it('sends the typed text when it differs from a note changed elsewhere', () => {
     expect(noteChange('mine', 'theirs')).toMatchObject({ send: true });
+  });
+});
+
+describe('isImeKey', () => {
+  it('is true while an input method composes, by flag or by keyCode 229', () => {
+    expect(isImeKey({ isComposing: true, keyCode: 13 })).toBe(true);
+    expect(isImeKey({ isComposing: false, keyCode: 229 })).toBe(true);
+  });
+
+  it('is false for a plain Enter and for missing fields', () => {
+    expect(isImeKey({ isComposing: false, keyCode: 13 })).toBe(false);
+    expect(isImeKey({})).toBe(false);
+  });
+});
+
+describe('passwordLongEnough', () => {
+  const min = LIMITS.passwordMin;
+
+  it('counts code points, not UTF-16 units', () => {
+    expect(passwordLongEnough('😀'.repeat(min))).toBe(true);
+    expect(passwordLongEnough('😀'.repeat(min - 1))).toBe(false);
+  });
+
+  it('counts the NFC form: decomposed letters are one character each', () => {
+    const decomposed = 'é'.repeat(min - 1);
+    expect(charCount(decomposed)).toBe(2 * (min - 1));
+    expect(passwordLongEnough(decomposed)).toBe(false);
+    expect(passwordLongEnough('é'.repeat(min))).toBe(true);
+  });
+
+  it('refuses the empty password and accepts exactly the minimum', () => {
+    expect(passwordLongEnough('')).toBe(false);
+    expect(passwordLongEnough('a'.repeat(min))).toBe(true);
+    expect(passwordLongEnough('a'.repeat(min - 1))).toBe(false);
   });
 });

@@ -12,13 +12,15 @@ import {
   type Respondent,
   type Weekday,
 } from '@owl/shared';
-import { useId, useMemo, useState } from 'react';
+import { useContext, useId, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
-import { errorMessage } from '../lib/errors.ts';
+import { errorMessage, isForbidden } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
+import { joinNames } from '../lib/listFormat.ts';
 import { liveHidden, liveOpenDay, liveSelection } from '../lib/groupState.ts';
 import { CalendarGrid, type HeatInfo } from './CalendarGrid.tsx';
+import { PanelHeadingLevel } from './EventViews.tsx';
 import { CheckIcon, NoteIcon, StarIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
 import { Button, Chip, Dialog, Notice } from './ui.tsx';
@@ -28,6 +30,8 @@ interface GroupViewProps {
   /** Needed only with `adminToken`, to apply a chosen date. */
   store?: EventStore;
   adminToken: string | null;
+  /** The server refused the organiser key. */
+  onAdminLost?(): void;
   firstWeekday: Weekday;
   today: ISODate;
 }
@@ -35,7 +39,7 @@ interface GroupViewProps {
 const BEST_SHOWN = 5;
 
 export function GroupView(props: GroupViewProps) {
-  const { data, adminToken, today, store } = props;
+  const { data, adminToken, today, store, onAdminLost } = props;
   const { t, locale, number } = useI18n();
   const { event } = data;
   const [hiddenIds, setHidden] = useState<Set<string>>(new Set());
@@ -43,6 +47,8 @@ export function GroupView(props: GroupViewProps) {
   const [selectedBlock, setSelected] = useState<RankedBlock | null>(null);
   const [error, setError] = useState<string | null>(null);
   const notesHeading = useId();
+  // The sections sit one level below the panel's heading.
+  const Section = `h${useContext(PanelHeadingLevel) + 1}` as 'h3' | 'h4';
 
   const people: Respondent[] = useMemo(
     () => data.participants.map(respondentOf),
@@ -100,7 +106,12 @@ export function GroupView(props: GroupViewProps) {
   const waiting = data.participants.filter((p) => !p.answered);
   const waitingNote = waiting.length > 0 && (
     <p className="text-sm [overflow-wrap:anywhere] text-muted">
-      {t('group.waiting', { names: waiting.map((p) => p.name).join(', ') })}
+      {t('group.waiting', {
+        names: joinNames(
+          waiting.map((p) => p.name),
+          locale
+        ),
+      })}
     </p>
   );
   // Every note, whether its writer is counted or has answered at all.
@@ -135,6 +146,10 @@ export function GroupView(props: GroupViewProps) {
         )
       );
     } catch (failure) {
+      if (isForbidden(failure) && onAdminLost) {
+        onAdminLost();
+        return;
+      }
       setError(errorMessage(failure, t));
     }
   };
@@ -155,7 +170,7 @@ export function GroupView(props: GroupViewProps) {
       />
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-lg font-extrabold">{t('group.best')}</h3>
+        <Section className="text-lg font-extrabold">{t('group.best')}</Section>
         {best.length === 0 ? (
           <p className="text-muted">{t('group.noBlocks')}</p>
         ) : (
@@ -236,7 +251,9 @@ export function GroupView(props: GroupViewProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-lg font-extrabold">{t('group.people')}</h3>
+        <Section className="text-lg font-extrabold">
+          {t('group.people')}
+        </Section>
         <p className="text-sm text-muted">{t('group.hiddenHint')}</p>
         <div className="flex flex-wrap gap-2">
           {data.participants
@@ -253,7 +270,7 @@ export function GroupView(props: GroupViewProps) {
                 }}
                 className={hidden.has(p.id) ? 'line-through' : ''}
               >
-                {p.name}
+                <bdi>{p.name}</bdi>
                 {p.note && <NoteIcon size={14} />}
               </Chip>
             ))}
@@ -268,9 +285,9 @@ export function GroupView(props: GroupViewProps) {
 
       {notes.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h3 id={notesHeading} className="text-lg font-extrabold">
+          <Section id={notesHeading} className="text-lg font-extrabold">
             {t('day.notes')}
-          </h3>
+          </Section>
           <ul
             className="flex flex-col gap-1 text-sm text-muted"
             aria-labelledby={notesHeading}
@@ -284,7 +301,9 @@ export function GroupView(props: GroupViewProps) {
                   <NoteIcon size={14} />
                 </span>
                 <span className="min-w-0">
-                  <span className="font-bold">{p.name}:</span> {p.note}
+                  <bdi className="font-bold">{p.name}</bdi>
+                  {t('day.noteSep')}
+                  <bdi>{p.note}</bdi>
                 </span>
               </li>
             ))}
@@ -366,7 +385,7 @@ function DayDetails({
     <span
       className={`inline-flex max-w-full shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-semibold [overflow-wrap:anywhere] ${style[key].chip}`}
     >
-      {name}
+      <bdi>{name}</bdi>
     </span>
   );
   return (
@@ -377,7 +396,7 @@ function DayDetails({
         const empty = ids.length === 0;
         return (
           <section key={key}>
-            <h4
+            <h3
               className={`flex items-center gap-2 font-extrabold ${
                 empty ? 'text-muted' : 'mb-2'
               }`}
@@ -390,7 +409,7 @@ function DayDetails({
               />
               {group.label}{' '}
               <span className="text-muted">· {number(ids.length)}</span>
-            </h4>
+            </h3>
             {!empty && (
               <ul className="flex flex-wrap gap-1.5">
                 {ids.map((id) => (
@@ -405,11 +424,11 @@ function DayDetails({
       })}
       {notes.length > 0 && (
         <section className="border-t border-line pt-4">
-          <h4 className="mb-2 flex items-center gap-2 font-extrabold">
+          <h3 className="mb-2 flex items-center gap-2 font-extrabold">
             <NoteIcon size={16} />
             {t('day.notes')}{' '}
             <span className="text-muted">· {number(notes.length)}</span>
-          </h4>
+          </h3>
           <ul className="flex flex-col gap-2">
             {notes.map(([id, person]) => {
               const key = answerOf.get(id) ?? 'open';
@@ -417,7 +436,10 @@ function DayDetails({
                 <li key={id} className="flex items-start gap-2">
                   {chip(person.name, key)}
                   <span className="sr-only"> ({style[key].label})</span>
-                  <p className="min-w-0 pt-0.5 text-sm text-muted [overflow-wrap:anywhere]">
+                  <p
+                    dir="auto"
+                    className="min-w-0 pt-0.5 text-sm text-muted [overflow-wrap:anywhere]"
+                  >
                     {person.note}
                   </p>
                 </li>

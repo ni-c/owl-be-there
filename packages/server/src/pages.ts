@@ -229,7 +229,7 @@ export function defaultHead(
   return head({
     publicUrl,
     path,
-    title: `${texts.appName} — ${texts.tagline}`,
+    title: `${APP_NAME} — ${texts.tagline}`,
     description: texts.description,
     imageAlt: texts.previewImageAlt,
     noindex: false,
@@ -373,7 +373,7 @@ export function eventHead(publicUrl: string, data: EventSnapshotData): string {
     publicUrl,
     path: `/e/${event.id}`,
     // The tab shows the emoji as its icon; in the title it would appear twice.
-    title: `${event.title} · ${texts.appName}`,
+    title: `${event.title} · ${APP_NAME}`,
     ogTitle: `${emoji} ${event.title}`,
     description,
     // The version in the address: a changed poll is a new picture to caches

@@ -1,10 +1,14 @@
 import { LIMITS, type ISODate } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  asciiDigits,
   changedFields,
   checkDetails,
   checkMinCount,
+  checkTitle,
+  invisibleProblem,
   detailsOf,
+  hasUnsavedDetails,
   inputOf,
   parseRoster,
   type DetailsInput,
@@ -254,5 +258,143 @@ describe('parseRoster', () => {
       params: { max: LIMITS.roster },
     });
     expect(over.names).toHaveLength(LIMITS.roster + 1);
+  });
+});
+
+describe('invisible and mixed-script text, as the server refuses it', () => {
+  const FILLER = '\u3164';
+  const lookalike = 'M\u0430x'; // Latin M and x around a Cyrillic а
+
+  it('names the line of a roster entry with nothing visible', () => {
+    expect(parseRoster(`Anna\n${FILLER}`).problem).toEqual({
+      key: 'error.rosterInvisible',
+      params: { line: 2 },
+    });
+    expect(parseRoster('\u200b').problem?.key).toBe('error.rosterInvisible');
+  });
+
+  it('names the line of a mixed-script word, counting empty lines', () => {
+    expect(parseRoster(`Anna\n\n${lookalike}`).problem).toEqual({
+      key: 'error.rosterMixed',
+      params: { line: 3 },
+    });
+    expect(parseRoster('Ηλίας Smith\nΑλέξης').problem).toBeNull();
+    expect(parseRoster('Иван Smith').problem).toBeNull();
+    expect(parseRoster('Μaria').problem?.key).toBe('error.rosterMixed');
+  });
+
+  it('reports the first bad line and lets a too long list win', () => {
+    expect(parseRoster(`${lookalike}\n${FILLER}`).problem?.params).toEqual({
+      line: 1,
+    });
+    const many = Array.from({ length: LIMITS.roster }, (_, i) => `P${i}`);
+    expect(parseRoster([...many, FILLER].join('\n')).problem?.key).toBe(
+      'error.rosterTooMany'
+    );
+  });
+
+  it('cleans each name the way the server does before it is sent', () => {
+    expect(parseRoster('  Anna   Lee ').names).toEqual(['Anna Lee']);
+  });
+
+  it('refuses a title that is only invisible, apart from an empty one', () => {
+    expect(checkTitle('')?.key).toBe('error.titleRequired');
+    expect(checkTitle('   ')?.key).toBe('error.titleRequired');
+    expect(checkTitle(FILLER)?.key).toBe('error.textInvisible');
+    expect(checkTitle(`${FILLER} x`)).toBeNull();
+    expect(checkTitle('Dinner')).toBeNull();
+  });
+
+  it('lets an empty optional line pass but not an invisible one', () => {
+    expect(invisibleProblem('')).toBeNull();
+    expect(invisibleProblem('   ')).toBeNull();
+    expect(invisibleProblem(FILLER)?.key).toBe('error.textInvisible');
+  });
+
+  it('checks title, location and creator name in the details', () => {
+    const check = checkDetails(
+      { ...input, title: FILLER, location: FILLER, creatorName: FILLER },
+      days
+    );
+    expect(check.ok).toBe(false);
+    if (!check.ok)
+      expect(Object.keys(check.errors).sort()).toEqual([
+        'creatorName',
+        'location',
+        'title',
+      ]);
+  });
+
+  it('sends the cleaned text, so an unchanged field is not a change', () => {
+    const check = checkDetails(
+      { ...input, title: ' Dinner  ', location: ' Pub   Row ' },
+      days
+    );
+    expect(check.ok).toBe(true);
+    if (check.ok) {
+      expect(check.values.title).toBe('Dinner');
+      expect(check.values.location).toBe('Pub Row');
+      expect(changedFields(seed, check.values)).toEqual({
+        location: 'Pub Row',
+      });
+    }
+  });
+});
+
+describe('asciiDigits', () => {
+  it('turns Persian and Arabic-Indic digits into ASCII ones', () => {
+    expect(asciiDigits('۰۱۲۳۴۵۶۷۸۹')).toBe('0123456789');
+    expect(asciiDigits('٠١٢٣٤٥٦٧٨٩')).toBe('0123456789');
+    expect(asciiDigits('۱2٣')).toBe('123');
+  });
+
+  it('drops everything that is no digit and keeps the empty string', () => {
+    expect(asciiDigits('')).toBe('');
+    expect(asciiDigits('1a-2 ٣x۴.')).toBe('1234');
+    expect(asciiDigits('abc')).toBe('');
+    // Other scripts' digits and look-alikes are not numbers here.
+    expect(asciiDigits('१२')).toBe('');
+    expect(asciiDigits('１２')).toBe('');
+  });
+
+  it('feeds the number checks', () => {
+    expect(checkMinCount(asciiDigits('۵')).value).toBe(5);
+    expect(checkMinCount(asciiDigits('۰')).problem?.key).toBe(
+      'error.numberRange'
+    );
+  });
+});
+
+describe('hasUnsavedDetails', () => {
+  const seed = {
+    title: 'Dinner',
+    description: null,
+    location: null,
+    creatorName: null,
+    emoji: 'owl' as const,
+    minCount: null,
+    durationDays: 1,
+  };
+  const days = ['2027-03-06'];
+
+  it('is false for the form as loaded, and for a change typed back', () => {
+    expect(hasUnsavedDetails(seed, inputOf(seed), days)).toBe(false);
+    expect(
+      hasUnsavedDetails(seed, { ...inputOf(seed), title: 'Dinner ' }, days)
+    ).toBe(false);
+  });
+
+  it('is true for a valid change', () => {
+    expect(
+      hasUnsavedDetails(seed, { ...inputOf(seed), location: 'Pub' }, days)
+    ).toBe(true);
+  });
+
+  it('is true for an invalid input that differs, false for an invalid one that is the load', () => {
+    expect(hasUnsavedDetails(seed, { ...inputOf(seed), title: '' }, days)).toBe(
+      true
+    );
+    const bad = { ...seed, title: '' };
+    expect(hasUnsavedDetails(bad, inputOf(bad), days)).toBe(false);
   });
 });

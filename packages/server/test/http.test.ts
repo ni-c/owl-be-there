@@ -1,6 +1,11 @@
 import { CreateEventBody } from '@owl/shared';
 import { describe, expect, it } from 'vitest';
-import { networkKey, parseBody, ValidationError } from '../src/http.js';
+import {
+  matchesEtag,
+  networkKey,
+  parseBody,
+  ValidationError,
+} from '../src/http.js';
 
 describe('networkKey', () => {
   it('keeps IPv4 addresses, mapped or not, as they are', () => {
@@ -110,6 +115,22 @@ describe('parseBody', () => {
     expect(body.title).toBe('x');
   });
 
+  it('names the zod code and the shared reason of each issue', () => {
+    try {
+      parseBody(CreateEventBody, { title: '\u3164', days: [] });
+      expect.unreachable();
+    } catch (error) {
+      const issues = (error as ValidationError).issues;
+      expect(issues.find((i) => i.path === 'title')).toMatchObject({
+        code: 'custom',
+        reason: 'invisible',
+      });
+      const days = issues.find((i) => i.path === 'days');
+      expect(days?.code).toBe('too_small');
+      expect(days).not.toHaveProperty('reason');
+    }
+  });
+
   it('names every problem', () => {
     try {
       parseBody(CreateEventBody, { title: '' });
@@ -135,5 +156,26 @@ describe('parseBody', () => {
     expect(() => parseBody(CreateEventBody, undefined)).toThrow(
       ValidationError
     );
+  });
+});
+
+describe('matchesEtag', () => {
+  it.each([
+    ['"v1"', true],
+    ['W/"v1"', true],
+    ['*', true],
+    [' "v0" , W/"v1" ', true],
+    ['"v0"', false],
+    ['', false],
+    [',', false],
+    ['"v1"x', false],
+    ['w/"v1"', false],
+  ])('%j -> %s', (value, expected) => {
+    expect(matchesEtag(value, '"v1"')).toBe(expected);
+  });
+
+  it('is false without a header and matches a weak own tag too', () => {
+    expect(matchesEtag(undefined, '"v1"')).toBe(false);
+    expect(matchesEtag('"v1"', 'W/"v1"')).toBe(true);
   });
 });

@@ -36,6 +36,19 @@ const INVISIBLE = /[\u200B\u2060\uFEFF\u00AD\u180E\u2061-\u2064]|\u034F/gu;
  * selector — but they must not tell two names apart.
  */
 const KEY_INVISIBLE = /\p{Default_Ignorable_Code_Point}|\u2800/gu;
+/**
+ * Dropped from name keys only: the Arabic vowel and Quranic marks (tashkeel,
+ * U+064B-U+065F and the superscript alef) and the tatweel stretch.
+ */
+/**
+ * Blank fillers that draw with the width of a letter (Hangul filler, halfwidth
+ * Hangul filler, blank Braille). Between two words they pass for the space, so
+ * in a name key they are one, unless a mark follows and they carry it. The
+ * zero-width fillers (U+115F, U+1160) stay dropped.
+ */
+const KEY_SPACE_FILLERS =
+  /[\u3164\uFFA0\u2800]+(?![\u3164\uFFA0\u2800])(?!\p{M})/gu;
+const KEY_ARABIC_MARKS = /[\u064B-\u065F\u0670\u0640]/gu;
 /* eslint-enable no-control-regex */
 
 /**
@@ -94,21 +107,46 @@ function foldName(name: string): string {
 }
 
 /**
+ * Letters one keyboard or one language types as another, folded into a single
+ * one: the Persian and Arabic yeh and kaf, the hamza forms of alef, teh marbuta
+ * as heh, Turkish dotted and dotless i, sharp s. Runs on lower-case text.
+ */
+function foldLetters(text: string): string {
+  return text
+    .replace(/[\u0649\u06CC]/gu, '\u064A')
+    .replace(/\u06A9/gu, '\u0643')
+    .replace(/[\u0622\u0623\u0625]/gu, '\u0627')
+    .replace(/\u0629/gu, '\u0647')
+    .replace(/i\u0307|\u0131/gu, 'i')
+    .replace(/\u00DF/gu, 'ss');
+}
+
+/**
  * What decides whether two names are the same person.
  *
  * Compatibility-normalised and lower-cased, so `Max`, `MAX` and a full-width
  * `Ｍａｘ` are one entry; joiners, variation selectors, tag characters and
  * blank fillers are dropped too, so an invisible character cannot mint a
- * second "Max". A name whose key is empty is no name. The name itself is
- * stored as typed.
+ * second "Max"; a filler that draws as wide as a letter counts as the space
+ * it passes for. Arabic marks and the tatweel go, and the letters people type
+ * in two ways are one (see {@link foldLetters}): `Straße` and `STRASSE`,
+ * `İrem` and `Irem`, Persian and Arabic yeh. Hiragana and katakana stay apart.
+ * A name whose key is empty is no name. The name itself is stored as typed.
  */
 export function nameKey(name: string): string {
   // Cleaned again: NFKC can turn one character into a space and a mark.
-  return cleanLine(foldName(name).toLowerCase());
+  return cleanLine(
+    foldLetters(
+      foldName(cleanLine(name).replace(KEY_SPACE_FILLERS, ' '))
+        .replace(KEY_ARABIC_MARKS, '')
+        .toLowerCase()
+    )
+  );
 }
 
 /**
- * Whether one word mixes Latin letters with Cyrillic or Greek ones: a Cyrillic
+ * Whether one word mixes Latin letters with Cyrillic, Greek, Armenian,
+ * Cherokee, Coptic or Lisu ones: a Cyrillic
  * "а" in "Max" looks the same on screen and is another letter, so the name
  * would be a second "Max" beside the first. Whole words in one script stay
  * fine, and so do names in two scripts as long as no single word is — the
@@ -118,7 +156,9 @@ export function mixesScripts(name: string): boolean {
   return (foldName(name).match(/[\p{L}\p{M}]+/gu) ?? []).some(
     (word) =>
       /\p{Script=Latin}/u.test(word) &&
-      /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(word)
+      /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian}\p{Script=Cherokee}\p{Script=Coptic}\p{Script=Lisu}]/u.test(
+        word
+      )
   );
 }
 

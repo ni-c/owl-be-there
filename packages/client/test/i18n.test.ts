@@ -161,6 +161,17 @@ describe('texts that must agree with the rest of the app', () => {
     }
   });
 
+  it('separates a writer from the note with a colon, fullwidth and without a space in Japanese and Chinese', () => {
+    for (const language of LANGUAGES) {
+      const sep = DICTIONARIES[language]['day.noteSep'];
+      if (['ja', 'zh-Hans', 'zh-Hant'].includes(language))
+        expect(sep, language).toBe('：');
+      else expect(sep, language).toMatch(/^[\s\u00a0]?: $/u);
+    }
+    expect(en['day.noteSep']).toBe(': ');
+    expect(fr['day.noteSep']).toBe('\u00a0: ');
+  });
+
   it('calls a poll the same in German on every button and banner', () => {
     expect(de['admin.close']).toContain('Abstimmung');
     expect(de['admin.reopen']).toContain('Abstimmung');

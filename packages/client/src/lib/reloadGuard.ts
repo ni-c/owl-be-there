@@ -4,6 +4,25 @@ import type { Backing } from './storage.ts';
 
 const FLAG = 'owl.i18n-reload';
 
+const holds = new Set<() => boolean>();
+
+/**
+ * Register a check for input that a reload would lose: a form being filled in,
+ * marks not yet saved. Returns the undo for an effect's cleanup.
+ */
+export function holdReload(unsaved: () => boolean): () => void {
+  holds.add(unsaved);
+  return () => {
+    holds.delete(unsaved);
+  };
+}
+
+/** Whether any registered check reports unsaved input. */
+export function hasUnsavedInput(): boolean {
+  for (const unsaved of holds) if (unsaved()) return true;
+  return false;
+}
+
 const FlagSchema = z.object({
   language: LanguageSchema,
   previous: LanguageSchema.nullable(),
@@ -18,6 +37,8 @@ export interface ReloadGuardDeps {
   online(): boolean;
   /** Store the language as the reader's choice, so the reloaded page opens in it. */
   remember(language: Language): void;
+  /** Unsaved input a reload would lose; defaults to the `holdReload` registry. */
+  unsaved?(): boolean;
 }
 
 /**
@@ -55,6 +76,7 @@ export class ReloadGuard {
     // Offline the reload would lose the page, and with it marks still waiting
     // to be saved.
     if (!this.deps.online() || !session) return false;
+    if ((this.deps.unsaved ?? hasUnsavedInput)()) return false;
     if (this.flag()?.language === language) return false;
     const raw = JSON.stringify({ language, previous });
     try {

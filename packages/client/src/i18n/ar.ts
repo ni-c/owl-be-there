@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ar';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const ar = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ar,
   ...HOME,
   'home.cta': 'أنشئ حدثاً',
@@ -88,6 +87,15 @@ export const ar = {
   'error.rosterTooMany': 'يمكن إضافة {max} اسماً كحد أقصى في المرة الواحدة.',
   'error.busy': 'الخادم مشغول الآن. حاول بعد قليل.',
   'error.changed': 'تغيّرت هذه الإجابة للتو. حاول مجدداً.',
+  'error.textInvisible': 'يلزم وجود حرف واحد مرئي على الأقل هنا.',
+  'error.rosterInvisible': 'السطر {line} لا يحتوي على أي حرف مرئي.',
+  'error.rosterMixed':
+    'السطر {line}: كلمة واحدة تخلط الحروف اللاتينية بحروف سيريلية أو يونانية.',
+  'error.nameInvisible': 'يحتاج الاسم إلى حرف مرئي واحد على الأقل.',
+  'error.nameMixed':
+    'كلمة في الاسم تخلط الحروف اللاتينية بحروف سيريلية أو يونانية.',
+  'error.createLimit':
+    'أُنشئت أحداث كثيرة من هذه الشبكة مؤخراً. حاول مرة أخرى لاحقاً.',
   'error.invalid': 'بعض البيانات غير صحيحة. راجعها وحاول مجدداً.',
 
   'event.loading': 'جارٍ تحميل الحدث…',
@@ -125,6 +133,8 @@ export const ar = {
     'من دون كلمة مرور، يستطيع أي شخص لديه الرابط استخدام اسمك وتغيير أيامك.',
   'who.continue': 'متابعة',
   'who.protected': 'الإجابة باسم «{name}» محمية. أدخل كلمة المرور.',
+  'who.hasPassword': 'محمي بكلمة مرور',
+  'who.answered': 'أجاب',
   'who.wrongPassword': 'كلمة المرور غير صحيحة.',
   'who.passwordTooShort': 'يلزم {min} أحرف على الأقل.',
   'who.closed': 'أُغلق التصويت. لا يمكن لمشاركين جدد الانضمام.',
@@ -195,7 +205,7 @@ export const ar = {
   'group.people': 'الأشخاص المحتسبون',
   'group.hiddenHint': 'انقر على اسم لاستبعاد صاحبه من الحساب.',
   'group.showAll': 'احتسب الجميع',
-  'group.waiting': 'لم يجيبوا بعد: {names}',
+  'group.waiting': 'في انتظار الإجابة من: {names}',
   'group.noBlocks': 'لم تَعُد هناك فترات متتالية مناسبة.',
 
   'day.can': 'يستطيع',
@@ -203,6 +213,7 @@ export const ar = {
   'day.cannot': 'لا يستطيع',
   'day.open': 'لم يُجب',
   'day.notes': 'ملاحظات',
+  'day.noteSep': ': ',
   'day.close': 'إغلاق',
 
   'share.title': 'شارك مع المجموعة',
@@ -243,9 +254,9 @@ export const ar = {
     'سيؤدي هذا إلى حذف إجابة واحدة ({count}) نهائياً عن الأيام المستبعدة.',
   'admin.lossMarks_other':
     'سيؤدي هذا إلى حذف {count} إجابة نهائياً عن الأيام المستبعدة.',
-  'admin.lossDateShort': 'ستصبح المدة المختارة أقصر.',
+  'admin.lossDateShort': 'سيصبح الموعد المختار أقصر.',
   'admin.lossDateDropped':
-    'لم تَعُد المدة المختارة مناسبة وستُلغى. سيبقى التصويت مغلقاً.',
+    'لم يعد الموعد المختار مناسباً وسيُلغى. سيبقى التصويت مغلقاً.',
   'admin.lossConfirm': 'احفظ على أي حال',
   'admin.noPeople': 'لا أحد هنا بعد.',
 

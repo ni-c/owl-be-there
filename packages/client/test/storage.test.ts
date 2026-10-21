@@ -118,3 +118,84 @@ describe('browserBacking', () => {
     }
   });
 });
+
+describe('Store against a backing that changes underneath it', () => {
+  it('reads a key removed elsewhere as absent, not from memory', () => {
+    const backing = new MemoryStorage();
+    const store = new Store(backing);
+    store.write('owl.theme', 'dark');
+    backing.map.delete('owl.theme'); // another tab, or the developer tools
+    expect(store.read('owl.theme', Theme)).toBeNull();
+    // Stays gone: the memory copy was dropped with it.
+    backing.map.set('owl.theme', '"light"');
+    expect(store.read('owl.theme', Theme)).toBe('light');
+  });
+
+  it('reads a value changed elsewhere', () => {
+    const backing = new MemoryStorage();
+    const store = new Store(backing);
+    store.write('owl.theme', 'dark');
+    backing.map.set('owl.theme', '"light"');
+    expect(store.read('owl.theme', Theme)).toBe('light');
+  });
+
+  it('serves the memory copy while the backing cannot be read', () => {
+    let readable = true;
+    const backing = new MemoryStorage();
+    const store = new Store({
+      getItem: (key) => {
+        if (!readable) throw new Error('SecurityError');
+        return backing.getItem(key);
+      },
+      setItem: (key, value) => backing.setItem(key, value),
+      removeItem: (key) => backing.removeItem(key),
+    });
+    store.write('owl.theme', 'dark');
+    readable = false;
+    expect(store.read('owl.theme', Theme)).toBe('dark');
+  });
+
+  it('prefers the memory copy of a write the backing refused (quota)', () => {
+    const backing = new MemoryStorage();
+    backing.map.set('owl.theme', '"light"');
+    let full = true;
+    const store = new Store({
+      getItem: (key) => backing.getItem(key),
+      setItem: (key, value) => {
+        if (full) throw new Error('QuotaExceededError');
+        backing.setItem(key, value);
+      },
+      removeItem: (key) => backing.removeItem(key),
+    });
+    store.write('owl.theme', 'dark');
+    expect(store.read('owl.theme', Theme)).toBe('dark');
+    // A later write that goes through hands the truth back to the backing.
+    full = false;
+    store.write('owl.theme', 'light');
+    backing.map.delete('owl.theme');
+    expect(store.read('owl.theme', Theme)).toBeNull();
+  });
+
+  it('reads a key as absent when removing it was refused', () => {
+    const backing = new MemoryStorage();
+    const store = new Store({
+      getItem: (key) => backing.getItem(key),
+      setItem: (key, value) => backing.setItem(key, value),
+      removeItem: () => {
+        throw new Error('SecurityError');
+      },
+    });
+    store.write('owl.theme', 'dark');
+    store.remove('owl.theme');
+    expect(store.read('owl.theme', Theme)).toBeNull();
+  });
+
+  it('works without any backing', () => {
+    const store = new Store(null);
+    expect(store.read('owl.theme', Theme)).toBeNull();
+    store.write('owl.theme', 'dark');
+    expect(store.read('owl.theme', Theme)).toBe('dark');
+    store.remove('owl.theme');
+    expect(store.read('owl.theme', Theme)).toBeNull();
+  });
+});

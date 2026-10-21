@@ -128,9 +128,24 @@ export function formatDayRange(
     month: 'long',
     year: 'numeric',
   });
-  return start === end
-    ? format.format(utcDateOf(start))
-    : format.formatRange(utcDateOf(start), utcDateOf(end));
+  if (start === end) return format.format(utcDateOf(start));
+  const language = locale.split('-')[0];
+  // ICU pads Swedish days ("lör 06 mars") and writes Japanese and Chinese
+  // ranges as bare numbers ("2027/3/6"): put those together by hand.
+  if (language !== 'sv' && language !== 'ja' && language !== 'zh') {
+    return format.formatRange(utcDateOf(start), utcDateOf(end));
+  }
+  const from = format.format(utcDateOf(start));
+  if (language === 'sv') return `${from}–${format.format(utcDateOf(end))}`;
+  const sameYear = start.slice(0, 4) === end.slice(0, 4);
+  const sameMonth = start.slice(0, 7) === end.slice(0, 7);
+  const endOptions: Intl.DateTimeFormatOptions = !sameYear
+    ? { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }
+    : language === 'ja' && sameMonth
+      ? { weekday: 'short', day: 'numeric' }
+      : { weekday: 'short', day: 'numeric', month: 'long' };
+  const to = dayFormatter(locale, endOptions).format(utcDateOf(end));
+  return `${from}${language === 'ja' ? '～' : '至'}${to}`;
 }
 
 /** The app's name. It is not translated, and every surface spells it alike. */
@@ -178,37 +193,34 @@ export const TAGLINES: Record<Language, string> = {
 export const DESCRIPTION_EN =
   'When can everyone make it? Mark your days on the calendar and find out. No sign-up or tracking.';
 
-const russianPlural = new Intl.PluralRules('ru-RU');
 /** Persian digits, as Persian dates have them. */
-const persianNumber = new Intl.NumberFormat('fa-IR', { useGrouping: false });
-const arabicPlural = new Intl.PluralRules('ar');
+export const persianNumber = new Intl.NumberFormat('fa-IR', {
+  useGrouping: false,
+});
 
-function arabicAnswerCount(count: number): string {
-  const category = arabicPlural.select(count);
-  if (category === 'one') return `إجابة واحدة (${count}) حتى الآن`;
-  if (category === 'two') return `إجابتان (${count}) حتى الآن`;
-  if (category === 'few') return `${count} إجابات حتى الآن`;
-  return `${count} إجابة حتى الآن`;
-}
+/** The words of a count, by plural category; `other` is the fallback. */
+export type PluralForms = Partial<
+  Record<'zero' | 'one' | 'two' | 'few' | 'many', string>
+> & { other: string };
 
-function arabicDayCount(count: number): string {
-  const category = arabicPlural.select(count);
-  if (category === 'one') return `يوم آخر (${count})`;
-  if (category === 'two') return `يومان آخران (${count})`;
-  if (category === 'few') return `${count} أيام أخرى`;
-  if (category === 'many') return `${count} يوماً آخر`;
-  return `${count} يوم آخر`;
-}
+const pluralRules = new Map<Language, Intl.PluralRules>();
 
-/** Russian and Ukrainian share these plural categories for whole numbers. */
-function russianForm(
+/**
+ * The form that goes with a count in a language, by the CLDR plural rules
+ * (`one`, `few` and `many` in Russian, six categories in Arabic). A category
+ * the language has but the forms leave out falls back to `other`.
+ */
+export function pluralForm(
+  language: Language,
   count: number,
-  one: string,
-  few: string,
-  many: string
+  forms: PluralForms
 ): string {
-  const category = russianPlural.select(count);
-  return category === 'one' ? one : category === 'few' ? few : many;
+  let rules = pluralRules.get(language);
+  if (rules === undefined) {
+    rules = new Intl.PluralRules(LOCALES[language]);
+    pluralRules.set(language, rules);
+  }
+  return forms[rules.select(count)] ?? forms.other;
 }
 
 /**
@@ -220,42 +232,51 @@ function russianForm(
  */
 export const SERVER_TEXTS = {
   ar: {
-    appName: APP_NAME,
     tagline: TAGLINES.ar,
     description:
       'متى يستطيع الجميع الحضور؟ حدّد الأيام المناسبة لك في التقويم واعثر على الموعد الأنسب. بلا تسجيل أو تتبّع.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'حدّد الأيام التي تناسبك. لا حاجة إلى التسجيل.'
-        : `حدّد الأيام التي تناسبك · ${arabicAnswerCount(answers)}`,
+        : `حدّد الأيام التي تناسبك · ${pluralForm('ar', answers, {
+            one: `إجابة واحدة (${answers}) حتى الآن`,
+            two: `إجابتان (${answers}) حتى الآن`,
+            few: `${answers} إجابات حتى الآن`,
+            other: `${answers} إجابة حتى الآن`,
+          })}`,
     previewDecided: (when: string): string => `تحدّد الموعد: ${when}`,
     previewClosed: 'أُغلق التصويت على الموعد.',
     previewImageAlt: 'بومة مع تقويم',
     previewCalendarAlt: 'الأيام المقترحة في تقويم ملوّن بحسب عدد المتاحين',
     // No plus sign: Noto Sans Arabic has none, and the words already say "more".
-    previewMoreDays: (days: number): string => arabicDayCount(days),
+    previewMoreDays: (days: number): string =>
+      pluralForm('ar', days, {
+        one: `يوم آخر (${days})`,
+        two: `يومان آخران (${days})`,
+        few: `${days} أيام أخرى`,
+        many: `${days} يوماً آخر`,
+        other: `${days} يوم آخر`,
+      }),
     calendarNote: 'اختير الموعد باستخدام Owl Be There',
   },
   cs: {
-    appName: APP_NAME,
     tagline: TAGLINES.cs,
     description:
       'Kdy mohou všichni? Označ v kalendáři dny, kdy máš čas, a najdi vhodný termín. Bez registrace a sledování.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Označ dny, kdy máš čas. Bez registrace.'
-        : `Označ dny, kdy máš čas · zatím ${answers} ${answers === 1 ? 'odpověď' : answers >= 2 && answers <= 4 ? 'odpovědi' : 'odpovědí'}`,
+        : `Označ dny, kdy máš čas · zatím ${answers} ${pluralForm('cs', answers, { one: 'odpověď', few: 'odpovědi', other: 'odpovědí' })}`,
     previewDecided: (when: string): string => `Termín je stanoven: ${when}`,
     previewClosed: 'Hlasování o termínu je uzavřeno.',
     previewImageAlt: 'Sova s kalendářem',
     previewCalendarAlt:
-      'Možné termíny v kalendáři, barevně odlišené podle počtu dostupných lidí',
+      'Možné dny v kalendáři, barevně odlišené podle počtu dostupných lidí',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'další den' : days >= 2 && days <= 4 ? 'další dny' : 'dalších dní'}`,
+      `+ ${days} ${pluralForm('cs', days, { one: 'další den', few: 'další dny', other: 'dalších dní' })}`,
     calendarNote: 'Termín vybrán pomocí Owl Be There',
   },
   de: {
-    appName: APP_NAME,
     tagline: TAGLINES.de,
     /** The start page's description for search results and link previews. */
     description:
@@ -263,7 +284,7 @@ export const SERVER_TEXTS = {
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Trag ein, wann du kannst. Ohne Anmeldung.'
-        : `Trag ein, wann du kannst · bisher ${answers} ${answers === 1 ? 'Antwort' : 'Antworten'}`,
+        : `Trag ein, wann du kannst · bisher ${answers} ${pluralForm('de', answers, { one: 'Antwort', other: 'Antworten' })}`,
     previewDecided: (when: string): string => `Der Termin steht: ${when}`,
     previewClosed: 'Die Abstimmung ist geschlossen.',
     previewImageAlt: 'Eine Eule mit einem Kalender',
@@ -271,64 +292,60 @@ export const SERVER_TEXTS = {
       'Die möglichen Tage im Kalender, gefärbt danach, wie viele können',
     /** Below the preview's calendar when a long poll is cut. */
     previewMoreDays: (days: number): string =>
-      days === 1 ? '+ 1 weiterer Tag' : `+ ${days} weitere Tage`,
+      `+ ${days} ${pluralForm('de', days, { one: 'weiterer Tag', other: 'weitere Tage' })}`,
     calendarNote: 'Ausgewählt mit Owl Be There',
   },
   en: {
-    appName: APP_NAME,
     tagline: TAGLINES.en,
     description: DESCRIPTION_EN,
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Add the days you can make it. No sign-up needed.'
-        : `Add the days you can make it · ${answers} ${answers === 1 ? 'answer' : 'answers'} so far`,
+        : `Add the days you can make it · ${answers} ${pluralForm('en', answers, { one: 'answer', other: 'answers' })} so far`,
     previewDecided: (when: string): string => `The date is set: ${when}`,
     previewClosed: 'This poll is closed.',
     previewImageAlt: 'An owl holding a calendar',
     previewCalendarAlt:
       'The days to choose from on a calendar, coloured by how many can make it',
     previewMoreDays: (days: number): string =>
-      `+ ${days} more ${days === 1 ? 'day' : 'days'}`,
+      `+ ${days} more ${pluralForm('en', days, { one: 'day', other: 'days' })}`,
     calendarNote: 'Chosen with Owl Be There',
   },
   es: {
-    appName: APP_NAME,
     tagline: TAGLINES.es,
     description:
-      '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni rastreo.',
+      '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni seguimiento.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marca los días que te vienen bien. Sin registro.'
-        : `Marca los días que te vienen bien · ${answers} ${answers === 1 ? 'respuesta' : 'respuestas'} hasta ahora`,
+        : `Marca los días que te vienen bien · ${answers} ${pluralForm('es', answers, { one: 'respuesta', other: 'respuestas' })} hasta ahora`,
     previewDecided: (when: string): string => `Ya hay fecha: ${when}`,
-    previewClosed: 'Esta votación está cerrada.',
+    previewClosed: 'Esta encuesta está cerrada.',
     previewImageAlt: 'Un búho con un calendario',
     previewCalendarAlt:
       'Los días posibles en un calendario, coloreados según cuántos pueden',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'día más' : 'días más'}`,
+      `+ ${days} ${pluralForm('es', days, { one: 'día más', other: 'días más' })}`,
     calendarNote: 'Fecha elegida con Owl Be There',
   },
   'es-419': {
-    appName: APP_NAME,
     tagline: TAGLINES['es-419'],
     description:
       '¿Cuándo pueden todos? Marca tus días en el calendario y descúbrelo. Sin registro ni rastreo.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marca los días que puedes. Sin registro.'
-        : `Marca los días que puedes · ${answers} ${answers === 1 ? 'respuesta' : 'respuestas'} hasta ahora`,
+        : `Marca los días que puedes · ${answers} ${pluralForm('es-419', answers, { one: 'respuesta', other: 'respuestas' })} hasta ahora`,
     previewDecided: (when: string): string => `Ya hay fecha: ${when}`,
     previewClosed: 'Esta encuesta está cerrada.',
     previewImageAlt: 'Un búho con un calendario',
     previewCalendarAlt:
       'Los días posibles en un calendario, con colores según cuántos pueden',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'día más' : 'días más'}`,
+      `+ ${days} ${pluralForm('es-419', days, { one: 'día más', other: 'días más' })}`,
     calendarNote: 'Fecha elegida con Owl Be There',
   },
   fa: {
-    appName: APP_NAME,
     tagline: TAGLINES.fa,
     description:
       'همه کی می‌توانند؟ روزهایت را در تقویم علامت بزن و پیدایش کن. بدون ثبت‌نام و بدون ردیابی.',
@@ -347,43 +364,41 @@ export const SERVER_TEXTS = {
     calendarNote: 'تاریخ با Owl Be There انتخاب شد',
   },
   fi: {
-    appName: APP_NAME,
     tagline: TAGLINES.fi,
     description:
       'Milloin kaikille sopii? Merkitse sopivat päivät kalenteriin ja ota selvää. Ei rekisteröitymistä eikä seurantaa.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Merkitse päivät, jolloin pääset mukaan. Rekisteröitymistä ei tarvita.'
-        : `Merkitse päivät, jolloin pääset mukaan · tähän mennessä ${answers} ${answers === 1 ? 'vastaus' : 'vastausta'}`,
+        : `Merkitse päivät, jolloin pääset mukaan · tähän mennessä ${answers} ${pluralForm('fi', answers, { one: 'vastaus', other: 'vastausta' })}`,
     previewDecided: (when: string): string => `Ajankohta on päätetty: ${when}`,
     previewClosed: 'Äänestys on suljettu.',
     previewImageAlt: 'Pöllö ja kalenteri',
     previewCalendarAlt:
       'Mahdolliset päivät kalenterissa väritettyinä osallistujamäärän mukaan',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'päivä' : 'päivää'} lisää`,
+      `+ ${days} ${pluralForm('fi', days, { one: 'päivä', other: 'päivää' })} lisää`,
     calendarNote: 'Ajankohta valittu Owl Be There -palvelulla',
   },
   fr: {
-    appName: APP_NAME,
     tagline: TAGLINES.fr,
     description:
-      'Quand tout le monde est-il libre ? Indique tes jours sur le calendrier et découvre-le. Sans inscription ni pistage.',
+      'Quand tout le monde est-il libre\u00A0? Indique tes jours sur le calendrier et découvre-le. Sans inscription ni suivi.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Indique les jours où tu es libre. Sans inscription.'
-        : `Indique les jours où tu es libre · ${answers} ${answers === 1 ? 'réponse' : 'réponses'} pour le moment`,
-    previewDecided: (when: string): string => `La date est fixée : ${when}`,
-    previewClosed: 'Ce sondage est clos.',
+        : `Indique les jours où tu es libre · ${answers} ${pluralForm('fr', answers, { one: 'réponse', other: 'réponses' })} pour le moment`,
+    previewDecided: (when: string): string =>
+      `La date est fixée\u00A0: ${when}`,
+    previewClosed: 'Ce sondage est fermé.',
     previewImageAlt: 'Un hibou avec un calendrier',
     previewCalendarAlt:
       'Les jours possibles sur un calendrier, colorés selon le nombre de personnes libres',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'autre jour' : 'autres jours'}`,
+      `+ ${days} ${pluralForm('fr', days, { one: 'autre jour', other: 'autres jours' })}`,
     calendarNote: 'Date choisie avec Owl Be There',
   },
   id: {
-    appName: APP_NAME,
     tagline: TAGLINES.id,
     description:
       'Kapan semua orang bisa hadir? Tandai harimu di kalender dan temukan jawabannya. Tanpa pendaftaran atau pelacakan.',
@@ -401,41 +416,38 @@ export const SERVER_TEXTS = {
     calendarNote: 'Tanggal dipilih dengan Owl Be There',
   },
   it: {
-    appName: APP_NAME,
     tagline: TAGLINES.it,
     description:
       'Quando ci sono tutti? Segna i tuoi giorni sul calendario e scoprilo. Senza registrazione né tracciamento.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Segna i giorni in cui ci sei. Senza registrazione.'
-        : `Segna i giorni in cui ci sei · ${answers} ${answers === 1 ? 'risposta' : 'risposte'} finora`,
+        : `Segna i giorni in cui ci sei · ${answers} ${pluralForm('it', answers, { one: 'risposta', other: 'risposte' })} finora`,
     previewDecided: (when: string): string => `La data è decisa: ${when}`,
     previewClosed: 'Questo sondaggio è chiuso.',
     previewImageAlt: 'Un gufo con un calendario',
     previewCalendarAlt:
       'I giorni possibili su un calendario, colorati in base a quanti ci sono',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'altro giorno' : 'altri giorni'}`,
+      `+ ${days} ${pluralForm('it', days, { one: 'altro giorno', other: 'altri giorni' })}`,
     calendarNote: 'Data scelta con Owl Be There',
   },
   ja: {
-    appName: APP_NAME,
     tagline: TAGLINES.ja,
     description:
       'みんなが集まれるのはいつ？カレンダーで行ける日を選ぶだけ。登録もトラッキングもなし。',
     previewOpen: (answers: number): string =>
       answers === 0
         ? '行ける日を選んでね。登録は不要。'
-        : `行ける日を選んでね · 回答は現在${answers}人`,
+        : `行ける日を選んでね · これまでに${answers}人が回答`,
     previewDecided: (when: string): string => `日程決定：${when}`,
-    previewClosed: 'この予定の受付は終了しました。',
+    previewClosed: 'この予定の投票は締め切られました。',
     previewImageAlt: 'カレンダーを持つフクロウ',
     previewCalendarAlt: '候補日のカレンダー。行ける人の数で色分け',
     previewMoreDays: (days: number): string => `ほか${days}日`,
     calendarNote: 'Owl Be Thereで決めた日程',
   },
   ko: {
-    appName: APP_NAME,
     tagline: TAGLINES.ko,
     description:
       '모두 언제 시간이 될까요? 캘린더에 가능한 날짜를 표시하기만 하면 돼요. 가입도 추적도 없어요.',
@@ -451,7 +463,6 @@ export const SERVER_TEXTS = {
     calendarNote: 'Owl Be There로 정한 날짜',
   },
   nb: {
-    appName: APP_NAME,
     tagline: TAGLINES.nb,
     description:
       'Når kan alle møtes? Marker dagene som passer i kalenderen, og finn ut av det. Ingen registrering eller sporing.',
@@ -465,101 +476,95 @@ export const SERVER_TEXTS = {
     previewCalendarAlt:
       'Mulige dager i en kalender, fargelagte etter hvor mange som kan delta',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'dag til' : 'dager til'}`,
+      `+ ${days} ${pluralForm('nb', days, { one: 'dag til', other: 'dager til' })}`,
     calendarNote: 'Dato valgt med Owl Be There',
   },
   nl: {
-    appName: APP_NAME,
     tagline: TAGLINES.nl,
     description:
       'Wanneer kan iedereen? Vul je dagen in op de kalender en ontdek het. Zonder aanmelden of tracking.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Vul in wanneer je kunt. Aanmelden hoeft niet.'
-        : `Vul in wanneer je kunt · tot nu toe ${answers} ${answers === 1 ? 'antwoord' : 'antwoorden'}`,
+        : `Vul in wanneer je kunt · tot nu toe ${answers} ${pluralForm('nl', answers, { one: 'antwoord', other: 'antwoorden' })}`,
     previewDecided: (when: string): string => `De datum staat vast: ${when}`,
     previewClosed: 'Deze poll is gesloten.',
     previewImageAlt: 'Een uil met een kalender',
     previewCalendarAlt:
       'De mogelijke dagen op een kalender, gekleurd naar hoeveel mensen kunnen',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'andere dag' : 'andere dagen'}`,
+      `+ ${days} ${pluralForm('nl', days, { one: 'andere dag', other: 'andere dagen' })}`,
     calendarNote: 'Datum gekozen met Owl Be There',
   },
   pl: {
-    appName: APP_NAME,
     tagline: TAGLINES.pl,
     description:
       'Kiedy wszyscy mają czas? Zaznacz dostępne dni w kalendarzu i znajdź dogodny termin. Bez rejestracji i śledzenia.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Zaznacz dni, w które możesz przyjść. Bez rejestracji.'
-        : `Zaznacz dni, w które możesz przyjść · dotąd ${answers} ${answers === 1 ? 'odpowiedź' : 'odpowiedzi'}`,
+        : `Zaznacz dni, w które możesz przyjść · dotąd ${answers} ${pluralForm('pl', answers, { one: 'odpowiedź', other: 'odpowiedzi' })}`,
     previewDecided: (when: string): string => `Termin ustalony: ${when}`,
     previewClosed: 'Głosowanie nad terminem jest zamknięte.',
     previewImageAlt: 'Sowa trzymająca kalendarz',
     previewCalendarAlt:
       'Kalendarz proponowanych dni, których kolor zależy od liczby dostępnych osób',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'dzień' : 'dni'} więcej`,
+      `+ ${days} ${pluralForm('pl', days, { one: 'dzień', other: 'dni' })} więcej`,
     calendarNote: 'Termin wybrany za pomocą Owl Be There',
   },
   pt: {
-    appName: APP_NAME,
     tagline: TAGLINES.pt,
     description:
       'Quando é que todos podem? Marca os teus dias no calendário e descobre. Sem registo nem rastreio.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marca os dias em que podes. Sem registo.'
-        : `Marca os dias em que podes · ${answers} ${answers === 1 ? 'resposta' : 'respostas'} até agora`,
-    previewDecided: (when: string): string => `A data está marcada: ${when}`,
+        : `Marca os dias em que podes · ${answers} ${pluralForm('pt', answers, { one: 'resposta', other: 'respostas' })} até agora`,
+    previewDecided: (when: string): string => `A data está definida: ${when}`,
     previewClosed: 'Esta votação está encerrada.',
     previewImageAlt: 'Uma coruja com um calendário',
     previewCalendarAlt:
       'Os dias possíveis num calendário, coloridos conforme quantos podem',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'outro dia' : 'outros dias'}`,
-    calendarNote: 'Data escolhida com Owl Be There',
+      `+ ${days} ${pluralForm('pt', days, { one: 'outro dia', other: 'outros dias' })}`,
+    calendarNote: 'Data definida com o Owl Be There',
   },
   'pt-BR': {
-    appName: APP_NAME,
     tagline: TAGLINES['pt-BR'],
     description:
       'Quando todo mundo pode? Marque seus dias no calendário e descubra. Sem cadastro nem rastreamento.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Marque os dias em que você pode. Sem cadastro.'
-        : `Marque os dias em que você pode · ${answers} ${answers === 1 ? 'resposta' : 'respostas'} até agora`,
+        : `Marque os dias em que você pode · ${answers} ${pluralForm('pt-BR', answers, { one: 'resposta', other: 'respostas' })} até agora`,
     previewDecided: (when: string): string => `A data está definida: ${when}`,
     previewClosed: 'Esta votação está encerrada.',
     previewImageAlt: 'Uma coruja com um calendário',
     previewCalendarAlt:
       'Os dias possíveis em um calendário, coloridos conforme quantas pessoas podem',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'outro dia' : 'outros dias'}`,
+      `+ ${days} ${pluralForm('pt-BR', days, { one: 'outro dia', other: 'outros dias' })}`,
     calendarNote: 'Data definida com o Owl Be There',
   },
   ru: {
-    appName: APP_NAME,
     tagline: TAGLINES.ru,
     description:
       'Когда всем удобно? Отметь свои дни в календаре и узнай. Без регистрации и отслеживания.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Отметь дни, когда можешь прийти. Регистрация не нужна.'
-        : `Отметь дни, когда можешь прийти · пока ${answers} ${russianForm(answers, 'ответ', 'ответа', 'ответов')}`,
+        : `Отметь дни, когда можешь прийти · пока ${answers} ${pluralForm('ru', answers, { one: 'ответ', few: 'ответа', other: 'ответов' })}`,
     previewDecided: (when: string): string => `Дата выбрана: ${when}`,
     previewClosed: 'Голосование закрыто.',
     previewImageAlt: 'Сова с календарём',
     previewCalendarAlt:
       'Возможные дни в календаре: цвет показывает, сколько человек могут прийти',
     previewMoreDays: (days: number): string =>
-      `+ ещё ${days} ${russianForm(days, 'день', 'дня', 'дней')}`,
+      `+ ещё ${days} ${pluralForm('ru', days, { one: 'день', few: 'дня', other: 'дней' })}`,
     calendarNote: 'Дата выбрана с помощью Owl Be There',
   },
   sv: {
-    appName: APP_NAME,
     tagline: TAGLINES.sv,
     description:
       'När kan alla? Markera de dagar som passar i kalendern och ta reda på det. Ingen registrering eller spårning.',
@@ -573,11 +578,10 @@ export const SERVER_TEXTS = {
     previewCalendarAlt:
       'Möjliga dagar i en kalender, färgade efter hur många som kan delta',
     previewMoreDays: (days: number): string =>
-      `+ ${days} ${days === 1 ? 'dag till' : 'dagar till'}`,
+      `+ ${days} ${pluralForm('sv', days, { one: 'dag till', other: 'dagar till' })}`,
     calendarNote: 'Datum valt med Owl Be There',
   },
   tr: {
-    appName: APP_NAME,
     tagline: TAGLINES.tr,
     description:
       'Herkes ne zaman gelebilir? Günlerini takvimde işaretle ve öğren. Kayıt yok, takip yok.',
@@ -594,32 +598,30 @@ export const SERVER_TEXTS = {
     calendarNote: 'Tarih Owl Be There ile belirlendi',
   },
   uk: {
-    appName: APP_NAME,
     tagline: TAGLINES.uk,
     description:
       'Коли всі можуть? Познач свої дні в календарі й дізнайся. Без реєстрації та стеження.',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'Познач дні, коли можеш. Реєстрація не потрібна.'
-        : `Познач дні, коли можеш · поки що ${answers} ${russianForm(answers, 'відповідь', 'відповіді', 'відповідей')}`,
+        : `Познач дні, коли можеш · поки що ${answers} ${pluralForm('uk', answers, { one: 'відповідь', few: 'відповіді', other: 'відповідей' })}`,
     previewDecided: (when: string): string => `Дату обрано: ${when}`,
     previewClosed: 'Голосування закрито.',
     previewImageAlt: 'Сова з календарем',
     previewCalendarAlt:
       'Можливі дні в календарі: колір показує, скільки людей можуть прийти',
     previewMoreDays: (days: number): string =>
-      `+ ще ${days} ${russianForm(days, 'день', 'дні', 'днів')}`,
+      `+ ще ${days} ${pluralForm('uk', days, { one: 'день', few: 'дні', other: 'днів' })}`,
     calendarNote: 'Дату обрано за допомогою Owl Be There',
   },
   ur: {
-    appName: APP_NAME,
     tagline: TAGLINES.ur,
     description:
       'سب کب آ سکتے ہیں؟ کیلنڈر پر اپنے دن نشان زد کریں اور جان لیں۔ نہ رجسٹریشن، نہ ٹریکنگ۔',
     previewOpen: (answers: number): string =>
       answers === 0
         ? 'اپنے دن نشان زد کریں۔ رجسٹریشن کی ضرورت نہیں۔'
-        : `اپنے دن نشان زد کریں، اب تک ${answers} ${answers === 1 ? 'جواب' : 'جوابات'}`,
+        : `اپنے دن نشان زد کریں، اب تک ${answers} ${pluralForm('ur', answers, { one: 'جواب', other: 'جوابات' })}`,
     previewDecided: (when: string): string => `تاریخ طے ہو گئی: ${when}`,
     previewClosed: 'ووٹنگ بند ہو چکی ہے۔',
     previewImageAlt: 'کیلنڈر کے ساتھ ایک الو',
@@ -630,7 +632,6 @@ export const SERVER_TEXTS = {
     calendarNote: 'تاریخ Owl Be There کے ذریعے طے کی گئی',
   },
   vi: {
-    appName: APP_NAME,
     tagline: TAGLINES.vi,
     description:
       'Khi nào mọi người đều rảnh? Đánh dấu ngày bạn đi được trên lịch và tìm ra ngày phù hợp. Không cần đăng ký, không theo dõi.',
@@ -647,7 +648,6 @@ export const SERVER_TEXTS = {
     calendarNote: 'Chốt ngày bằng Owl Be There',
   },
   'zh-Hans': {
-    appName: APP_NAME,
     tagline: TAGLINES['zh-Hans'],
     description:
       '大家什么时候有空？在日历上标记方便的日期，找到适合大家的日子。无需注册，也不会追踪你。',
@@ -658,12 +658,11 @@ export const SERVER_TEXTS = {
     previewDecided: (when: string): string => `日期已确定：${when}`,
     previewClosed: '日期投票已关闭。',
     previewImageAlt: '带着日历的猫头鹰',
-    previewCalendarAlt: '用颜色显示各候选日期可参加人数的日历',
+    previewCalendarAlt: '用颜色显示各候选日可参加人数的日历',
     previewMoreDays: (days: number): string => `另有 ${days} 天`,
     calendarNote: '使用 Owl Be There 确定日期',
   },
   'zh-Hant': {
-    appName: APP_NAME,
     tagline: TAGLINES['zh-Hant'],
     description:
       '大家哪天有空？在日曆上標記方便的日期，找出適合大家的日子。無須註冊，也不會追蹤你。',

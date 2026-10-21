@@ -25,7 +25,7 @@ export const HOME: HomeTexts = {
     '可以。設定連續兩天或更多天，Owl Be There 就會依可參加人數排列連續日期；需要時也能設定最低人數。',
   'home.faq.messenger.q': '怎麼邀請大家？',
   'home.faq.messenger.a':
-    '把連結傳到群組聊天，或讓大家掃描 QR Code。WhatsApp、Signal 等通訊軟體會顯示活動名稱與候選日期的預覽。大家都不必安裝任何 App。',
+    '把連結傳到群組聊天，或讓大家掃描 QR Code。WhatsApp、Signal 等通訊軟體會顯示活動名稱與候選日的預覽。大家都不必安裝任何 App。',
   'home.faq.privacy.q': '我們的資料會怎麼處理？',
   'home.faq.privacy.a': `只會儲存你填入的名字和日期；不儲存電子郵件地址、IP 位址或 Cookie。活動通常會在最後一次變更的 ${RETENTION_DAYS} 天後自動刪除。`,
 };

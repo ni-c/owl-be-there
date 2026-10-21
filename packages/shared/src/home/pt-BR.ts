@@ -27,5 +27,5 @@ export const HOME: HomeTexts = {
   'home.faq.messenger.a':
     'Mande o link no chat do grupo ou mostre o código QR. O WhatsApp, o Signal e outros apps de mensagem mostram uma prévia com o título e os dias possíveis. Ninguém precisa instalar nada.',
   'home.faq.privacy.q': 'O que acontece com os nossos dados?',
-  'home.faq.privacy.a': `Só ficam salvos os nomes e os dias que vocês informam: nada de e-mails, endereços IP ou cookies. Os eventos se excluem sozinhos, normalmente ${RETENTION_DAYS} dias depois da última alteração.`,
+  'home.faq.privacy.a': `Só ficam salvos os nomes e os dias que vocês informam: nada de e-mails, endereços IP ou cookies. Os eventos são excluídos automaticamente, normalmente ${RETENTION_DAYS} dias depois da última alteração.`,
 };

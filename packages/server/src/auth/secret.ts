@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  chmodSync,
   closeSync,
   fsyncSync,
   linkSync,
@@ -28,6 +29,7 @@ export function loadSecret(dataDir: string, override: string | null): Buffer {
   if (override !== null) return Buffer.from(override, 'utf8');
   const path = join(dataDir, 'secret.key');
   create(path, randomBytes(32).toString('base64'));
+  tighten(path);
   const secret = Buffer.from(readFileSync(path, 'utf8').trim(), 'base64');
   if (secret.length < 32) {
     throw new Error(
@@ -35,6 +37,16 @@ export function loadSecret(dataDir: string, override: string | null): Buffer {
     );
   }
   return secret;
+}
+
+/** Make the key readable by its owner only; a mount that refuses is left be. */
+function tighten(path: string): void {
+  try {
+    chmodSync(path, 0o600);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'EPERM' && code !== 'EROFS' && code !== 'ENOENT') throw error;
+  }
 }
 
 /** Put `content` at `path` unless a file is there already. */

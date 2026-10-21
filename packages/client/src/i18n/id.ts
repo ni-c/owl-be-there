@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/id';
 import type { Dictionary } from './en.ts';
 
 export const id = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.id,
   ...HOME,
   'home.cta': 'Rencanakan acara',
@@ -90,6 +89,16 @@ export const id = {
   'error.rosterTooMany': 'Maksimal {max} nama sekaligus.',
   'error.busy': 'Server sedang sibuk. Coba lagi sebentar lagi.',
   'error.changed': 'Jawaban ini baru saja diubah. Coba lagi.',
+  'error.textInvisible': 'Setidaknya harus ada satu karakter yang terlihat.',
+  'error.rosterInvisible': 'Baris {line} tidak punya karakter yang terlihat.',
+  'error.rosterMixed':
+    'Baris {line}: satu kata mencampur huruf Latin dengan huruf Sirilik atau Yunani.',
+  'error.nameInvisible':
+    'Nama harus punya setidaknya satu karakter yang terlihat.',
+  'error.nameMixed':
+    'Satu kata dalam nama mencampur huruf Latin dengan huruf Sirilik atau Yunani.',
+  'error.createLimit':
+    'Baru-baru ini banyak acara dibuat dari jaringan ini. Coba lagi nanti.',
   'error.invalid': 'Ada informasi yang tidak valid. Periksa dan coba lagi.',
 
   'event.loading': 'Memuat acara…',
@@ -130,6 +139,8 @@ export const id = {
   'who.continue': 'Lanjutkan',
   'who.protected':
     '“{name}” dilindungi kata sandi. Masukkan kata sandi untuk melanjutkan.',
+  'who.hasPassword': 'dilindungi kata sandi',
+  'who.answered': 'sudah menjawab',
   'who.wrongPassword': 'Kata sandi salah.',
   'who.passwordTooShort': 'Kata sandi minimal {min} karakter.',
   'who.closed': 'Voting sudah ditutup. Peserta baru tidak bisa bergabung.',
@@ -139,7 +150,7 @@ export const id = {
   'mine.notYou': 'Bukan kamu?',
   'mine.brush': 'Tandai hari sebagai',
   'mine.brushYes': 'Bisa hadir',
-  'mine.brushMaybe': 'Mungkin bisa',
+  'mine.brushMaybe': 'Mungkin',
   'mine.hint':
     'Ketuk satu hari atau seret melintasi beberapa hari. Ketuk lagi untuk menghapus tanda.',
   'mine.undo': 'Urungkan',
@@ -211,6 +222,7 @@ export const id = {
   'day.cannot': 'Tidak bisa hadir',
   'day.open': 'Belum menjawab',
   'day.notes': 'Catatan',
+  'day.noteSep': ': ',
   'day.close': 'Tutup',
 
   'share.title': 'Bagikan dengan grup',

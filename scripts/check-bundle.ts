@@ -15,7 +15,7 @@ import { gzipSync } from 'node:zlib';
 import { LANGUAGES, type Language } from '@owl/shared';
 import {
   dictionaries,
-  preloadAllDictionaries,
+  STATIC_LANGUAGES,
 } from '../packages/client/src/i18n/dictionaries.ts';
 
 /**
@@ -24,9 +24,6 @@ import {
  * change load later instead.
  */
 export const BUDGET_BYTES = 520_000;
-
-/** The languages that ship with the app; every other one is a chunk. */
-export const STATIC_LANGUAGES: readonly Language[] = ['en', 'de'];
 
 export interface ManifestEntry {
   file: string;
@@ -69,6 +66,11 @@ export function chunkLanguages(manifest: Manifest): string[] {
  * backslashes or line breaks are left out: the minifier may write those
  * differently from the source.
  */
+// The bundler writes a no-break space as `\xA0`; the dictionaries hold the character.
+export function decodeSpaceEscapes(code: string): string {
+  return code.replace(/\\(?:xa0|u00a0|u\{a0\})/gi, '\u00a0');
+}
+
 export function uniqueMarkers(
   texts: Partial<Record<Language, Record<string, string>>>
 ): Partial<Record<Language, string[]>> {
@@ -99,7 +101,8 @@ export function problems(options: {
   markers: Partial<Record<Language, string[]>>;
   budget?: number;
 }): string[] {
-  const { manifest, read, markers } = options;
+  const { manifest, markers } = options;
+  const read = (file: string) => decodeSpaceEscapes(options.read(file));
   const budget = options.budget ?? BUDGET_BYTES;
   const found: string[] = [];
   const lazy = LANGUAGES.filter((code) => !STATIC_LANGUAGES.includes(code));
@@ -108,10 +111,11 @@ export function problems(options: {
     found.push(
       `language chunks are ${chunks.join(', ') || 'none'}; expected ${[...lazy].sort().join(', ')}`
     );
-  const initial = initialFiles(manifest)
-    .map((file) => read(file))
+  const raw = initialFiles(manifest)
+    .map((file) => options.read(file))
     .join('\n');
-  const size = Buffer.byteLength(initial);
+  const size = Buffer.byteLength(raw);
+  const initial = decodeSpaceEscapes(raw);
   if (size > budget)
     found.push(`the entry weighs ${size} bytes, over the ${budget} budget`);
   for (const language of LANGUAGES) {
@@ -140,7 +144,7 @@ async function main(): Promise<void> {
     readFileSync(join(dist, '.vite', 'manifest.json'), 'utf8')
   ) as Manifest;
   const read = (file: string): string => readFileSync(join(dist, file), 'utf8');
-  await preloadAllDictionaries();
+  await Promise.all(LANGUAGES.map((language) => dictionaries.load(language)));
   // Every tagline is in the entry: they come from one shared object, short
   // enough not to be worth a chunk.
   const markers = uniqueMarkers(

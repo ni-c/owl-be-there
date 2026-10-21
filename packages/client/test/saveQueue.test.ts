@@ -1,4 +1,4 @@
-import { joinMarks, type Marks } from '@owl/shared';
+import { joinMarks, splitMarks, type Marks } from '@owl/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PermanentSaveError,
@@ -9,6 +9,7 @@ import {
   type SendResult,
   type Timers,
 } from '../src/lib/saveQueue.ts';
+import { hasUnsavedInput } from '../src/lib/reloadGuard.ts';
 import { installBrowser } from './browser.ts';
 
 afterEach(() => {
@@ -47,8 +48,31 @@ class FakeServer {
   apply(index = this.oldestOpen()): SendResult {
     const entry = this.entries[index]!;
     if (entry.outcome === undefined) {
-      if (entry.request.baseRev !== this.rev) {
-        entry.outcome = { ok: false, rev: this.rev };
+      if (entry.request.baseRev !== this.rev && entry.request.touched) {
+        // Like the real server: a stale save with `touched` is merged.
+        const held = new Map<string, 'yes' | 'maybe'>();
+        for (const day of this.marks.yes) held.set(day, 'yes');
+        for (const day of this.marks.maybe) held.set(day, 'maybe');
+        for (const day of entry.request.touched) {
+          if (entry.request.yes.includes(day)) held.set(day, 'yes');
+          else if (entry.request.maybe.includes(day)) held.set(day, 'maybe');
+          else held.delete(day);
+        }
+        const of = (state: string) =>
+          [...held]
+            .filter(([, s]) => s === state)
+            .map(([d]) => d)
+            .sort();
+        this.rev += 1;
+        this.marks = { yes: of('yes'), maybe: of('maybe') };
+        entry.outcome = { ok: true, rev: this.rev, ...this.marks };
+      } else if (entry.request.baseRev !== this.rev) {
+        entry.outcome = {
+          ok: false,
+          rev: this.rev,
+          yes: [...this.marks.yes],
+          maybe: [...this.marks.maybe],
+        };
       } else {
         this.rev += 1;
         this.marks = { yes: entry.request.yes, maybe: entry.request.maybe };
@@ -67,6 +91,10 @@ class FakeServer {
   /** The request never gets an answer: a network error, a timeout. */
   fail(error: unknown, index = this.oldestOpen()): void {
     this.settle(index).reject(error);
+  }
+
+  openIndexes(): number[] {
+    return this.entries.flatMap((entry, i) => (entry.settled ? [] : [i]));
   }
 
   get open(): number {
@@ -106,19 +134,22 @@ class FakeTimers implements Timers {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const marks = (...yes: string[]): Marks => joinMarks(yes, []);
 
-function setup() {
+function setup(options: { marks?: Marks } = {}) {
   const server = new FakeServer();
   const timers = new FakeTimers();
   const statuses: SaveStatus[] = [];
   const saved: number[] = [];
+  const merged: Marks[] = [];
   const queue = new SaveQueue({
     baseRev: 0,
+    ...(options.marks && { marks: options.marks }),
     send: server.send,
     onStatus: (status) => statuses.push(status),
     onSaved: (rev) => saved.push(rev),
+    onMerged: (marks) => merged.push(marks),
     timers,
   });
-  return { server, timers, statuses, saved, queue };
+  return { server, timers, statuses, saved, queue, merged };
 }
 
 describe('SaveQueue', () => {
@@ -224,29 +255,6 @@ describe('SaveQueue', () => {
     expect(queue.busy).toBe(false);
   });
 
-  it('sends what is pending as the page goes away', async () => {
-    const sent: SaveRequest[] = [];
-    const queue = new SaveQueue({
-      baseRev: 3,
-      send: (request) => {
-        sent.push(request);
-        return new Promise(() => undefined);
-      },
-    });
-    queue.flushOnLeave(); // nothing pending: nothing sent
-    expect(sent).toEqual([]);
-    queue.push(marks('2027-03-06')); // in flight
-    queue.push(marks('2027-03-07')); // pending
-    // In flight already: the newest state goes out too, based on the
-    // revision the request under way will make.
-    queue.flushOnLeave();
-    expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ baseRev: 4, yes: ['2027-03-07'] });
-    // Nothing is left pending for a second leave.
-    queue.flushOnLeave();
-    expect(sent).toHaveLength(2);
-  });
-
   it('neither sends nor retries once disposed of', async () => {
     let reject: (error: Error) => void = () => undefined;
     const timers: (() => void)[] = [];
@@ -321,26 +329,6 @@ describe('SaveQueue', () => {
     expect(server.requests[0]).toEqual({ baseRev: 0, yes: [], maybe: [] });
     queue.flushOnLeave();
     expect(server.requests).toHaveLength(1);
-  });
-
-  it('puts a change back and retries when the one sent on leaving fails', async () => {
-    const { server, queue, timers, statuses } = setup();
-    queue.push(marks('2027-03-06'));
-    queue.push(marks('2027-03-07'));
-    queue.flushOnLeave(); // the page is hidden, not gone
-    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1]);
-    server.fail(new Error('offline')); // the first one
-    await tick();
-    server.fail(new Error('offline')); // the one sent on leaving
-    await tick();
-    expect(statuses.at(-1)).toBe('retrying');
-    expect(timers.pending).toHaveLength(1);
-    timers.runNext();
-    await tick();
-    expect(server.requests.at(-1)!.yes).toEqual(['2027-03-07']);
-    server.answer();
-    await tick();
-    expect(queue.busy).toBe(false);
   });
 
   it('takes the revision a request sent on leaving made, so the next change is not stale', async () => {
@@ -504,22 +492,6 @@ describe('SaveQueue', () => {
     expect(server.requests).toHaveLength(1);
   });
 
-  it('sends what is still pending when the undo of attach runs', () => {
-    const browser = installBrowser();
-    const { server, queue } = setup();
-    const detach = queue.attach();
-    queue.push(marks('2027-03-06')); // in flight
-    queue.push(marks('2027-03-07')); // pending
-    detach(); // the panel goes away, the page stays
-    expect(server.requests).toHaveLength(2);
-    expect(server.requests[1]).toEqual({
-      baseRev: 1,
-      yes: ['2027-03-07'],
-      maybe: [],
-    });
-    expect(browser.window.listenerCount('pagehide')).toBe(0);
-  });
-
   it('sends nothing when the undo of attach runs with nothing pending', () => {
     installBrowser();
     const { server, queue } = setup();
@@ -528,29 +500,6 @@ describe('SaveQueue', () => {
     expect(server.requests).toHaveLength(0);
     queue.push(marks('2027-03-06')); // disposed of: ignored
     expect(server.requests).toHaveLength(0);
-  });
-
-  it('sends an empty selection that is pending when the undo of attach runs', () => {
-    installBrowser();
-    const { server, queue } = setup();
-    const detach = queue.attach();
-    queue.push(marks('2027-03-06')); // in flight
-    queue.push(new Map()); // pending: "none of these days"
-    detach();
-    expect(server.requests[1]).toEqual({ baseRev: 1, yes: [], maybe: [] });
-  });
-
-  it('does not send the same state twice across a StrictMode remount', () => {
-    installBrowser();
-    const { server, queue } = setup();
-    const first = queue.attach();
-    queue.push(marks('2027-03-06')); // in flight
-    queue.push(marks('2027-03-07')); // pending
-    first(); // cleanup: flushes the pending state once
-    const second = queue.attach();
-    expect(server.requests).toHaveLength(2);
-    second();
-    expect(server.requests).toHaveLength(2);
   });
 
   it('survives a StrictMode remount: attach, undo, attach', () => {
@@ -563,49 +512,6 @@ describe('SaveQueue', () => {
     queue.push(marks('2027-03-06'));
     expect(server.requests).toHaveLength(1);
     second();
-  });
-
-  it('flushes on pagehide and when the page is hidden, not when it is shown', () => {
-    const browser = installBrowser();
-    const { server, queue } = setup();
-    const detach = queue.attach();
-    queue.push(marks('2027-03-06')); // in flight
-    queue.push(marks('2027-03-07')); // pending
-    browser.document.visibilityState = 'visible';
-    browser.document.dispatch('visibilitychange');
-    expect(server.requests).toHaveLength(1);
-    browser.document.visibilityState = 'hidden';
-    browser.document.dispatch('visibilitychange');
-    expect(server.requests).toHaveLength(2);
-    queue.push(marks('2027-03-08'));
-    browser.window.dispatch('pagehide');
-    expect(server.requests).toHaveLength(3);
-    detach();
-  });
-
-  it('does not let an older request that failed overtake the newer one sent on leaving', async () => {
-    const { server, queue, timers, statuses } = setup();
-    queue.push(marks('2027-03-06'));
-    queue.push(marks('2027-03-07'));
-    queue.flushOnLeave();
-    server.fail(new Error('offline')); // the older one
-    await tick();
-    expect(timers.pending).toHaveLength(0);
-    expect(queue.busy).toBe(true);
-    // The newer one was based on a revision that never came: stale. The
-    // server's revision is taken and the newest state goes out again.
-    server.answer();
-    await tick();
-    expect(server.requests.at(-1)).toEqual({
-      baseRev: 0,
-      yes: ['2027-03-07'],
-      maybe: [],
-    });
-    server.answer();
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-07']);
-    expect(statuses.at(-1)).toBe('saved');
-    expect(queue.busy).toBe(false);
   });
 
   it('ends failed when what was sent on leaving is refused for good', async () => {
@@ -696,155 +602,8 @@ async function schedule(
   return { problem: null };
 }
 
-/**
- * A request sent on leaving overlaps the saves under way. Which state is the
- * newest decides what a refusal or a failure may put back: an older one must
- * never be resent over a newer one, and the newest must never be dropped.
- */
-describe('SaveQueue, a request sent on leaving among saves under way', () => {
-  /** A under way (request 0), B sent on leaving (1), C pushed after it. */
-  async function leaveBetween(c: Marks | null = marks('2027-03-03')) {
-    const context = setup();
-    const { server, queue } = context;
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1]);
-    server.answer(0);
-    await tick();
-    if (c) queue.push(c);
-    return context;
-  }
-
-  it('resends the newest state when it is refused before the answer to the leave request', async () => {
-    const { server, queue, statuses } = await leaveBetween();
-    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1, 1]);
-    server.apply(1); // the leave request lands first: rev 2
-    server.answer(2); // the newest, based on rev 1, is refused
-    await tick();
-    expect(server.requests).toHaveLength(4);
-    expect(server.requests[3]).toEqual({
-      baseRev: 2,
-      yes: ['2027-03-03'],
-      maybe: [],
-    });
-    server.answer(1); // the answer to the leave request, late
-    await tick();
-    expect(queue.busy).toBe(true);
-    server.answer(3);
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.baseRev).toBe(3);
-    expect(queue.busy).toBe(false);
-    expect(statuses.at(-1)).toBe('saved');
-  });
-
-  it('does not resend the older leave state over the newest one that landed first', async () => {
-    const { server, queue, statuses } = await leaveBetween();
-    server.answer(2); // the newest lands: rev 2
-    await tick();
-    server.answer(1); // the leave request, based on rev 1, is refused late
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.baseRev).toBe(2);
-    expect(queue.busy).toBe(false);
-    expect(statuses.at(-1)).toBe('saved');
-  });
-
-  it('does not resend the older leave state while the newest is still under way', async () => {
-    const { server, queue } = await leaveBetween();
-    server.apply(2); // the newest lands, its answer is on the way
-    server.answer(1); // refused
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(queue.busy).toBe(true);
-    server.answer(2);
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('sends the newest state once a save that landed unanswered is out of the way', async () => {
-    const context = setup();
-    const { server, queue, timers, statuses } = context;
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    queue.push(marks('2027-03-03'));
-    server.apply(0); // the first save landed, but its answer is lost
-    server.fail(new Error('timed out'), 0);
-    await tick();
-    expect(timers.pending).toHaveLength(0);
-    server.answer(1); // the leave request lands: rev 2
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(server.requests[2]).toEqual({
-      baseRev: 2,
-      yes: ['2027-03-03'],
-      maybe: [],
-    });
-    expect(statuses.at(-1)).toBe('saving');
-    server.answer(2);
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.busy).toBe(false);
-    expect(statuses.at(-1)).toBe('saved');
-  });
-
-  it('retries the newest state when the save and then the leave request fail', async () => {
-    const { server, queue, timers, statuses } = setup();
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    queue.push(marks('2027-03-03'));
-    server.fail(new Error('offline'), 0);
-    await tick();
-    server.fail(new Error('offline'), 1);
-    await tick();
-    expect(statuses.at(-1)).toBe('retrying');
-    expect(timers.pending).toHaveLength(1);
-    // Retrying means the newest state, not the older one the leave request had.
-    timers.runNext();
-    await tick();
-    expect(server.requests.at(-1)).toEqual({
-      baseRev: 0,
-      yes: ['2027-03-03'],
-      maybe: [],
-    });
-    server.answer();
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('is not left retrying when the leave request fails after a newer state landed', async () => {
-    const { server, queue, timers, statuses } = await leaveBetween();
-    server.answer(2); // the newest lands
-    await tick();
-    server.fail(new Error('offline'), 1); // the older leave request does not
-    await tick();
-    expect(timers.pending).toHaveLength(0);
-    expect(statuses.at(-1)).toBe('saved');
-    expect(queue.busy).toBe(false);
-  });
-
-  it('is not left retrying when a save that was overtaken fails last', async () => {
-    const { server, queue, timers, statuses } = setup();
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    server.apply(0); // the save landed, its answer is on the way
-    server.answer(1); // the leave request lands after it: rev 2
-    await tick();
-    server.fail(new Error('timed out'), 0); // the answer to the save is lost
-    await tick();
-    expect(timers.pending).toHaveLength(0);
-    expect(queue.busy).toBe(false);
-    expect(statuses.at(-1)).toBe('saved');
-  });
-
+/** Leaving while saves are under way or failing. */
+describe('SaveQueue, leaving among saves', () => {
   it('sends nothing when leaving with nothing pending, before and after saves', async () => {
     const { server, queue } = setup();
     queue.flushOnLeave();
@@ -855,74 +614,6 @@ describe('SaveQueue, a request sent on leaving among saves under way', () => {
     await tick();
     queue.flushOnLeave();
     expect(server.requests).toHaveLength(1);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('sends a second leave request for what was pushed after the first', async () => {
-    const { server, queue, statuses } = setup();
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    queue.push(marks('2027-03-03'));
-    queue.flushOnLeave();
-    // Both leave requests are based on the revision the first save will make.
-    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1, 1]);
-    server.answer(0);
-    await tick();
-    server.answer(1);
-    await tick();
-    server.answer(2); // refused: the first leave request landed before it
-    await tick();
-    expect(server.requests).toHaveLength(4);
-    expect(server.requests[3]).toEqual({
-      baseRev: 2,
-      yes: ['2027-03-03'],
-      maybe: [],
-    });
-    server.answer(3);
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-03']);
-    expect(queue.busy).toBe(false);
-    expect(statuses.at(-1)).toBe('saved');
-  });
-
-  it('resends a state refused on leaving once, on the server revision', async () => {
-    const { server, queue } = setup();
-    server.rev = 4;
-    queue.push(marks('2027-03-01'));
-    queue.push(marks('2027-03-02'));
-    queue.flushOnLeave();
-    server.answer(0); // refused: rev 4
-    await tick();
-    server.answer(1); // the leave request is refused, too
-    await tick();
-    // Both were refused; the newest state goes out once, not once per refusal.
-    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1, 4]);
-    expect(server.requests[2]!.yes).toEqual(['2027-03-02']);
-    server.answer(2);
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(server.marks.yes).toEqual(['2027-03-02']);
-    expect(queue.baseRev).toBe(5);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('adopts the server revision and resends the state when the leave request is refused with nothing newer sent', async () => {
-    const { server, queue } = await leaveBetween(null);
-    server.rev = 6; // someone else saved
-    server.answer(1); // the leave request is refused: rev 6
-    await tick();
-    expect(queue.baseRev).toBe(6);
-    expect(server.requests).toHaveLength(3);
-    expect(server.requests[2]).toEqual({
-      baseRev: 6,
-      yes: ['2027-03-02'],
-      maybe: [],
-    });
-    server.answer(2);
-    await tick();
-    expect(server.requests).toHaveLength(3);
-    expect(server.marks.yes).toEqual(['2027-03-02']);
     expect(queue.busy).toBe(false);
   });
 
@@ -958,30 +649,685 @@ describe('SaveQueue, a request sent on leaving among saves under way', () => {
     expect(server.marks).toEqual({ yes: [], maybe: [] });
     expect(queue.busy).toBe(false);
   });
+});
+
+const D1 = '2027-03-01';
+const D2 = '2027-03-02';
+const D3 = '2027-03-03';
+const D4 = '2027-03-04';
+
+/** A queue whose first request failed, so its state waits for a retry. */
+async function failedOnce() {
+  const context = setup();
+  context.queue.push(marks(D1));
+  context.server.fail(new Error('offline'));
+  await tick();
+  expect(context.timers.pending).toHaveLength(1);
+  return context;
+}
+
+describe('SaveQueue, reload guard', () => {
+  it('holds a language reload back while marks are unsaved, from attach to its undo', async () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    expect(hasUnsavedInput()).toBe(false);
+    queue.push(marks(D1));
+    expect(hasUnsavedInput()).toBe(true);
+    server.answer();
+    await tick();
+    expect(hasUnsavedInput()).toBe(false);
+    queue.push(marks(D2));
+    detach();
+    expect(hasUnsavedInput()).toBe(false);
+  });
+});
+
+describe('SaveQueue, leaving', () => {
+  it('sends the state waiting for a retry, on the revision it knows', async () => {
+    const { server, queue, timers } = await failedOnce();
+    queue.flushOnLeave();
+    expect(timers.pending).toHaveLength(0);
+    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 0]);
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual([D1]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('guesses no revision while a save is under way: the state follows its answer', async () => {
+    const { server, queue, statuses } = setup();
+    queue.push(marks(D1));
+    queue.push(marks(D2)); // pending
+    queue.flushOnLeave();
+    queue.flushOnLeave();
+    expect(server.requests).toHaveLength(1);
+    expect(queue.busy).toBe(true);
+    server.answer();
+    await tick();
+    expect(server.requests).toHaveLength(2);
+    expect(server.requests[1]).toEqual({ baseRev: 1, yes: [D2], maybe: [] });
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual([D2]);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('never overwrites a save another device made meanwhile', async () => {
+    const { server, queue } = setup();
+    queue.push(marks(D1));
+    queue.push(marks(D2));
+    queue.flushOnLeave();
+    // Another device saved first: the server is at rev 1 with its marks.
+    server.rev = 1;
+    server.marks = { yes: [D4], maybe: [] };
+    server.answer(); // the first request is refused
+    await tick();
+    // No request went out on a guessed revision; the retry is on rev 1.
+    expect(server.requests.map((r) => r.baseRev)).toEqual([0, 1]);
+  });
+
+  it('keeps the pending state through the undo of attach and sends it after the answer', async () => {
+    const browser = installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    queue.push(marks(D1)); // in flight
+    queue.push(marks(D2)); // pending
+    detach(); // the panel goes away, the page stays
+    expect(browser.window.listenerCount('pagehide')).toBe(0);
+    expect(server.requests).toHaveLength(1);
+    server.answer();
+    await tick();
+    expect(server.requests[1]).toEqual({ baseRev: 1, yes: [D2], maybe: [] });
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual([D2]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('does the same for an empty selection', async () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const detach = queue.attach();
+    queue.push(marks(D1));
+    queue.push(new Map()); // "none of these days"
+    detach();
+    server.answer();
+    await tick();
+    expect(server.requests[1]).toEqual({ baseRev: 1, yes: [], maybe: [] });
+  });
+
+  it('sends the state once, not twice, across a StrictMode remount', async () => {
+    installBrowser();
+    const { server, queue } = setup();
+    const first = queue.attach();
+    queue.push(marks(D1));
+    queue.push(marks(D2));
+    first();
+    const second = queue.attach();
+    server.answer();
+    await tick();
+    expect(server.requests).toHaveLength(2);
+    server.answer();
+    await tick();
+    second();
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('does not drain a state pushed after the queue was disposed of', async () => {
+    const { server, queue } = setup();
+    queue.push(marks(D1));
+    queue.dispose();
+    queue.push(marks(D2));
+    server.answer();
+    await tick();
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('flushes on pagehide and when the page is hidden, not when it is shown', async () => {
+    const browser = installBrowser();
+    const { server, queue, timers } = setup();
+    const detach = queue.attach();
+    queue.push(marks(D1));
+    server.fail(new Error('offline'));
+    await tick();
+    expect(timers.pending).toHaveLength(1);
+    browser.document.visibilityState = 'visible';
+    browser.document.dispatch('visibilitychange');
+    expect(server.requests).toHaveLength(1);
+    browser.document.visibilityState = 'hidden';
+    browser.document.dispatch('visibilitychange');
+    expect(server.requests).toHaveLength(2);
+    server.answer();
+    await tick();
+    queue.push(marks(D2));
+    server.fail(new Error('offline'));
+    await tick();
+    browser.window.dispatch('pagehide');
+    expect(server.requests).toHaveLength(4);
+    detach();
+  });
+
+  it('puts a state back and retries when the one sent on leaving fails', async () => {
+    const { server, queue, timers, statuses } = await failedOnce();
+    queue.flushOnLeave();
+    server.fail(new Error('offline'));
+    await tick();
+    expect(statuses.at(-1)).toBe('retrying');
+    expect(timers.pending).toHaveLength(1);
+    timers.runNext();
+    await tick();
+    server.answer();
+    await tick();
+    expect(server.marks.yes).toEqual([D1]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('ends failed when what was sent on leaving is refused for good', async () => {
+    const { server, queue, timers, statuses } = await failedOnce();
+    queue.flushOnLeave();
+    server.fail(new PermanentSaveError('closed'));
+    await tick();
+    expect(statuses.at(-1)).toBe('failed');
+    expect(timers.pending).toHaveLength(0);
+    expect(queue.busy).toBe(false);
+  });
 
   it('ignores a late answer to the leave request once disposed of', async () => {
     for (const answer of ['ok', 'refused'] as const) {
-      const { server, queue, timers, saved } = setup();
-      queue.push(marks('2027-03-01'));
-      queue.push(marks('2027-03-02'));
+      const { server, queue, timers, saved } = await failedOnce();
       queue.flushOnLeave();
       queue.dispose();
       if (answer === 'refused') server.rev = 5;
-      server.answer(0);
-      await tick();
       server.answer(1);
       await tick();
-      // Neither a resend, nor a retry, nor a report of the leave request.
       expect(server.requests, answer).toHaveLength(2);
       expect(timers.pending, answer).toHaveLength(0);
-      expect(saved, answer).toEqual(answer === 'ok' ? [1] : []);
+      expect(saved, answer).toEqual([]);
       expect(queue.busy, answer).toBe(false);
     }
   });
+});
+
+/** Answers the test makes up, to put them in an order a network can produce. */
+function scripted(options: { marks?: Marks } = {}) {
+  const waiting: {
+    resolve(result: SendResult): void;
+    reject(error: unknown): void;
+  }[] = [];
+  const requests: SaveRequest[] = [];
+  const timers = new FakeTimers();
+  const statuses: SaveStatus[] = [];
+  const merged: Marks[] = [];
+  const queue = new SaveQueue({
+    baseRev: 0,
+    ...(options.marks && { marks: options.marks }),
+    send: (request) => {
+      requests.push(request);
+      return new Promise<SendResult>((resolve, reject) =>
+        waiting.push({ resolve, reject })
+      );
+    },
+    onStatus: (status) => statuses.push(status),
+    onMerged: (marks) => merged.push(marks),
+    timers,
+  });
+  return { queue, requests, waiting, timers, statuses, merged };
+}
+
+describe('SaveQueue, leaving while a save is under way', () => {
+  /** The first save is under way, a second state waits, the page is left. */
+  function leaving() {
+    const context = setup({ marks: new Map() });
+    context.queue.push(marks(D1)); // request 0, in flight
+    context.queue.push(marks(D1, D2)); // pending
+    context.queue.flushOnLeave(); // request 1
+    return context;
+  }
+
+  it('sends the pending state at once on the known revision, with the days it changed', () => {
+    const { server, queue } = leaving();
+    expect(server.requests).toHaveLength(2);
+    expect(server.requests[0]).not.toHaveProperty('touched');
+    expect(server.requests[1]).toEqual({
+      baseRev: 0,
+      yes: [D1, D2],
+      maybe: [],
+      touched: [D1, D2],
+    });
+    expect(queue.busy).toBe(true);
+  });
+
+  it('keeps the last tap when the save under way lands first', async () => {
+    const { server, queue, statuses } = leaving();
+    server.answer(0);
+    await tick();
+    server.answer(1); // stale on the server, merged
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(queue.baseRev).toBe(2);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('keeps the last tap when the request sent on leaving lands first', async () => {
+    const { server, queue, statuses } = leaving();
+    server.answer(1);
+    await tick();
+    server.answer(0); // stale, refused: the older state must not win
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(server.requests).toHaveLength(2);
+    expect(queue.baseRev).toBe(1);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('keeps the last tap when the save under way is lost on the way', async () => {
+    const { server, queue } = leaving();
+    server.fail(new Error('offline'), 0);
+    await tick();
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('never overwrites a day another device marked meanwhile', async () => {
+    const { server, queue } = leaving();
+    // Another device saved D4 first: the server is at rev 1.
+    server.rev = 1;
+    server.marks = { yes: [D4], maybe: [] };
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2, D4]);
+    server.answer(0); // refused as stale, with the server's marks
+    await tick();
+    expect(server.marks.yes).toEqual([D1, D2, D4]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('shows the marks that joined ours when the merge brought another device in', async () => {
+    const { server, merged } = leaving();
+    server.rev = 1;
+    server.marks = { yes: [D4], maybe: [] };
+    server.answer(1);
+    await tick();
+    expect(merged.at(-1)).toEqual(joinMarks([D1, D2, D4], []));
+  });
+
+  it('carries a removal as a touched day, not as a day left out', async () => {
+    const { server, queue } = setup({ marks: marks(D1, D2) });
+    queue.push(marks(D1, D2, D3)); // in flight
+    queue.push(marks(D2, D3)); // D1 removed, pending
+    queue.flushOnLeave();
+    expect(server.requests[1]).toEqual({
+      baseRev: 0,
+      yes: [D2, D3],
+      maybe: [],
+      touched: [D1, D3],
+    });
+    server.rev = 0;
+    server.marks = { yes: [D1, D2], maybe: [] };
+    server.answer(0);
+    await tick();
+    server.answer(1);
+    await tick();
+    expect(server.marks.yes).toEqual([D2, D3]);
+  });
+
+  it('leaves an empty selection as the last state, in either order', async () => {
+    for (const first of [0, 1]) {
+      const { server, queue } = setup({ marks: new Map() });
+      queue.push(marks(D1));
+      queue.push(new Map());
+      queue.flushOnLeave();
+      server.answer(first);
+      await tick();
+      server.answer(1 - first);
+      await tick();
+      expect(server.marks.yes, `first ${first}`).toEqual([]);
+      expect(queue.busy).toBe(false);
+    }
+  });
+
+  it('holds a newer state back until the merging request has answered, so a late merge cannot undo it', async () => {
+    const { server, queue } = leaving();
+    server.answer(0);
+    await tick();
+    queue.push(marks(D1)); // the page lives on: D2 removed again
+    expect(server.requests).toHaveLength(2);
+    expect(queue.busy).toBe(true);
+    server.answer(1);
+    await tick();
+    expect(server.requests).toHaveLength(3);
+    expect(server.requests[2]).toMatchObject({ baseRev: 2, yes: [D1] });
+    server.answer(2);
+    await tick();
+    expect(server.marks.yes).toEqual([D1]);
+    expect(queue.busy).toBe(false);
+  });
+
+  it('sends nothing more with nothing pending, and defers when the server marks are unknown', async () => {
+    const known = setup({ marks: new Map() });
+    known.queue.push(marks(D1));
+    known.queue.flushOnLeave();
+    expect(known.server.requests).toHaveLength(1);
+    const unknown = setup();
+    unknown.queue.push(marks(D1));
+    unknown.queue.push(marks(D2));
+    unknown.queue.flushOnLeave();
+    expect(unknown.server.requests).toHaveLength(1);
+  });
+});
+
+describe('SaveQueue, answers out of order', () => {
+  /** A failed (retry waiting), B sent on leaving (1), C pushed after it (2). */
+  async function leaveThenSave() {
+    const context = scripted();
+    context.queue.push(marks(D1));
+    context.waiting[0]!.reject(new Error('offline'));
+    await tick();
+    context.queue.flushOnLeave();
+    context.queue.push(marks(D2));
+    expect(context.requests).toHaveLength(3);
+    return context;
+  }
+
+  it('keeps the highest revision when the leave answer comes before the save answer', async () => {
+    const { queue, waiting, statuses } = await leaveThenSave();
+    waiting[1]!.resolve({ ok: true, rev: 5 });
+    await tick();
+    waiting[2]!.resolve({ ok: true, rev: 3 });
+    await tick();
+    expect(queue.baseRev).toBe(5);
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('keeps the highest revision when the save answer comes before the leave answer', async () => {
+    const { queue, waiting } = await leaveThenSave();
+    waiting[2]!.resolve({ ok: true, rev: 5 });
+    await tick();
+    waiting[1]!.resolve({ ok: true, rev: 3 });
+    await tick();
+    expect(queue.baseRev).toBe(5);
+  });
+
+  it('does not move the base back on a stale answer with an older revision', async () => {
+    const { queue, waiting } = scripted();
+    queue.push(marks(D1));
+    waiting[0]!.resolve({ ok: true, rev: 7 });
+    await tick();
+    queue.push(marks(D2));
+    waiting[1]!.resolve({ ok: false, rev: 4, yes: [], maybe: [] });
+    await tick();
+    expect(queue.baseRev).toBe(7);
+  });
+
+  it('settles on saved when a superseded leave request is refused last', async () => {
+    const { waiting, statuses, queue } = await leaveThenSave();
+    waiting[2]!.resolve({ ok: true, rev: 2 });
+    await tick();
+    waiting[1]!.resolve({ ok: false, rev: 2, yes: [D2], maybe: [] });
+    await tick();
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.busy).toBe(false);
+  });
+
+  it('settles on saved when a superseded leave request fails last', async () => {
+    const { waiting, statuses, timers } = await leaveThenSave();
+    waiting[2]!.resolve({ ok: true, rev: 1 });
+    await tick();
+    waiting[1]!.reject(new Error('offline'));
+    await tick();
+    expect(statuses.at(-1)).toBe('saved');
+    expect(timers.pending).toHaveLength(0);
+  });
+
+  it('does not say saved over a permanent failure when an older request answers', async () => {
+    const { waiting, statuses } = await leaveThenSave();
+    waiting[2]!.reject(new PermanentSaveError('closed'));
+    await tick();
+    // The leave request is still to answer; its answer carries on.
+    waiting[1]!.resolve({ ok: false, rev: 1, yes: [], maybe: [] });
+    await tick();
+    waiting[3]!.reject(new PermanentSaveError('closed'));
+    await tick();
+    expect(statuses.at(-1)).toBe('failed');
+    expect(statuses).not.toContain('saved');
+  });
+
+  it('settles on saved when the newest request fails while an older leave request lands later', async () => {
+    const { waiting, statuses, queue, timers } = await leaveThenSave();
+    waiting[2]!.reject(new Error('offline'));
+    await tick();
+    // The leave request is still to answer: its answer carries on.
+    expect(timers.pending).toHaveLength(0);
+    waiting[1]!.resolve({ ok: true, rev: 1 });
+    await tick();
+    // The newest state was restored and goes out on rev 1.
+    expect(waiting).toHaveLength(4);
+    waiting[3]!.resolve({ ok: true, rev: 2 });
+    await tick();
+    expect(statuses.at(-1)).toBe('saved');
+    expect(queue.baseRev).toBe(2);
+  });
+});
+
+describe('SaveQueue, a stale answer keeps what another device saved', () => {
+  const stale = (rev: number, yes: string[], maybe: string[] = []) =>
+    ({ ok: false, rev, yes, maybe }) as const;
+
+  it('puts our changes on the server marks, not the whole local set over them', async () => {
+    const { queue, waiting, requests, merged } = scripted({
+      marks: joinMarks([D1], []),
+    });
+    queue.push(joinMarks([D1], [D3])); // we added D3 as maybe
+    waiting[0]!.resolve(stale(1, [D1, D2])); // another device added D2
+    await tick();
+    expect(requests[1]).toEqual({ baseRev: 1, yes: [D1, D2], maybe: [D3] });
+    waiting[1]!.resolve({ ok: true, rev: 2 });
+    await tick();
+    // The screen is told about the marks that joined its own.
+    expect(merged).toHaveLength(1);
+    expect(splitMarks(merged[0]!)).toEqual({ yes: [D1, D2], maybe: [D3] });
+  });
+
+  it('keeps a removal the other device made, and our removal against its keep', async () => {
+    const { queue, waiting, requests } = scripted({
+      marks: joinMarks([D1, D2], []),
+    });
+    queue.push(joinMarks([D1], [])); // we removed D2
+    waiting[0]!.resolve(stale(1, [D2, D3])); // it removed D1, kept D2, added D3
+    await tick();
+    // D1: we kept it, it removed it, we did not touch it - gone.
+    // D2: we removed it - gone, though the other device kept it.
+    expect(requests[1]).toEqual({ baseRev: 1, yes: [D3], maybe: [] });
+  });
+
+  it('lets us win a day both changed', async () => {
+    const { queue, waiting, requests } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve(stale(1, [], [D1]));
+    await tick();
+    expect(requests[1]).toEqual({ baseRev: 1, yes: [D1], maybe: [] });
+  });
+
+  it('keeps our empty selection from wiping marks of the other device on other days', async () => {
+    const { queue, waiting, requests } = scripted({
+      marks: joinMarks([D1], []),
+    });
+    queue.push(new Map()); // we cleared D1
+    waiting[0]!.resolve(stale(1, [D1, D2]));
+    await tick();
+    expect(requests[1]).toEqual({ baseRev: 1, yes: [D2], maybe: [] });
+  });
+
+  it('rebases a newer state pushed meanwhile as well', async () => {
+    const { queue, waiting, requests } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    queue.push(joinMarks([D1, D4], [])); // pending while the first is out
+    waiting[0]!.resolve(stale(2, [D2]));
+    await tick();
+    expect(requests[1]).toEqual({ baseRev: 2, yes: [D1, D2, D4], maybe: [] });
+  });
+
+  it('sends the whole local set while the server marks are not known', async () => {
+    const { queue, waiting, requests } = scripted();
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve(stale(1, [D2]));
+    await tick();
+    // No starting marks were given: nothing to tell our changes from theirs.
+    expect(requests[1]).toEqual({ baseRev: 1, yes: [D1], maybe: [] });
+  });
+
+  it('takes the first answer as the starting point, so later conflicts merge', async () => {
+    const { queue, waiting, requests } = scripted();
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve({ ok: true, rev: 1 });
+    await tick();
+    queue.push(joinMarks([D1, D3], []));
+    waiting[1]!.resolve(stale(2, [D1, D2]));
+    await tick();
+    expect(requests[2]).toEqual({ baseRev: 2, yes: [D1, D2, D3], maybe: [] });
+  });
+
+  it('does not tell the screen about a merge when something newer is on it', async () => {
+    const { queue, waiting, merged } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve(stale(1, [D2]));
+    await tick();
+    queue.push(joinMarks([D1, D3], [])); // painted while the resend is out
+    waiting[1]!.resolve({ ok: true, rev: 2 });
+    await tick();
+    expect(merged).toEqual([]);
+  });
+
+  it('does not tell the screen when nothing joined', async () => {
+    const { queue, waiting, merged } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve({ ok: true, rev: 1 });
+    await tick();
+    expect(merged).toEqual([]);
+  });
+
+  it('ignores server marks older than the newest known', async () => {
+    const { queue, waiting, requests } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.resolve(stale(5, [D2]));
+    await tick();
+    waiting[1]!.resolve({ ok: true, rev: 6 });
+    await tick();
+    // A late, older refusal must not bring the server's older marks back.
+    queue.push(joinMarks([D1, D2, D3], [])); // the screen took D2 in
+    waiting[2]!.resolve(stale(4, [D4]));
+    await tick();
+    expect(requests[3]!.yes).toEqual([D1, D2, D3]);
+  });
+
+  it('adopt takes the server marks as the new starting point, only when idle', async () => {
+    const { queue, waiting, requests } = scripted({ marks: new Map() });
+    queue.adopt(3, joinMarks([D2], []));
+    expect(queue.baseRev).toBe(3);
+    queue.push(joinMarks([D2, D3], [])); // the screen showed D2 after adopting
+    waiting[0]!.resolve(stale(4, [D2, D4]));
+    await tick();
+    // D2 was already there when adopted: not our change, but it is kept.
+    expect(requests[1]).toEqual({ baseRev: 4, yes: [D2, D3, D4], maybe: [] });
+  });
+
+  it('adopt does nothing while a save is under way', () => {
+    const { queue } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    queue.adopt(9, new Map());
+    expect(queue.baseRev).toBe(0);
+  });
+
+  it("does not turn our own mark into someone else's when an answer was lost", async () => {
+    const { queue, waiting, requests } = scripted({ marks: new Map() });
+    queue.push(joinMarks([D1], []));
+    waiting[0]!.reject(new Error('timed out')); // it landed, the answer did not
+    await tick();
+    queue.push(joinMarks([D2], [])); // meanwhile the screen moved on to D2
+    waiting[1]!.resolve(stale(1, [D1]));
+    await tick();
+    expect(requests[2]).toEqual({ baseRev: 1, yes: [D2], maybe: [] });
+  });
+});
+
+describe('SaveQueue, random schedules with a second device', () => {
+  it("ends with the screen's last state plus what the other device kept", async () => {
+    const days = [D1, D2, D3, D4];
+    const wrong: string[] = [];
+    for (let seed = 1; seed <= 300; seed += 1) {
+      const random = generator(seed);
+      const server = new FakeServer();
+      const timers = new FakeTimers();
+      const queue = new SaveQueue({
+        baseRev: 0,
+        marks: new Map(),
+        onMerged: (merged) => {
+          screen = new Map(merged);
+        },
+        send: server.send,
+        timers,
+      });
+      let screen = new Map<string, 'yes' | 'maybe'>();
+      const theirs = new Set<string>();
+      for (let step = 0; step < 4 + Math.floor(random() * 20); step += 1) {
+        const roll = random();
+        if (roll < 0.35) {
+          const day = days[Math.floor(random() * 2)]!; // ours: D1, D2
+          screen = new Map(screen);
+          if (screen.has(day)) screen.delete(day);
+          else screen.set(day, 'yes');
+          queue.push(screen);
+        } else if (roll < 0.5) {
+          // The other device marks D3 or D4 at once, on the server.
+          const day = days[2 + Math.floor(random() * 2)]!;
+          theirs.add(day);
+          server.rev += 1;
+          server.marks = {
+            yes: [...new Set([...server.marks.yes, day])].sort(),
+            maybe: server.marks.maybe,
+          };
+        } else if (roll < 0.6) {
+          queue.flushOnLeave();
+        } else if (server.open > 0) {
+          server.answer(
+            // Any open request may be handled first, not just the oldest.
+            server.openIndexes()[
+              Math.floor(random() * server.openIndexes().length)
+            ]!
+          );
+        }
+        await drain();
+      }
+      for (
+        let guard = 0;
+        guard < 100 && (server.open > 0 || timers.pending.length > 0);
+        guard += 1
+      ) {
+        if (server.open > 0) server.answer();
+        else timers.runNext();
+        await drain();
+      }
+      const expected = [...new Set([...screen.keys(), ...theirs])].sort();
+      if (
+        queue.busy ||
+        JSON.stringify(server.marks.yes) !== JSON.stringify(expected)
+      )
+        wrong.push(
+          `seed ${seed}: server ${JSON.stringify(server.marks.yes)}, expected ${JSON.stringify(expected)}`
+        );
+    }
+    expect(wrong).toEqual([]);
+  });
 
   it('ends with the last state pushed, whatever the order of arrivals, losses and leave requests', async () => {
-    // Requests arrive and are answered in the order they were sent; some are
-    // lost on the way or their answer is. At the end the network is back.
     const wrong: string[] = [];
     for (const loss of [0, 0.2, 0.4]) {
       for (let seed = 1; seed <= SCHEDULES; seed += 1) {
@@ -991,63 +1337,5 @@ describe('SaveQueue, a request sent on leaving among saves under way', () => {
       }
     }
     expect(wrong).toEqual([]);
-  });
-});
-
-/**
- * A save under way that fails after a newer state went out on leaving: the
- * queue may only call that "saved" when the newer state really landed.
- */
-describe('SaveQueue, an overtaken save that fails', () => {
-  /** A under way (request 0), B sent on leaving (request 1). */
-  function leaveWhileSaving() {
-    const context = setup();
-    context.queue.push(marks('2027-03-01'));
-    context.queue.push(marks('2027-03-02'));
-    context.queue.flushOnLeave();
-    expect(context.server.requests).toHaveLength(2);
-    return context;
-  }
-
-  it('stays failed when the newer state was refused for good', async () => {
-    const { server, queue, timers, statuses } = leaveWhileSaving();
-    server.fail(new PermanentSaveError('forbidden'), 1);
-    await tick();
-    expect(statuses.at(-1)).toBe('failed');
-    server.fail(new Error('network'), 0);
-    await tick();
-    expect(statuses.at(-1)).toBe('failed');
-    expect(statuses).not.toContain('saved');
-    expect(timers.pending).toHaveLength(0);
-    expect(server.requests).toHaveLength(2);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('says saved when the newer state landed', async () => {
-    const { server, queue, timers, statuses } = leaveWhileSaving();
-    server.apply(0); // A lands, but its answer is lost
-    server.answer(1);
-    await tick();
-    server.fail(new Error('network'), 0);
-    await tick();
-    expect(server.marks.yes).toEqual(['2027-03-02']);
-    expect(statuses.at(-1)).toBe('saved');
-    expect(timers.pending).toHaveLength(0);
-    expect(server.requests).toHaveLength(2);
-    expect(queue.busy).toBe(false);
-  });
-
-  it('sends nothing more when the newer state is still on its way', async () => {
-    const { server, queue, timers, statuses } = leaveWhileSaving();
-    server.apply(0); // A lands, but its answer is lost
-    server.fail(new Error('network'), 0);
-    await tick();
-    expect(statuses.at(-1)).not.toBe('saved');
-    expect(timers.pending).toHaveLength(0);
-    server.answer(1);
-    await tick();
-    expect(statuses.at(-1)).toBe('saved');
-    expect(server.requests).toHaveLength(2);
-    expect(queue.busy).toBe(false);
   });
 });

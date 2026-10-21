@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+  greeting,
+  adminKeyName,
   answer,
   createEvent,
   day,
@@ -7,9 +9,12 @@ import {
   groupCalendar,
   isMobile,
   myCalendar,
+  openAsOrganiser,
+  organiserTools,
   saved,
   showView,
   snapshot,
+  storedAdminKey,
   utcDateOf,
 } from '../helpers.ts';
 
@@ -27,7 +32,10 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
 
   // Fridays to Sundays only, and two days in a row.
   for (const weekday of ['Friday', 'Saturday', 'Sunday']) {
-    await page.getByRole('button', { name: weekday, exact: true }).click();
+    // The accessible name is "Fri: Friday": the visible text first.
+    await page
+      .getByRole('button', { name: new RegExp(`: ${weekday}$`) })
+      .click();
   }
   await page.getByRole('button', { name: 'One day more in a row' }).click();
   await expect(page.getByText(/days? to choose from/)).toBeVisible();
@@ -72,6 +80,27 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   expect(new URL(page.url()).hash).toBe('');
   await showView(page, 'mine');
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
+});
+
+test('focus that moves into the wizard right after opening is not pulled away', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const kept = await page.evaluate(async () => {
+    const cta = [...document.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Plan an event'
+    );
+    cta?.click();
+    // React renders the wizard in a microtask: wait for it, not for a frame.
+    await Promise.resolve();
+    const title = document.querySelector<HTMLInputElement>('form input');
+    title?.focus();
+    for (let frame = 0; frame < 3; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return title !== null && document.activeElement === title;
+  });
+  expect(kept).toBe(true);
 });
 
 test('changing the range keeps the days the organiser already chose', async ({
@@ -124,11 +153,12 @@ test('changing the weekdays keeps the days the organiser already chose', async (
   const count = page.getByText(/days? to choose from/);
   const weekday = (iso: string) =>
     page.getByRole('button', {
-      name: new Intl.DateTimeFormat('en-GB', {
-        weekday: 'long',
-        timeZone: 'UTC',
-      }).format(utcDateOf(iso)),
-      exact: true,
+      name: new RegExp(
+        `: ${new Intl.DateTimeFormat('en-GB', {
+          weekday: 'long',
+          timeZone: 'UTC',
+        }).format(utcDateOf(iso))}$`
+      ),
     });
 
   // Two weeks, so every weekday is there twice.
@@ -167,10 +197,7 @@ test('the organiser link is taken from the fragment and removed from the address
   request,
 }) => {
   const { id, adminToken } = await createEvent(request);
-  await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await openAsOrganiser(page, { id, adminToken });
   expect(new URL(page.url()).hash).toBe('');
 
   // The stored key is asked about once on arrival, and the server's yes
@@ -185,9 +212,7 @@ test('the organiser link is taken from the fragment and removed from the address
   );
   await page.reload();
   expect((await checked).status()).toBe(204);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
   expect(checks).toEqual([adminToken]);
 });
@@ -197,10 +222,7 @@ test('a link with a made-up organiser key does not replace the real one', async 
   request,
 }) => {
   const { id, adminToken } = await createEvent(request);
-  await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await openAsOrganiser(page, { id, adminToken });
 
   // A fresh page load, as when the link is opened from a message: from the
   // event page itself, only the fragment would change and nothing reloads.
@@ -215,12 +237,8 @@ test('a link with a made-up organiser key does not replace the real one', async 
   expect((await checked).status()).toBe(403);
   expect(new URL(page.url()).hash).toBe('');
   await page.reload();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toContain(adminToken);
+  await expect(organiserTools(page)).toBeVisible();
+  expect(await storedAdminKey(page, id)).toContain(adminToken);
 });
 
 test('the tab shows the open event’s emoji once, and the owl elsewhere', async ({
@@ -336,7 +354,7 @@ test('the start page example shows two notes in the day sheet', async ({
   const section = (name: RegExp) =>
     sheet
       .locator('section')
-      .filter({ has: page.getByRole('heading', { level: 4, name }) });
+      .filter({ has: page.getByRole('heading', { level: 3, name }) });
   // The groups name people only; the notes have their own block at the end.
   await expect(section(/^Maybe\b/).getByRole('listitem')).toHaveText(['Ben']);
   await expect(section(/^Can\b/).getByText('Choir')).toHaveCount(0);
@@ -356,7 +374,7 @@ test('the start page example shows two notes in the day sheet', async ({
   await expect(chip('Anna').locator('svg')).toHaveCount(0);
   // The notes have a heading of their own, below "Who is counted".
   await expect(
-    frame.getByRole('heading', { level: 3, name: 'Notes' })
+    frame.getByRole('heading', { level: 4, name: 'Notes' })
   ).toBeVisible();
   const list = frame.getByRole('list', { name: 'Notes' }).getByRole('listitem');
   await expect(list).toHaveText([`Ben: ${BEN}`, `Max: ${MAX}`]);
@@ -478,7 +496,9 @@ test('two people see each other live, and the day sheet names them', async ({
     await count.evaluate((e) => getComputedStyle(e, '::before').content)
   ).toBe('"1"');
   await expect(cell).toHaveAccessibleName(/: 1 can, 0 maybe, 0 cannot$/);
-  await expect(two.getByText('Not answered yet: Ben')).toBeVisible();
+  await expect(
+    two.getByText(/Not answered yet: \u2068Ben\u2069/)
+  ).toBeVisible();
 
   // Without a note anywhere, neither page has a notes block.
   const notesHeading = (scope: Page | Locator) =>
@@ -486,7 +506,7 @@ test('two people see each other live, and the day sheet names them', async ({
   await expect(notesHeading(two)).toHaveCount(0);
   await cell.click();
   await expect(
-    two.getByRole('dialog').getByRole('heading', { level: 4, name: /^Can\b/ })
+    two.getByRole('dialog').getByRole('heading', { level: 3, name: /^Can\b/ })
   ).toBeVisible();
   await expect(notesHeading(two.getByRole('dialog'))).toHaveCount(0);
   await two.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
@@ -516,10 +536,10 @@ test('two people see each other live, and the day sheet names them', async ({
   const sheet = two.getByRole('dialog');
   const can = sheet
     .locator('section')
-    .filter({ has: two.getByRole('heading', { level: 4, name: /^Can\b/ }) });
+    .filter({ has: two.getByRole('heading', { level: 3, name: /^Can\b/ }) });
   await expect(can.getByRole('listitem')).toHaveText(['Anna', 'Cleo']);
   const notes = sheet.locator('section').filter({
-    has: two.getByRole('heading', { level: 4, name: /^Notes\b/ }),
+    has: two.getByRole('heading', { level: 3, name: /^Notes\b/ }),
   });
   await expect(notes.getByRole('heading')).toHaveText('Notes · 1');
   await expect(notes.getByRole('listitem')).toHaveText(['Cleo (Can)After six']);
@@ -560,7 +580,7 @@ test('two people see each other live, and the day sheet names them', async ({
   // An empty group is its heading alone.
   const maybe = sheet
     .locator('section')
-    .filter({ has: two.getByRole('heading', { level: 4, name: /^Maybe\b/ }) });
+    .filter({ has: two.getByRole('heading', { level: 3, name: /^Maybe\b/ }) });
   await expect(maybe.getByRole('heading')).toHaveText('Maybe · 0');
   await expect(maybe.getByRole('list')).toHaveCount(0);
   await expect(sheet.getByText('nobody')).toHaveCount(0);
@@ -581,7 +601,7 @@ test('a protected name needs its password on another device', async ({
   await phone.getByLabel('Protect my entry with a password').check();
   await phone.getByLabel('Password', { exact: true }).fill('secret-1');
   await phone.getByRole('button', { name: 'Continue' }).click();
-  await expect(phone.getByText('Hi Maxi!')).toBeVisible();
+  await expect(greeting(phone, 'Maxi')).toBeVisible();
 
   const laptop = await browser
     .newContext()
@@ -591,14 +611,16 @@ test('a protected name needs its password on another device', async ({
   await laptop.getByLabel('Your name', { exact: true }).fill('maxi');
   await laptop.getByRole('button', { name: 'Continue' }).click();
   await expect(
-    laptop.getByText('“maxi” is protected. Enter the password to continue.')
+    laptop.getByText(
+      '“\u2068maxi\u2069” is protected. Enter the password to continue.'
+    )
   ).toBeVisible();
   await laptop.getByLabel('Password', { exact: true }).fill('wrong!');
   await laptop.getByRole('button', { name: 'Continue' }).click();
   await expect(laptop.getByText('That password is not right.')).toBeVisible();
   await laptop.getByLabel('Password', { exact: true }).fill('secret-1');
   await laptop.getByRole('button', { name: 'Continue' }).click();
-  await expect(laptop.getByText('Hi Maxi!')).toBeVisible();
+  await expect(greeting(laptop, 'Maxi')).toBeVisible();
 });
 
 test('the organiser removes a password only after confirming it', async ({
@@ -655,7 +677,7 @@ test('a person’s row opens a sheet to fill in for them or remove them', async 
   const sheet = page.getByRole('dialog', { name: 'Ben' });
   await sheet.getByRole('button', { name: 'Fill in' }).click();
   await expect(sheet).toBeHidden();
-  await expect(page.getByText('Filling in for Ben')).toBeVisible();
+  await expect(page.getByText('Filling in for \u2068Ben\u2069')).toBeVisible();
 
   await annaRow.click();
   await page
@@ -769,7 +791,7 @@ test('the organiser chooses the best day; everyone gets a calendar file', async 
     0
   );
   await names.getByRole('button', { name: 'Anna' }).click();
-  await expect(other.getByText('Hi Anna!')).toBeVisible();
+  await expect(greeting(other, 'Anna')).toBeVisible();
   await expect(myCalendar(other)).toHaveAttribute('aria-readonly', 'true');
   await expect(
     other.getByText('The poll is closed. You can’t change your days now.')
@@ -848,7 +870,8 @@ test('the footer links the legal notice between privacy and the source, and the 
   const provider = page.locator('p').filter({
     hasText: 'Example Organisation',
   });
-  await expect(provider.locator('span')).toHaveText([
+  await expect(provider.locator('bdi')).toHaveText([
+    'Example Organisation',
     'Musterstraße 1',
     '12345 Musterstadt',
     'Germany',
@@ -1007,7 +1030,7 @@ test('who has answered is invited to plan their own; the organiser is not', asyn
   await anna.goto(`/e/${id}`);
   await showView(anna, 'mine');
   await anna.getByRole('button', { name: 'Anna' }).click();
-  await expect(anna.getByText('Hi Anna!')).toBeVisible();
+  await expect(greeting(anna, 'Anna')).toBeVisible();
   await expect(invite(anna)).toBeHidden();
   await day(myCalendar(anna), D(5)).click();
   await saved(anna);
@@ -1036,162 +1059,119 @@ test('who has answered is invited to plan their own; the organiser is not', asyn
   await organiser.close();
 });
 
-test('Spanish is remembered and new events use it', async ({
-  page,
-  request,
-}) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('es');
-  await expect(
-    page.getByRole('heading', {
-      name: 'Encontrad un día que os venga bien a todos.',
-    })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('es');
-  await page.getByRole('button', { name: 'Planear un evento' }).click();
-  await page.getByLabel('Título').fill('Partido en el parque');
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await page.getByRole('button', { name: 'Crear evento' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Compartir con el grupo' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('es');
-});
+const REMEMBERED_LANGUAGES = [
+  {
+    code: 'es',
+    name: 'Spanish',
+    tagline: 'Encontrad un día que os venga bien a todos.',
+    plan: 'Planear un evento',
+    titleLabel: 'Título',
+    title: 'Partido en el parque',
+    next: 'Siguiente',
+    create: 'Crear evento',
+    shared: 'Compartir con el grupo',
+  },
+  {
+    code: 'fr',
+    name: 'French',
+    tagline: 'Trouvez une date qui convient à tout le monde.',
+    plan: 'Organiser un événement',
+    titleLabel: 'Titre',
+    title: 'Foot au parc',
+    next: 'Suivant',
+    create: 'Créer l’événement',
+    shared: 'Partager avec le groupe',
+  },
+  {
+    code: 'pt',
+    name: 'Portuguese',
+    tagline: 'Encontrem um dia em que todos possam.',
+    plan: 'Planear um evento',
+    titleLabel: 'Título',
+    title: 'Jogo no parque',
+    next: 'Seguinte',
+    create: 'Criar evento',
+    shared: 'Partilhar com o grupo',
+  },
+  {
+    code: 'it',
+    name: 'Italian',
+    tagline: 'Trova un giorno che vada bene a tutti.',
+    plan: 'Organizza un evento',
+    titleLabel: 'Titolo',
+    title: 'Partita al parco',
+    next: 'Avanti',
+    create: 'Crea evento',
+    shared: 'Condividi con il gruppo',
+  },
+  {
+    code: 'ja',
+    name: 'Japanese',
+    tagline: 'みんなが集まれる日を見つけよう。',
+    plan: '予定を立てる',
+    titleLabel: 'タイトル',
+    title: '公園でサッカー',
+    next: '次へ',
+    create: '予定を作る',
+    shared: 'みんなに共有',
+    font: { family: 'Noto Sans CJK JP UI', sample: 'みんな' },
+  },
+  {
+    code: 'nl',
+    name: 'Dutch',
+    tagline: 'Vind een dag waarop iedereen kan.',
+    plan: 'Plan een evenement',
+    titleLabel: 'Titel',
+    title: 'Voetbal in het park',
+    next: 'Volgende',
+    create: 'Evenement maken',
+    shared: 'Deel met je groep',
+  },
+];
 
-test('French is remembered and new events use it', async ({
-  page,
-  request,
-}) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('fr');
-  await expect(
-    page.getByRole('heading', {
-      name: 'Trouvez une date qui convient à tout le monde.',
-    })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
-  await page.getByRole('button', { name: 'Organiser un événement' }).click();
-  await page.getByLabel('Titre').fill('Foot au parc');
-  await page.getByRole('button', { name: 'Suivant' }).click();
-  await page.getByRole('button', { name: 'Suivant' }).click();
-  await page.getByRole('button', { name: 'Créer l’événement' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Partager avec le groupe' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('fr');
-});
-
-test('Portuguese is remembered and new events use it', async ({
-  page,
-  request,
-}) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('pt');
-  await expect(
-    page.getByRole('heading', {
-      name: 'Encontrem um dia em que todos possam.',
-    })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('pt');
-  await page.getByRole('button', { name: 'Planear um evento' }).click();
-  await page.getByLabel('Título').fill('Jogo no parque');
-  await page.getByRole('button', { name: 'Seguinte' }).click();
-  await page.getByRole('button', { name: 'Seguinte' }).click();
-  await page.getByRole('button', { name: 'Criar evento' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Partilhar com o grupo' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('pt');
-});
-
-test('Italian is remembered and new events use it', async ({
-  page,
-  request,
-}) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('it');
-  await expect(
-    page.getByRole('heading', {
-      name: 'Trova un giorno che vada bene a tutti.',
-    })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('it');
-  await page.getByRole('button', { name: 'Organizza un evento' }).click();
-  await page.getByLabel('Titolo').fill('Partita al parco');
-  await page.getByRole('button', { name: 'Avanti' }).click();
-  await page.getByRole('button', { name: 'Avanti' }).click();
-  await page.getByRole('button', { name: 'Crea evento' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Condividi con il gruppo' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('it');
-});
-
-test('Japanese is remembered and new events use it', async ({
-  page,
-  request,
-}) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('ja');
-  await expect(
-    page.getByRole('heading', {
-      name: 'みんなが集まれる日を見つけよう。',
-    })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ja');
-  expect(
-    await page.evaluate(async () => {
-      const faces = await document.fonts.load(
-        '16px "Noto Sans CJK JP UI"',
-        'みんな'
-      );
-      return faces.some(
-        (face) =>
-          face.family === 'Noto Sans CJK JP UI' && face.status === 'loaded'
-      );
-    })
-  ).toBe(true);
-  await page.getByRole('button', { name: '予定を立てる' }).click();
-  await page.getByLabel('タイトル').fill('公園でサッカー');
-  await page.getByRole('button', { name: '次へ' }).click();
-  await page.getByRole('button', { name: '次へ' }).click();
-  await page.getByRole('button', { name: '予定を作る' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'みんなに共有' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('ja');
-});
-
-test('Dutch is remembered and new events use it', async ({ page, request }) => {
-  await page.goto('/');
-  await page.getByLabel('Language').selectOption('nl');
-  await expect(
-    page.getByRole('heading', { name: 'Vind een dag waarop iedereen kan.' })
-  ).toBeVisible();
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.lang)).toBe('nl');
-  await page.getByRole('button', { name: 'Plan een evenement' }).click();
-  await page.getByLabel('Titel').fill('Voetbal in het park');
-  await page.getByRole('button', { name: 'Volgende' }).click();
-  await page.getByRole('button', { name: 'Volgende' }).click();
-  await page.getByRole('button', { name: 'Evenement maken' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Deel met je groep' })
-  ).toBeVisible();
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  expect((await snapshot(request, id)).event.language).toBe('nl');
-});
+for (const language of REMEMBERED_LANGUAGES) {
+  test(`${language.name} is remembered and new events use it`, async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/');
+    await page.getByLabel('Language').selectOption(language.code);
+    await expect(
+      page.getByRole('heading', { name: language.tagline })
+    ).toBeVisible();
+    await page.reload();
+    expect(await page.evaluate(() => document.documentElement.lang)).toBe(
+      language.code
+    );
+    if (language.font) {
+      const { family, sample } = language.font;
+      expect(
+        await page.evaluate(
+          async ([fontFamily, text]) => {
+            const faces = await document.fonts.load(
+              `16px "${fontFamily}"`,
+              text
+            );
+            return faces.some(
+              (face) => face.family === fontFamily && face.status === 'loaded'
+            );
+          },
+          [family, sample] as const
+        )
+      ).toBe(true);
+    }
+    await page.getByRole('button', { name: language.plan }).click();
+    await page.getByLabel(language.titleLabel).fill(language.title);
+    await page.getByRole('button', { name: language.next }).click();
+    await page.getByRole('button', { name: language.next }).click();
+    await page.getByRole('button', { name: language.create }).click();
+    await expect(
+      page.getByRole('heading', { name: language.shared })
+    ).toBeVisible();
+    const id = new URL(page.url()).pathname.split('/').at(-1)!;
+    expect((await snapshot(request, id)).event.language).toBe(language.code);
+  });
+}
 
 test('the count of answers is spelled out and follows live', async ({
   page,
@@ -1214,16 +1194,12 @@ test('forgetting an event with an organiser key on this device asks first', asyn
   const { id, adminToken } = await createEvent(request, {
     title: 'Garden party',
   });
-  await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await openAsOrganiser(page, { id, adminToken });
   await page.goto('/');
   const forget = page.getByRole('button', {
     name: 'Remove Garden party from this list',
   });
-  const stored = () =>
-    page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`);
+  const stored = () => storedAdminKey(page, id);
 
   // Cancelling keeps the entry and the key.
   await forget.click();
@@ -1279,9 +1255,7 @@ async function pasteOrganiserKey(page: Page, key: string): Promise<void> {
 async function getRefused(page: Page, id: string): Promise<void> {
   await page.goto(`/e/${id}#admin=${MADE_UP_KEY}`);
   await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toHaveCount(0);
+  await expect(organiserTools(page)).toHaveCount(0);
 }
 
 test('an organiser link pasted into the open event page is taken and removed from the address', async ({
@@ -1290,19 +1264,13 @@ test('an organiser link pasted into the open event page is taken and removed fro
 }) => {
   const { id, adminToken } = await createEvent(request);
   await page.goto(`/e/${id}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toHaveCount(0);
+  await expect(organiserTools(page)).toHaveCount(0);
   await page.evaluate((key) => {
     window.location.hash = `#admin=${key}`;
   }, adminToken);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   expect(new URL(page.url()).hash).toBe('');
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toContain(adminToken);
+  expect(await storedAdminKey(page, id)).toContain(adminToken);
   // Nothing was refused before, so there is nothing to take back.
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
 });
@@ -1313,22 +1281,18 @@ test('the refused-link notice goes away when the complete link is pasted into th
 }) => {
   const { id, adminToken } = await createEvent(request);
   await getRefused(page, id);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toBeNull();
+  expect(await storedAdminKey(page, id)).toBeNull();
 
   await pasteOrganiserKey(page, adminToken);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe('');
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toContain(adminToken);
+  expect(await storedAdminKey(page, id)).toContain(adminToken);
 
   // The tools work again, and the notice does not come back with them.
+  // Save stays disabled while the day list is unchanged, so change a day first.
   const days = await openSection(page, 'Days');
+  await day(days.getByRole('grid'), D(16)).click();
   await days.getByRole('button', { name: 'Save' }).click();
   await expect(days.getByText('Saved')).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
@@ -1346,12 +1310,8 @@ test('a refused link pasted again keeps the notice, and a link that is no key do
   await pasteOrganiserKey(page, 'short');
   await expect.poll(() => new URL(page.url()).hash).toBe('');
   await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toHaveCount(0);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toBeNull();
+  await expect(organiserTools(page)).toHaveCount(0);
+  expect(await storedAdminKey(page, id)).toBeNull();
 
   // Another key that is not this event's, one of another event included: it
   // is asked about at once and refused, and the notice stays.
@@ -1362,19 +1322,13 @@ test('a refused link pasted again keeps the notice, and a link that is no key do
     await pasteOrganiserKey(page, key);
     expect((await checked).status()).toBe(403);
     await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Organiser tools' })
-    ).toHaveCount(0);
-    expect(
-      await page.evaluate((k) => localStorage.getItem(k), `owl.admin.${id}`)
-    ).toBeNull();
+    await expect(organiserTools(page)).toHaveCount(0);
+    expect(await storedAdminKey(page, id)).toBeNull();
   }
 
   // The complete link then clears it for good.
   await pasteOrganiserKey(page, adminToken);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
 });
 
@@ -1388,9 +1342,7 @@ test('another event’s organiser link opens that event only; the notice stays o
 
   // A fresh page load, as when the link is opened from a message.
   await page.goto(`/e/${other.id}#admin=${other.adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
 
   // The first event got no key from it.
@@ -1398,13 +1350,9 @@ test('another event’s organiser link opens that event only; the notice stays o
   await expect(
     page.getByRole('heading', { name: 'Summer tournament' })
   ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toHaveCount(0);
+  await expect(organiserTools(page)).toHaveCount(0);
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toBeNull();
+  expect(await storedAdminKey(page, id)).toBeNull();
 });
 
 test('an organiser key kept on this device that the server no longer accepts is dropped on arrival', async ({
@@ -1412,29 +1360,20 @@ test('an organiser key kept on this device that the server no longer accepts is 
   request,
 }) => {
   const { id, adminToken } = await createEvent(request);
-  await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await openAsOrganiser(page, { id, adminToken });
 
   // The organiser link was issued anew elsewhere: the key here is dead.
   await page.evaluate((key) => {
     localStorage.setItem(key, JSON.stringify('C'.repeat(43)));
-  }, `owl.admin.${id}`);
+  }, adminKeyName(id));
   await page.reload();
   await expect(page.getByText(ADMIN_REFUSED)).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toHaveCount(0);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toBeNull();
+  await expect(organiserTools(page)).toHaveCount(0);
+  expect(await storedAdminKey(page, id)).toBeNull();
 
   // The current link brings the tools back.
   await pasteOrganiserKey(page, adminToken);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
 });
 
@@ -1443,20 +1382,13 @@ test('an organiser key kept on this device stays when it cannot be checked', asy
   request,
 }) => {
   const { id, adminToken } = await createEvent(request);
-  await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await openAsOrganiser(page, { id, adminToken });
 
   await page.route(`**/api/events/${id}/admin`, (route) => route.abort());
   await page.reload();
-  await expect(
-    page.getByRole('heading', { name: 'Organiser tools' })
-  ).toBeVisible();
+  await expect(organiserTools(page)).toBeVisible();
   await expect(page.getByText(ADMIN_REFUSED)).toHaveCount(0);
-  expect(
-    await page.evaluate((key) => localStorage.getItem(key), `owl.admin.${id}`)
-  ).toContain(adminToken);
+  expect(await storedAdminKey(page, id)).toContain(adminToken);
 });
 
 /** One of the organiser's sections, opened. */
@@ -1692,7 +1624,8 @@ test('a dialog that opens on arrival keeps focus, and closing it without an open
   await page.getByRole('button', { name: 'Plan an event' }).click();
   await page.getByLabel('Title').fill('Pub quiz');
   await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Saturday', exact: true }).click();
+  // The accessible name is "Sat: Saturday": the visible text first.
+  await page.getByRole('button', { name: /: Saturday$/ }).click();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Create event' }).click();
 
@@ -1715,10 +1648,7 @@ async function ownEvents(
 ): Promise<void> {
   for (const title of titles) {
     const { id, adminToken } = await createEvent(request, { title });
-    await page.goto(`/e/${id}#admin=${adminToken}`);
-    await expect(
-      page.getByRole('heading', { name: 'Organiser tools' })
-    ).toBeVisible();
+    await openAsOrganiser(page, { id, adminToken });
   }
 }
 
@@ -1796,7 +1726,7 @@ test('confirming a save that costs answers moves focus into the organiser panel,
   expect(chosen.status()).toBe(200);
   const current = async () => (await snapshot(request, id)).event;
   const dialog = page.getByRole('dialog');
-  const panel = page.getByRole('heading', { name: 'Organiser tools' });
+  const panel = organiserTools(page);
   await page.goto(`/e/${id}#admin=${adminToken}`);
 
   // Days: switch the last day off, which deletes Anna's answer for it.

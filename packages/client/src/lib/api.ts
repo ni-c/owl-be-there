@@ -35,7 +35,7 @@ export class ApiFailure extends Error {
 /** The network itself failed: offline, or the server is unreachable. */
 export class NetworkFailure extends Error {
   constructor(cause: unknown) {
-    super('The network request failed', { cause });
+    super('network_failure', { cause });
     this.name = 'NetworkFailure';
   }
 }
@@ -118,12 +118,7 @@ async function readJson(response: Response): Promise<unknown> {
     return await response.json();
   } catch (error) {
     if (error instanceof SyntaxError)
-      throw new ApiFailure(
-        502,
-        'bad_response',
-        'The answer was not JSON',
-        null
-      );
+      throw new ApiFailure(502, 'bad_response', 'bad_response', null);
     throw new NetworkFailure(error);
   }
 }
@@ -220,10 +215,23 @@ export const api = {
   async putMarks(
     id: string,
     participantId: string,
-    body: { baseRev: number; yes: string[]; maybe: string[]; days?: string[] },
+    body: {
+      baseRev: number;
+      yes: string[];
+      maybe: string[];
+      days?: string[];
+      touched?: string[];
+    },
     credentials: Credentials
   ): Promise<
-    { ok: true; rev: number; version: number } | { ok: false; rev: number }
+    | {
+        ok: true;
+        rev: number;
+        version: number;
+        yes?: string[] | undefined;
+        maybe?: string[] | undefined;
+      }
+    | { ok: false; rev: number; yes: string[]; maybe: string[] }
   > {
     return exchange(
       'PUT',
@@ -234,11 +242,16 @@ export const api = {
           const json = await readJson(response);
           const conflict = MarksConflict.safeParse(json);
           if (conflict.success)
-            return { ok: false as const, rev: conflict.data.rev };
+            return {
+              ok: false as const,
+              rev: conflict.data.rev,
+              yes: conflict.data.yes,
+              maybe: conflict.data.maybe,
+            };
           throw new ApiFailure(
             409,
             ApiErrorBody.safeParse(json).data?.error ?? 'conflict',
-            'Conflict',
+            'conflict',
             json
           );
         }
@@ -255,7 +268,8 @@ export const api = {
     id: string,
     participantId: string,
     body: { name?: string; note?: string | null; password?: string | null },
-    credentials: Credentials
+    credentials: Credentials,
+    options: { keepalive?: boolean } = {}
   ) {
     return request(
       'PATCH',
@@ -264,6 +278,7 @@ export const api = {
       {
         body,
         credentials,
+        ...(options.keepalive && { keepalive: true }),
       }
     );
   },

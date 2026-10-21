@@ -5,6 +5,7 @@ import {
   FEATURES,
   LANGUAGES,
   RETENTION_DAYS,
+  persianNumber,
   type HomeKey,
 } from '../src/index.js';
 import { HOME_TEXTS } from '../src/home-texts.js';
@@ -96,7 +97,12 @@ describe('the privacy answer', () => {
   it('names the retention period of the sweep in every language, and no other number', () => {
     for (const language of LANGUAGES) {
       const answer = HOME_TEXTS[language]['home.faq.privacy.a'];
-      expect(answer.match(/\d+/g), language).toEqual([String(RETENTION_DAYS)]);
+      // Persian writes its own digits.
+      const days =
+        language === 'fa'
+          ? persianNumber.format(RETENTION_DAYS)
+          : String(RETENTION_DAYS);
+      expect(answer.match(/[\d۰-۹]+/g), language).toEqual([days]);
     }
   });
 });

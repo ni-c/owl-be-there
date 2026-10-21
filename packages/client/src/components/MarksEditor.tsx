@@ -9,6 +9,7 @@ import {
 } from '@owl/shared';
 import { useCallback, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { changedCount, freshAnnouncement } from '../lib/liveText.ts';
 import { pushUndo, sameMarksOn } from '../lib/undoStack.ts';
 import { CalendarGrid, type HintInfo } from './CalendarGrid.tsx';
 import { CheckIcon, UndoIcon } from './icons.tsx';
@@ -61,7 +62,9 @@ export function MarksEditor(props: {
         emitted: next,
       }));
       onMarksChange(next);
-      setAnnouncement(tn('cal.changed', changed));
+      setAnnouncement((last) =>
+        freshAnnouncement(tn('cal.changed', changed), last)
+      );
     },
     [days, marks, onMarksChange, tn]
   );
@@ -71,7 +74,12 @@ export function MarksEditor(props: {
     if (!previous) return;
     setHistory({ undo: undo.slice(0, -1), emitted: previous });
     onMarksChange(previous);
-  }, [undo, onMarksChange]);
+    const changed = changedCount(days, marks, previous);
+    if (changed > 0)
+      setAnnouncement((last) =>
+        freshAnnouncement(tn('cal.changed', changed), last)
+      );
+  }, [undo, onMarksChange, days, marks, tn]);
 
   const future = useMemo(
     () => days.filter((day) => compareISODate(day, today) >= 0),

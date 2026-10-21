@@ -1,6 +1,10 @@
 import type { Language } from '@owl/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { ReloadGuard } from '../src/lib/reloadGuard.ts';
+import {
+  hasUnsavedInput,
+  holdReload,
+  ReloadGuard,
+} from '../src/lib/reloadGuard.ts';
 import type { Backing } from '../src/lib/storage.ts';
 
 class MemorySession implements Backing {
@@ -109,5 +113,58 @@ describe('ReloadGuard', () => {
       expect(guard.reload('ja', null), raw).toBe(true);
       expect(reloadPage).toHaveBeenCalledTimes(1);
     }
+  });
+});
+
+describe('ReloadGuard with unsaved input', () => {
+  it('does not reload while a registered form is dirty, and does once it is clean', () => {
+    const { guard, reloadPage, remember } = guardWith();
+    let dirty = true;
+    const release = holdReload(() => dirty);
+    try {
+      expect(hasUnsavedInput()).toBe(true);
+      expect(guard.reload('ja', 'de')).toBe(false);
+      expect(reloadPage).not.toHaveBeenCalled();
+      expect(remember).not.toHaveBeenCalled();
+      // No flag was left behind: the next failure may still reload.
+      expect(guard.flag()).toBeNull();
+      dirty = false;
+      expect(guard.reload('ja', 'de')).toBe(true);
+      expect(reloadPage).toHaveBeenCalledTimes(1);
+    } finally {
+      release();
+    }
+  });
+
+  it('forgets a registration once released, and keeps the others', () => {
+    const { guard } = guardWith();
+    const first = holdReload(() => true);
+    const second = holdReload(() => true);
+    first();
+    first(); // releasing twice is harmless
+    expect(hasUnsavedInput()).toBe(true);
+    second();
+    expect(hasUnsavedInput()).toBe(false);
+    expect(guard.reload('ja', null)).toBe(true);
+  });
+
+  it('counts a registration that is clean as none, and none as clean', () => {
+    expect(hasUnsavedInput()).toBe(false);
+    const release = holdReload(() => false);
+    expect(hasUnsavedInput()).toBe(false);
+    release();
+  });
+
+  it('lets a caller give its own check', () => {
+    const reloadPage = vi.fn<() => void>();
+    const guard = new ReloadGuard({
+      session: new MemorySession(),
+      reloadPage,
+      online: () => true,
+      remember: () => undefined,
+      unsaved: () => true,
+    });
+    expect(guard.reload('ja', null)).toBe(false);
+    expect(reloadPage).not.toHaveBeenCalled();
   });
 });

@@ -4,11 +4,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
 import {
+  APP_NAME,
   isRtl,
   previewNeedsCjk,
   previewSvg,
   PREVIEW_WIDTH,
-  SERVER_TEXTS,
   type EventSnapshotData,
 } from '@owl/shared';
 
@@ -60,35 +60,93 @@ class Lazy<T> {
   }
 }
 
-/** Letters Nunito draws: its latin, latin-ext, cyrillic and vietnamese files. */
-const NUNITO_LETTER = /[\p{scx=Latin}\p{scx=Cyrillic}]/u;
-/** Letters the CJK font adds. It carries Greek and Cyrillic too, but no Hebrew or Thai. */
-const CJK_LETTER =
-  /[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Bopomofo}\p{scx=Greek}]/u;
-const ARABIC_LETTER = /\p{scx=Arabic}/u;
-
 /** Whether the title has a Greek letter, which only the CJK font draws. */
 const hasGreek = (title: string): boolean => /\p{scx=Greek}/u.test(title);
-const hasArabic = (title: string): boolean => ARABIC_LETTER.test(title);
+const hasArabic = (title: string): boolean => /\p{scx=Arabic}/u.test(title);
 
-/** Flags, skin tones, keycaps and the emoji planes: Nunito has none of them. */
-const EMOJI =
-  /[\p{Regional_Indicator}\p{Emoji_Modifier}\u20E3\u{1F000}-\u{1FFFF}]/u;
-/** Squared letters and ideographs (the NEW and FREE buttons), which the CJK font draws. */
-const CJK_SQUARED = /[\u{1F100}-\u{1F1AC}\u{1F200}-\u{1F251}]/u;
-/** Symbols and arrows Nunito lacks; it has (c), (r), TM and the minus sign (U+2212-2215). */
-const SYMBOL =
-  /(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u2190-\u2211\u2216-\u2BFF]/u;
+/** Whether a loaded font has a glyph for a code point. */
+export type Covers = (code: number) => boolean;
 
-/** Whether no loaded font has this emoji or symbol: resvg would draw a hollow box. */
-const undrawable = (char: string, cjk: boolean): boolean =>
-  cjk
-    ? EMOJI.test(char) && !CJK_SQUARED.test(char)
-    : EMOJI.test(char) || SYMBOL.test(char);
+/**
+ * The code points a TrueType font maps to a glyph, from its `cmap` (formats 4
+ * and 12, the Unicode subtables). Unreadable or truncated data gives what was
+ * read so far.
+ */
+function cmapOf(font: Uint8Array): Set<number> {
+  const covered = new Set<number>();
+  const view = new DataView(font.buffer, font.byteOffset, font.byteLength);
+  try {
+    let table = -1;
+    for (let i = 0, n = view.getUint16(4); i < n; i += 1)
+      if (view.getUint32(12 + i * 16) === 0x636d6170)
+        table = view.getUint32(12 + i * 16 + 8);
+    if (table < 0) return covered;
+    for (let i = 0, n = view.getUint16(table + 2); i < n; i += 1) {
+      const platform = view.getUint16(table + 4 + i * 8);
+      const encoding = view.getUint16(table + 6 + i * 8);
+      if (
+        platform !== 0 &&
+        !(platform === 3 && (encoding === 1 || encoding === 10))
+      )
+        continue;
+      const sub = table + view.getUint32(table + 8 + i * 8);
+      const format = view.getUint16(sub);
+      if (format === 12) {
+        for (let g = 0, n12 = view.getUint32(sub + 12); g < n12; g += 1) {
+          const at = sub + 16 + g * 12;
+          const start = view.getUint32(at);
+          const glyph = view.getUint32(at + 8);
+          for (let c = start; c <= view.getUint32(at + 4); c += 1)
+            if (glyph + c - start !== 0) covered.add(c);
+        }
+      } else if (format === 4) {
+        const count = view.getUint16(sub + 6) / 2;
+        const ends = sub + 14;
+        const starts = ends + count * 2 + 2;
+        const deltas = starts + count * 2;
+        const offsets = deltas + count * 2;
+        for (let seg = 0; seg < count; seg += 1) {
+          const start = view.getUint16(starts + seg * 2);
+          const delta = view.getUint16(deltas + seg * 2);
+          const offset = view.getUint16(offsets + seg * 2);
+          for (let c = start; c <= view.getUint16(ends + seg * 2); c += 1) {
+            if (c === 0xffff) break;
+            let glyph =
+              offset === 0
+                ? c
+                : view.getUint16(offsets + seg * 2 + offset + (c - start) * 2);
+            if (offset !== 0 && glyph === 0) continue;
+            glyph = (glyph + delta) & 0xffff;
+            if (glyph !== 0) covered.add(c);
+          }
+        }
+      }
+    }
+  } catch {
+    // A font cut short: the glyphs read so far still count.
+  }
+  return covered;
+}
+
+const coverage = new WeakMap<Uint8Array, Set<number>>();
+
+/** What the given fonts draw between them; each font is read once. */
+export function coverageOf(fonts: readonly Uint8Array[]): Covers {
+  const sets = fonts.map((font) => {
+    let set = coverage.get(font);
+    if (!set) coverage.set(font, (set = cmapOf(font)));
+    return set;
+  });
+  return (code) => sets.some((set) => set.has(code));
+}
+
+/** Joiners, variation selectors and tags: invisible, and no glyph in any font. */
+const JOINER = /[\u200B-\u200D\u2060]/u;
+const SELECTOR = /[\uFE00-\uFE0F\u{E0000}-\u{E007F}]/u;
 
 /**
  * The title as the loaded fonts can draw it. A character no font has comes out
- * as a hollow box: emoji and symbols are left out, each run of letters is
+ * as a hollow box: symbols and emoji are left out, each run of letters is
  * replaced by an ellipsis, and a title left without a letter or a digit
  * (Hebrew, Thai, an emoji ...) is the app's name: a picture without a title
  * looks broken, one with the name looks like a link to the poll tool.
@@ -96,29 +154,52 @@ const undrawable = (char: string, cjk: boolean): boolean =>
 export function drawableTitle(
   title: string,
   appName: string,
-  cjk: boolean,
-  arabic = false
+  covers: Covers
 ): string {
   let out = '';
   let lost = false;
   let any = false;
-  for (const char of title) {
-    if (undrawable(char, cjk)) {
-      any = true;
+  // The last character was dropped; joiners it leaves behind go with it.
+  let dropped = false;
+  for (const char of title.normalize('NFC')) {
+    const code = char.codePointAt(0)!;
+    if (SELECTOR.test(char) || (JOINER.test(char) && dropped)) {
       continue;
     }
-    const gap = /\p{L}/u.test(char)
-      ? !NUNITO_LETTER.test(char) &&
-        !(cjk && CJK_LETTER.test(char)) &&
-        !(arabic && ARABIC_LETTER.test(char))
-      : lost && /\p{M}/u.test(char);
-    if (gap) {
+    if (/\p{White_Space}/u.test(char)) {
+      out += covers(code) ? char : ' ';
+      lost = false;
+      dropped = false;
+      continue;
+    }
+    // Controls and format characters (bidi marks, the Persian half-space)
+    // have no glyph to draw or lose.
+    let shown = char;
+    if (!covers(code)) {
+      // A letter with an accent the font lacks as one glyph, drawn as two.
+      const parts = char.normalize('NFD');
+      if (
+        [...parts].length > 1 &&
+        [...parts].every((c) => covers(c.codePointAt(0)!))
+      )
+        shown = parts;
+    }
+    const keep = shown !== char || covers(code) || /\p{Cf}/u.test(char);
+    // A joiner in front of a dropped character goes with it.
+    if (!keep || (lost && /\p{M}/u.test(char)))
+      out = out.replace(/[\u200B-\u200D\u2060]+$/u, '');
+    if (!keep && /\p{L}/u.test(char)) {
       if (!lost) out += '…';
       lost = true;
       any = true;
+      dropped = true;
+    } else if (!keep || (lost && /\p{M}/u.test(char))) {
+      any = true;
+      dropped = true;
     } else {
-      out += char;
+      out += shown;
       lost = false;
+      dropped = false;
     }
   }
   return any && !/[\p{L}\p{N}]/u.test(out) ? appName : out;
@@ -181,19 +262,19 @@ export class PreviewRenderer {
   );
   /** Noto Sans CJK JP from the built client, or null when there is none. */
   private readonly cjk = new Lazy(() =>
-    this.clientFile('fonts/noto-sans-cjk-jp-regular.woff2').then((file) =>
+    this.clientFile('fonts/noto-sans-cjk-jp-regular-v2.woff2').then((file) =>
       file ? decompress(file) : null
     )
   );
   private readonly cjkSc = new Lazy(() =>
-    this.clientFile('fonts/noto-sans-cjk-sc-regular.woff2').then((file) =>
+    this.clientFile('fonts/noto-sans-cjk-sc-regular-v2.woff2').then((file) =>
       file ? decompress(file) : null
     )
   );
   private readonly arabic = new Lazy(async () => {
     const files = await Promise.all([
-      this.clientFile('fonts/owl-noto-sans-arabic-regular.woff2'),
-      this.clientFile('fonts/owl-noto-sans-arabic-bold.woff2'),
+      this.clientFile('fonts/owl-noto-sans-arabic-regular-v2.woff2'),
+      this.clientFile('fonts/owl-noto-sans-arabic-bold-v2.woff2'),
     ]);
     if (files.some((file) => file === null)) return null;
     return Promise.all(files.map((file) => decompress(file!)));
@@ -279,31 +360,18 @@ export class PreviewRenderer {
   private async draw(data: EventSnapshotData): Promise<Buffer> {
     await wasm.get();
     const fonts = [...(await this.latin.get())];
-    let cjk = false;
     if (previewNeedsCjk(data) || hasGreek(data.event.title)) {
       const font = await (data.event.language === 'zh-Hans'
         ? this.cjkSc.get()
         : this.cjk.get());
-      if (font) {
-        fonts.push(font);
-        cjk = true;
-      }
+      if (font) fonts.push(font);
     }
-    let arabic = false;
     if (isRtl(data.event.language) || hasArabic(data.event.title)) {
       const loaded = await this.arabic.get();
-      if (loaded) {
-        fonts.push(...loaded);
-        arabic = true;
-      }
+      if (loaded) fonts.push(...loaded);
     }
     const { event } = data;
-    const title = drawableTitle(
-      event.title,
-      SERVER_TEXTS[event.language].appName,
-      cjk,
-      arabic
-    );
+    const title = drawableTitle(event.title, APP_NAME, coverageOf(fonts));
     const svg = previewSvg(
       title === event.title ? data : { ...data, event: { ...event, title } },
       { host: this.host, owl: await this.owl.get() }

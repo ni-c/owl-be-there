@@ -1,5 +1,6 @@
 import type { HomeTexts } from '../home.js';
 import { RETENTION_DAYS } from '../limits.js';
+import { persianNumber } from '../texts.js';
 
 export const HOME: HomeTexts = {
   'home.lead':
@@ -27,5 +28,5 @@ export const HOME: HomeTexts = {
   'home.faq.messenger.a':
     'لینک را در گروه چت بفرست یا کد QR را نشان بده. واتس‌اپ، تلگرام و پیام‌رسان‌های دیگر پیش‌نمایشی با عنوان و روزهای پیشنهادی نشان می‌دهند. لازم نیست کسی چیزی نصب کند.',
   'home.faq.privacy.q': 'با داده‌های ما چه می‌شود؟',
-  'home.faq.privacy.a': `فقط نام‌ها و روزهایی که وارد می‌کنید ذخیره می‌شوند: نه نشانی ایمیل، نه نشانی IP، نه کوکی. رویدادها خودشان پاک می‌شوند، معمولاً ${RETENTION_DAYS} روز پس از آخرین تغییر.`,
+  'home.faq.privacy.a': `فقط نام‌ها و روزهایی که وارد می‌کنید ذخیره می‌شوند: نه نشانی ایمیل، نه نشانی IP، نه کوکی. رویدادها خودشان پاک می‌شوند، معمولاً ${persianNumber.format(RETENTION_DAYS)} روز پس از آخرین تغییر.`,
 };

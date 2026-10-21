@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/fa';
 import type { Dictionary } from './en.ts';
 
 export const fa = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.fa,
 
   ...HOME,
@@ -91,6 +90,15 @@ export const fa = {
   'error.rosterTooMany': 'هر بار حداکثر {max} نام.',
   'error.busy': 'سرور الان شلوغ است. لطفاً کمی بعد دوباره امتحان کن.',
   'error.changed': 'این پاسخ همین حالا تغییر کرد. لطفاً دوباره امتحان کن.',
+  'error.textInvisible': 'اینجا دست‌کم یک نویسهٔ قابل‌مشاهده لازم است.',
+  'error.rosterInvisible': 'سطر {line} هیچ نویسهٔ قابل‌مشاهده‌ای ندارد.',
+  'error.rosterMixed':
+    'سطر {line}: یک واژه حروف لاتین را با حروف سیریلیک یا یونانی ترکیب کرده است.',
+  'error.nameInvisible': 'نام دست‌کم یک نویسهٔ قابل‌مشاهده لازم دارد.',
+  'error.nameMixed':
+    'یک واژه در نام حروف لاتین را با حروف سیریلیک یا یونانی ترکیب کرده است.',
+  'error.createLimit':
+    'به‌تازگی رویدادهای زیادی از این شبکه ساخته شده است. لطفاً بعداً دوباره امتحان کن.',
   'error.invalid':
     'بعضی از اطلاعات معتبر نیستند. لطفاً بررسی‌شان کن و دوباره امتحان کن.',
 
@@ -131,6 +139,8 @@ export const fa = {
   'who.continue': 'ادامه',
   'who.protected':
     'نام «{name}» محافظت‌شده است. برای ادامه رمز عبور را وارد کن.',
+  'who.hasPassword': 'محافظت‌شده با رمز عبور',
+  'who.answered': 'پاسخ داده است',
   'who.wrongPassword': 'رمز عبور درست نیست.',
   'who.passwordTooShort': 'لطفاً دست‌کم {min} نویسه.',
   'who.closed': 'نظرسنجی بسته شده است. نام جدیدی اضافه نمی‌شود.',
@@ -211,6 +221,7 @@ export const fa = {
   'day.cannot': 'نمی‌توانند',
   'day.open': 'بدون پاسخ',
   'day.notes': 'توضیحات',
+  'day.noteSep': ': ',
   'day.close': 'بستن',
 
   'share.title': 'با گروهت به اشتراک بگذار',
@@ -261,7 +272,7 @@ export const fa = {
 
   'footer.language': 'زبان',
   'language.loadFailed':
-    'بارگیری {language} ممکن نشد. اتصالت را بررسی کن و صفحه را دوباره بارگیری کن.',
+    'بارگذاری {language} ممکن نشد. اتصالت را بررسی کن و صفحه را تازه کن.',
   'footer.theme': 'پوسته',
   'footer.privacy': 'حریم خصوصی',
   'footer.imprint': 'اطلاعات حقوقی',

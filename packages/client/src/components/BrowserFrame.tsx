@@ -25,7 +25,7 @@ export function BrowserFrame(props: {
     >
       <div aria-hidden="true" className="select-none">
         <div className="flex h-11 items-end gap-4 px-4">
-          <div className="flex gap-2 self-center">
+          <div className="flex shrink-0 gap-2 self-center">
             <span className="size-3 rounded-full bg-[#ff5f57]" />
             <span className="size-3 rounded-full bg-[#febc2e]" />
             <span className="size-3 rounded-full bg-[#28c840]" />
@@ -58,7 +58,7 @@ export function BrowserFrame(props: {
                 strokeWidth="1.6"
               />
             </svg>
-            <span className="truncate">
+            <span dir="ltr" className="truncate">
               <span className="font-bold">{SHOWN_HOST}</span>
               <span className="text-muted">{props.path}</span>
             </span>

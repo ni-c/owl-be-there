@@ -1,4 +1,11 @@
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { constants, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getSystemErrorName } from 'node:util';
@@ -111,6 +118,19 @@ describe('loadSecret on a file system without hard links', () => {
     const secret = loadSecret(dir, null);
     const stored = readFileSync(join(dir, 'secret.key'), 'utf8');
     expect(Buffer.from(stored, 'base64').equals(secret)).toBe(true);
+  });
+
+  it('tightens the mode of an existing key to 0600', () => {
+    const dir = scratch();
+    const path = join(dir, 'secret.key');
+    writeFileSync(path, Buffer.alloc(32, 7).toString('base64'), {
+      mode: 0o644,
+    });
+    chmodSync(path, 0o644);
+    loadSecret(dir, null);
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+    loadSecret(dir, null);
+    expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
   it.each(['EIO', 'EACCES', 'ENOENT'])(

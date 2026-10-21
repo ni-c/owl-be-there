@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/pt';
 import type { Dictionary } from './en.ts';
 
 export const pt: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.pt,
 
   ...HOME,
@@ -26,7 +25,7 @@ export const pt: Dictionary = {
   'home.forget': 'Remover {title} desta lista',
   'home.forgetOrganiser.title': 'Remover este evento deste dispositivo?',
   'home.forgetOrganiser.text':
-    'Este dispositivo guarda o link de organização de «{title}». Ao remover o evento, esse link é apagado daqui: sem uma cópia, deixas de poder fechar a votação, escolher a data ou apagar o evento a partir deste dispositivo.',
+    'Este dispositivo guarda o link de organização de «{title}». Ao remover o evento, esse link é apagado daqui: sem uma cópia, deixas de poder fechar a votação, definir a data ou apagar o evento a partir deste dispositivo.',
   'home.forgetOrganiser.yes': 'Remover deste dispositivo',
   'home.creationDisabled': 'De momento, não podes criar eventos aqui.',
 
@@ -92,7 +91,16 @@ export const pt: Dictionary = {
   'error.rosterTooMany': 'No máximo, {max} nomes de cada vez.',
   'error.busy':
     'O servidor está ocupado neste momento. Tenta outra vez daqui a pouco.',
-  'error.changed': 'Esta entrada acabou de ser alterada. Tenta outra vez.',
+  'error.changed': 'Esta resposta acabou de ser alterada. Tenta outra vez.',
+  'error.textInvisible': 'Aqui é preciso pelo menos um carácter visível.',
+  'error.rosterInvisible': 'A linha {line} não tem nenhum carácter visível.',
+  'error.rosterMixed':
+    'Linha {line}: uma palavra mistura letras latinas com cirílicas ou gregas.',
+  'error.nameInvisible': 'O nome precisa de pelo menos um carácter visível.',
+  'error.nameMixed':
+    'Uma palavra do nome mistura letras latinas com cirílicas ou gregas.',
+  'error.createLimit':
+    'Foram criados muitos eventos recentemente a partir desta rede. Tenta outra vez mais tarde.',
   'error.invalid':
     'Alguns dados não são válidos. Verifica-os e tenta outra vez.',
 
@@ -118,7 +126,7 @@ export const pt: Dictionary = {
   'event.answers_one': '{count} resposta',
   'event.answers_other': '{count} respostas',
   'event.closed': 'A votação está encerrada.',
-  'event.decided': 'A data está marcada!',
+  'event.decided': 'A data está definida!',
   'event.addToCalendar': 'Adicionar ao calendário',
   'event.icsFile': 'Ficheiro de calendário',
   'event.google': 'Google Calendar',
@@ -133,6 +141,8 @@ export const pt: Dictionary = {
     'Sem palavra-passe, qualquer pessoa com o link pode escrever o teu nome e alterar os teus dias.',
   'who.continue': 'Continuar',
   'who.protected': '«{name}» está protegido. Introduz a palavra-passe.',
+  'who.hasPassword': 'protegido por palavra-passe',
+  'who.answered': 'já respondeu',
   'who.wrongPassword': 'A palavra-passe está errada.',
   'who.passwordTooShort': 'Introduz pelo menos {min} caracteres.',
   'who.closed': 'A votação está encerrada. Não é possível adicionar nomes.',
@@ -200,8 +210,8 @@ export const pt: Dictionary = {
   'group.maybeCount': '+{count} talvez',
   'group.enough': 'pessoas suficientes',
   'group.enoughMaybe': 'suficientes com os «talvez»',
-  'group.choose': 'Marcar esta data',
-  'group.chosen': 'Marcada',
+  'group.choose': 'Definir esta data',
+  'group.chosen': 'Definida',
   'group.people': 'Quem entra na contagem',
   'group.hiddenHint': 'Toca num nome para não contar essa pessoa.',
   'group.showAll': 'Contar toda a gente',
@@ -213,6 +223,7 @@ export const pt: Dictionary = {
   'day.cannot': 'Não podem',
   'day.open': 'Sem resposta',
   'day.notes': 'Observações',
+  'day.noteSep': ': ',
   'day.close': 'Fechar',
 
   'share.title': 'Partilhar com o grupo',
@@ -231,8 +242,8 @@ export const pt: Dictionary = {
   'admin.title': 'Organização',
   'admin.close': 'Encerrar votação',
   'admin.reopen': 'Reabrir votação',
-  'admin.unchoose': 'Retirar a data marcada',
-  'admin.chooseHint': 'Escolhe a data em «Melhores dias», na vista do grupo.',
+  'admin.unchoose': 'Retirar a data definida',
+  'admin.chooseHint': 'Define a data em «Melhores dias», na vista do grupo.',
   'admin.edit': 'Detalhes',
   'admin.days': 'Dias',
   'admin.addDays': 'Adicionar dias até',
@@ -242,7 +253,7 @@ export const pt: Dictionary = {
   'admin.fillIn': 'Responder',
   'admin.resetPassword': 'Remover palavra-passe',
   'admin.resetPasswordConfirm':
-    'Remover a palavra-passe de {name}? Depois, qualquer pessoa com a ligação pode alterar esta entrada.',
+    'Remover a palavra-passe de {name}? Depois, qualquer pessoa com o link do evento pode alterar esta resposta.',
   'admin.remove': 'Remover',
   'admin.removeConfirm': 'Remover {name} e todos os seus dias?',
   'admin.delete': 'Apagar evento',
@@ -255,9 +266,9 @@ export const pt: Dictionary = {
     'Isto apaga de vez {count} resposta nos dias removidos.',
   'admin.lossMarks_other':
     'Isto apaga de vez {count} respostas nos dias removidos.',
-  'admin.lossDateShort': 'A data escolhida fica mais curta.',
+  'admin.lossDateShort': 'A data definida fica mais curta.',
   'admin.lossDateDropped':
-    'A data escolhida já não cabe e é descartada. A sondagem continua fechada.',
+    'A data definida já não cabe e é descartada. A votação continua encerrada.',
   'admin.lossConfirm': 'Guardar mesmo assim',
   'admin.noPeople': 'Ainda não há ninguém.',
 
@@ -281,7 +292,7 @@ export const pt: Dictionary = {
   'privacy.stored.person':
     'De cada pessoa guardamos o nome e os dias marcados. Também guardamos uma observação e um hash da palavra-passe, se forem adicionados.',
   'privacy.stored.nothingElse':
-    'Não há contas, endereços de e-mail, cookies nem estatísticas. A aplicação não contacta outros serviços nem guarda endereços IP. A única exceção é a ligação para o Google Calendar: ao clicares, o Google abre com o título, a descrição, o local e a ligação do evento.',
+    'Não há contas, endereços de e-mail, cookies nem estatísticas. A aplicação não contacta outros serviços nem guarda endereços IP. A única exceção é o link para o Google Calendar: ao clicares, o Google abre com o título, a descrição, o local e o link do evento.',
   'privacy.visible.title': 'Quem pode ver',
   'privacy.visible.text':
     'Quem tiver o link do evento pode ver os nomes e os dias marcados. Os motores de busca recebem a indicação para não indexar as páginas dos eventos.',
@@ -309,7 +320,7 @@ export const pt: Dictionary = {
   'privacy.source':
     'O Owl Be There é de código aberto. Podes consultar o código ou alojar a tua própria instância.',
 
-  'imprint.title': 'Aviso legal',
+  'imprint.title': 'Informação legal',
   'imprint.provider.title':
     'Identificação do prestador nos termos do § 5 DDG e do § 18 Abs. 1 MStV',
   'imprint.contact.title': 'Contacto',
@@ -322,7 +333,7 @@ export const pt: Dictionary = {
     'Não existe obrigação nem disponibilidade para participar num procedimento de resolução de litígios perante uma entidade de arbitragem de consumo (§ 36 VSBG).',
   'imprint.liability.title': 'Responsabilidade por conteúdos e ligações',
   'imprint.liability.text':
-    'Os conteúdos desta aplicação foram elaborados com cuidado. Pelos sites externos ligados é responsável o respetivo prestador; no momento da ligação não era percetível qualquer infração legal. Pelo que organizadores e participantes escrevem nas sondagens são eles próprios responsáveis.',
+    'Os conteúdos desta aplicação foram elaborados com cuidado. Pelos sites externos ligados é responsável o respetivo prestador; no momento da ligação não era percetível qualquer infração legal. Pelo que organizadores e participantes escrevem nas votações são eles próprios responsáveis.',
 
   'notFound.title': 'Não encontramos esta página.',
   'notFound.home': 'Voltar à página inicial',

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import fc from 'fast-check';
 import {
   addDays,
   arabicPunctuation,
@@ -11,6 +12,7 @@ import {
   LANGUAGES,
   LOCALES,
   SERVER_TEXTS,
+  weekdayColumnHeading,
   textWidth,
   wrapText,
   type EventSnapshotData,
@@ -134,11 +136,17 @@ describe('previewCalendar', () => {
     expect(cells.get('2026-11-07')).toBe(2);
   });
 
-  it('starts the week on Monday, and on Sunday in Japanese', () => {
+  it('starts the week on Monday, and on Sunday in Japanese and Korean', () => {
     expect(previewWeeks(snapshot())[0]![0]!.day).toBe('2026-11-02');
-    expect(previewWeeks(snapshot({ language: 'ja' }))[0]![0]!.day).toBe(
-      '2026-11-01'
-    );
+    for (const language of ['ja', 'ko'] as const)
+      expect(previewWeeks(snapshot({ language }))[0]![0]!.day, language).toBe(
+        '2026-11-01'
+      );
+    // Other CJK languages keep Monday.
+    for (const language of ['zh-Hans', 'zh-Hant'] as const)
+      expect(previewWeeks(snapshot({ language }))[0]![0]!.day, language).toBe(
+        '2026-11-02'
+      );
   });
 
   it('marks every day of the chosen block, and only those', () => {
@@ -250,6 +258,51 @@ describe('wrapText', () => {
     }
   });
 
+  it('carries an opening mark before the space the break was fixed at down to the next line', () => {
+    const cases: [string, number][] = [
+      ['(', 2.5],
+      ['「', 3],
+      ['【', 3],
+      ['“', 2.5],
+    ];
+    for (const [mark, limit] of cases) {
+      const lines = wrapText(`ab ${mark} cdefgh`, limit, 1, 10);
+      expect(lines[0], mark).toBe('ab');
+      expect(lines[1]!.startsWith(mark), mark).toBe(true);
+      expect(lines.join('').replace(/ /g, ''), mark).toBe(`ab${mark}cdefgh`);
+    }
+  });
+
+  it('loses no character at any width, with an opening mark before a space or not', () => {
+    const texts = [
+      'ab ( cdefgh ij',
+      'ab 「 cdefgh ij',
+      'ab 【 cdefgh 【 ij',
+      'ab “ cdefgh “ ij',
+      'ab ((  cdefgh',
+      '「 ab',
+      'ab 「',
+      '会議（仮）の日程 「 相談 」 です',
+      'abcd「efgh「ijkl',
+      '忘年会「ABC」の「日程」',
+    ];
+    for (const text of texts) {
+      const bare = text.replace(/\s/g, '');
+      for (let limit = 0.6; limit <= 8; limit += 0.1) {
+        const lines = wrapText(text, limit, 1, 100);
+        expect(lines.join('').replace(/\s/g, ''), `${text} @ ${limit}`).toBe(
+          bare
+        );
+      }
+    }
+  });
+
+  it('keeps the character before a break at a space when the mark is the only thing there', () => {
+    // A lone opening mark with nothing before it on the line cannot move.
+    const lines = wrapText('( abc', 0.7, 1, 10);
+    expect(lines.join('').replace(/ /g, '')).toBe('(abc');
+  });
+
   it('breaks a word longer than a line, and text without spaces', () => {
     const word = wrapText('A'.repeat(40), 300, 30, 5);
     expect(word.length).toBeGreaterThan(1);
@@ -313,6 +366,126 @@ describe('wrapText', () => {
     expect(wrapText('  a \n\t b  ', 500, 30, 2)).toEqual(['a b']);
     expect(wrapText('', 500, 30, 2)).toEqual([]);
     expect(wrapText('   ', 500, 30, 2)).toEqual([]);
+  });
+});
+
+describe('wrapText with symbols, Greek and invisible characters', () => {
+  it('measures what only the CJK font draws as wide as it is', () => {
+    for (const symbol of '★♥→☀⚽\u{1F195}')
+      expect(textWidth(symbol, 1), symbol).toBe(1);
+    for (const letter of 'αΩπ') expect(textWidth(letter, 1), letter).toBe(0.7);
+    // Nunito's own symbols keep their widths.
+    for (const char of '©®™−') expect(textWidth(char, 1), char).toBeLessThan(1);
+  });
+
+  it('counts joiners, variation selectors and tags as nothing', () => {
+    for (const char of ['\u200D', '\uFE0F', '\uFE0E', '\u{E0067}', '\u200B'])
+      expect(textWidth(char, 10), char).toBe(0);
+    expect(textWidth('a\uFE0F', 1)).toBe(textWidth('a', 1));
+  });
+
+  it('keeps a line of symbols out from under the calendar panel', () => {
+    const lines = wrapText('★'.repeat(30), 590, 60, 5);
+    for (const line of lines)
+      expect(textWidth(line, 60)).toBeLessThanOrEqual(590);
+    expect(lines.join('')).toBe('★'.repeat(30));
+  });
+
+  it('measures Arabic presentation forms as Arabic, not as full-width', () => {
+    expect(textWidth('\uFEFB', 1)).toBe(0.65);
+  });
+});
+
+describe('wrapText line-break prohibitions', () => {
+  const limit = 5; // five em of CJK per line at font size 1
+
+  it('never starts a line with a closing mark or a stop', () => {
+    expect(wrapText('一二三四五。六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '五。六',
+    ]);
+    expect(wrapText('一二三四五」六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '五」六',
+    ]);
+    expect(wrapText('一二三四五ー六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '五ー六',
+    ]);
+    expect(wrapText('一二三四五ゃ六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '五ゃ六',
+    ]);
+  });
+
+  it('never ends a line with an opening mark', () => {
+    expect(wrapText('一二三四「五六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '「五六',
+    ]);
+    expect(wrapText('一二三四（五六', limit, 1, 3)).toEqual([
+      '一二三四',
+      '（五六',
+    ]);
+  });
+
+  it('moves back over a run of such characters, and never to an empty line', () => {
+    expect(wrapText('一二三四。。五', limit, 1, 3)).toEqual([
+      '一二三',
+      '四。。五',
+    ]);
+    const lines = wrapText('。。。。。。。。', limit, 1, 4);
+    expect(lines.every((line) => line.length > 0)).toBe(true);
+    expect(lines.join('')).toBe(
+      '。。。。。。。。'.slice(0, lines.join('').length)
+    );
+    expect(
+      wrapText('「「「「「「', limit, 1, 3).every((l) => l.length > 0)
+    ).toBe(true);
+  });
+
+  it('breaks where the text allows when nothing is prohibited', () => {
+    expect(wrapText('一二三四五六', limit, 1, 3)).toEqual(['一二三四五', '六']);
+    expect(wrapText('一二三四五', limit, 1, 3)).toEqual(['一二三四五']);
+  });
+});
+
+describe('weekdayColumnHeading', () => {
+  const week = Array.from({ length: 7 }, (_, i) => addDays('2026-10-19', i));
+  const names = (locale: string) =>
+    week.map((day) => weekdayColumnHeading(day, locale));
+
+  it('uses the short names, letters for Arabic, Persian and Vietnamese', () => {
+    expect(names('en-GB')).toEqual([
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ]);
+    expect(names('vi-VN')).toEqual(['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']);
+    expect(names('ar')[0]).toBe('ن');
+    expect(names('ar-EG')[6]).toBe('ح');
+    expect(names('fa-IR-u-ca-gregory')[0]).toBe('د');
+    expect(names('ur-PK')[0]).toBe('پیر');
+    expect(names('ko-KR')[0]).toBe('월');
+  });
+
+  it('abbreviates Portuguese for Portugal like Brazil, not full words', () => {
+    const brazil = ['seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.', 'dom.'];
+    expect(names('pt-PT')).toEqual(brazil);
+    expect(names('pt-BR')).toEqual(brazil);
+    expect(names('pt')).toEqual(brazil);
+  });
+
+  it('gives every language of the app a short, non-empty heading', () => {
+    for (const language of LANGUAGES)
+      for (const name of names(LOCALES[language])) {
+        expect(name, language).not.toBe('');
+        expect([...name].length, `${language} ${name}`).toBeLessThanOrEqual(6);
+      }
   });
 });
 
@@ -438,16 +611,24 @@ describe('wrapText around Japanese dates', () => {
 
   it('is what the picture of a Japanese event shows', () => {
     for (const [start, end, first, second] of [
-      ['2027-02-26', '2027-02-28', '2027/02/26(金)～', '2027/02/28(日)'],
-      ['2027-12-30', '2028-01-02', '2027/12/30(木)～', '2028/01/02(日)'],
+      ['2027-02-26', '2027-02-28', '2027年2月26日(金)～', '28日(日)'],
+      ['2027-12-30', '2028-01-02', '2027年12月30日(木)～', '2028年1月2日(日)'],
     ] as const) {
       const data = snapshot({ language: 'ja', final: [start, end] });
       const status = previewStatus(SERVER_TEXTS.ja, data, LOCALES.ja);
       expect(status).toBe(`日程決定：${first}${second}`);
       const svg = previewSvg(data, options);
       expect(svg).toContain(`>日程決定：${first}</text>`);
-      expect(svg).toContain(`>${second}</text>`);
     }
+  });
+
+  it('keeps the day number, its 日 and the weekday together', () => {
+    expect(
+      wrapText('日程決定：2027年2月26日(金)～28日(日)', 590, 30, 3)
+    ).toEqual(['日程決定：2027年2月26日(金)～', '28日(日)']);
+    // Nothing to move back to: the line breaks where it is.
+    expect(wrapText('日(日)', 30, 30, 10).join('')).toBe('日(日)');
+    expect(wrapText('(日)', 30, 30, 10).join('')).toBe('(日)');
   });
 
   it('leaves a single day and a short range on one line', () => {
@@ -540,6 +721,77 @@ describe('monthRange', () => {
     expect(monthRange('2026-12-15', '2027-01-03', 'ja-JP')).toBe(
       '2026年12月～2027年1月'
     );
+  });
+});
+
+describe('monthRange in Chinese', () => {
+  it('writes the months out with 至 instead of ICU numeric ranges', () => {
+    for (const locale of ['zh-CN', 'zh-TW']) {
+      expect(monthRange('2026-10-15', '2026-10-20', locale), locale).toBe(
+        '2026年10月'
+      );
+      expect(monthRange('2026-10-31', '2026-11-01', locale), locale).toBe(
+        '2026年10月至11月'
+      );
+      expect(monthRange('2026-12-31', '2027-01-01', locale), locale).toBe(
+        '2026年12月至2027年1月'
+      );
+      expect(monthRange('2026-01-01', '2026-12-31', locale), locale).toBe(
+        '2026年1月至12月'
+      );
+    }
+  });
+});
+
+describe('arabicPunctuation without the glyphs the font lacks', () => {
+  // What the bundled Noto Sans Arabic subset lacks, found in its cmap.
+  const lacking = /[()+?\u2026\u2013\u2014\u00A7\u00B7]/u;
+
+  it('rewrites parentheses, question mark, ellipsis, plus and section sign', () => {
+    expect(arabicPunctuation('يوم آخر (1)')).toBe('يوم آخر، 1');
+    expect(arabicPunctuation('إجابة واحدة (1) حتى الآن')).toBe(
+      'إجابة واحدة، 1، حتى الآن'
+    );
+    expect(arabicPunctuation('(1) يوم')).toBe('1، يوم');
+    expect(arabicPunctuation('أ(ب)ج')).toBe('أ، ب، ج');
+    expect(arabicPunctuation('هل؟ ما هذا?')).toBe('هل؟ ما هذا؟');
+    expect(arabicPunctuation('عشاء…الفريق')).toBe('عشاء...الفريق');
+    expect(arabicPunctuation('+ 3 أيام § ب')).toBe(' 3 أيام  ب');
+  });
+
+  it('leaves unbalanced brackets out and other scripts alone', () => {
+    expect(arabicPunctuation('أ (ب')).toBe('أ ب');
+    expect(arabicPunctuation('أ ب)')).toBe('أ ب');
+    expect(arabicPunctuation('()أ')).toBe('، أ');
+    expect(arabicPunctuation('Party (5)? …')).toBe('Party (5)? …');
+    expect(arabicPunctuation('Привет (5)')).toBe('Привет (5)');
+  });
+
+  it('leaves no missing glyph in any Arabic text the previews draw', () => {
+    for (let n = 0; n <= 120; n += 1) {
+      const texts = [
+        SERVER_TEXTS.ar.previewOpen(n),
+        SERVER_TEXTS.ar.previewMoreDays(n),
+        SERVER_TEXTS.ar.previewDecided('x'),
+      ];
+      for (const text of texts)
+        expect(arabicPunctuation(text), text).not.toMatch(lacking);
+    }
+  });
+
+  it('draws none of them in the SVG of an Arabic preview', () => {
+    const days = Array.from({ length: 12 }, (_, i) =>
+      addDays('2026-11-02', i * 7)
+    );
+    const svg = previewSvg(
+      snapshot({ language: 'ar', title: 'عشاء (الفريق)؟', days }),
+      options
+    );
+    const lines = [...svg.matchAll(/<text [^>]*>([^<]*)</gu)].map((m) => m[1]!);
+    const arabic = lines.filter((line) => /\p{scx=Arabic}/u.test(line));
+    expect(arabic.length).toBeGreaterThan(3);
+    for (const line of arabic)
+      expect(line).not.toMatch(/[()+?\u2013\u2014\u00A7\u00B7]/u);
   });
 });
 
@@ -654,7 +906,7 @@ describe('previewSvg', () => {
     expect(urdu).toMatch(/font-size="1\d" font-weight="800"[^>]*>جمعرات</u);
     // Single letters elsewhere keep the full size.
     expect(previewSvg(snapshot({ language: 'de', days }), options)).toMatch(
-      /font-size="22" font-weight="800"[^>]*>M</
+      /font-size="22" font-weight="800"[^>]*>Mo</
     );
   });
 
@@ -883,5 +1135,43 @@ describe('the state sentence of a poll', () => {
   it('does not count people who have not answered', () => {
     const data = snapshot({ people: [{ name: 'A' }] });
     expect(sentence(data)).toBe(SERVER_TEXTS.en.previewOpen(0));
+  });
+});
+
+describe('arabicPunctuation on long or odd input', () => {
+  // The old single regex, kept here as the reference for the linear version.
+  const reference = (line: string): string =>
+    line.replace(
+      /\s*\(([^()]*)\)\s*/g,
+      (all, inner: string, at: number, whole: string) =>
+        `${at === 0 ? '' : '، '}${inner.trim()}${at + all.length >= whole.length ? '' : '، '}`
+    );
+  const strip = (line: string): string =>
+    line
+      .replace(/[–—]/g, '-')
+      .replace(/\s?·/g, '،')
+      .replace(/\?/g, '؟')
+      .replace(/…/g, '...')
+      .replace(/[()+§]/g, '');
+
+  it('turns brackets into Arabic commas exactly as before', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.constantFrom('ي', 'م', ' ', '(', ')', '5', '?', '·'), {
+          maxLength: 24,
+        }),
+        (parts) => {
+          const line = `ع${parts.join('')}`;
+          expect(arabicPunctuation(line)).toBe(strip(reference(line)));
+        }
+      )
+    );
+  });
+
+  it('stays fast on a long run of spaces', () => {
+    const line = `ع${' '.repeat(50_000)}x`;
+    const started = performance.now();
+    expect(arabicPunctuation(line)).toBe(line);
+    expect(performance.now() - started).toBeLessThan(200);
   });
 });

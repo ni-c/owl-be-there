@@ -4,6 +4,7 @@ import {
   createEvent,
   eventBody,
   getSnapshot,
+  participantOf,
   join,
   mark,
   testApp,
@@ -12,6 +13,8 @@ import {
   adminHeaders,
   sessionRequest,
   setStatus,
+  patchEvent,
+  patchParticipant,
 } from './helpers.js';
 
 let t: TestApp;
@@ -389,6 +392,109 @@ describe('marks', () => {
     );
   });
 
+  describe('a save sent as the page closes (touched)', () => {
+    const put = (
+      who: { participantId: string; token: string },
+      payload: Record<string, unknown>
+    ) =>
+      t.app.inject({
+        method: 'PUT',
+        url: `/api/events/${id}/participants/${who.participantId}/marks`,
+        headers: { 'x-participant-token': who.token },
+        payload,
+      });
+
+    it('applies only the touched days on a stale revision and keeps the rest', async () => {
+      const max = await join(t.app, id, 'Max');
+      // Another device saved 03-06 as maybe at rev 1.
+      await mark(t.app, id, max, [], ['2027-03-06'], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: ['2027-03-07'],
+        maybe: [],
+        touched: ['2027-03-07'],
+      });
+      expect(late.statusCode).toBe(200);
+      expect(late.json()).toMatchObject({
+        rev: 2,
+        yes: ['2027-03-07'],
+        maybe: ['2027-03-06'],
+      });
+      const person = (await getSnapshot(t.app, id)).participants[0];
+      expect(person).toMatchObject({
+        yes: ['2027-03-07'],
+        maybe: ['2027-03-06'],
+        rev: 2,
+      });
+    });
+
+    it('removes a touched day the save does not carry, and changes a state', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06', '2027-03-07'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: ['2027-03-07'],
+        touched: ['2027-03-06', '2027-03-07'],
+      });
+      expect(late.json()).toMatchObject({
+        rev: 2,
+        yes: [],
+        maybe: ['2027-03-07'],
+      });
+    });
+
+    it('with no touched day changes nothing but the revision', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: [],
+        touched: [],
+      });
+      expect(late.json()).toMatchObject({ rev: 2, yes: ['2027-03-06'] });
+    });
+
+    it('ignores a touched day that is no candidate', async () => {
+      const max = await join(t.app, id, 'Max');
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      const late = await put(max, {
+        baseRev: 0,
+        yes: [],
+        maybe: [],
+        touched: ['2031-01-01'],
+      });
+      expect(late.statusCode).toBe(200);
+      expect(late.json()).toMatchObject({ yes: ['2027-03-06'] });
+    });
+
+    it('answers a current revision like any save, without the merged marks', async () => {
+      const max = await join(t.app, id, 'Max');
+      const saved = await put(max, {
+        baseRev: 0,
+        yes: ['2027-03-06'],
+        maybe: [],
+        touched: ['2027-03-06'],
+      });
+      expect(saved.statusCode).toBe(200);
+      expect(Object.keys(saved.json()).sort()).toEqual(['rev', 'version']);
+    });
+
+    it('still refuses a save from a revision ahead of the server, and one without touched', async () => {
+      const max = await join(t.app, id, 'Max');
+      const ahead = await put(max, {
+        baseRev: 5,
+        yes: ['2027-03-06'],
+        maybe: [],
+        touched: ['2027-03-06'],
+      });
+      expect(ahead.statusCode).toBe(409);
+      await mark(t.app, id, max, ['2027-03-06'], [], 0);
+      expect((await mark(t.app, id, max, [], [], 0)).statusCode).toBe(409);
+    });
+  });
+
   it('refuses a day marked as both yes and maybe', async () => {
     const max = await join(t.app, id, 'Max');
     const response = await mark(t.app, id, max, ['2027-03-06'], ['2027-03-06']);
@@ -424,12 +530,7 @@ describe('marks', () => {
   describe('after the organiser removed a day', () => {
     const DAYS = ['2027-03-05', ...WEEKEND];
     const remove = (days: string[]) =>
-      t.app.inject({
-        method: 'PATCH',
-        url: `/api/events/${id}`,
-        headers: adminHeaders(adminToken),
-        payload: { days, baseDays: DAYS },
-      });
+      patchEvent(t.app, id, adminToken, { days, baseDays: DAYS });
 
     it('answers a save that still carries it with the 409 and the current marks', async () => {
       const max = await join(t.app, id, 'Max');
@@ -503,11 +604,9 @@ describe('marks', () => {
       t.clock.time += ms;
     };
     const add = async (...days: string[]) => {
-      const response = await t.app.inject({
-        method: 'PATCH',
-        url: `/api/events/${id}`,
-        headers: adminHeaders(adminToken),
-        payload: { days: [...current, ...days], baseDays: current },
+      const response = await patchEvent(t.app, id, adminToken, {
+        days: [...current, ...days],
+        baseDays: current,
       });
       expect(response.statusCode).toBe(200);
       current = [...current, ...days];
@@ -751,11 +850,9 @@ describe('marks', () => {
       const { max, addedAt } = await answeredThenAdded();
       // The organiser removes 2027-03-05 meanwhile; the list still has it, and
       // a day that was never a candidate.
-      const removed = await t.app.inject({
-        method: 'PATCH',
-        url: `/api/events/${id}`,
-        headers: adminHeaders(adminToken),
-        payload: { days: ['2027-03-06', '2027-03-07', NEW], baseDays: current },
+      const removed = await patchEvent(t.app, id, adminToken, {
+        days: ['2027-03-06', '2027-03-07', NEW],
+        baseDays: current,
       });
       expect(removed.statusCode).toBe(200);
       const saved = await mark(t.app, id, max, ['2027-03-06'], [], 1, [
@@ -929,38 +1026,35 @@ describe('marks', () => {
 });
 
 describe('changing a participant', () => {
-  const patch = (
-    pid: string,
-    headers: Record<string, string>,
-    payload: Record<string, unknown>
-  ) =>
-    t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}/participants/${pid}`,
-      headers,
-      payload,
-    });
-
   it('renames, but not to a name someone else has', async () => {
     const max = await join(t.app, id, 'Max');
     await join(t.app, id, 'Ana');
-    const taken = await patch(
+    const taken = await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { name: 'ana' }
     );
     expect(taken.statusCode).toBe(409);
     expect(taken.json().error).toBe('name_taken');
-    const renamed = await patch(
+    const renamed = await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { name: 'Maximilian' }
     );
-    expect(renamed.json().participant.name).toBe('Maximilian');
+    expect(renamed.statusCode).toBe(200);
+    expect((await participantOf(t.app, id, max.participantId)).name).toBe(
+      'Maximilian'
+    );
     // Renaming to another spelling of one's own name is fine.
     expect(
       (
-        await patch(
+        await patchParticipant(
+          t.app,
+          id,
           max.participantId,
           { 'x-participant-token': max.token },
           { name: 'MAXIMILIAN' }
@@ -973,9 +1067,15 @@ describe('changing a participant', () => {
     const max = await join(t.app, id, 'Max');
     const headers = { 'x-participant-token': max.token };
     for (const c of ['\u200D', '\u200C', '\u{E0041}', '\u206A', '\u2800']) {
-      const response = await patch(max.participantId, headers, {
-        name: `M${c}\u0430${c}x`,
-      });
+      const response = await patchParticipant(
+        t.app,
+        id,
+        max.participantId,
+        headers,
+        {
+          name: `M${c}\u0430${c}x`,
+        }
+      );
       expect(response.statusCode, `${c.codePointAt(0)}`).toBe(400);
       expect(response.json().error).toBe('validation_failed');
     }
@@ -985,7 +1085,9 @@ describe('changing a participant', () => {
   it('treats an invisible character before an accent as the same name', async () => {
     const jose = await join(t.app, id, 'Jos\u00E9');
     const ana = await join(t.app, id, 'Ana');
-    const taken = await patch(
+    const taken = await patchParticipant(
+      t.app,
+      id,
       ana.participantId,
       { 'x-participant-token': ana.token },
       { name: 'Jose\u200D\u0301' }
@@ -993,16 +1095,20 @@ describe('changing a participant', () => {
     expect(taken.statusCode).toBe(409);
     expect(taken.json().error).toBe('name_taken');
     // One's own name in that spelling is no clash.
-    const own = await patch(
+    const own = await patchParticipant(
+      t.app,
+      id,
       jose.participantId,
       { 'x-participant-token': jose.token },
       { name: 'Jose\u200D\u0301' }
     );
     expect(own.statusCode).toBe(200);
-    expect(own.json().participant.name).toBe('Jose\u200D\u0301');
+    expect((await participantOf(t.app, id, jose.participantId)).name).toBe(
+      'Jose\u200D\u0301'
+    );
   });
 
-  it('answers with the participant as the snapshot shows them', async () => {
+  it('keeps every part of the participant view coming from the one row', async () => {
     const max = await join(t.app, id, 'Max');
     await join(t.app, id, 'Ana');
     // Marks, a day added after the answer (unseen) and a password: every part
@@ -1010,22 +1116,19 @@ describe('changing a participant', () => {
     await mark(t.app, id, max, ['2027-03-06'], ['2027-03-07']);
     t.clock.advanceDays(1);
     const days = (await getSnapshot(t.app, id)).event.days as string[];
-    await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        days: [...days, '2027-03-08'],
-        baseDays: days,
-      },
+    await patchEvent(t.app, id, adminToken, {
+      days: [...days, '2027-03-08'],
+      baseDays: days,
     });
-    const response = await patch(
+    const response = await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { note: 'late', password: 'secret-1' }
     );
     expect(response.statusCode).toBe(200);
-    const view = response.json().participant;
+    const view = await participantOf(t.app, id, max.participantId);
     expect(view).toMatchObject({
       note: 'late',
       hasPassword: true,
@@ -1034,16 +1137,19 @@ describe('changing a participant', () => {
       maybe: ['2027-03-07'],
       unseen: ['2027-03-08'],
     });
-    const fromSnapshot = (await getSnapshot(t.app, id)).participants.find(
-      (p: { id: string }) => p.id === max.participantId
-    );
-    expect(view).toEqual(fromSnapshot);
     // Someone who has not answered has nothing unseen and no marks.
     const ana = (await getSnapshot(t.app, id)).participants.find(
       (p: { name: string }) => p.name === 'Ana'
     );
-    const quiet = await patch(ana.id, adminHeaders(adminToken), { note: 'x' });
-    expect(quiet.json().participant).toMatchObject({
+    const quiet = await patchParticipant(
+      t.app,
+      id,
+      ana.id,
+      adminHeaders(adminToken),
+      { note: 'x' }
+    );
+    expect(quiet.statusCode).toBe(200);
+    expect(await participantOf(t.app, id, ana.id)).toMatchObject({
       answered: false,
       yes: [],
       maybe: [],
@@ -1053,28 +1159,38 @@ describe('changing a participant', () => {
 
   it('sets and clears the note', async () => {
     const max = await join(t.app, id, 'Max');
-    const set = await patch(
+    await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { note: 'only after 6 pm' }
     );
-    expect(set.json().participant.note).toBe('only after 6 pm');
-    const cleared = await patch(
+    expect((await participantOf(t.app, id, max.participantId)).note).toBe(
+      'only after 6 pm'
+    );
+    await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { note: '' }
     );
-    expect(cleared.json().participant.note).toBeNull();
+    expect((await participantOf(t.app, id, max.participantId)).note).toBeNull();
   });
 
   it('changes the password, handing the owner a new token and revoking the old', async () => {
     const max = await join(t.app, id, 'Max');
-    const response = await patch(
+    const response = await patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { password: 'secret-1' }
     );
-    expect(response.json().participant.hasPassword).toBe(true);
+    expect(
+      (await participantOf(t.app, id, max.participantId)).hasPassword
+    ).toBe(true);
     const fresh = response.json().token as string;
     expect(fresh).not.toBe(max.token);
     expect((await mark(t.app, id, max, WEEKEND)).statusCode).toBe(403);
@@ -1095,32 +1211,51 @@ describe('changing a participant', () => {
     const headers = { 'x-participant-token': max.token };
     // The schema refuses it, counting characters like the session route.
     for (const password of ['😀😀😀', '😀'.repeat(5)]) {
-      const response = await patch(max.participantId, headers, { password });
+      const response = await patchParticipant(
+        t.app,
+        id,
+        max.participantId,
+        headers,
+        { password }
+      );
       expect(response.statusCode).toBe(400);
       expect(response.json().error).toBe('validation_failed');
     }
     expect(
-      (await patch(max.participantId, headers, { password: 'abc' })).statusCode
+      (
+        await patchParticipant(t.app, id, max.participantId, headers, {
+          password: 'abc',
+        })
+      ).statusCode
     ).toBe(400);
     // Still unprotected, and the old token still works.
     expect((await getSnapshot(t.app, id)).participants[0].hasPassword).toBe(
       false
     );
     expect(
-      (await patch(max.participantId, headers, { password: '😀'.repeat(6) }))
-        .statusCode
+      (
+        await patchParticipant(t.app, id, max.participantId, headers, {
+          password: '😀'.repeat(6),
+        })
+      ).statusCode
     ).toBe(200);
   });
 
   it('lets the organiser reset a password without receiving a token', async () => {
     const max = await join(t.app, id, 'Max', 'secret-1');
-    const response = await patch(max.participantId, adminHeaders(adminToken), {
-      password: null,
-    });
-    expect(response.json()).toMatchObject({
-      participant: { hasPassword: false },
-      token: null,
-    });
+    const response = await patchParticipant(
+      t.app,
+      id,
+      max.participantId,
+      adminHeaders(adminToken),
+      {
+        password: null,
+      }
+    );
+    expect(response.json()).toEqual({ token: null });
+    expect(
+      (await participantOf(t.app, id, max.participantId)).hasPassword
+    ).toBe(false);
     expect((await sessionRequest(t.app, id, { name: 'Max' })).statusCode).toBe(
       200
     );
@@ -1151,23 +1286,15 @@ describe('changing a participant', () => {
 });
 
 describe('tokens revoked while a password is hashed', () => {
-  const patch = (
-    pid: string,
-    headers: Record<string, string>,
-    payload: Record<string, unknown>
-  ) =>
-    t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}/participants/${pid}`,
-      headers,
-      payload,
-    });
-
   it('no longer write: of two changes with one token only one wins', async () => {
     const max = await join(t.app, id, 'Max');
     const headers = { 'x-participant-token': max.token };
-    const slow = patch(max.participantId, headers, { password: 'attacker-pw' });
-    const clearing = patch(max.participantId, headers, { password: null });
+    const slow = patchParticipant(t.app, id, max.participantId, headers, {
+      password: 'attacker-pw',
+    });
+    const clearing = patchParticipant(t.app, id, max.participantId, headers, {
+      password: null,
+    });
     const [first, second] = await Promise.all([slow, clearing]);
     expect(first.statusCode).toBe(403);
     expect(second.statusCode).toBe(200);
@@ -1178,16 +1305,28 @@ describe('tokens revoked while a password is hashed', () => {
     expect(view.hasPassword).toBe(false);
     // The token the winner was given is the one that works.
     expect(
-      (await patch(max.participantId, headers, { note: 'x' })).statusCode
+      (
+        await patchParticipant(t.app, id, max.participantId, headers, {
+          note: 'x',
+        })
+      ).statusCode
     ).toBe(403);
   });
 
   it('do not stop the organiser, whose key is no token', async () => {
     const max = await join(t.app, id, 'Max');
-    const slow = patch(max.participantId, adminHeaders(adminToken), {
-      password: 'organiser-pw',
-    });
-    const clearing = patch(
+    const slow = patchParticipant(
+      t.app,
+      id,
+      max.participantId,
+      adminHeaders(adminToken),
+      {
+        password: 'organiser-pw',
+      }
+    );
+    const clearing = patchParticipant(
+      t.app,
+      id,
       max.participantId,
       { 'x-participant-token': max.token },
       { password: null }
@@ -1202,7 +1341,9 @@ describe('tokens revoked while a password is hashed', () => {
     const pid = (await getSnapshot(t.app, id)).participants[0].id as string;
     const [login, reset] = await Promise.all([
       sessionRequest(t.app, id, { name: 'Ann', password: 'secret-1' }),
-      patch(pid, adminHeaders(adminToken), { password: null }),
+      patchParticipant(t.app, id, pid, adminHeaders(adminToken), {
+        password: null,
+      }),
     ]);
     expect(reset.statusCode).toBe(200);
     expect(login.statusCode).toBe(409);

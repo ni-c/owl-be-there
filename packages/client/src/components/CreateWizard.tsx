@@ -15,16 +15,23 @@ import {
   type Mark,
   type Weekday,
 } from '@owl/shared';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { api } from '../lib/api.ts';
 import { daysProblem, rangeProblemKey, type Problem } from '../lib/dayEdit.ts';
-import { errorMessage } from '../lib/errors.ts';
-import { checkMinCount, parseRoster } from '../lib/forms.ts';
+import { createErrorMessage } from '../lib/errors.ts';
+import {
+  asciiDigits,
+  checkMinCount,
+  checkTitle,
+  invisibleProblem,
+  parseRoster,
+} from '../lib/forms.ts';
 import { rovingKeyDown } from '../lib/roving.ts';
 import { firstWeekdayFor, weekdayName, weekdayOrder } from '../lib/locale.ts';
 import { rememberEvent, writeAdminToken } from '../lib/prefs.ts';
 import { navigate } from '../lib/route.ts';
+import { holdReload } from '../lib/reloadGuard.ts';
 import { CalendarGrid } from './CalendarGrid.tsx';
 import { Button, Card, Field, Notice, TextArea, TextInput } from './ui.tsx';
 
@@ -37,7 +44,7 @@ const STEP_NUMBERS = Array.from({ length: STEPS }, (_, i) => i + 1);
  * will use — so the organiser has used it once before sending the link.
  */
 export function CreateWizard({ onCancel }: { onCancel(): void }) {
-  const { t, tn, language, locale } = useI18n();
+  const { t, tn, number, language, locale } = useI18n();
   const today = todayLocal();
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
 
@@ -62,6 +69,26 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const [tried, setTried] = useState<ReadonlySet<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const legendRef = useRef<HTMLLegendElement>(null);
+  const arrived = useRef(false);
+
+  // A language reload would lose what has been typed so far.
+  useEffect(
+    () =>
+      holdReload(() => [title, description, location, roster].some(Boolean)),
+    [title, description, location, roster]
+  );
+
+  // A new step starts at its heading, which also tells a screen reader.
+  useEffect(() => {
+    if (!arrived.current) {
+      arrived.current = true;
+      return;
+    }
+    legendRef.current?.focus({ preventScroll: true });
+    formRef.current?.scrollIntoView({ block: 'start' });
+  }, [step]);
 
   const rangeProblem = useMemo(() => {
     const key = rangeProblemKey(from, to, today);
@@ -99,15 +126,24 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   const text = (problem: Problem | null) =>
     problem && t(problem.key, problem.params);
 
-  const titleError =
-    tried.has(1) && title.trim() === '' ? t('error.titleRequired') : null;
+  const titleProblem = checkTitle(title);
+  const locationProblem = invisibleProblem(location);
+  const creatorProblem = invisibleProblem(creatorName);
+  const titleError = tried.has(1) ? text(titleProblem) : null;
+  const locationError = tried.has(1) ? text(locationProblem) : null;
+  const creatorError = tried.has(1) ? text(creatorProblem) : null;
   const daysError = tried.has(2) ? dayProblem() : rangeProblem;
   const minCountError = tried.has(3) ? text(minCountProblem) : null;
   const rosterError = tried.has(3) ? text(parsedRoster.problem) : null;
 
   const validate = (which: number): boolean => {
     setTried((current) => new Set(current).add(which));
-    if (which === 1) return title.trim() !== '';
+    if (which === 1)
+      return (
+        titleProblem === null &&
+        locationProblem === null &&
+        creatorProblem === null
+      );
     if (which === 2) return dayProblem() === null;
     return minCountProblem === null && parsedRoster.problem === null;
   };
@@ -142,7 +178,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
       );
       navigate(`/e/${created.id}`, { state: { created: true } });
     } catch (error) {
-      setSubmitError(errorMessage(error, t));
+      setSubmitError(createErrorMessage(error, t, { count: duration }));
       setSubmitting(false);
     }
   };
@@ -150,6 +186,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
   return (
     <Card>
       <form
+        ref={formRef}
         onSubmit={(event) => void submit(event)}
         noValidate
         className="flex flex-col gap-6"
@@ -171,7 +208,11 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
         {step === 1 && (
           <fieldset className="flex flex-col gap-5">
-            <legend className="mb-4 text-xl font-extrabold">
+            <legend
+              ref={legendRef}
+              tabIndex={-1}
+              className="mb-4 text-xl font-extrabold"
+            >
               {t('create.what')}
             </legend>
             <Field label={t('create.titleLabel')} error={titleError}>
@@ -242,10 +283,12 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
               )}
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label={t('create.location')}>
-                {({ id }) => (
+              <Field label={t('create.location')} error={locationError}>
+                {({ id, describedBy, invalid }) => (
                   <TextInput
                     id={id}
+                    aria-describedby={describedBy}
+                    aria-invalid={invalid}
                     value={location}
                     maxLength={LIMITS.location}
                     placeholder={t('create.locationPlaceholder')}
@@ -253,10 +296,15 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                   />
                 )}
               </Field>
-              <Field label={t('create.creator')} hint={t('create.creatorHint')}>
-                {({ id, describedBy }) => (
+              <Field
+                label={t('create.creator')}
+                hint={t('create.creatorHint')}
+                error={creatorError}
+              >
+                {({ id, describedBy, invalid }) => (
                   <TextInput
                     id={id}
+                    aria-invalid={invalid}
                     value={creatorName}
                     maxLength={LIMITS.creatorName}
                     autoComplete="name"
@@ -271,7 +319,11 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
         {step === 2 && (
           <fieldset className="flex flex-col gap-5">
-            <legend className="mb-4 text-xl font-extrabold">
+            <legend
+              ref={legendRef}
+              tabIndex={-1}
+              className="mb-4 text-xl font-extrabold"
+            >
               {t('create.when')}
             </legend>
             <div className="grid grid-cols-2 gap-4">
@@ -324,7 +376,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                       key={weekday}
                       type="button"
                       aria-pressed={on}
-                      aria-label={weekdayName(weekday, locale, 'long')}
+                      aria-label={`${weekdayName(weekday, locale, 'short')}: ${weekdayName(weekday, locale, 'long')}`}
                       onClick={() => {
                         const next = new Set(weekdays);
                         if (on) next.delete(weekday);
@@ -375,7 +427,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                   className="min-w-8 text-center text-2xl font-black"
                   aria-live="polite"
                 >
-                  {duration}
+                  {number(duration)}
                 </output>
                 <Button
                   onClick={() =>
@@ -424,7 +476,11 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
 
         {step === 3 && (
           <fieldset className="flex flex-col gap-5">
-            <legend className="mb-4 text-xl font-extrabold">
+            <legend
+              ref={legendRef}
+              tabIndex={-1}
+              className="mb-4 text-xl font-extrabold"
+            >
               {t('create.who')}
             </legend>
             <Field
@@ -454,7 +510,7 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
                   inputMode="numeric"
                   value={minCount}
                   onChange={(event) =>
-                    setMinCount(event.target.value.replace(/\D/g, ''))
+                    setMinCount(asciiDigits(event.target.value))
                   }
                   aria-describedby={describedBy}
                   aria-invalid={invalid}
@@ -468,7 +524,10 @@ export function CreateWizard({ onCancel }: { onCancel(): void }) {
         {submitError && <Notice tone="error">{submitError}</Notice>}
 
         <div className="flex flex-wrap justify-between gap-3">
-          <Button onClick={() => (step === 1 ? onCancel() : setStep(step - 1))}>
+          <Button
+            disabled={submitting}
+            onClick={() => (step === 1 ? onCancel() : setStep(step - 1))}
+          >
             {t('create.back')}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>

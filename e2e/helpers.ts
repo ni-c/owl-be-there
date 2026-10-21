@@ -5,6 +5,7 @@ import {
   type Page,
   type TestInfo,
 } from '@playwright/test';
+import { en } from '../packages/client/src/i18n/en.ts';
 
 // Read once per worker, so D(n) is the same day for the whole run even when it
 // crosses midnight UTC between creating an event and clicking its days.
@@ -115,7 +116,7 @@ export async function joinAs(page: Page, name: string): Promise<void> {
   await showView(page, 'mine');
   await page.getByLabel('Your name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText(`Hi ${name}!`)).toBeVisible();
+  await expect(greeting(page, name)).toBeVisible();
 }
 
 export function isMobile(testInfo: TestInfo): boolean {
@@ -128,4 +129,105 @@ export async function saved(page: Page): Promise<void> {
   await expect(
     page.getByRole('status').filter({ hasText: 'Saved' })
   ).toBeVisible();
+}
+
+/** The local-storage key under which the client keeps an event's organiser key. */
+export function adminKeyName(id: string): string {
+  return `owl.admin.${id}`;
+}
+
+/** The organiser key the browser has stored for an event, or null. */
+export function storedAdminKey(page: Page, id: string): Promise<string | null> {
+  return page.evaluate((key) => localStorage.getItem(key), adminKeyName(id));
+}
+
+/** The heading of the organiser panel; present only with a working key. */
+export function organiserTools(page: Page): Locator {
+  return page.getByRole('heading', { name: 'Organiser tools' });
+}
+
+/** Open an event with the organiser link and wait for the tools. */
+export async function openAsOrganiser(
+  page: Page,
+  event: CreatedEvent
+): Promise<void> {
+  await page.goto(`/e/${event.id}#admin=${event.adminToken}`);
+  await expect(organiserTools(page)).toBeVisible();
+}
+
+const EN_KEYS = Object.keys(en);
+
+/** No sideways scroll: nothing sticks out past the right edge of the window. */
+export async function expectNoHorizontalOverflow(
+  page: Page,
+  where: string
+): Promise<void> {
+  // A mobile browser widens its layout viewport to the content, so
+  // innerWidth grows with an overflow; the configured viewport does not.
+  const viewport = page.viewportSize()?.width;
+  const overflow = await page.evaluate((configured) => {
+    const width = Math.min(window.innerWidth, configured ?? Infinity);
+    if (document.documentElement.scrollWidth <= width + 1) return null;
+    const wide = [...document.body.querySelectorAll('*')]
+      .filter((el) => el.getBoundingClientRect().right > width + 1)
+      .slice(0, 5)
+      .map((el) => `${el.tagName.toLowerCase()}.${el.className}`);
+    return { scrollWidth: document.documentElement.scrollWidth, width, wide };
+  }, viewport);
+  expect(overflow, `${where}: horizontal overflow`).toBeNull();
+}
+
+/** Texts on the page that are a key of the English dictionary: a lookup that missed. */
+export async function expectNoRawKeys(
+  page: Page,
+  where: string
+): Promise<void> {
+  const raw = await page.evaluate((keys) => {
+    const known = new Set(keys);
+    const found: string[] = [];
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT
+    );
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent?.trim() ?? '';
+      if (known.has(text)) found.push(text);
+    }
+    for (const el of document.body.querySelectorAll('*'))
+      for (const name of ['aria-label', 'placeholder', 'title', 'alt']) {
+        const value = el.getAttribute(name)?.trim() ?? '';
+        if (known.has(value)) found.push(`${name}=${value}`);
+      }
+    return found;
+  }, EN_KEYS);
+  expect(raw, `${where}: raw dictionary keys`).toEqual([]);
+}
+
+/** `lang` is the language's code; `dir` is rtl for Arabic, Persian and Urdu only. */
+export async function expectLangAndDir(
+  page: Page,
+  language: string,
+  where: string
+): Promise<void> {
+  const html = page.locator('html');
+  await expect(html, `${where}: lang`).toHaveAttribute('lang', language);
+  await expect(html, `${where}: dir`).toHaveAttribute(
+    'dir',
+    ['ar', 'fa', 'ur'].includes(language) ? 'rtl' : 'ltr'
+  );
+}
+
+/** The URLs of the full CJK fonts the page asks for; read the array after the visit. */
+export function watchFullCjkFonts(page: Page): string[] {
+  const requested: string[] = [];
+  page.on('request', (request) => {
+    if (/\/fonts\/noto-sans-cjk-[^/]*-regular[^/]*\.woff2/.test(request.url()))
+      requested.push(request.url());
+  });
+  return requested;
+}
+
+/** The "Hi <name>!" line; the client wraps the name in a bidi isolate. */
+export function greeting(page: Page, name: string): Locator {
+  return page.getByText(`Hi \u2068${name}\u2069!`);
 }

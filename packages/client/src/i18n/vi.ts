@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/vi';
 import type { Dictionary } from './en.ts';
 
 export const vi = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.vi,
   ...HOME,
   'home.cta': 'Lên kế hoạch sự kiện',
@@ -16,7 +15,7 @@ export const vi = {
   'home.example.noteBen':
     'Ngày thường mình hơi kẹt — thứ Năm thì có lẽ được, từ giữa tháng.',
   'home.example.noteMax':
-    'Thứ Năm mình tập hợp xướng đến giữa tháng, sau đó thì rảnh.',
+    'Thứ Năm mình bận tập hát với dàn hợp xướng đến giữa tháng, sau đó thì rảnh.',
   'event.planOwn.title': 'Bạn muốn tự lên kế hoạch?',
   'event.planOwn.text':
     'Tạo sự kiện của riêng bạn trong một phút, không cần tài khoản.',
@@ -89,6 +88,15 @@ export const vi = {
   'error.rosterTooMany': 'Tối đa {max} tên mỗi lần.',
   'error.busy': 'Máy chủ đang bận. Hãy thử lại sau giây lát.',
   'error.changed': 'Câu trả lời này vừa được thay đổi. Hãy thử lại.',
+  'error.textInvisible': 'Cần ít nhất một ký tự nhìn thấy được.',
+  'error.rosterInvisible': 'Dòng {line} không có ký tự nào nhìn thấy được.',
+  'error.rosterMixed':
+    'Dòng {line}: một từ trộn chữ Latin với chữ Kirin hoặc chữ Hy Lạp.',
+  'error.nameInvisible': 'Tên cần có ít nhất một ký tự nhìn thấy được.',
+  'error.nameMixed':
+    'Một từ trong tên trộn chữ Latin với chữ Kirin hoặc chữ Hy Lạp.',
+  'error.createLimit':
+    'Gần đây có nhiều sự kiện được tạo từ mạng này. Hãy thử lại sau nhé.',
   'error.invalid': 'Một số thông tin không hợp lệ. Hãy kiểm tra rồi thử lại.',
 
   'event.loading': 'Đang tải sự kiện…',
@@ -127,6 +135,8 @@ export const vi = {
     'Nếu không có mật khẩu, ai có liên kết cũng có thể nhập tên bạn và sửa ngày của bạn.',
   'who.continue': 'Tiếp tục',
   'who.protected': '“{name}” đã được bảo vệ. Nhập mật khẩu để tiếp tục.',
+  'who.hasPassword': 'được bảo vệ bằng mật khẩu',
+  'who.answered': 'đã trả lời',
   'who.wrongPassword': 'Mật khẩu không đúng.',
   'who.passwordTooShort': 'Cần ít nhất {min} ký tự.',
   'who.closed': 'Bình chọn đã đóng. Không thể thêm tên mới.',
@@ -206,6 +216,7 @@ export const vi = {
   'day.cannot': 'Không đi được',
   'day.open': 'Chưa trả lời',
   'day.notes': 'Ghi chú',
+  'day.noteSep': ': ',
   'day.close': 'Đóng',
 
   'share.title': 'Chia sẻ với nhóm của bạn',
@@ -298,7 +309,7 @@ export const vi = {
   'privacy.instance.loading': 'Đang tải thông tin đơn vị vận hành…',
   'privacy.instance.failed':
     'Không tải được thông tin đơn vị vận hành. Hãy tải lại trang để thử lại.',
-  'privacy.operator.title': 'Ai vận hành phiên bản này',
+  'privacy.operator.title': 'Ai vận hành dịch vụ này',
   'privacy.operator.contact': 'Liên hệ: {contact}',
   'privacy.source':
     'Owl Be There là mã nguồn mở. Bạn có thể đọc mã hoặc tự chạy nó.',

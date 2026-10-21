@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { arrowTarget, rovingKeyDown } from '../src/lib/roving.ts';
+import { arrowTarget, rovingKeyDown, shortcutKey } from '../src/lib/roving.ts';
 
 describe('arrowTarget', () => {
   it('moves forward with right and down, backward with left and up', () => {
@@ -112,6 +112,22 @@ describe('rovingKeyDown', () => {
     expect(s.focus.every((f) => !f.mock.calls.length)).toBe(true);
   });
 
+  it.each(['altKey', 'ctrlKey', 'metaKey'])(
+    'leaves %s+Arrow to the browser',
+    (modifier) => {
+      const s = setup('ArrowRight');
+      Object.assign(s.event, { [modifier]: true });
+      rovingKeyDown(
+        s.event as unknown as KeyboardEvent<HTMLElement>,
+        0,
+        3,
+        s.choose
+      );
+      expect(s.choose).not.toHaveBeenCalled();
+      expect(s.event.preventDefault).not.toHaveBeenCalled();
+    }
+  );
+
   it('lets a horizontal strip keep up and down for the page', () => {
     const s = run('ArrowDown', 0, false);
     expect(s.choose).not.toHaveBeenCalled();
@@ -128,5 +144,30 @@ describe('rovingKeyDown', () => {
       s.choose
     );
     expect(s.choose).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('shortcutKey', () => {
+  it('takes a Latin letter from the key, whatever the physical position', () => {
+    expect(shortcutKey('y', 'KeyY')).toBe('y');
+    expect(shortcutKey('Y', 'KeyY')).toBe('y');
+    // QWERTZ: the key printed Z sits where QWERTY has Y.
+    expect(shortcutKey('z', 'KeyY')).toBe('z');
+    expect(shortcutKey('y', 'KeyZ')).toBe('y');
+  });
+
+  it('falls back to the physical key on a layout without Latin letters', () => {
+    expect(shortcutKey('н', 'KeyY')).toBe('y');
+    expect(shortcutKey('ь', 'KeyM')).toBe('m');
+    expect(shortcutKey('ي', 'KeyZ')).toBe('z');
+    expect(shortcutKey('ㅛ', 'KeyY')).toBe('y');
+  });
+
+  it('leaves other keys alone, and tolerates a missing code', () => {
+    expect(shortcutKey('?', 'Slash')).toBe('?');
+    expect(shortcutKey('Enter', 'Enter')).toBe('enter');
+    expect(shortcutKey('Dead', 'KeyY')).toBe('dead');
+    expect(shortcutKey('н', '')).toBe('н');
+    expect(shortcutKey('', 'KeyY')).toBe('');
   });
 });

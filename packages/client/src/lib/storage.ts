@@ -39,19 +39,15 @@ export function browserBacking(
 export class Store {
   private readonly backing: Backing | null;
   private readonly memory = new Map<string, string>();
+  // Keys whose last write or removal the backing refused: memory is newer.
+  private readonly unsynced = new Set<string>();
 
   constructor(backing: Backing | null) {
     this.backing = backing;
   }
 
   read<T>(key: string, schema: z.ZodType<T>): T | null {
-    let raw: string | null;
-    try {
-      raw = this.backing?.getItem(key) ?? null;
-    } catch {
-      raw = null;
-    }
-    raw ??= this.memory.get(key) ?? null;
+    const raw = this.raw(key);
     if (raw === null) return null;
     let value: unknown;
     try {
@@ -63,13 +59,34 @@ export class Store {
     return parsed.success ? parsed.data : null;
   }
 
+  /**
+   * The stored text. A backing that answers is the truth, so data removed
+   * elsewhere (another tab, the developer tools) stays removed; memory serves
+   * when there is no backing, it throws, or it refused our last change.
+   */
+  private raw(key: string): string | null {
+    if (this.backing && !this.unsynced.has(key)) {
+      try {
+        const stored = this.backing.getItem(key);
+        if (stored === null) this.memory.delete(key);
+        else this.memory.set(key, stored);
+        return stored;
+      } catch {
+        // Fall through to the memory copy.
+      }
+    }
+    return this.memory.get(key) ?? null;
+  }
+
   write(key: string, value: unknown): void {
     const raw = JSON.stringify(value);
     this.memory.set(key, raw);
     try {
       this.backing?.setItem(key, raw);
+      this.unsynced.delete(key);
     } catch {
       // Full or blocked: the memory copy still serves this tab.
+      this.unsynced.add(key);
     }
   }
 
@@ -77,8 +94,10 @@ export class Store {
     this.memory.delete(key);
     try {
       this.backing?.removeItem(key);
+      this.unsynced.delete(key);
     } catch {
-      // Nothing to undo: the memory copy is gone either way.
+      // The memory copy is gone; the key reads as absent from now on.
+      this.unsynced.add(key);
     }
   }
 }

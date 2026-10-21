@@ -19,6 +19,7 @@ import {
   isLanguage,
   isoFromDayNumber,
   isRtl,
+  type Language,
   LAST_DAY,
   LANGUAGE_NAMES,
   LANGUAGES,
@@ -28,12 +29,13 @@ import {
   makeId,
   MarksBody,
   maxISODate,
+  persianNumber,
+  pluralForm,
   nameKey,
   NewPassword,
   RETENTION_DAYS,
   RTL_LANGUAGES,
   SERVER_TEXTS,
-  APP_NAME,
   DESCRIPTION_EN,
   TAGLINES,
   SessionBody,
@@ -86,7 +88,7 @@ describe('retention at the end of the calendar', () => {
         finalEnd: null,
         answered: true,
       })
-    ).toBe('9999-12-31');
+    ).toBe('2028-12-31');
     expect(
       expiresOn({
         lastWriteDay: '9999-12-01',
@@ -98,7 +100,7 @@ describe('retention at the end of the calendar', () => {
     // The day before the end still works as always.
     expect(
       expiresOn({
-        lastWriteDay: '2027-01-01',
+        lastWriteDay: '9999-06-01',
         lastCandidateDay: '9999-12-30',
         finalEnd: null,
         answered: true,
@@ -203,8 +205,37 @@ describe('retention of an event nobody answered', () => {
       finalEnd: null,
     } as const;
     expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
-    expect(expiresOn({ ...input, answered: true })).toBe('2032-03-02');
+    expect(expiresOn({ ...input, answered: true })).toBe('2029-02-28');
     expect(expiresOn({ ...input, answered: false })).toBe('2027-05-30');
+  });
+
+  it('caps the answered extension at 730 days after the last change', () => {
+    const base = {
+      lastWriteDay: '2027-03-01',
+      finalEnd: null,
+      answered: true,
+    } as const;
+    // 2029-02-28 is day 730; the day after the last day lands exactly on it.
+    expect(expiresOn({ ...base, lastCandidateDay: '2029-02-27' })).toBe(
+      '2029-02-28'
+    );
+    expect(expiresOn({ ...base, lastCandidateDay: '2029-02-28' })).toBe(
+      '2029-02-28'
+    );
+    expect(expiresOn({ ...base, lastCandidateDay: '2029-02-26' })).toBe(
+      '2029-02-27'
+    );
+    expect(expiresOn({ ...base, lastCandidateDay: '2099-01-01' })).toBe(
+      '2029-02-28'
+    );
+    // A chosen date far out is capped the same way.
+    expect(
+      expiresOn({
+        ...base,
+        lastCandidateDay: '2027-04-01',
+        finalEnd: '2035-01-01',
+      })
+    ).toBe('2029-02-28');
   });
 
   it('does not outlast an answered event with a short horizon', () => {
@@ -603,7 +634,6 @@ describe('the name and tagline', () => {
 
   it('are what the server texts say, in every language', () => {
     for (const language of LANGUAGES) {
-      expect(SERVER_TEXTS[language].appName, language).toBe(APP_NAME);
       expect(SERVER_TEXTS[language].tagline, language).toBe(TAGLINES[language]);
       expect(TAGLINES[language].trim(), language).not.toBe('');
     }
@@ -654,7 +684,22 @@ describe('texts', () => {
       '2027年3月6日(土)'
     );
     expect(formatDayRange('2027-03-06', '2027-03-07', 'ja-JP')).toBe(
-      '2027/03/06(土)～2027/03/07(日)'
+      '2027年3月6日(土)～7日(日)'
+    );
+    expect(formatDayRange('2027-03-06', '2027-04-02', 'ja-JP')).toBe(
+      '2027年3月6日(土)～4月2日(金)'
+    );
+    expect(formatDayRange('2027-12-31', '2028-01-02', 'ja-JP')).toBe(
+      '2027年12月31日(金)～2028年1月2日(日)'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-07', 'zh-CN')).toBe(
+      '2027年3月6日周六至3月7日周日'
+    );
+    expect(formatDayRange('2027-12-31', '2028-01-02', 'zh-TW')).toBe(
+      '2027年12月31日週五至2028年1月2日週日'
+    );
+    expect(formatDayRange('2027-03-06', '2027-03-07', 'sv-SE')).toBe(
+      'lör 6 mars 2027–sön 7 mars 2027'
     );
     expect(formatDayRange('2027-03-06', '2027-03-06', 'nl-NL')).toBe(
       'za 6 maart 2027'
@@ -677,8 +722,8 @@ describe('texts', () => {
     expect(SERVER_TEXTS.it.previewOpen(1)).toContain('1 risposta');
     expect(SERVER_TEXTS.it.previewOpen(2)).toContain('2 risposte');
     expect(SERVER_TEXTS.ja.previewOpen(0)).not.toMatch(/\d/);
-    expect(SERVER_TEXTS.ja.previewOpen(1)).toContain('回答は現在1人');
-    expect(SERVER_TEXTS.ja.previewOpen(2)).toContain('回答は現在2人');
+    expect(SERVER_TEXTS.ja.previewOpen(1)).toContain('これまでに1人が回答');
+    expect(SERVER_TEXTS.ja.previewOpen(2)).toContain('これまでに2人が回答');
     expect(SERVER_TEXTS.nl.previewOpen(1)).toContain('1 antwoord');
     expect(SERVER_TEXTS.nl.previewOpen(2)).toContain('2 antwoorden');
   });
@@ -694,10 +739,10 @@ describe('texts', () => {
       'Ya hay fecha: sáb, 6 de marzo'
     );
     expect(SERVER_TEXTS.fr.previewDecided('sam. 6 mars')).toBe(
-      'La date est fixée : sam. 6 mars'
+      'La date est fixée : sam. 6 mars'
     );
     expect(SERVER_TEXTS.pt.previewDecided('sábado, 6 de março')).toBe(
-      'A data está marcada: sábado, 6 de março'
+      'A data está definida: sábado, 6 de março'
     );
     expect(SERVER_TEXTS.it.previewDecided('sab 6 marzo')).toBe(
       'La data è decisa: sab 6 marzo'
@@ -1047,5 +1092,500 @@ describe('schemas', () => {
         MarksBody.safeParse({ ...marks, days: [], known: [] }).success
       ).toBe(false);
     });
+  });
+});
+
+/** A day, two days, a block over a month end and one over a year end. */
+const DAY_RANGES: Record<Language, string[]> = {
+  ar: [
+    'السبت، 6 مارس 2027',
+    'السبت، 6 – الأحد، 7 مارس، 2027',
+    'السبت، 6 مارس – الجمعة، 2 أبريل، 2027',
+    'الجمعة، 31 ديسمبر 2027 – الأحد، 2 يناير 2028',
+  ],
+  cs: [
+    'so 6. března 2027',
+    'so 6. 3. – ne 7. 3. 2027',
+    'so 6. 3. – pá 2. 4. 2027',
+    'pá 31. 12. 2027 – ne 2. 1. 2028',
+  ],
+  de: [
+    'Sa., 6. März 2027',
+    'Sa., 6. – So., 7. März 2027',
+    'Sa., 6. März – Fr., 2. April 2027',
+    'Fr., 31. Dezember 2027 – So., 2. Januar 2028',
+  ],
+  en: [
+    'Sat, 6 March 2027',
+    'Sat, 6 March – Sun, 7 March 2027',
+    'Sat, 6 March – Fri, 2 April 2027',
+    'Fri, 31 December 2027 – Sun, 2 January 2028',
+  ],
+  es: [
+    'sáb, 6 de marzo de 2027',
+    'sáb, 6 de marzo – dom, 7 de marzo de 2027',
+    'sáb, 6 de marzo – vie, 2 de abril de 2027',
+    'vie, 31 de diciembre de 2027 – dom, 2 de enero de 2028',
+  ],
+  'es-419': [
+    'sáb, 6 de marzo de 2027',
+    'sáb, 6 de marzo – dom, 7 de marzo de 2027',
+    'sáb, 6 de marzo – vie, 2 de abril de 2027',
+    'vie, 31 de diciembre de 2027 – dom, 2 de enero de 2028',
+  ],
+  fa: [
+    'شنبه ۶ مارس ۲۰۲۷',
+    'شنبه ۶ مارس تا یکشنبه ۷ مارس ۲۰۲۷',
+    'شنبه ۶ مارس تا جمعه ۲ آوریل ۲۰۲۷',
+    'جمعه ۳۱ دسامبر ۲۰۲۷ تا یکشنبه ۲ ژانویهٔ ۲۰۲۸',
+  ],
+  fi: [
+    'la 6. maaliskuuta 2027',
+    'la 6. – su 7. maaliskuuta 2027',
+    'la 6. maaliskuuta – pe 2. huhtikuuta 2027',
+    'pe 31. joulukuuta 2027 – su 2. tammikuuta 2028',
+  ],
+  fr: [
+    'sam. 6 mars 2027',
+    'sam. 6 – dim. 7 mars 2027',
+    'sam. 6 mars – ven. 2 avril 2027',
+    'ven. 31 décembre 2027 – dim. 2 janvier 2028',
+  ],
+  id: [
+    'Sab, 6 Maret 2027',
+    'Sab, 6 Maret – Min, 7 Maret 2027',
+    'Sab, 6 Maret – Jum, 2 April 2027',
+    'Jum, 31 Desember 2027 – Min, 2 Januari 2028',
+  ],
+  it: [
+    'sab 6 marzo 2027',
+    'sab 6 – dom 7 marzo 2027',
+    'sab 6 marzo – ven 2 aprile 2027',
+    'ven 31 dicembre 2027 – dom 2 gennaio 2028',
+  ],
+  ja: [
+    '2027年3月6日(土)',
+    '2027年3月6日(土)～7日(日)',
+    '2027年3月6日(土)～4月2日(金)',
+    '2027年12月31日(金)～2028年1月2日(日)',
+  ],
+  ko: [
+    '2027년 3월 6일 토',
+    '2027년 3월 6일 (토)~7일 (일)',
+    '2027년 3월 6일 (토)~4월 2일 (금)',
+    '2027년 12월 31일 (금)~2028년 1월 2일 (일)',
+  ],
+  nb: [
+    'lør. 6. mars 2027',
+    'lør. 6.–søn. 7. mars 2027',
+    'lør. 6. mars–fre. 2. april 2027',
+    'fre. 31. desember 2027–søn. 2. januar 2028',
+  ],
+  nl: [
+    'za 6 maart 2027',
+    'za 6 – zo 7 maart 2027',
+    'za 6 maart – vr 2 april 2027',
+    'vr 31 december 2027 – zo 2 januari 2028',
+  ],
+  pl: [
+    'sob., 6 marca 2027',
+    'sob., 6 marca – niedz., 7 marca 2027',
+    'sob., 6 marca – pt., 2 kwietnia 2027',
+    'pt., 31 grudnia 2027 – niedz., 2 stycznia 2028',
+  ],
+  pt: [
+    'sábado, 6 de março de 2027',
+    'sábado, 6 de março de 2027 – domingo, 7 de março de 2027',
+    'sábado, 6 de março de 2027 – sexta, 2 de abril de 2027',
+    'sexta, 31 de dezembro de 2027 – domingo, 2 de janeiro de 2028',
+  ],
+  'pt-BR': [
+    'sáb., 6 de março de 2027',
+    'sáb., 6 de março – dom., 7 de março de 2027',
+    'sáb., 6 de março – sex., 2 de abril de 2027',
+    'sex., 31 de dezembro de 2027 – dom., 2 de janeiro de 2028',
+  ],
+  ru: [
+    'сб, 6 марта 2027 г.',
+    'сб, 6 – вс, 7 марта 2027 г.',
+    'сб, 6 марта – пт, 2 апреля 2027 г.',
+    'пт, 31 декабря 2027 г. – вс, 2 января 2028 г.',
+  ],
+  sv: [
+    'lör 6 mars 2027',
+    'lör 6 mars 2027–sön 7 mars 2027',
+    'lör 6 mars 2027–fre 2 april 2027',
+    'fre 31 december 2027–sön 2 januari 2028',
+  ],
+  tr: [
+    '6 Mart 2027 Cmt',
+    '6 Mart 2027 Cmt – 7 Mart 2027 Paz',
+    '6 Mart 2027 Cmt – 2 Nisan 2027 Cum',
+    '31 Aralık 2027 Cum – 2 Ocak 2028 Paz',
+  ],
+  uk: [
+    'сб, 6 березня 2027 р.',
+    'сб, 6 – нд, 7 березня 2027 р.',
+    'сб, 6 березня – пт, 2 квітня 2027 р.',
+    'пт, 31 грудня 2027 – нд, 2 січня 2028 рр.',
+  ],
+  ur: [
+    'ہفتہ، 6 مارچ، 2027',
+    'ہفتہ، 6 مارچ – اتوار، 7 مارچ، 2027',
+    'ہفتہ، 6 مارچ – جمعہ، 2 اپریل، 2027',
+    'جمعہ، 31 دسمبر، 2027 – اتوار، 2 جنوری، 2028',
+  ],
+  vi: [
+    'Thứ 7, 6 tháng 3, 2027',
+    'Thứ 7, 6 tháng 3 – CN, 7 tháng 3, 2027',
+    'Thứ 7, 6 tháng 3 – Thứ 6, 2 tháng 4, 2027',
+    'Thứ 6, 31 tháng 12, 2027 – CN, 2 tháng 1, 2028',
+  ],
+  'zh-Hans': [
+    '2027年3月6日周六',
+    '2027年3月6日周六至3月7日周日',
+    '2027年3月6日周六至4月2日周五',
+    '2027年12月31日周五至2028年1月2日周日',
+  ],
+  'zh-Hant': [
+    '2027年3月6日週六',
+    '2027年3月6日週六至3月7日週日',
+    '2027年3月6日週六至4月2日週五',
+    '2027年12月31日週五至2028年1月2日週日',
+  ],
+};
+
+describe('formatDayRange in every language', () => {
+  it('writes a day and blocks of days the way each language writes them', () => {
+    const pairs = [
+      ['2027-03-06', '2027-03-06'],
+      ['2027-03-06', '2027-03-07'],
+      ['2027-03-06', '2027-04-02'],
+      ['2027-12-31', '2028-01-02'],
+    ] as const;
+    for (const language of LANGUAGES) {
+      const written = pairs.map(([start, end]) =>
+        // ICU writes narrow no-break spaces in some locales.
+        formatDayRange(start, end, LOCALES[language]).replace(
+          /[\s\u202f]+/g,
+          ' '
+        )
+      );
+      expect(written, language).toEqual(DAY_RANGES[language]);
+    }
+  });
+
+  it('does not zero-pad a day in any language', () => {
+    for (const language of LANGUAGES) {
+      const text = formatDayRange(
+        '2027-03-06',
+        '2027-03-07',
+        LOCALES[language]
+      );
+      expect(text, language).not.toMatch(/(^|\D)0\d(\D|$)/);
+    }
+  });
+});
+
+describe('pluralForm', () => {
+  const forms = {
+    zero: 'zero',
+    one: 'one',
+    two: 'two',
+    few: 'few',
+    many: 'many',
+    other: 'other',
+  };
+
+  it('follows the plural rules of the language', () => {
+    expect(
+      [0, 1, 2, 3, 5, 11, 21, 22, 101].map((n) => pluralForm('en', n, forms))
+    ).toEqual([
+      'other',
+      'one',
+      'other',
+      'other',
+      'other',
+      'other',
+      'other',
+      'other',
+      'other',
+    ]);
+    expect(
+      [0, 1, 2, 3, 5, 11, 21, 22, 101].map((n) => pluralForm('ru', n, forms))
+    ).toEqual([
+      'many',
+      'one',
+      'few',
+      'few',
+      'many',
+      'many',
+      'one',
+      'few',
+      'one',
+    ]);
+    expect(
+      [0, 1, 2, 3, 5, 11, 21, 22, 101].map((n) => pluralForm('ar', n, forms))
+    ).toEqual([
+      'zero',
+      'one',
+      'two',
+      'few',
+      'few',
+      'many',
+      'many',
+      'many',
+      'other',
+    ]);
+    expect([0, 1, 2, 5].map((n) => pluralForm('ja', n, forms))).toEqual([
+      'other',
+      'other',
+      'other',
+      'other',
+    ]);
+  });
+
+  it('falls back to other for a category the forms leave out', () => {
+    expect(pluralForm('ru', 5, { one: 'a', other: 'b' })).toBe('b');
+    expect(pluralForm('ar', 0, { one: 'a', other: 'b' })).toBe('b');
+  });
+});
+
+describe('the server texts read right for every count', () => {
+  const counts = [0, 1, 2, 3, 5, 11, 21, 22, 101];
+  // The noun phrase each count asks for, where the language has more than one.
+  const expected: Partial<
+    Record<Language, { answers: string[]; days: string[] }>
+  > = {
+    ar: {
+      answers: [
+        '',
+        'إجابة واحدة (1) حتى الآن',
+        'إجابتان (2) حتى الآن',
+        '3 إجابات حتى الآن',
+        '5 إجابات حتى الآن',
+        '11 إجابة حتى الآن',
+        '21 إجابة حتى الآن',
+        '22 إجابة حتى الآن',
+        '101 إجابة حتى الآن',
+      ],
+      days: [
+        '0 يوم آخر',
+        'يوم آخر (1)',
+        'يومان آخران (2)',
+        '3 أيام أخرى',
+        '5 أيام أخرى',
+        '11 يوماً آخر',
+        '21 يوماً آخر',
+        '22 يوماً آخر',
+        '101 يوم آخر',
+      ],
+    },
+    cs: {
+      answers: [
+        '',
+        ...[
+          '1 odpověď',
+          '2 odpovědi',
+          '3 odpovědi',
+          '5 odpovědí',
+          '11 odpovědí',
+          '21 odpovědí',
+          '22 odpovědí',
+          '101 odpovědí',
+        ],
+      ],
+      days: [
+        '0 dalších dní',
+        '1 další den',
+        '2 další dny',
+        '3 další dny',
+        '5 dalších dní',
+        '11 dalších dní',
+        '21 dalších dní',
+        '22 dalších dní',
+        '101 dalších dní',
+      ],
+    },
+    pl: {
+      answers: [
+        '',
+        '1 odpowiedź',
+        '2 odpowiedzi',
+        '3 odpowiedzi',
+        '5 odpowiedzi',
+        '11 odpowiedzi',
+        '21 odpowiedzi',
+        '22 odpowiedzi',
+        '101 odpowiedzi',
+      ],
+      days: [
+        '0 dni',
+        '1 dzień',
+        '2 dni',
+        '3 dni',
+        '5 dni',
+        '11 dni',
+        '21 dni',
+        '22 dni',
+        '101 dni',
+      ],
+    },
+    ru: {
+      answers: [
+        '',
+        '1 ответ',
+        '2 ответа',
+        '3 ответа',
+        '5 ответов',
+        '11 ответов',
+        '21 ответ',
+        '22 ответа',
+        '101 ответ',
+      ],
+      days: [
+        '0 дней',
+        '1 день',
+        '2 дня',
+        '3 дня',
+        '5 дней',
+        '11 дней',
+        '21 день',
+        '22 дня',
+        '101 день',
+      ],
+    },
+    uk: {
+      answers: [
+        '',
+        '1 відповідь',
+        '2 відповіді',
+        '3 відповіді',
+        '5 відповідей',
+        '11 відповідей',
+        '21 відповідь',
+        '22 відповіді',
+        '101 відповідь',
+      ],
+      days: [
+        '0 днів',
+        '1 день',
+        '2 дні',
+        '3 дні',
+        '5 днів',
+        '11 днів',
+        '21 день',
+        '22 дні',
+        '101 день',
+      ],
+    },
+    en: {
+      answers: [
+        '',
+        '1 answer',
+        '2 answers',
+        '3 answers',
+        '5 answers',
+        '11 answers',
+        '21 answers',
+        '22 answers',
+        '101 answers',
+      ],
+      days: [
+        '0 more days',
+        '1 more day',
+        '2 more days',
+        '3 more days',
+        '5 more days',
+        '11 more days',
+        '21 more days',
+        '22 more days',
+        '101 more days',
+      ],
+    },
+    de: {
+      answers: [
+        '',
+        '1 Antwort',
+        '2 Antworten',
+        '3 Antworten',
+        '5 Antworten',
+        '11 Antworten',
+        '21 Antworten',
+        '22 Antworten',
+        '101 Antworten',
+      ],
+      days: [
+        '0 weitere Tage',
+        '1 weiterer Tag',
+        '2 weitere Tage',
+        '3 weitere Tage',
+        '5 weitere Tage',
+        '11 weitere Tage',
+        '21 weitere Tage',
+        '22 weitere Tage',
+        '101 weitere Tage',
+      ],
+    },
+    fr: {
+      answers: [
+        '',
+        '1 réponse',
+        '2 réponses',
+        '3 réponses',
+        '5 réponses',
+        '11 réponses',
+        '21 réponses',
+        '22 réponses',
+        '101 réponses',
+      ],
+      days: [
+        '0 autre jour',
+        '1 autre jour',
+        '2 autres jours',
+        '3 autres jours',
+        '5 autres jours',
+        '11 autres jours',
+        '21 autres jours',
+        '22 autres jours',
+        '101 autres jours',
+      ],
+    },
+  };
+
+  it('pins the languages with more than one plural form', () => {
+    for (const [language, words] of Object.entries(expected) as [
+      Language,
+      { answers: string[]; days: string[] },
+    ][]) {
+      const texts = SERVER_TEXTS[language];
+      counts.forEach((n, index) => {
+        if (n > 0) {
+          expect(texts.previewOpen(n), `${language} ${n}`).toContain(
+            words.answers[index]
+          );
+        }
+        expect(texts.previewMoreDays(n), `${language} ${n}`).toContain(
+          words.days[index]
+        );
+      });
+    }
+  });
+
+  it('writes the count in every language, in Persian digits for Persian', () => {
+    for (const language of LANGUAGES) {
+      const texts = SERVER_TEXTS[language];
+      expect(texts.previewOpen(0), language).not.toMatch(/[\d۰-۹]/);
+      for (const n of counts.filter((count) => count > 0)) {
+        const digits = language === 'fa' ? persianNumber.format(n) : String(n);
+        expect(texts.previewOpen(n), `${language} ${n}`).toContain(digits);
+      }
+      for (const n of counts) {
+        const digits = language === 'fa' ? persianNumber.format(n) : String(n);
+        const more = texts.previewMoreDays(n);
+        expect(more, `${language} ${n}`).toContain(digits);
+        expect(more, `${language} ${n}`).not.toMatch(/undefined|NaN/);
+      }
+    }
   });
 });

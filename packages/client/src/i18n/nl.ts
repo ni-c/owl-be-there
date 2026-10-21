@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/nl';
 import type { Dictionary } from './en.ts';
 
 export const nl: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.nl,
 
   ...HOME,
@@ -16,9 +15,9 @@ export const nl: Dictionary = {
     'Een verzonnen evenement om uit te proberen – er wordt niets opgeslagen.',
   'home.example.reset': 'Opnieuw beginnen',
   'home.example.noteBen':
-    'Doordeweeks wordt het krap — donderdag misschien, vanaf midden van de maand.',
+    'Doordeweeks wordt het krap — donderdag misschien, vanaf halverwege de maand.',
   'home.example.noteMax':
-    'Tot midden van de maand op donderdag koorrepetitie, daarna ben ik vrij.',
+    'Tot halverwege de maand op donderdag koorrepetitie, daarna ben ik vrij.',
   'event.planOwn.title': 'Zelf iets plannen?',
   'event.planOwn.text':
     'Maak in een minuut je eigen evenement, zonder account.',
@@ -27,13 +26,13 @@ export const nl: Dictionary = {
   'home.forget': 'Verwijder {title} uit deze lijst',
   'home.forgetOrganiser.title': 'Dit evenement van dit apparaat verwijderen?',
   'home.forgetOrganiser.text':
-    'Op dit apparaat staat de link als organisator voor ‘{title}’. Als je het evenement verwijdert, verdwijnt die link hier: zonder kopie kun je vanaf dit apparaat de poll niet meer sluiten, geen datum kiezen en het evenement niet verwijderen.',
+    'Op dit apparaat staat de link als organisator voor ‘{title}’. Als je het evenement van dit apparaat verwijdert, verdwijnt die link hier: zonder kopie kun je vanaf dit apparaat de poll niet meer sluiten, geen datum kiezen en het evenement niet voor iedereen verwijderen.',
   'home.forgetOrganiser.yes': 'Van dit apparaat verwijderen',
   'home.creationDisabled': 'Je kunt hier nu geen nieuwe evenementen maken.',
 
   'create.title': 'Plan een evenement',
   'create.step': 'Stap {current} van {total}',
-  'create.what': 'Wat gaan jullie doen?',
+  'create.what': 'Waar gaat het om?',
   'create.titleLabel': 'Titel',
   'create.titlePlaceholder': 'Voetballen in het park',
   'create.emoji': 'Pictogram',
@@ -91,8 +90,18 @@ export const nl: Dictionary = {
   'error.numberRange': 'Voer een getal in van {min} tot {max}.',
   'error.rosterLine': 'Een naam mag hoogstens {max} tekens lang zijn.',
   'error.rosterTooMany': 'Maximaal {max} namen tegelijk.',
-  'error.busy': 'De server is het even druk. Probeer het zo meteen nog eens.',
+  'error.busy':
+    'De server heeft het even druk. Probeer het zo meteen nog eens.',
   'error.changed': 'Deze invoer is zojuist gewijzigd. Probeer het nog eens.',
+  'error.textInvisible': 'Hier moet minstens één zichtbaar teken staan.',
+  'error.rosterInvisible': 'Regel {line} bevat geen zichtbaar teken.',
+  'error.rosterMixed':
+    'Regel {line}: een woord mengt Latijnse letters met Cyrillische of Griekse.',
+  'error.nameInvisible': 'De naam heeft minstens één zichtbaar teken nodig.',
+  'error.nameMixed':
+    'Een woord in de naam mengt Latijnse letters met Cyrillische of Griekse.',
+  'error.createLimit':
+    'Vanaf dit netwerk zijn onlangs veel evenementen aangemaakt. Probeer het later opnieuw.',
   'error.invalid':
     'Sommige gegevens zijn niet geldig. Controleer ze en probeer het nog eens.',
 
@@ -117,7 +126,7 @@ export const nl: Dictionary = {
   'event.tabGroup': 'Groep',
   'event.answers_one': '{count} antwoord',
   'event.answers_other': '{count} antwoorden',
-  'event.closed': 'Je kunt niet meer antwoorden.',
+  'event.closed': 'De poll is gesloten.',
   'event.decided': 'De datum staat vast!',
   'event.addToCalendar': 'Toevoegen aan agenda',
   'event.icsFile': 'Agendabestand',
@@ -134,10 +143,11 @@ export const nl: Dictionary = {
   'who.continue': 'Verder',
   'who.protected':
     '‘{name}’ is beveiligd. Vul het wachtwoord in om verder te gaan.',
+  'who.hasPassword': 'met wachtwoord beveiligd',
+  'who.answered': 'heeft geantwoord',
   'who.wrongPassword': 'Dat wachtwoord klopt niet.',
   'who.passwordTooShort': 'Gebruik minstens {min} tekens.',
-  'who.closed':
-    'Je kunt niet meer antwoorden. Nieuwe namen kunnen niet meedoen.',
+  'who.closed': 'De poll is gesloten. Nieuwe namen kunnen niet meedoen.',
   'who.full': 'Dit evenement zit vol.',
 
   'mine.hello': 'Hoi {name}!',
@@ -161,7 +171,7 @@ export const nl: Dictionary = {
   'mine.retrying': 'Offline. We proberen het opnieuw…',
   'mine.failed': 'Opslaan is niet gelukt.',
   'mine.closed':
-    'Je kunt niet meer antwoorden. Je dagen aanpassen kan nu niet.',
+    'De poll is gesloten. Je kunt je dagen nu niet meer aanpassen.',
   'mine.entry': 'Antwoord bewerken',
   'mine.rename': 'Naam',
   'mine.setPassword': 'Wachtwoord instellen',
@@ -216,6 +226,7 @@ export const nl: Dictionary = {
   'day.cannot': 'Kunnen niet',
   'day.open': 'Nog geen antwoord',
   'day.notes': 'Opmerkingen',
+  'day.noteSep': ': ',
   'day.close': 'Sluiten',
 
   'share.title': 'Deel met je groep',
@@ -232,8 +243,8 @@ export const nl: Dictionary = {
     'Houd deze link voor jezelf. Iedereen met de link kan het evenement veranderen of verwijderen. Bewaar hem goed. Je hebt hem nodig om het evenement op een ander apparaat te beheren.',
 
   'admin.title': 'Voor de organisator',
-  'admin.close': 'Antwoorden sluiten',
-  'admin.reopen': 'Antwoorden weer openen',
+  'admin.close': 'Poll sluiten',
+  'admin.reopen': 'Poll weer openen',
   'admin.unchoose': 'Gekozen datum terugdraaien',
   'admin.chooseHint': 'Kies een datum bij ‘Beste dagen’ in de groepsweergave.',
   'admin.edit': 'Details',
@@ -247,7 +258,7 @@ export const nl: Dictionary = {
   'admin.resetPasswordConfirm':
     'Het wachtwoord van {name} verwijderen? Daarna kan iedereen met de link deze inzending wijzigen.',
   'admin.remove': 'Verwijderen',
-  'admin.removeConfirm': '{name} en alle gekozen dagen verwijderen?',
+  'admin.removeConfirm': '{name} en alle dagen van deze persoon verwijderen?',
   'admin.delete': 'Evenement verwijderen',
   'admin.deleteConfirm':
     'Dit evenement voor iedereen verwijderen? Dit kun je niet terugdraaien.',
@@ -269,7 +280,7 @@ export const nl: Dictionary = {
     '{language} kon niet worden geladen. Controleer je verbinding en laad de pagina opnieuw.',
   'footer.theme': 'Weergave',
   'footer.privacy': 'Privacy',
-  'footer.imprint': 'Colofon',
+  'footer.imprint': 'Juridische informatie',
   'footer.source': 'Open source van Willi Thiel',
   'theme.system': 'Systeem',
   'theme.light': 'Licht',
@@ -314,12 +325,12 @@ export const nl: Dictionary = {
 
   'imprint.title': 'Juridische informatie',
   'imprint.provider.title':
-    'Aanbiederidentificatie volgens § 5 DDG en § 18 Abs. 1 MStV',
+    'Aanbiederidentificatie volgens § 5 DDG en § 18 lid 1 MStV',
   'imprint.contact.title': 'Contact',
   'imprint.contact.label': 'E-mail:',
   'imprint.about.title': 'Over Owl Be There',
   'imprint.about.text':
-    'Owl Be There is een privé-project zonder winstoogmerk en is gratis te gebruiken. Er is geen reclame en er zijn geen betaalde content.',
+    'Owl Be There is een privéproject zonder winstoogmerk en is gratis te gebruiken. Er is geen reclame en er is geen betaalde content.',
   'imprint.dispute.title': 'Beslechting van consumentengeschillen',
   'imprint.dispute.text':
     'Er is geen verplichting en geen bereidheid om deel te nemen aan een geschillenbeslechtingsprocedure voor een consumentenarbitrage-instantie (§ 36 VSBG).',

@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/cs';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const cs = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.cs,
   ...HOME,
   'home.cta': 'Naplánovat událost',
@@ -89,6 +88,15 @@ export const cs = {
   'error.rosterTooMany': 'Najednou lze přidat nejvýše {max} jmen.',
   'error.busy': 'Server je právě vytížený. Zkus to za chvíli.',
   'error.changed': 'Tento záznam se právě změnil. Zkus to znovu.',
+  'error.textInvisible': 'Tady musí být aspoň jeden viditelný znak.',
+  'error.rosterInvisible': 'Řádek {line} neobsahuje žádný viditelný znak.',
+  'error.rosterMixed':
+    'Řádek {line}: jedno slovo míchá latinku s azbukou nebo řečtinou.',
+  'error.nameInvisible': 'Jméno musí mít aspoň jeden viditelný znak.',
+  'error.nameMixed':
+    'Jedno slovo ve jménu míchá latinku s azbukou nebo řečtinou.',
+  'error.createLimit':
+    'Z této sítě bylo nedávno vytvořeno hodně akcí. Zkus to prosím později.',
   'error.invalid':
     'Některé údaje nejsou platné. Zkontroluj je a zkus to znovu.',
 
@@ -128,6 +136,8 @@ export const cs = {
     'Bez hesla může kdokoli s odkazem zadat tvoje jméno a změnit tvoje dny.',
   'who.continue': 'Pokračovat',
   'who.protected': 'Záznam „{name}“ je chráněný. Pro pokračování zadej heslo.',
+  'who.hasPassword': 'chráněno heslem',
+  'who.answered': 'odpověděl(a)',
   'who.wrongPassword': 'Heslo není správné.',
   'who.passwordTooShort': 'Heslo musí mít alespoň {min} znaků.',
   'who.closed': 'Hlasování je uzavřeno. Nová jména se už nemohou připojit.',
@@ -173,14 +183,14 @@ export const cs = {
   'cal.yes': 'může',
   'cal.maybe': 'možná',
   'cal.no': 'neoznačeno',
-  'cal.off': 'není možný termín',
-  'cal.on': 'možný termín',
+  'cal.off': 'není možný den',
+  'cal.on': 'možný den',
   'cal.new': 'nový',
   'cal.past': 'uplynul',
   'cal.othersCan_one': 'může ještě {count} člověk',
   'cal.othersCan_other': 'může ještě {count} lidí',
   'cal.heat': 'může {yes}, možná {maybe}, nemůže {no}',
-  'cal.gap': 'Přeskočené týdny bez možných termínů',
+  'cal.gap': 'Přeskočené týdny bez možných dnů',
   'cal.changed_one': 'Změněn {count} den',
   'cal.changed_other': 'Změněno {count} dní',
 
@@ -189,7 +199,7 @@ export const cs = {
   'group.legend': 'Může více lidí',
   'group.legendFew': 'málo',
   'group.legendAll': 'všichni',
-  'group.best': 'Nejlepší termíny',
+  'group.best': 'Nejlepší dny',
   'group.count': 'může {yes} z {total}',
   'group.maybeCount': '+{count} možná',
   'group.enough': 'dost lidí',
@@ -207,6 +217,7 @@ export const cs = {
   'day.cannot': 'Nemůže',
   'day.open': 'Bez odpovědi',
   'day.notes': 'Poznámky',
+  'day.noteSep': ': ',
   'day.close': 'Zavřít',
 
   'share.title': 'Sdílet se skupinou',
@@ -226,7 +237,7 @@ export const cs = {
   'admin.reopen': 'Znovu otevřít hlasování',
   'admin.unchoose': 'Zrušit vybraný termín',
   'admin.chooseHint':
-    'Vyber termín v části „Nejlepší termíny“ v zobrazení Skupina.',
+    'Vyber termín v části „Nejlepší dny“ v zobrazení Skupina.',
   'admin.edit': 'Podrobnosti',
   'admin.days': 'Dny',
   'admin.addDays': 'Přidat dny až do',
@@ -238,7 +249,7 @@ export const cs = {
   'admin.resetPasswordConfirm':
     'Odstranit heslo záznamu {name}? Každý s odkazem na událost jej pak bude moci změnit.',
   'admin.remove': 'Odebrat',
-  'admin.removeConfirm': 'Odebrat {name} a označené dny?',
+  'admin.removeConfirm': 'Odebrat osobu {name} a označené dny?',
   'admin.delete': 'Smazat událost',
   'admin.deleteConfirm': 'Smazat tuto událost všem? Nejde to vrátit zpět.',
   'admin.deleteYes': 'Trvale smazat',

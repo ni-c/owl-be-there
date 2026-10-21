@@ -1,7 +1,11 @@
 import {
   candidateBlocks,
   charCount,
+  cleanLine,
+  cleanText,
   LIMITS,
+  mixesScripts,
+  nameKey,
   type EmojiKey,
   type EventSnapshotData,
   type ISODate,
@@ -30,8 +34,11 @@ export interface DetailsInput {
   duration: string;
 }
 
-export type DetailsErrors = Partial<
-  Record<'title' | 'minCount' | 'duration', Problem>
+type DetailsErrors = Partial<
+  Record<
+    'title' | 'location' | 'creatorName' | 'minCount' | 'duration',
+    Problem
+  >
 >;
 
 export type DetailsCheck =
@@ -61,10 +68,38 @@ export function inputOf(values: DetailsValues): DetailsInput {
   };
 }
 
+/**
+ * Digits of a number field in ASCII: Persian (۰-۹) and Arabic-Indic (٠-٩)
+ * ones are turned into 0-9, anything else that is no digit is dropped.
+ */
+export function asciiDigits(text: string): string {
+  return text
+    .replace(/[\u06f0-\u06f9\u0660-\u0669]/g, (digit) =>
+      String(digit.charCodeAt(0) & 0xf)
+    )
+    .replace(/\D/g, '');
+}
+
 const numberProblem = (min: number, max: number): Problem => ({
   key: 'error.numberRange',
   params: { min, max },
 });
+
+/**
+ * What the server's text schema would refuse in a one-line field that is not
+ * empty: text with nothing visible in it (a blank Hangul filler, say).
+ */
+export function invisibleProblem(text: string): Problem | null {
+  return cleanLine(text) !== '' && nameKey(text) === ''
+    ? { key: 'error.textInvisible', params: {} }
+    : null;
+}
+
+/** The title: required, and not only invisible characters. */
+export function checkTitle(text: string): Problem | null {
+  if (cleanLine(text) === '') return { key: 'error.titleRequired', params: {} };
+  return invisibleProblem(text);
+}
 
 /** A whole number from `min` to `max` in the text, or null. */
 function wholeNumber(text: string, min: number, max: number): number | null {
@@ -98,8 +133,15 @@ export function checkDetails(
   days: readonly ISODate[]
 ): DetailsCheck {
   const errors: DetailsErrors = {};
-  const title = input.title.trim();
-  if (title === '') errors.title = { key: 'error.titleRequired', params: {} };
+  const title = cleanLine(input.title);
+  const titleProblem = checkTitle(input.title);
+  if (titleProblem) errors.title = titleProblem;
+  const location = cleanLine(input.location);
+  const locationProblem = invisibleProblem(input.location);
+  if (locationProblem) errors.location = locationProblem;
+  const creatorName = cleanLine(input.creatorName);
+  const creatorProblem = invisibleProblem(input.creatorName);
+  if (creatorProblem) errors.creatorName = creatorProblem;
 
   const minCount = checkMinCount(input.minCount);
   if (minCount.problem) errors.minCount = minCount.problem;
@@ -120,9 +162,9 @@ export function checkDetails(
     ok: true,
     values: {
       title,
-      description: input.description.trim() || null,
-      location: input.location.trim() || null,
-      creatorName: input.creatorName.trim() || null,
+      description: cleanText(input.description) || null,
+      location: location || null,
+      creatorName: creatorName || null,
       emoji: input.emoji,
       minCount: minCount.value,
       durationDays,
@@ -146,24 +188,55 @@ export function changedFields(
   return patch;
 }
 
+/**
+ * Whether the details form holds something not saved yet: a valid input that
+ * changes a field, or an invalid one that is not just what was loaded.
+ */
+export function hasUnsavedDetails(
+  seed: DetailsValues,
+  input: DetailsInput,
+  days: readonly ISODate[]
+): boolean {
+  const check = checkDetails(input, days);
+  if (check.ok)
+    return Object.keys(changedFields(seed, check.values)).length > 0;
+  const loaded = inputOf(seed);
+  return (Object.keys(loaded) as (keyof DetailsInput)[]).some(
+    (key) => loaded[key] !== input[key]
+  );
+}
+
 export interface Roster {
   names: string[];
   problem: Problem | null;
 }
 
 /**
- * The names typed one per line. Nothing is cut off silently: a list longer
- * than one go may hold, or a name longer than a name may be, is a problem.
+ * The names typed one per line, checked the way the server checks each one.
+ * Nothing is cut off silently: a list longer than one go may hold, a name
+ * longer than a name may be, a line with nothing visible in it or a word that
+ * mixes Latin letters with Cyrillic or Greek ones is a problem — the last two
+ * name the line, counted as typed, empty lines included.
  */
 export function parseRoster(text: string): Roster {
-  const names = text
-    .split('\n')
-    .map((name) => name.trim())
-    .filter(Boolean);
+  const names: string[] = [];
   let problem: Problem | null = null;
+  const refuse = (found: Problem) => {
+    problem ??= found;
+  };
+  text.split('\n').forEach((raw, index) => {
+    if (raw.trim() === '') return;
+    const name = cleanLine(raw);
+    names.push(name);
+    const line = index + 1;
+    if (charCount(name) > LIMITS.name)
+      refuse({ key: 'error.rosterLine', params: { max: LIMITS.name } });
+    else if (nameKey(raw) === '')
+      refuse({ key: 'error.rosterInvisible', params: { line } });
+    else if (mixesScripts(raw))
+      refuse({ key: 'error.rosterMixed', params: { line } });
+  });
   if (names.length > LIMITS.roster)
     problem = { key: 'error.rosterTooMany', params: { max: LIMITS.roster } };
-  else if (names.some((name) => charCount(name) > LIMITS.name))
-    problem = { key: 'error.rosterLine', params: { max: LIMITS.name } };
   return { names, problem };
 }

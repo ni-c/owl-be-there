@@ -1,4 +1,5 @@
 import {
+  APP_NAME,
   EMOJIS,
   exampleSnapshot,
   marksOf,
@@ -85,7 +86,7 @@ export function ExampleDemo() {
   return (
     <BrowserFrame
       emoji={EMOJIS[data.event.emoji]}
-      title={`${title} · ${t('app.name')}`}
+      title={`${title} · ${APP_NAME}`}
       path={`/e/${data.event.id}`}
     >
       <div className="flex flex-col gap-4">

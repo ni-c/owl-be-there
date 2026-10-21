@@ -1,4 +1,4 @@
-import { LIMITS } from '@owl/shared';
+import { ISSUE_REASON, LIMITS } from '@owl/shared';
 import type { TranslationKey } from '../i18n/en.ts';
 import type { Params } from '../i18n/index.tsx';
 import { ApiFailure, NetworkFailure, type Credentials } from './api.ts';
@@ -7,6 +7,7 @@ import { PermanentSaveError } from './saveQueue.ts';
 
 const BY_CODE: Partial<Record<string, TranslationKey>> = {
   rate_limited: 'error.rateLimited',
+  creation_limit: 'error.createLimit',
   forbidden: 'error.forbidden',
   name_taken: 'error.nameTaken',
   creation_disabled: 'home.creationDisabled',
@@ -27,25 +28,56 @@ type Translate = (key: TranslationKey, params?: Params) => string;
 const BY_DAYS_PROBLEM: Partial<Record<string, TranslationKey>> =
   CANDIDATE_PROBLEM_KEY;
 
-/** The paths and messages of a `validation_failed` answer. */
-function issuesOf(body: unknown): { path: string; message: string }[] {
+interface Issue {
+  path: string;
+  code: string;
+  reason: string | null;
+}
+
+/** The path, zod code and refinement reason of a `validation_failed` answer. */
+function issuesOf(body: unknown): Issue[] {
   if (typeof body !== 'object' || body === null || !('issues' in body))
     return [];
   const issues = (body as { issues: unknown }).issues;
   if (!Array.isArray(issues)) return [];
   return issues.flatMap((issue: unknown) => {
     if (typeof issue !== 'object' || issue === null) return [];
-    const { path, message } = issue as { path?: unknown; message?: unknown };
-    return typeof path === 'string' && typeof message === 'string'
-      ? [{ path, message }]
+    const { path, code, reason } = issue as {
+      path?: unknown;
+      code?: unknown;
+      reason?: unknown;
+    };
+    return typeof path === 'string' && typeof code === 'string'
+      ? [{ path, code, reason: typeof reason === 'string' ? reason : null }]
       : [];
   });
 }
 
-/** The length the server named in "No 4 consecutive candidate days …". */
-function runLengthOf(message: string): number | null {
-  const match = /^No (\d+) consecutive/.exec(message);
-  return match ? Number(match[1]) : null;
+/**
+ * The text for a refused name, title or other line, named by field or line,
+ * or null when the issue is something else. `roster.N` and `names.N` count
+ * from 0 in the list the client sent.
+ */
+function textIssueKey(
+  issue: Issue
+): { key: TranslationKey; params: Params } | null {
+  if (issue.code !== 'custom') return null;
+  const invisible = issue.reason === ISSUE_REASON.invisible;
+  const mixed = issue.reason === ISSUE_REASON.mixedScripts;
+  if (!invisible && !mixed) return null;
+  if (issue.path === 'name')
+    return {
+      key: invisible ? 'error.nameInvisible' : 'error.nameMixed',
+      params: {},
+    };
+  if (invisible && /^(title|location|creatorName)$/.test(issue.path))
+    return { key: 'error.textInvisible', params: {} };
+  const row = /^(?:roster|names)\.(\d+)$/.exec(issue.path);
+  if (!row) return null;
+  return {
+    key: invisible ? 'error.rosterInvisible' : 'error.rosterMixed',
+    params: { line: Number(row[1]) + 1 },
+  };
 }
 
 /** The text for an answer that needs more than its code to be understood. */
@@ -60,8 +92,9 @@ function refinedKey(
         params: { min: LIMITS.passwordMin, ...params },
       };
     case 'no_block': {
-      const count = params['count'] ?? runLengthOf(failure.message);
-      return count === null
+      // Only the caller knows the run length; the server's wording is English.
+      const count = params['count'];
+      return count === undefined
         ? null
         : { key: 'error.noBlock', params: { ...params, count } };
     }
@@ -73,14 +106,19 @@ function refinedKey(
       };
     }
     case 'validation_failed': {
-      const days = issuesOf(failure.body).find(
-        (issue) => issue.path === 'days'
-      );
+      const issues = issuesOf(failure.body);
+      for (const issue of issues) {
+        const named = textIssueKey(issue);
+        if (named)
+          return { key: named.key, params: { ...params, ...named.params } };
+      }
+      const days = issues.find((issue) => issue.path === 'days');
       if (!days) return { key: 'error.invalid', params };
-      // An empty list fails the lower bound, anything else the upper one.
-      const empty = /small|>=/i.test(days.message);
+      // An empty list fails the lower bound; only the upper one is left.
+      if (days.code !== 'too_small' && days.code !== 'too_big')
+        return { key: 'error.invalid', params };
       return {
-        key: empty ? 'error.noDays' : 'error.tooManyDays',
+        key: days.code === 'too_small' ? 'error.noDays' : 'error.tooManyDays',
         params: { max: LIMITS.days, ...params },
       };
     }
@@ -111,6 +149,22 @@ export function errorMessage(
     if (key) return t(key);
   }
   return t('error.generic');
+}
+
+/**
+ * The text for a failed create. The server limits creation per network and
+ * per hour, which "please wait a moment" understates; it names that limit
+ * `creation_limit`, and a plain `rate_limited` stays the generic text.
+ * `params` carries the run length (`count`) for a `no_block` refusal.
+ */
+export function createErrorMessage(
+  error: unknown,
+  t: Translate,
+  params: Params = {}
+): string {
+  if (error instanceof ApiFailure && error.code === 'creation_limit')
+    return t('error.createLimit');
+  return errorMessage(error, t, params);
 }
 
 /**

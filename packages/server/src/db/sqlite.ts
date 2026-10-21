@@ -5,6 +5,12 @@ import {
   type StatementSync,
 } from 'node:sqlite';
 
+/** How long a request waits for readers before it leaves the checkpoint to later. */
+const REQUEST_CHECKPOINT_MS = 100;
+
+/** Pauses between retries of a checkpoint a reader held up, the last repeating. */
+export const CHECKPOINT_RETRY_MS = [1000, 2000, 5000, 15_000, 60_000];
+
 /**
  * The one module that imports `node:sqlite`.
  *
@@ -20,6 +26,8 @@ export class Db {
   private readonly db: DatabaseSync;
   private readonly statements = new Map<string, StatementSync>();
   private depth = 0;
+  private retry: ReturnType<typeof setTimeout> | null = null;
+  private retries = 0;
 
   constructor(path: string) {
     this.db = new DatabaseSync(path, { enableForeignKeyConstraints: true });
@@ -115,11 +123,59 @@ export class Db {
   /**
    * Fold the write-ahead log back into the database file and truncate it.
    * Returns false when a reader (the command line, say) kept it from finishing
-   * within the busy timeout; the log is then folded in by a later checkpoint.
+   * within `waitMs`; the log is then folded in by a later checkpoint.
    */
-  checkpoint(): boolean {
-    const row = this.get<{ busy: number }>('PRAGMA wal_checkpoint(TRUNCATE)');
-    return row === undefined || Number(row.busy) === 0;
+  checkpoint(waitMs = 5000): boolean {
+    this.db.exec(`PRAGMA busy_timeout = ${Math.trunc(waitMs)}`);
+    try {
+      const row = this.get<{ busy: number }>('PRAGMA wal_checkpoint(TRUNCATE)');
+      return row === undefined || Number(row.busy) === 0;
+    } finally {
+      this.db.exec('PRAGMA busy_timeout = 5000');
+    }
+  }
+
+  /**
+   * The checkpoint a request makes after taking a name or a text out: it waits
+   * only {@link REQUEST_CHECKPOINT_MS}, so a reader cannot hold the request up.
+   * If a reader did keep it from finishing, the removed text still sits in the
+   * log, so it is tried again in the background (with the same short wait, a
+   * pause at a time, longer each time) until it goes through.
+   */
+  requestCheckpoint(): boolean {
+    if (this.checkpoint(REQUEST_CHECKPOINT_MS)) {
+      this.cancelRetry();
+      return true;
+    }
+    this.scheduleRetry();
+    return false;
+  }
+
+  private scheduleRetry(): void {
+    if (this.retry !== null) return;
+    const delay =
+      CHECKPOINT_RETRY_MS[
+        Math.min(this.retries, CHECKPOINT_RETRY_MS.length - 1)
+      ]!;
+    this.retries += 1;
+    this.retry = setTimeout(() => {
+      this.retry = null;
+      if (!this.db.isOpen) return;
+      try {
+        if (this.checkpoint(REQUEST_CHECKPOINT_MS)) this.retries = 0;
+        else this.scheduleRetry();
+      } catch {
+        this.scheduleRetry();
+      }
+    }, delay);
+    // A pending retry must not keep the process from stopping.
+    this.retry.unref();
+  }
+
+  private cancelRetry(): void {
+    if (this.retry !== null) clearTimeout(this.retry);
+    this.retry = null;
+    this.retries = 0;
   }
 
   /**
@@ -136,6 +192,7 @@ export class Db {
   }
 
   close(): void {
+    this.cancelRetry();
     this.statements.clear();
     if (this.db.isOpen) this.db.close();
   }

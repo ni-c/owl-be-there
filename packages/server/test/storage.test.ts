@@ -28,7 +28,7 @@ import {
   insertParticipant,
   updateEvent,
 } from '../src/db/repo.js';
-import { Db } from '../src/db/sqlite.js';
+import { CHECKPOINT_RETRY_MS, Db } from '../src/db/sqlite.js';
 import {
   adminHeaders,
   createEvent,
@@ -40,6 +40,8 @@ import {
   testApp,
   WEEKEND,
   type TestApp,
+  patchParticipant,
+  participantOf,
 } from './helpers.js';
 
 let dir: string;
@@ -223,9 +225,124 @@ describe('what a deletion leaves in the files', () => {
     expect(db.get('SELECT 1 FROM participants WHERE id = ?', max.id)).toBe(
       undefined
     );
-    expect(db.checkpoint()).toBe(false);
+    expect(db.checkpoint(50)).toBe(false);
     reader.exec('COMMIT');
     expect(db.checkpoint()).toBe(true);
+  });
+});
+
+describe('checkpoint waiting', () => {
+  it('gives up after its own wait and restores the timeout', () => {
+    const path = join(dir, 'owl.db');
+    const db = open(path);
+    seed(db);
+    const reader = open(path);
+    reader.exec('BEGIN');
+    reader.get('SELECT count(*) FROM participants');
+    deleteParticipant(db, ID, person(db, 'Max').id, NOW);
+    const started = Date.now();
+    expect(db.checkpoint(0)).toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(db.get<{ timeout: number }>('PRAGMA busy_timeout')?.timeout).toBe(
+      5000
+    );
+    reader.exec('COMMIT');
+    expect(db.checkpoint(0)).toBe(true);
+  });
+});
+
+describe('a checkpoint a reader held up', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A database with a reader holding the log, and a person just deleted. */
+  const held = (file = 'owl.db') => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const path = join(dir, file);
+    const db = open(path);
+    seed(db);
+    const max = person(db, 'Max');
+    const reader = open(path);
+    reader.exec('BEGIN');
+    reader.get('SELECT count(*) FROM participants');
+    return { path, db, reader, max };
+  };
+
+  it('is tried again in the background, and folds the log in once the reader is gone', () => {
+    const { path, db, reader, max } = held();
+    const started = Date.now();
+    deleteParticipant(db, ID, max.id, NOW);
+    // The request itself does not wait for the reader.
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(statSync(`${path}-wal`).size).toBeGreaterThan(0);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    expect(statSync(`${path}-wal`).size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps retrying, with longer pauses, while the reader stays', () => {
+    const { db, reader, max } = held();
+    const spy = vi.spyOn(db, 'checkpoint');
+    deleteParticipant(db, ID, max.id, NOW);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]! - 1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[1]!);
+    expect(spy).toHaveBeenCalledTimes(3);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[2]!);
+    expect(spy).toHaveBeenCalledTimes(4);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('is scheduled once, however many requests were held up', () => {
+    const { db, reader, max } = held();
+    deleteParticipant(db, ID, max.id, NOW);
+    updateEvent(db, ID, { title: 'Other title' }, NOW);
+    updateEvent(db, ID, { title: 'Yet another' }, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    reader.exec('COMMIT');
+  });
+
+  it('is dropped when a later request gets through, and when the database closes', () => {
+    const { db, reader, max } = held();
+    deleteParticipant(db, ID, max.id, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    reader.exec('COMMIT');
+    expect(db.requestCheckpoint()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+
+    const second = held('second.db');
+    deleteParticipant(second.db, ID, second.max.id, NOW);
+    expect(vi.getTimerCount()).toBe(1);
+    second.db.close();
+    expect(vi.getTimerCount()).toBe(0);
+    second.reader.exec('COMMIT');
+  });
+
+  it('starts over with the short pause after one that succeeded', () => {
+    const { db, reader, max } = held();
+    const spy = vi.spyOn(db, 'checkpoint');
+    deleteParticipant(db, ID, max.id, NOW);
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    reader.exec('COMMIT');
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[1]!);
+    expect(vi.getTimerCount()).toBe(0);
+    // Held up again: the pause is the first one, not the third.
+    const again = open(join(dir, 'owl.db'));
+    again.exec('BEGIN');
+    again.get('SELECT count(*) FROM participants');
+    updateEvent(db, ID, { title: 'New title' }, NOW);
+    const calls = spy.mock.calls.length;
+    vi.advanceTimersByTime(CHECKPOINT_RETRY_MS[0]!);
+    expect(spy.mock.calls.length).toBe(calls + 1);
+    again.exec('COMMIT');
   });
 });
 
@@ -258,18 +375,6 @@ describe('what a changed participant leaves in the files', () => {
     await app.close();
   });
 
-  const patch = (
-    pid: string,
-    headers: Record<string, string>,
-    payload: Record<string, unknown>
-  ) =>
-    app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}/participants/${pid}`,
-      headers,
-      payload,
-    });
-
   const asSelf = (who: { token: string }) => ({
     'x-participant-token': who.token,
   });
@@ -289,16 +394,25 @@ describe('what a changed participant leaves in the files', () => {
       const max = await joinEvent(app, id, 'Zzqxold');
       const headers = actor === 'self' ? asSelf(max) : adminHeaders(adminToken);
       expect(
-        (await patch(max.participantId, headers, { note: 'Call 0123456789' }))
-          .statusCode
+        (
+          await patchParticipant(app, id, max.participantId, headers, {
+            note: 'Call 0123456789',
+          })
+        ).statusCode
       ).toBe(200);
       expect(disk()).toContain('zzqxold');
       expect(disk()).toContain('0123456789');
 
-      const response = await patch(max.participantId, headers, {
-        name: 'Zzqxnew',
-        note: 'Call 9876543210',
-      });
+      const response = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        headers,
+        {
+          name: 'Zzqxnew',
+          note: 'Call 9876543210',
+        }
+      );
       expect(response.statusCode).toBe(200);
       expect(disk()).not.toContain('zzqxold');
       expect(disk()).not.toContain('0123456789');
@@ -313,13 +427,21 @@ describe('what a changed participant leaves in the files', () => {
     'holds no trace of a note that was cleared to %j',
     async (cleared) => {
       const max = await joinEvent(app, id, 'Max');
-      await patch(max.participantId, asSelf(max), { note: 'Call 0123456789' });
-      expect(disk()).toContain('0123456789');
-      const response = await patch(max.participantId, asSelf(max), {
-        note: cleared,
+      await patchParticipant(app, id, max.participantId, asSelf(max), {
+        note: 'Call 0123456789',
       });
+      expect(disk()).toContain('0123456789');
+      const response = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        asSelf(max),
+        {
+          note: cleared,
+        }
+      );
       expect(response.statusCode).toBe(200);
-      expect(response.json().participant.note).toBeNull();
+      expect((await participantOf(app, id, max.participantId)).note).toBeNull();
       expect(disk()).not.toContain('0123456789');
       expect(stored(max.participantId)?.note).toBeNull();
     }
@@ -329,11 +451,19 @@ describe('what a changed participant leaves in the files', () => {
     const max = await joinEvent(app, id, 'ZzqxCase');
     // Case-sensitive on purpose: the name key is lower case and stays.
     expect(bytesOnDisk(path)).toContain('ZzqxCase');
-    const response = await patch(max.participantId, asSelf(max), {
-      name: 'ZZQXCASE',
-    });
+    const response = await patchParticipant(
+      app,
+      id,
+      max.participantId,
+      asSelf(max),
+      {
+        name: 'ZZQXCASE',
+      }
+    );
     expect(response.statusCode).toBe(200);
-    expect(response.json().participant.name).toBe('ZZQXCASE');
+    expect((await participantOf(app, id, max.participantId)).name).toBe(
+      'ZZQXCASE'
+    );
     expect(bytesOnDisk(path)).not.toContain('ZzqxCase');
     expect(bytesOnDisk(path)).toContain('ZZQXCASE');
   });
@@ -356,7 +486,13 @@ describe('what a changed participant leaves in the files', () => {
       ],
     ])('once for %s', async (_, payload) => {
       const max = await joinEvent(app, id, 'Max');
-      const response = await patch(max.participantId, asSelf(max), payload);
+      const response = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        asSelf(max),
+        payload
+      );
       expect(response.statusCode).toBe(200);
       expect(spy).toHaveBeenCalledTimes(1);
     });
@@ -368,7 +504,9 @@ describe('what a changed participant leaves in the files', () => {
         inside.push(this.inTransaction);
         return true;
       });
-      await patch(max.participantId, asSelf(max), { note: 'Back at six' });
+      await patchParticipant(app, id, max.participantId, asSelf(max), {
+        note: 'Back at six',
+      });
       expect(inside).toEqual([false]);
     });
   });
@@ -381,17 +519,36 @@ describe('what a changed participant leaves in the files', () => {
 
     it('for a change of the password alone, or for nothing at all', async () => {
       const max = await joinEvent(app, id, 'Max');
-      const password = await patch(max.participantId, asSelf(max), {
-        password: 'secret-1',
-      });
+      const password = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        asSelf(max),
+        {
+          password: 'secret-1',
+        }
+      );
       expect(password.statusCode).toBe(200);
-      const removed = await patch(max.participantId, adminHeaders(adminToken), {
-        password: null,
-      });
+      const removed = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        adminHeaders(adminToken),
+        {
+          password: null,
+        }
+      );
       expect(removed.statusCode).toBe(200);
       expect(
-        (await patch(max.participantId, adminHeaders(adminToken), {}))
-          .statusCode
+        (
+          await patchParticipant(
+            app,
+            id,
+            max.participantId,
+            adminHeaders(adminToken),
+            {}
+          )
+        ).statusCode
       ).toBe(200);
       expect(spy).not.toHaveBeenCalled();
     });
@@ -399,10 +556,16 @@ describe('what a changed participant leaves in the files', () => {
     it('for a name that is taken, and leaves the entry as it was', async () => {
       const max = await joinEvent(app, id, 'Max');
       await joinEvent(app, id, 'Ana');
-      const response = await patch(max.participantId, asSelf(max), {
-        name: 'ana',
-        note: 'Back at six',
-      });
+      const response = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        asSelf(max),
+        {
+          name: 'ana',
+          note: 'Back at six',
+        }
+      );
       expect(response.statusCode).toBe(409);
       expect(stored(max.participantId)).toEqual({ name: 'Max', note: null });
       expect(spy).not.toHaveBeenCalled();
@@ -412,16 +575,22 @@ describe('what a changed participant leaves in the files', () => {
       const max = await joinEvent(app, id, 'Max');
       const ana = await joinEvent(app, id, 'Ana');
       expect(
-        (await patch(max.participantId, asSelf(ana), { note: 'Mine now' }))
-          .statusCode
+        (
+          await patchParticipant(app, id, max.participantId, asSelf(ana), {
+            note: 'Mine now',
+          })
+        ).statusCode
       ).toBe(403);
       expect(
-        (await patch(max.participantId, asSelf(max), { nickname: 'Maxi' }))
-          .statusCode
+        (
+          await patchParticipant(app, id, max.participantId, asSelf(max), {
+            nickname: 'Maxi',
+          })
+        ).statusCode
       ).toBe(400);
       expect(
         (
-          await patch(max.participantId, asSelf(max), {
+          await patchParticipant(app, id, max.participantId, asSelf(max), {
             note: 'x'.repeat(141),
           })
         ).statusCode
@@ -429,19 +598,31 @@ describe('what a changed participant leaves in the files', () => {
       expect(
         (await setStatus(app, id, adminToken, { status: 'closed' })).statusCode
       ).toBe(200);
-      const closed = await patch(max.participantId, asSelf(max), {
-        name: 'Moritz',
-        note: 'Back at six',
-      });
+      const closed = await patchParticipant(
+        app,
+        id,
+        max.participantId,
+        asSelf(max),
+        {
+          name: 'Moritz',
+          note: 'Back at six',
+        }
+      );
       expect(closed.statusCode).toBe(409);
       expect(stored(max.participantId)).toEqual({ name: 'Max', note: null });
       expect(spy).not.toHaveBeenCalled();
     });
 
     it('for an unknown person', async () => {
-      const response = await patch('NOSUCHPERSON', adminHeaders(adminToken), {
-        note: 'Back at six',
-      });
+      const response = await patchParticipant(
+        app,
+        id,
+        'NOSUCHPERSON',
+        adminHeaders(adminToken),
+        {
+          note: 'Back at six',
+        }
+      );
       expect(response.statusCode).toBe(404);
       expect(spy).not.toHaveBeenCalled();
     });

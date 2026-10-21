@@ -38,7 +38,14 @@ import {
   type EventRow,
   type NewParticipant,
 } from '../db/repo.js';
-import { ApiError, networkKey, notFound, parseBody } from '../http.js';
+import {
+  ApiError,
+  header,
+  matchesEtag,
+  networkKey,
+  notFound,
+  parseBody,
+} from '../http.js';
 
 type IdParams = { Params: { id: string } };
 
@@ -171,7 +178,7 @@ export function registerEventRoutes(
 
   app.post(
     '/api/events',
-    { config: limit(config, 10, '1 hour') },
+    { config: limit(config, 10, '1 hour', 'creation_limit') },
     async (request, reply) => {
       if (!config.creationEnabled) {
         throw new ApiError(
@@ -192,7 +199,7 @@ export function registerEventRoutes(
       ) {
         throw new ApiError(
           429,
-          'rate_limited',
+          'creation_limit',
           'Too many new events right now'
         );
       }
@@ -233,7 +240,7 @@ export function registerEventRoutes(
       const event = eventOr404(ctx, request.params.id);
       const etag = snapshotEtag(event.version);
       reply.header('etag', etag).header('cache-control', 'private, no-cache');
-      if (request.headers['if-none-match'] === etag)
+      if (matchesEtag(header(request, 'if-none-match'), etag))
         return reply.code(304).send();
       return reply.send(snapshot(ctx.db, event.id));
     }
@@ -273,7 +280,7 @@ export function registerEventRoutes(
         }
       }
       checkDays(days, null, null, duration);
-      updateEvent(
+      const changed = updateEvent(
         ctx.db,
         event.id,
         {
@@ -296,7 +303,7 @@ export function registerEventRoutes(
         },
         ctx.clock.now()
       );
-      published(ctx, event.id);
+      if (changed) published(ctx, event.id);
       return sendSnapshot(ctx, reply, event.id);
     }
   );
@@ -355,7 +362,7 @@ export function registerEventRoutes(
       requireAdmin(request, event);
       deleteEvent(ctx.db, event.id);
       ctx.hub.deleted(event.id);
-      ctx.db.checkpoint();
+      ctx.db.requestCheckpoint();
       return reply.code(204).send();
     }
   );

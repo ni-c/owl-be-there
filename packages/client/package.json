@@ -1,20 +1,20 @@
 {
   "name": "@owl/client",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Owl Be There web client — React, Vite, Tailwind",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node ../../scripts/precompress.ts dist",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/nunito": "^5.3.0",
     "@owl/shared": "*",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -23,6 +23,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }

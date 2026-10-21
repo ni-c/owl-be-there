@@ -213,11 +213,14 @@ export async function registerSite(
       // The built client has no dotfiles; anything that looks like one is not
       // meant to be served, should CLIENT_DIR ever point wider.
       dotfiles: 'deny',
+      // The .br and .gz copies the client build writes next to its files.
+      preCompressed: true,
       setHeaders: (res, path) => {
-        // The hashed files under `assets/` of the client directory; where the
-        // directory itself lies does not matter.
-        const immutable =
-          relative(config.clientDir!, path).split(sep)[0] === 'assets';
+        // The hashed files under `assets/` of the client directory and the
+        // versioned fonts under `fonts/` (a changed font gets a new file name,
+        // `-v2`, `-v3` …); where the directory itself lies does not matter.
+        const top = relative(config.clientDir!, path).split(sep)[0];
+        const immutable = top === 'assets' || top === 'fonts';
         res.header(
           'cache-control',
           immutable ? 'public, max-age=31536000, immutable' : 'no-cache'

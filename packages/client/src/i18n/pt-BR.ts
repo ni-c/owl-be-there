@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/pt-BR';
 import type { Dictionary } from './en.ts';
 
 export const ptBr: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['pt-BR'],
 
   ...HOME,
@@ -77,7 +76,7 @@ export const ptBr: Dictionary = {
   'error.past': 'Esse dia já passou.',
   'error.tooFar': 'Isso é longe demais. Escolha dias nos próximos cinco anos.',
   'error.slowDown':
-    'Senhas erradas demais para este nome. Espere alguns minutos.',
+    'Muitas senhas erradas para este nome. Espere alguns minutos.',
   'error.daysChanged':
     'Os dias foram alterados em outro lugar enquanto isso. Confira e salve de novo.',
   'error.generic': 'Não deu certo. Tente de novo.',
@@ -90,6 +89,15 @@ export const ptBr: Dictionary = {
   'error.rosterTooMany': 'No máximo {max} nomes de uma vez.',
   'error.busy': 'O servidor está ocupado agora. Tente de novo daqui a pouco.',
   'error.changed': 'Esta resposta acabou de ser alterada. Tente de novo.',
+  'error.textInvisible': 'Aqui é preciso pelo menos um caractere visível.',
+  'error.rosterInvisible': 'A linha {line} não tem nenhum caractere visível.',
+  'error.rosterMixed':
+    'Linha {line}: uma palavra mistura letras latinas com cirílicas ou gregas.',
+  'error.nameInvisible': 'O nome precisa de pelo menos um caractere visível.',
+  'error.nameMixed':
+    'Uma palavra do nome mistura letras latinas com cirílicas ou gregas.',
+  'error.createLimit':
+    'Muitos eventos foram criados recentemente a partir desta rede. Tente de novo mais tarde.',
   'error.invalid': 'Alguns dados não são válidos. Confira e tente de novo.',
 
   'event.loading': 'Carregando o evento…',
@@ -104,7 +112,7 @@ export const ptBr: Dictionary = {
   'event.minCount_one': 'precisa de {count} pessoa',
   'event.minCount_other': 'precisa de {count} pessoas',
   'event.adminRefused':
-    'Este link de organização não foi aceito. As ferramentas de organização saíram deste dispositivo; abra de novo o link de organização completo para recuperá-las.',
+    'Este link de organização não foi aceito. As ferramentas de organização foram removidas deste dispositivo; abra de novo o link de organização completo para recuperá-las.',
   'event.expires':
     'Este evento será excluído automaticamente em {date}, a menos que algo mude até lá.',
   'event.share': 'Compartilhar',
@@ -129,6 +137,8 @@ export const ptBr: Dictionary = {
     'Sem senha, qualquer pessoa com o link pode digitar seu nome e mudar seus dias.',
   'who.continue': 'Continuar',
   'who.protected': '“{name}” está protegido. Digite a senha para continuar.',
+  'who.hasPassword': 'protegido por senha',
+  'who.answered': 'já respondeu',
   'who.wrongPassword': 'Essa senha não está certa.',
   'who.passwordTooShort': 'Pelo menos {min} caracteres, por favor.',
   'who.closed': 'A votação está encerrada. Não dá para adicionar nomes.',
@@ -181,7 +191,7 @@ export const ptBr: Dictionary = {
   'cal.past': 'passou',
   'cal.othersCan_one': 'mais {count} pessoa pode',
   'cal.othersCan_other': 'mais {count} pessoas podem',
-  'cal.heat': '{yes} podem, {maybe} talvez, {no} não podem',
+  'cal.heat': 'Podem: {yes}; talvez: {maybe}; não podem: {no}',
   'cal.gap': 'Semanas sem dias possíveis foram puladas',
   'cal.changed_one': '{count} dia alterado',
   'cal.changed_other': '{count} dias alterados',
@@ -193,7 +203,7 @@ export const ptBr: Dictionary = {
   'group.legendFew': 'poucas',
   'group.legendAll': 'todas',
   'group.best': 'Melhores dias',
-  'group.count': '{yes} de {total} podem',
+  'group.count': 'Podem: {yes} de {total}',
   'group.maybeCount': '+{count} talvez',
   'group.enough': 'pessoas suficientes',
   'group.enoughMaybe': 'suficientes com os “talvez”',
@@ -210,6 +220,7 @@ export const ptBr: Dictionary = {
   'day.cannot': 'Não podem',
   'day.open': 'Sem resposta',
   'day.notes': 'Observações',
+  'day.noteSep': ': ',
   'day.close': 'Fechar',
 
   'share.title': 'Compartilhar com o grupo',

@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/sv';
 import type { Dictionary } from './en.ts';
 
 export const sv = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.sv,
   ...HOME,
   'home.cta': 'Planera ett evenemang',
@@ -89,6 +88,15 @@ export const sv = {
   'error.rosterTooMany': 'Högst {max} namn åt gången.',
   'error.busy': 'Servern är upptagen just nu. Försök igen om en stund.',
   'error.changed': 'Det här svaret ändrades precis. Försök igen.',
+  'error.textInvisible': 'Här behövs minst ett synligt tecken.',
+  'error.rosterInvisible': 'Rad {line} har inget synligt tecken.',
+  'error.rosterMixed':
+    'Rad {line}: ett ord blandar latinska bokstäver med kyrilliska eller grekiska.',
+  'error.nameInvisible': 'Namnet måste ha minst ett synligt tecken.',
+  'error.nameMixed':
+    'Ett ord i namnet blandar latinska bokstäver med kyrilliska eller grekiska.',
+  'error.createLimit':
+    'Många event har nyligen skapats från det här nätverket. Försök igen senare.',
   'error.invalid':
     'Vissa uppgifter är ogiltiga. Kontrollera dem och försök igen.',
 
@@ -130,6 +138,8 @@ export const sv = {
   'who.continue': 'Fortsätt',
   'who.protected':
     '”{name}” är lösenordsskyddad. Ange lösenordet för att fortsätta.',
+  'who.hasPassword': 'lösenordsskyddad',
+  'who.answered': 'har svarat',
   'who.wrongPassword': 'Fel lösenord.',
   'who.passwordTooShort': 'Använd minst {min} tecken.',
   'who.closed': 'Omröstningen är avslutad. Inga nya namn kan läggas till.',
@@ -209,6 +219,7 @@ export const sv = {
   'day.cannot': 'Kan inte',
   'day.open': 'Inte svarat',
   'day.notes': 'Kommentarer',
+  'day.noteSep': ': ',
   'day.close': 'Stäng',
 
   'share.title': 'Dela med din grupp',
@@ -297,9 +308,9 @@ export const sv = {
   'privacy.backups_other':
     'Säkerhetskopior sparas i {count} dagar. Därefter finns inte heller ett raderat evenemang kvar i dem.',
   'privacy.backups.none': 'Inga säkerhetskopior sparas.',
-  'privacy.instance.loading': 'Läser in uppgifter om operatören…',
+  'privacy.instance.loading': 'Läser in uppgifter om den som driver tjänsten…',
   'privacy.instance.failed':
-    'Det gick inte att läsa in uppgifterna om operatören. Läs in sidan igen och försök på nytt.',
+    'Det gick inte att läsa in uppgifterna om den som driver tjänsten. Ladda om sidan och försök igen.',
   'privacy.operator.title': 'Vem som driver den här instansen',
   'privacy.operator.contact': 'Kontakt: {contact}',
   'privacy.source':

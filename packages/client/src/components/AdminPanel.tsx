@@ -1,5 +1,4 @@
 import {
-  addDays,
   EMOJI_KEYS,
   EMOJIS,
   LIMITS,
@@ -26,7 +25,10 @@ import {
   daysToSave,
   extendSelection,
   isLossy,
+  latestEditableDay,
+  sameDays,
   savingImpact,
+  untilProblemKey,
   visibleRange,
   type Problem,
   type SavingImpact,
@@ -35,13 +37,16 @@ import { errorMessage, isForbidden } from '../lib/errors.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import {
   changedFields,
+  asciiDigits,
   checkDetails,
   detailsOf,
+  hasUnsavedDetails,
   inputOf,
   parseRoster,
   type DetailsValues,
 } from '../lib/forms.ts';
 import { forgetEvent } from '../lib/prefs.ts';
+import { holdReload } from '../lib/reloadGuard.ts';
 import { CalendarGrid } from './CalendarGrid.tsx';
 import {
   ChevronEndIcon,
@@ -201,11 +206,14 @@ export function AdminPanel(props: AdminPanelProps) {
           busy={busy}
           returnFocus={() => headingRef.current}
           onEdit={clearMessage}
-          onSave={(days, baseDays) =>
-            run('days', () =>
+          onSave={async (days, baseDays) => {
+            const ok = await run('days', () =>
               api.updateEvent(event.id, { days, baseDays }, adminToken)
-            )
-          }
+            );
+            // The editor starts over with the new list; keep the focus here.
+            if (ok) headingRef.current?.focus();
+            return ok;
+          }}
         />
         {noticeAt('days')}
       </Section>
@@ -336,6 +344,11 @@ function DetailsForm({
     values: DetailsValues;
     impact: SavingImpact;
   } | null>(null);
+  // A language reload would lose what has been typed and not yet saved.
+  useEffect(
+    () => holdReload(() => hasUnsavedDetails(seed, input, event.days)),
+    [seed, input, event.days]
+  );
   const edit = (change: Partial<typeof input>) => {
     setInput({ ...input, ...change });
     onEdit();
@@ -370,7 +383,7 @@ function DetailsForm({
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field label={t('create.titleLabel')} error={text(errors.title)}>
         {({ id, describedBy, invalid }) => (
           <TextInput
@@ -412,20 +425,24 @@ function DetailsForm({
         )}
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t('create.location')}>
-          {({ id }) => (
+        <Field label={t('create.location')} error={text(errors.location)}>
+          {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
               value={input.location}
               maxLength={LIMITS.location}
               onChange={(e) => edit({ location: e.target.value })}
             />
           )}
         </Field>
-        <Field label={t('create.creator')}>
-          {({ id }) => (
+        <Field label={t('create.creator')} error={text(errors.creatorName)}>
+          {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
               value={input.creatorName}
               maxLength={LIMITS.creatorName}
               onChange={(e) => edit({ creatorName: e.target.value })}
@@ -440,9 +457,7 @@ function DetailsForm({
               value={input.minCount}
               aria-describedby={describedBy}
               aria-invalid={invalid}
-              onChange={(e) =>
-                edit({ minCount: e.target.value.replace(/\D/g, '') })
-              }
+              onChange={(e) => edit({ minCount: asciiDigits(e.target.value) })}
             />
           )}
         </Field>
@@ -454,9 +469,7 @@ function DetailsForm({
               value={input.duration}
               aria-describedby={describedBy}
               aria-invalid={invalid}
-              onChange={(e) =>
-                edit({ duration: e.target.value.replace(/\D/g, '') })
-              }
+              onChange={(e) => edit({ duration: asciiDigits(e.target.value) })}
             />
           )}
         </Field>
@@ -505,12 +518,16 @@ function DaysEditor(
 
   // The range to show: the existing days, extended up to the chosen end.
   const range = useMemo(
-    () => visibleRange(first, last, until),
-    [first, last, until]
+    () => visibleRange(first, last, until, today),
+    [first, last, until, today]
   );
   // What is saved is what the calendar shows and has selected.
   const selected = daysToSave(range, selection);
   const problem = daysProblem(selected, event.durationDays);
+  // Saving the list as it is would only wake everyone and extend the retention.
+  const unchanged = sameDays(selected, days);
+  const untilKey = untilProblemKey(first, until, today);
+  useEffect(() => holdReload(() => !unchanged), [unchanged]);
   const edit = (next: ReadonlyMap<ISODate, Mark>) => {
     setSelection(next);
     props.onEdit();
@@ -528,14 +545,16 @@ function DaysEditor(
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label={t('admin.addDays')}>
-        {({ id }) => (
+      <Field label={t('admin.addDays')} error={untilKey && t(untilKey)}>
+        {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid}
             type="date"
             value={until}
             min={maxISODate(last, today)}
-            max={addDays(today, LIMITS.horizon)}
+            max={latestEditableDay(first, today)}
             className="max-w-48"
             onChange={(e) => {
               const value = e.target.value;
@@ -572,7 +591,7 @@ function DaysEditor(
       <div>
         <Button
           variant="primary"
-          disabled={busy || problem !== null}
+          disabled={busy || problem !== null || unchanged}
           onClick={submit}
         >
           {t('mine.save')}
@@ -603,6 +622,7 @@ function People(
   const { t } = useI18n();
   const [names, setNames] = useState('');
   const [rosterProblem, setRosterProblem] = useState<Problem | null>(null);
+  useEffect(() => holdReload(() => names.trim() !== ''), [names]);
   const [sheet, setSheet] = useState<{ id: string; step: SheetStep } | null>(
     null
   );

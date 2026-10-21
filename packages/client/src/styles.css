@@ -192,12 +192,14 @@ html {
  */
 body {
   font-family: var(--font-sans);
-  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  /* Physical sides: the insets belong to the screen, not to the text direction. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 @font-face {
   font-family: 'Noto Sans Arabic';
-  src: url('/fonts/owl-noto-sans-arabic-regular.woff2') format('woff2');
+  src: url('/fonts/owl-noto-sans-arabic-regular-v2.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -205,7 +207,7 @@ body {
 
 @font-face {
   font-family: 'Noto Sans Arabic';
-  src: url('/fonts/owl-noto-sans-arabic-bold.woff2') format('woff2');
+  src: url('/fonts/owl-noto-sans-arabic-bold-v2.woff2') format('woff2');
   font-style: normal;
   font-weight: 700 900;
   font-display: swap;
@@ -218,13 +220,8 @@ html:lang(ur) body {
 }
 
 html:lang(ar) input[type='date'],
-html:lang(ar) input[type='email'],
-html:lang(ar) input[type='url'],
 html:lang(fa) input[type='date'],
-html:lang(fa) input[type='email'],
-html:lang(fa) input[type='url'],
 html:lang(ur) input[type='date'],
-html:lang(ur) input[type='email'],
 html:lang(ur) input[type='url'] {
   direction: ltr;
 }
@@ -275,7 +272,7 @@ footer {
 
 @font-face {
   font-family: 'Noto Sans CJK JP UI';
-  src: url('/fonts/noto-sans-cjk-jp-ui.woff2') format('woff2');
+  src: url('/fonts/noto-sans-cjk-jp-ui-v2.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -283,7 +280,10 @@ footer {
 
 @font-face {
   font-family: 'Noto Sans CJK JP';
-  src: url('/fonts/noto-sans-cjk-jp-regular.woff2') format('woff2');
+  src: url('/fonts/noto-sans-cjk-jp-regular-v2.woff2') format('woff2');
+  unicode-range:
+    U+2E80-2FDF, U+3000-30FF, U+3190-31FF, U+3200-33FF, U+3400-4DBF,
+    U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+20000-2FA1F;
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -291,7 +291,7 @@ footer {
 
 @font-face {
   font-family: 'Noto Sans CJK SC UI';
-  src: url('/fonts/noto-sans-cjk-sc-ui.woff2') format('woff2');
+  src: url('/fonts/noto-sans-cjk-sc-ui-v2.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -299,7 +299,10 @@ footer {
 
 @font-face {
   font-family: 'Noto Sans CJK SC';
-  src: url('/fonts/noto-sans-cjk-sc-regular.woff2') format('woff2');
+  src: url('/fonts/noto-sans-cjk-sc-regular-v2.woff2') format('woff2');
+  unicode-range:
+    U+2E80-2FDF, U+3000-30FF, U+3190-31FF, U+3200-33FF, U+3400-4DBF,
+    U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+20000-2FA1F;
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -315,6 +318,19 @@ html:lang(zh-Hans) body {
   font-family:
     'Nunito Variable', 'Noto Sans CJK SC UI', 'Noto Sans CJK SC', ui-rounded,
     system-ui, sans-serif;
+}
+
+/* Korean and Traditional Chinese come from the system; nothing is bundled. */
+html:lang(ko) body {
+  font-family:
+    'Nunito Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    ui-rounded, system-ui, sans-serif;
+}
+
+html:lang(zh-Hant) body {
+  font-family:
+    'Nunito Variable', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC',
+    ui-rounded, system-ui, sans-serif;
 }
 
 /* Korean wraps between words, not between syllables. */
@@ -351,27 +367,34 @@ html:lang(ko) body {
 }
 
 /*
- * Seven flexible columns beside a narrow one for the month and week. On a
- * 320-pixel phone a cell is still 33 pixels wide and 44 high; on a desktop the
- * cells grow square up to 4rem.
+ * Seven flexible columns beside one for the month and week, sized from the
+ * longest label in the language ("Tháng 11" is wider than "W44"). The grid,
+ * the weekday row, the body and every week row share these columns as
+ * subgrids, so the labels line up whatever their width. On a 320-pixel phone
+ * a cell is still 26 to 28 pixels wide and 44 high; on a desktop the cells
+ * grow square up to 4rem. Under 360 pixels the calendar reaches 0.5rem into
+ * the card's padding: Urdu's "جمعرات" is 36 pixels at its smallest legible
+ * size and would touch the next heading in a 28-pixel cell.
  */
-.cal-row,
-.cal-head {
+@media (max-width: 22.5rem) {
+  .cal {
+    margin-inline: -0.5rem;
+  }
+}
+.cal [role='grid'] {
   display: grid;
-  grid-template-columns: 2.25rem repeat(7, minmax(0, 1fr));
-  gap: 0.2rem;
+  grid-template-columns: max-content repeat(7, minmax(0, 1fr));
+  column-gap: 0.2rem;
 }
-
-/*
- * Only the days one can paint give up native scrolling and zooming. The
- * calendar always shows the whole range and may be taller than the screen: a
- * finger on the week column, a past day or the margin still scrolls the page.
- */
-.cal-paint .cal-body {
-  -webkit-touch-callout: none;
+.cal-head,
+.cal-body,
+.cal-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
 }
-.cal-paint .cal-body .cal-cell[data-kind='day'] {
-  touch-action: none;
+.cal-body {
+  row-gap: 0.25rem;
 }
 
 .cal-cell {
@@ -399,12 +422,54 @@ html:lang(ko) body {
   content: attr(data-count);
 }
 
-.cal-cell[data-month-start='true'] {
-  box-shadow: inset 3px 0 0 var(--owl-line-strong);
+/* "+2?" is a number and a sign, never mirrored in a right-to-left page. */
+.cal-count {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
+/* "new" in any language, on a cell 28 to 33 pixels wide: no capitals, no
+   tracking, and never wider than the cell. */
+.cal-new {
+  max-width: calc(100% + 0.25rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Month and week labels: the column grows to the longest, so none is cut. */
+.cal-rowhead {
+  position: relative;
+  font-size: 0.6875rem;
+}
+.cal-rowtext {
+  white-space: nowrap;
+}
+/* The week button is a touch target of at least 24 by 24 pixels (WCAG 2.5.8). */
+button.cal-rowtext {
+  display: inline-flex;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * The month's first day carries an edge on its start side. The edge is a
+ * variable the rings below add after their own, so a best day, a selection or
+ * a preview keeps its ring in both text directions.
+ */
+.cal-cell {
+  --edge: 0 0 #0000;
+}
+.cal-cell[data-month-start='true'] {
+  --edge: inset 3px 0 0 var(--owl-line-strong);
+}
 [dir='rtl'] .cal-cell[data-month-start='true'] {
-  box-shadow: inset -3px 0 0 var(--owl-line-strong);
+  --edge: inset -3px 0 0 var(--owl-line-strong);
+}
+.cal-cell[data-month-start='true'] {
+  box-shadow: var(--edge);
 }
 
 .cal-cell[data-kind='outside'] {
@@ -413,8 +478,9 @@ html:lang(ko) body {
 }
 
 .cal-cell[data-kind='past'] {
+  /* Dimmed by colour, not by opacity, which took the text below contrast. */
   color: var(--owl-muted);
-  opacity: 0.6;
+  filter: saturate(0.6);
 }
 
 .cal-cell[data-state='none'] {
@@ -446,7 +512,9 @@ html:lang(ko) body {
 
 .cal-cell[data-preview='true'] {
   transform: scale(0.92);
-  box-shadow: 0 0 0 2px var(--owl-focus);
+  box-shadow:
+    0 0 0 2px var(--owl-focus),
+    var(--edge);
 }
 
 .cal-cell[data-heat='0'] {
@@ -477,13 +545,15 @@ html:lang(ko) body {
 .cal-cell[data-best='true'] {
   box-shadow:
     0 0 0 2px var(--owl-surface),
-    0 0 0 4px var(--owl-brand);
+    0 0 0 4px var(--owl-brand),
+    var(--edge);
 }
 
 .cal-cell[data-selected='true'] {
   box-shadow:
     0 0 0 2px var(--owl-surface),
-    0 0 0 4px var(--owl-focus);
+    0 0 0 4px var(--owl-focus),
+    var(--edge);
 }
 
 button.cal-cell:not([aria-disabled='true']):active {
@@ -500,6 +570,37 @@ button.cal-cell:not([aria-disabled='true']):active {
   .cal-cell[data-state='maybe'],
   .cal-cell[data-heat] {
     border: 2px solid CanvasText;
+  }
+
+  /* Box shadows vanish in forced colours; outlines stay. A best day gets a
+     solid outline, a selected block a dashed one, both together a double. */
+  .cal-cell[data-best='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .cal-cell[data-selected='true'] {
+    outline: 3px dashed LinkText;
+    outline-offset: 2px;
+  }
+  .cal-cell[data-best='true'][data-selected='true'] {
+    outline-style: double;
+    outline-width: 5px;
+    outline-color: Highlight;
+  }
+  .cal-cell[data-preview='true'] {
+    outline: 2px solid Highlight;
+  }
+  .cal-cell[data-best='true']:focus-visible,
+  .cal-cell[data-selected='true']:focus-visible {
+    outline: 3px solid CanvasText;
+    outline-offset: 5px;
+  }
+  .cal-cell[data-month-start='true'] {
+    border-inline-start: 4px solid CanvasText;
+  }
+  .cal-cell[data-kind='past'] {
+    filter: none;
+    border-style: dotted;
   }
 }
 

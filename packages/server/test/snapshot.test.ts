@@ -16,6 +16,8 @@ import {
   type TestApp,
   adminHeaders,
   setStatus,
+  patchEvent,
+  patchParticipant,
 } from './helpers.js';
 
 let t: TestApp;
@@ -66,32 +68,35 @@ describe('the snapshot cache', () => {
       [
         'renaming a participant',
         ({ id, max }) =>
-          t.app.inject({
-            method: 'PATCH',
-            url: `/api/events/${id}/participants/${max.participantId}`,
-            headers: { 'x-participant-token': max.token },
-            payload: { name: 'Maximilian' },
-          }),
+          patchParticipant(
+            t.app,
+            id,
+            max.participantId,
+            { 'x-participant-token': max.token },
+            { name: 'Maximilian' }
+          ),
       ],
       [
         'a note',
         ({ id, max }) =>
-          t.app.inject({
-            method: 'PATCH',
-            url: `/api/events/${id}/participants/${max.participantId}`,
-            headers: { 'x-participant-token': max.token },
-            payload: { note: 'late' },
-          }),
+          patchParticipant(
+            t.app,
+            id,
+            max.participantId,
+            { 'x-participant-token': max.token },
+            { note: 'late' }
+          ),
       ],
       [
         'a password',
         ({ id, max }) =>
-          t.app.inject({
-            method: 'PATCH',
-            url: `/api/events/${id}/participants/${max.participantId}`,
-            headers: { 'x-participant-token': max.token },
-            payload: { password: 'secret1' },
-          }),
+          patchParticipant(
+            t.app,
+            id,
+            max.participantId,
+            { 'x-participant-token': max.token },
+            { password: 'secret1' }
+          ),
       ],
       [
         'adding to the roster',
@@ -115,22 +120,12 @@ describe('the snapshot cache', () => {
       [
         'editing the details',
         ({ id, adminToken }) =>
-          t.app.inject({
-            method: 'PATCH',
-            url: `/api/events/${id}`,
-            headers: adminHeaders(adminToken),
-            payload: { title: 'Winter tournament' },
-          }),
+          patchEvent(t.app, id, adminToken, { title: 'Winter tournament' }),
       ],
       [
         'editing the days, which takes marks along',
         ({ id, adminToken }) =>
-          t.app.inject({
-            method: 'PATCH',
-            url: `/api/events/${id}`,
-            headers: adminHeaders(adminToken),
-            payload: { days: WEEKEND, baseDays: DAYS },
-          }),
+          patchEvent(t.app, id, adminToken, { days: WEEKEND, baseDays: DAYS }),
       ],
       [
         'closing',

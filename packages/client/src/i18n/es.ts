@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/es';
 import type { Dictionary } from './en.ts';
 
 export const es: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.es,
 
   ...HOME,
@@ -25,13 +24,13 @@ export const es: Dictionary = {
   'home.forget': 'Quitar {title} de esta lista',
   'home.forgetOrganiser.title': '¿Quitar este evento de este dispositivo?',
   'home.forgetOrganiser.text':
-    'Este dispositivo guarda el enlace de organización de «{title}». Al quitar el evento, ese enlace se borra aquí: sin una copia no podrás cerrar la votación, elegir la fecha ni borrar el evento desde este dispositivo.',
+    'Este dispositivo guarda el enlace de organización de «{title}». Al quitar el evento, ese enlace se borra aquí: sin una copia no podrás cerrar la encuesta, elegir la fecha ni borrar el evento desde este dispositivo.',
   'home.forgetOrganiser.yes': 'Quitar de este dispositivo',
   'home.creationDisabled': 'Ahora mismo no puedes crear eventos aquí.',
 
   'create.title': 'Planear un evento',
   'create.step': 'Paso {current} de {total}',
-  'create.what': '¿Qué plan tenéis?',
+  'create.what': '¿Qué plan tienes?',
   'create.titleLabel': 'Título',
   'create.titlePlaceholder': 'Fútbol en el parque',
   'create.emoji': 'Icono',
@@ -50,7 +49,7 @@ export const es: Dictionary = {
   'create.weekdaysHint': 'Si no marcas ninguno, se incluyen todos los días.',
   'create.duration': 'Días seguidos',
   'create.durationHint':
-    '¿Buscáis un fin de semana entero? Elige 2. Buscaremos dos días seguidos que os vengan bien.',
+    '¿Quieres un fin de semana entero? Elige 2. Buscaremos dos días seguidos que encajen.',
   'create.fineTune': 'Toca o arrastra en el calendario para quitar días.',
   'create.dayCount_one': '{count} día para elegir',
   'create.dayCount_other': '{count} días para elegir',
@@ -91,7 +90,16 @@ export const es: Dictionary = {
   'error.rosterTooMany': 'Como máximo, {max} nombres de una vez.',
   'error.busy':
     'El servidor está ocupado en este momento. Inténtalo de nuevo en un rato.',
-  'error.changed': 'Esta entrada se acaba de modificar. Inténtalo de nuevo.',
+  'error.changed': 'Esta respuesta se acaba de modificar. Inténtalo de nuevo.',
+  'error.textInvisible': 'Aquí hace falta al menos un carácter visible.',
+  'error.rosterInvisible': 'La línea {line} no tiene ningún carácter visible.',
+  'error.rosterMixed':
+    'Línea {line}: una palabra mezcla letras latinas con cirílicas o griegas.',
+  'error.nameInvisible': 'El nombre necesita al menos un carácter visible.',
+  'error.nameMixed':
+    'Una palabra del nombre mezcla letras latinas con cirílicas o griegas.',
+  'error.createLimit':
+    'Desde esta red se han creado muchos eventos hace poco. Inténtalo de nuevo más tarde.',
   'error.invalid':
     'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.',
 
@@ -133,6 +141,8 @@ export const es: Dictionary = {
   'who.continue': 'Continuar',
   'who.protected':
     '«{name}» está protegido. Escribe la contraseña para seguir.',
+  'who.hasPassword': 'protegido con contraseña',
+  'who.answered': 'ha respondido',
   'who.wrongPassword': 'La contraseña no es correcta.',
   'who.passwordTooShort': 'Escribe al menos {min} caracteres.',
   'who.closed': 'La encuesta está cerrada. No se pueden añadir nombres.',
@@ -178,8 +188,8 @@ export const es: Dictionary = {
   'cal.yes': 'puede',
   'cal.maybe': 'quizá',
   'cal.no': 'sin marcar',
-  'cal.off': 'no disponible para elegir',
-  'cal.on': 'disponible para elegir',
+  'cal.off': 'no propuesto',
+  'cal.on': 'propuesto',
   'cal.new': 'nuevo',
   'cal.past': 'pasado',
   'cal.othersCan_one': 'puede {count} persona más',
@@ -212,6 +222,7 @@ export const es: Dictionary = {
   'day.cannot': 'No pueden',
   'day.open': 'Sin respuesta',
   'day.notes': 'Comentarios',
+  'day.noteSep': ': ',
   'day.close': 'Cerrar',
 
   'share.title': 'Compartir con el grupo',
@@ -242,7 +253,7 @@ export const es: Dictionary = {
   'admin.fillIn': 'Responder',
   'admin.resetPassword': 'Quitar contraseña',
   'admin.resetPasswordConfirm':
-    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta entrada.',
+    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta respuesta.',
   'admin.remove': 'Quitar',
   'admin.removeConfirm': '¿Quitar a {name} y todos sus días?',
   'admin.delete': 'Borrar evento',
@@ -312,7 +323,7 @@ export const es: Dictionary = {
 
   'imprint.title': 'Aviso legal',
   'imprint.provider.title':
-    'Identificación del proveedor según § 5 DDG y § 18 Abs. 1 MStV',
+    'Identificación del proveedor según § 5 DDG y § 18, apartado 1, MStV',
   'imprint.contact.title': 'Contacto',
   'imprint.contact.label': 'Correo electrónico:',
   'imprint.about.title': 'Sobre Owl Be There',

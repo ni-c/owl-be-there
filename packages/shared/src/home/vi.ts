@@ -19,7 +19,7 @@ export const HOME: HomeTexts = {
     'Không. Mỗi người chỉ cần chọn một cái tên. Người tổ chức sự kiện nhận được một liên kết riêng để quản lý.',
   'home.faq.doodle.q': 'Khác gì so với Doodle?',
   'home.faq.doodle.a':
-    'Owl Be There được làm cho trọn ngày: mọi người đánh dấu những ngày mình đi được, và bản đồ nhiệt cho thấy ngay ngày nào hợp nhất. Không có tài khoản, không theo dõi, và sự kiện cũ tự động bị xóa.',
+    'Owl Be There lên lịch theo ngày, không theo giờ: mọi người đánh dấu những ngày mình đi được, và bản đồ nhiệt cho thấy ngay ngày nào hợp nhất. Không có tài khoản, không theo dõi, và sự kiện cũ tự động bị xóa.',
   'home.faq.days.q': 'Có thể tìm trọn một cuối tuần không?',
   'home.faq.days.a':
     'Có. Hãy chọn hai ngày liên tiếp trở lên, Owl Be There sẽ xếp hạng các khoảng ngày nhiều người đi được nhất — kèm số người tối thiểu nếu các bạn cần.',

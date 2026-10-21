@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/de';
 import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.de,
 
   ...HOME,
@@ -23,7 +22,7 @@ export const de: Dictionary = {
   'event.planOwn.text':
     'Leg in einer Minute dein eigenes Event an, ganz ohne Konto.',
   'home.myEvents': 'Deine Events',
-  'home.organiser': 'Organisation',
+  'home.organiser': 'Du organisierst',
   'home.forget': '{title} aus dieser Liste entfernen',
   'home.forgetOrganiser.title': 'Dieses Event von diesem Gerät entfernen?',
   'home.forgetOrganiser.text':
@@ -52,7 +51,7 @@ export const de: Dictionary = {
   'create.weekdaysHint': 'Ohne Auswahl sind alle Tage dabei.',
   'create.duration': 'Tage am Stück',
   'create.durationHint':
-    'Soll es ein ganzes Wochenende sein? Wähle 2. Dann sucht die Übersicht zwei passende Tage am Stück.',
+    'Soll es ein ganzes Wochenende sein? Wähle 2. Dann suchen wir zwei passende Tage am Stück.',
   'create.fineTune': 'Tippe oder ziehe im Kalender, um Tage wegzulassen.',
   'create.dayCount_one': '{count} Tag zur Auswahl',
   'create.dayCount_other': '{count} Tage zur Auswahl',
@@ -94,6 +93,15 @@ export const de: Dictionary = {
     'Der Server ist gerade ausgelastet. Versuch es gleich noch mal.',
   'error.changed':
     'Dieser Eintrag wurde gerade geändert. Versuch es bitte noch mal.',
+  'error.textInvisible': 'Hier muss mindestens ein sichtbares Zeichen stehen.',
+  'error.rosterInvisible': 'Zeile {line} enthält kein sichtbares Zeichen.',
+  'error.rosterMixed':
+    'Zeile {line}: Ein Wort mischt lateinische mit kyrillischen oder griechischen Buchstaben.',
+  'error.nameInvisible': 'Der Name braucht mindestens ein sichtbares Zeichen.',
+  'error.nameMixed':
+    'Ein Wort im Namen mischt lateinische mit kyrillischen oder griechischen Buchstaben.',
+  'error.createLimit':
+    'Aus diesem Netz wurden zuletzt viele Events angelegt. Versuch es später noch einmal.',
   'error.invalid':
     'Einige Angaben sind ungültig. Prüf sie bitte und versuch es noch mal.',
 
@@ -134,6 +142,8 @@ export const de: Dictionary = {
     'Ohne Passwort kann jede Person mit dem Link deinen Namen eingeben und deine Tage ändern.',
   'who.continue': 'Weiter',
   'who.protected': '„{name}“ ist geschützt. Gib bitte das Passwort ein.',
+  'who.hasPassword': 'mit Passwort geschützt',
+  'who.answered': 'hat geantwortet',
   'who.wrongPassword': 'Das Passwort stimmt nicht.',
   'who.passwordTooShort': 'Bitte mindestens {min} Zeichen.',
   'who.closed':
@@ -216,6 +226,7 @@ export const de: Dictionary = {
   'day.cannot': 'Kann nicht',
   'day.open': 'Noch keine Antwort',
   'day.notes': 'Anmerkungen',
+  'day.noteSep': ': ',
   'day.close': 'Schließen',
 
   'share.title': 'Mit der Gruppe teilen',
@@ -231,7 +242,7 @@ export const de: Dictionary = {
   'share.adminWarning':
     'Diesen Link behältst du am besten für dich. Wer ihn hat, kann das Event ändern oder löschen. Bewahre ihn gut auf. Nur damit kannst du das Event auch von einem anderen Gerät aus verwalten.',
 
-  'admin.title': 'Organisation',
+  'admin.title': 'Organisations-Werkzeuge',
   'admin.close': 'Abstimmung schließen',
   'admin.reopen': 'Abstimmung wieder öffnen',
   'admin.unchoose': 'Festlegung aufheben',
@@ -294,7 +305,7 @@ export const de: Dictionary = {
     'Dein Browser speichert geöffnete Events auf deinem Gerät. Dazu gehören dein Name im Event und deine Einstellungen. Auf der Startseite kannst du Events aus der Liste entfernen.',
   'privacy.retention.title': 'Wann gelöscht wird',
   'privacy.retention.text':
-    'Wir löschen ein Event {days} Tage nach der letzten Änderung. Sobald jemand geantwortet hat, bleibt es mindestens, bis sein letzter Tag vorbei ist. Die Organisation kann es jederzeit löschen.',
+    'Wir löschen ein Event {days} Tage nach der letzten Änderung. Sobald jemand geantwortet hat, bleibt es mindestens, bis sein letzter Tag vorbei ist. Wer das Event organisiert, kann es jederzeit löschen.',
   'privacy.logs_one':
     'Der Webserver protokolliert Zugriffe mit IP-Adressen, um Missbrauch abzuwehren. Diese Logs werden nach {count} Tag gelöscht.',
   'privacy.logs_other':
@@ -305,7 +316,7 @@ export const de: Dictionary = {
   'privacy.backups_other':
     'Backups bleiben {count} Tage gespeichert. Danach ist ein gelöschtes Event auch daraus verschwunden.',
   'privacy.backups.none': 'Es werden keine Backups aufbewahrt.',
-  'privacy.instance.loading': 'Die Angaben zum Betreiber werden geladen …',
+  'privacy.instance.loading': 'Die Angaben zum Betreiber werden geladen…',
   'privacy.instance.failed':
     'Die Angaben zum Betreiber konnten nicht geladen werden. Lade die Seite neu, um es noch einmal zu versuchen.',
   'privacy.operator.title': 'Wer diese Instanz betreibt',

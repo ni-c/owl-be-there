@@ -38,6 +38,9 @@ export function rovingKeyDown(
   choose: (index: number) => void,
   vertical = true
 ): void {
+  // Alt/Cmd+Arrow is the browser's Back and Forward, Ctrl+Arrow the screen
+  // reader's or the window manager's.
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
   const next = arrowTarget(
     event.key,
     index,
@@ -51,4 +54,19 @@ export function rovingKeyDown(
   (
     event.currentTarget.parentElement?.children[next] as HTMLElement | undefined
   )?.focus();
+}
+
+/**
+ * The letter a shortcut key stands for, lower case. A Latin letter is taken
+ * from `key`, so a QWERTZ or AZERTY layout keeps the letter printed on its
+ * keys; on a layout without Latin letters (Cyrillic, Arabic, Persian, Korean,
+ * Japanese, Chinese) the physical key (`code`: KeyY, KeyM, KeyZ) stands in.
+ * Any other key comes back lower-cased as it is.
+ */
+export function shortcutKey(key: string, code: string): string {
+  if (/^[a-z]$/i.test(key)) return key.toLowerCase();
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter && key.length > 0 && key.codePointAt(0)! > 0x7f)
+    return letter[1]!.toLowerCase();
+  return key.toLowerCase();
 }

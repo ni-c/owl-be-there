@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ur';
 import type { Dictionary } from './en.ts';
 
 export const ur = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ur,
   ...HOME,
   'home.cta': 'ایونٹ پلان کریں',
@@ -90,6 +89,15 @@ export const ur = {
   'error.busy':
     'سرور اس وقت مصروف ہے۔ براہ کرم تھوڑی دیر میں دوبارہ کوشش کریں۔',
   'error.changed': 'یہ جواب ابھی ابھی بدلا گیا ہے۔ براہ کرم دوبارہ کوشش کریں۔',
+  'error.textInvisible': 'یہاں کم از کم ایک نظر آنے والا حرف ہونا چاہیے۔',
+  'error.rosterInvisible': 'سطر {line} میں کوئی نظر آنے والا حرف نہیں ہے۔',
+  'error.rosterMixed':
+    'سطر {line}: ایک لفظ میں لاطینی حروف کے ساتھ سیریلک یا یونانی حروف ملے ہوئے ہیں۔',
+  'error.nameInvisible': 'نام میں کم از کم ایک نظر آنے والا حرف ہونا چاہیے۔',
+  'error.nameMixed':
+    'نام کے ایک لفظ میں لاطینی حروف کے ساتھ سیریلک یا یونانی حروف ملے ہوئے ہیں۔',
+  'error.createLimit':
+    'حال ہی میں اس نیٹ ورک سے بہت سے ایونٹس بنائے گئے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔',
   'error.invalid':
     'کچھ معلومات درست نہیں۔ براہ کرم انہیں دیکھ کر دوبارہ کوشش کریں۔',
 
@@ -128,7 +136,10 @@ export const ur = {
   'who.passwordHint':
     'پاس ورڈ کے بغیر لنک رکھنے والا کوئی بھی آپ کا نام ڈال کر آپ کے دن بدل سکتا ہے۔',
   'who.continue': 'جاری رکھیں',
-  'who.protected': '«{name}» محفوظ ہے۔ جاری رکھنے کے لیے پاس ورڈ لکھیں۔',
+  'who.protected':
+    '«{name}» پاس ورڈ سے محفوظ ہے۔ جاری رکھنے کے لیے پاس ورڈ لکھیں۔',
+  'who.hasPassword': 'پاس ورڈ سے محفوظ',
+  'who.answered': 'جواب دے دیا',
   'who.wrongPassword': 'یہ پاس ورڈ درست نہیں۔',
   'who.passwordTooShort': 'براہ کرم کم از کم {min} حروف۔',
   'who.closed': 'ووٹنگ بند ہو چکی ہے۔ اب نئے نام شامل نہیں ہو سکتے۔',
@@ -178,8 +189,8 @@ export const ur = {
   'cal.on': 'ممکنہ دن',
   'cal.new': 'نیا',
   'cal.past': 'گزر چکا',
-  'cal.othersCan_one': 'مزید {count} کے لیے ممکن',
-  'cal.othersCan_other': 'مزید {count} کے لیے ممکن',
+  'cal.othersCan_one': 'مزید {count} شخص آ سکتا ہے',
+  'cal.othersCan_other': 'مزید {count} لوگ آ سکتے ہیں',
   'cal.heat': '{yes} ہاں، {maybe} شاید، {no} نہیں',
   'cal.gap': 'بغیر ممکنہ دنوں والے ہفتے چھوڑ دیے گئے',
   'cal.changed_one': '{count} دن بدلا',
@@ -192,7 +203,7 @@ export const ur = {
   'group.legendFew': 'چند',
   'group.legendAll': 'سب',
   'group.best': 'بہترین دن',
-  'group.count': '{total} میں سے {yes} کے لیے ممکن',
+  'group.count': '{total} میں سے {yes} آ سکتے ہیں',
   'group.maybeCount': '+{count} شاید',
   'group.enough': 'کافی لوگ',
   'group.enoughMaybe': '«شاید» ملا کر کافی',
@@ -209,6 +220,7 @@ export const ur = {
   'day.cannot': 'نہیں',
   'day.open': 'جواب نہیں دیا',
   'day.notes': 'تبصرے',
+  'day.noteSep': ': ',
   'day.close': 'بند کریں',
 
   'share.title': 'اپنے گروپ کے ساتھ شیئر کریں',

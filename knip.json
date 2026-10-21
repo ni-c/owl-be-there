@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6.39.0/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts", "e2e/specs/*.spec.ts"],
+      "project": ["scripts/**/*.ts", "e2e/**/*.ts"],
+      "ignoreDependencies": ["@fontsource/nunito"]
+    },
+    "packages/shared": {
+      "entry": ["test/**/*.test.ts"]
+    },
+    "packages/server": {
+      "entry": ["src/cli.ts", "test/**/*.test.ts"],
+      "ignore": ["test/fixtures/**"]
+    },
+    "packages/client": {
+      "entry": ["test/**/*.test.{ts,tsx}"]
+    }
+  }
+}

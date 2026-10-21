@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/nb';
 import type { Dictionary } from './en.ts';
 
 export const nb = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.nb,
   ...HOME,
   'home.cta': 'Planlegg et arrangement',
@@ -73,7 +72,7 @@ export const nb = {
   'error.noDays': 'Velg minst én dag.',
   'error.tooManyDays': 'Høyst {max} dager.',
   'error.noBlock': 'Det finnes ikke {count} dager på rad å velge mellom.',
-  'error.past': 'Den dagen har allerede vært.',
+  'error.past': 'Den dagen har allerede passert.',
   'error.tooFar':
     'Det er for langt frem i tid. Velg dager innen de neste fem årene.',
   'error.slowDown':
@@ -90,6 +89,15 @@ export const nb = {
   'error.rosterTooMany': 'Høyst {max} navn om gangen.',
   'error.busy': 'Serveren er opptatt akkurat nå. Prøv igjen om litt.',
   'error.changed': 'Denne oppføringen ble nettopp endret. Prøv igjen.',
+  'error.textInvisible': 'Her må det stå minst ett synlig tegn.',
+  'error.rosterInvisible': 'Linje {line} har ikke noe synlig tegn.',
+  'error.rosterMixed':
+    'Linje {line}: Et ord blander latinske bokstaver med kyrilliske eller greske.',
+  'error.nameInvisible': 'Navnet må ha minst ett synlig tegn.',
+  'error.nameMixed':
+    'Et ord i navnet blander latinske bokstaver med kyrilliske eller greske.',
+  'error.createLimit':
+    'Mange arrangementer er nylig opprettet fra dette nettverket. Prøv igjen senere.',
   'error.invalid':
     'Noen av opplysningene er ugyldige. Sjekk dem og prøv igjen.',
 
@@ -131,6 +139,8 @@ export const nb = {
   'who.continue': 'Fortsett',
   'who.protected':
     '«{name}» er beskyttet. Skriv inn passordet for å fortsette.',
+  'who.hasPassword': 'passordbeskyttet',
+  'who.answered': 'har svart',
   'who.wrongPassword': 'Feil passord.',
   'who.passwordTooShort': 'Bruk minst {min} tegn.',
   'who.closed': 'Avstemningen er avsluttet. Nye navn kan ikke bli med.',
@@ -211,6 +221,7 @@ export const nb = {
   'day.cannot': 'Kan ikke',
   'day.open': 'Ikke svart',
   'day.notes': 'Merknader',
+  'day.noteSep': ': ',
   'day.close': 'Lukk',
 
   'share.title': 'Del med gruppen din',

@@ -75,7 +75,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
  * `rawPacket`. A request the parser refuses is logged at `trace` with the
  * bytes it received — the event link and the tokens in its headers.
  */
-export function serializeError(error: Error): {
+function serializeError(error: Error): {
   [key: string]: unknown;
   type: string;
   message: string;
@@ -303,9 +303,13 @@ export async function buildApp(
     }
     const status = error.statusCode ?? 500;
     if (status === 429) {
+      // A route may name its limit (`limit(…, code)`): creation has its own.
+      const { limitCode } = request.routeOptions.config as {
+        limitCode?: string;
+      };
       return reply
         .code(429)
-        .send({ error: 'rate_limited', message: error.message });
+        .send({ error: limitCode ?? 'rate_limited', message: error.message });
     }
     if (status >= 400 && status < 500) {
       // The static handler's refusal (dotfile, odd path) is a missing page.
@@ -322,10 +326,7 @@ export async function buildApp(
         message: error.message,
       });
     }
-    app.log.error(
-      { err: { message: error.message, stack: error.stack } },
-      'request failed'
-    );
+    app.log.error({ err: error }, 'request failed');
     return reply
       .code(500)
       .send({ error: 'internal', message: 'Something went wrong' });

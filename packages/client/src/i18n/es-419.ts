@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/es-419';
 import type { Dictionary } from './en.ts';
 
 export const es419: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['es-419'],
 
   ...HOME,
@@ -50,7 +49,7 @@ export const es419: Dictionary = {
   'create.weekdaysHint': 'Si no marcas ninguno, se incluyen todos los días.',
   'create.duration': 'Días seguidos',
   'create.durationHint':
-    '¿Buscan un fin de semana completo? Elige 2. Buscaremos dos días seguidos que les queden bien.',
+    '¿Es un fin de semana completo? Elige 2. Buscaremos dos días seguidos que funcionen para el grupo.',
   'create.fineTune': 'Toca o arrastra en el calendario para quitar días.',
   'create.dayCount_one': '{count} día posible',
   'create.dayCount_other': '{count} días posibles',
@@ -92,6 +91,15 @@ export const es419: Dictionary = {
   'error.busy':
     'El servidor está ocupado en este momento. Inténtalo de nuevo en un rato.',
   'error.changed': 'Esta respuesta acaba de cambiar. Inténtalo de nuevo.',
+  'error.textInvisible': 'Aquí hace falta al menos un carácter visible.',
+  'error.rosterInvisible': 'La línea {line} no tiene ningún carácter visible.',
+  'error.rosterMixed':
+    'Línea {line}: una palabra mezcla letras latinas con cirílicas o griegas.',
+  'error.nameInvisible': 'El nombre necesita al menos un carácter visible.',
+  'error.nameMixed':
+    'Una palabra del nombre mezcla letras latinas con cirílicas o griegas.',
+  'error.createLimit':
+    'Desde esta red se han creado muchos eventos hace poco. Inténtalo de nuevo más tarde.',
   'error.invalid':
     'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.',
 
@@ -133,6 +141,8 @@ export const es419: Dictionary = {
   'who.continue': 'Continuar',
   'who.protected':
     '“{name}” está protegido. Escribe la contraseña para continuar.',
+  'who.hasPassword': 'protegido con contraseña',
+  'who.answered': 'ya respondió',
   'who.wrongPassword': 'La contraseña no es correcta.',
   'who.passwordTooShort': 'Escribe al menos {min} caracteres.',
   'who.closed': 'La encuesta está cerrada. Ya no se pueden agregar nombres.',
@@ -196,7 +206,7 @@ export const es419: Dictionary = {
   'group.legendFew': 'pocos',
   'group.legendAll': 'todos',
   'group.best': 'Mejores días',
-  'group.count': 'Pueden {yes} de {total}',
+  'group.count': 'Pueden: {yes} de {total}',
   'group.maybeCount': '+{count} tal vez',
   'group.enough': 'gente suficiente',
   'group.enoughMaybe': 'suficientes contando los “tal vez”',
@@ -213,6 +223,7 @@ export const es419: Dictionary = {
   'day.cannot': 'No pueden',
   'day.open': 'Sin respuesta',
   'day.notes': 'Comentarios',
+  'day.noteSep': ': ',
   'day.close': 'Cerrar',
 
   'share.title': 'Compartir con el grupo',

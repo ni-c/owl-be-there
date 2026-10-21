@@ -1,4 +1,5 @@
 import {
+  APP_NAME,
   hasImprint,
   isLanguage,
   LANGUAGE_NAMES,
@@ -89,8 +90,8 @@ function Shell() {
   useEffect(() => {
     if (route.page !== 'event') {
       document.title = heading
-        ? `${t(heading)} · ${t('app.name')}`
-        : `${t('app.name')} — ${t('app.tagline')}`;
+        ? `${t(heading)} · ${APP_NAME}`
+        : `${APP_NAME} — ${t('app.tagline')}`;
       setFavicon(OWL_ICON);
     }
   }, [route.page, heading, t]);
@@ -187,7 +188,6 @@ export function Link({
 }
 
 function Header() {
-  const { t } = useI18n();
   return (
     <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-3 sm:px-6">
       <Link
@@ -195,7 +195,7 @@ function Header() {
         className="flex items-center gap-2 rounded-full pe-3 font-black"
       >
         <Owl size={40} />
-        <span className="text-xl tracking-tight">{t('app.name')}</span>
+        <span className="text-xl tracking-tight">{APP_NAME}</span>
       </Link>
     </header>
   );
@@ -260,17 +260,23 @@ function Footer({
         </div>
         <nav className="flex flex-wrap items-center gap-4 font-bold">
           {route.page !== 'home' && (
-            <Link href="/" className="underline-offset-4 hover:underline">
+            <Link
+              href="/"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
+            >
               {t('home.cta')}
             </Link>
           )}
-          <Link href="/privacy" className="underline-offset-4 hover:underline">
+          <Link
+            href="/privacy"
+            className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
+          >
             {t('footer.privacy')}
           </Link>
           {imprint?.kind === 'internal' && (
             <Link
               href={imprint.href}
-              className="underline-offset-4 hover:underline"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
             >
               {t('footer.imprint')}
             </Link>
@@ -279,7 +285,7 @@ function Footer({
             <a
               href={imprint.href}
               rel="noopener noreferrer"
-              className="underline-offset-4 hover:underline"
+              className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
             >
               {t('footer.imprint')}
             </a>
@@ -287,7 +293,7 @@ function Footer({
           <a
             href="https://github.com/ni-c/owl-be-there"
             rel="noopener noreferrer"
-            className="underline-offset-4 hover:underline"
+            className="inline-flex min-h-6 items-center underline-offset-4 hover:underline"
           >
             {t('footer.source')}
           </a>

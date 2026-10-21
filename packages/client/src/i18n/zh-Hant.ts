@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/zh-Hant';
 import type { Dictionary } from './en.ts';
 
 export const zhHant = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['zh-Hant'],
   ...HOME,
   'home.cta': '規劃活動',
@@ -67,11 +66,11 @@ export const zhHant = {
   'error.rangeTooLong': '日期範圍最多一年。',
   'error.noDays': '請至少選擇一天。',
   'error.tooManyDays': '最多可選 {max} 天。',
-  'error.noBlock': '沒有連續 {count} 天的候選日期。',
+  'error.noBlock': '沒有連續 {count} 天的候選日。',
   'error.past': '這一天已經過了。',
   'error.tooFar': '日期太遠了，請選擇未來五年內的日期。',
   'error.slowDown': '這個名字的密碼錯誤次數太多，請過幾分鐘再試。',
-  'error.daysChanged': '候選日期已在其他地方變更。請檢查後再儲存。',
+  'error.daysChanged': '候選日已在其他地方變更。請檢查後再儲存。',
   'error.generic': '操作失敗，請再試一次。',
   'error.offline': '你似乎已離線，請稍後再試。',
   'error.rateLimited': '操作太頻繁，請稍等片刻。',
@@ -82,6 +81,13 @@ export const zhHant = {
   'error.rosterTooMany': '一次最多新增 {max} 個名字。',
   'error.busy': '伺服器目前忙碌，請稍後再試。',
   'error.changed': '這筆回覆剛剛被修改，請再試一次。',
+  'error.textInvisible': '這裡至少需要一個可見字元。',
+  'error.rosterInvisible': '第 {line} 行沒有可見字元。',
+  'error.rosterMixed':
+    '第 {line} 行：一個詞裡混用了拉丁字母與西里爾或希臘字母。',
+  'error.nameInvisible': '名字至少需要一個可見字元。',
+  'error.nameMixed': '名字中的一個詞混用了拉丁字母與西里爾或希臘字母。',
+  'error.createLimit': '最近從這個網路建立了很多活動，請稍後再試。',
   'error.invalid': '部分資料無效，請檢查後再試。',
 
   'event.loading': '正在載入活動…',
@@ -119,6 +125,8 @@ export const zhHant = {
     '如果沒有密碼，任何拿到連結的人都能以你的名字修改你標記的日期。',
   'who.continue': '繼續',
   'who.protected': '「{name}」受密碼保護。請輸入密碼以繼續。',
+  'who.hasPassword': '受密碼保護',
+  'who.answered': '已回答',
   'who.wrongPassword': '密碼不正確。',
   'who.passwordTooShort': '密碼至少需要 {min} 個字元。',
   'who.closed': '日期投票已關閉，無法新增參加者。',
@@ -197,6 +205,7 @@ export const zhHant = {
   'day.cannot': '無法參加',
   'day.open': '尚未回覆',
   'day.notes': '備註',
+  'day.noteSep': '：',
   'day.close': '關閉',
 
   'share.title': '分享給群組',
@@ -206,7 +215,7 @@ export const zhHant = {
   'share.copied': '已複製！',
   'share.native': '分享…',
   'share.qr': '掃描以開啟',
-  'share.inviteText': '{emoji} {title} — 你哪天有空？請標記方便的日期：{url}',
+  'share.inviteText': '{emoji} {title} — 你哪天有空？請標記方便的日期: {url}',
   'share.adminTitle': '你的主辦人連結',
   'share.adminWarning':
     '請勿分享這個連結。任何持有連結的人都能修改或刪除活動。請妥善保存；要從其他裝置管理活動時會用到。',
@@ -257,7 +266,7 @@ export const zhHant = {
     'Owl Be There 只儲存安排活動所需的資料。以下說明儲存內容及刪除時間。',
   'privacy.stored.title': '儲存哪些資料',
   'privacy.stored.event':
-    '每項活動會儲存名稱、圖示、候選日期及設定。說明、地點和主辦人姓名均可選填。',
+    '每項活動會儲存名稱、圖示、候選日及設定。說明、地點和主辦人姓名均可選填。',
   'privacy.stored.person':
     '每位參加者會儲存姓名和標記的日期；如有填寫備註或設定密碼，也會儲存備註與密碼雜湊值。',
   'privacy.stored.nothingElse':
