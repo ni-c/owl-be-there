@@ -82,6 +82,27 @@ test('an organiser creates an event with the wizard and gets the share sheet', a
   await expect(page.getByRole('button', { name: 'Anna' })).toBeVisible();
 });
 
+test('focus that moves into the wizard right after opening is not pulled away', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const kept = await page.evaluate(async () => {
+    const cta = [...document.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Plan an event'
+    );
+    cta?.click();
+    // React renders the wizard in a microtask: wait for it, not for a frame.
+    await Promise.resolve();
+    const title = document.querySelector<HTMLInputElement>('form input');
+    title?.focus();
+    for (let frame = 0; frame < 3; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return title !== null && document.activeElement === title;
+  });
+  expect(kept).toBe(true);
+});
+
 test('changing the range keeps the days the organiser already chose', async ({
   page,
 }) => {

@@ -40,8 +40,13 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   const start = () => {
     setCreating(true);
     requestAnimationFrame(() => {
-      wizardRef.current?.focus({ preventScroll: true });
-      wizardRef.current?.scrollIntoView({
+      const wizard = wizardRef.current;
+      // Focus already moved into the form (typing right after the click):
+      // pulling it out would drop the keystrokes.
+      if (!wizard?.contains(document.activeElement)) {
+        wizard?.focus({ preventScroll: true });
+      }
+      wizard?.scrollIntoView({
         behavior: scrollBehavior(),
         block: 'start',
       });
