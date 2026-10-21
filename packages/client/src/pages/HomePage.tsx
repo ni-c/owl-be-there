@@ -135,7 +135,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
       {myEvents.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-2xl font-extrabold">{t('home.myEvents')}</h2>
-          <ul ref={listRef} className="grid gap-3 sm:grid-cols-2">
+          <ul ref={listRef} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {myEvents.map((event) => (
               <li
                 key={event.id}
@@ -241,7 +241,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-2xl font-extrabold">{t('home.faq.title')}</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FAQ_TOPICS.map((topic) => (
             <Card key={topic} className="flex flex-col gap-2">
               <h3 className="text-lg font-extrabold">

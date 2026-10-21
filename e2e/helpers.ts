@@ -162,15 +162,18 @@ export async function expectNoHorizontalOverflow(
   page: Page,
   where: string
 ): Promise<void> {
-  const overflow = await page.evaluate(() => {
-    const width = window.innerWidth;
+  // A mobile browser widens its layout viewport to the content, so
+  // innerWidth grows with an overflow; the configured viewport does not.
+  const viewport = page.viewportSize()?.width;
+  const overflow = await page.evaluate((configured) => {
+    const width = Math.min(window.innerWidth, configured ?? Infinity);
     if (document.documentElement.scrollWidth <= width + 1) return null;
     const wide = [...document.body.querySelectorAll('*')]
       .filter((el) => el.getBoundingClientRect().right > width + 1)
       .slice(0, 5)
       .map((el) => `${el.tagName.toLowerCase()}.${el.className}`);
     return { scrollWidth: document.documentElement.scrollWidth, width, wide };
-  });
+  }, viewport);
   expect(overflow, `${where}: horizontal overflow`).toBeNull();
 }
 

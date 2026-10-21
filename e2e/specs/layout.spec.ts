@@ -200,3 +200,35 @@ test('a normal title breaks between words, a long one still wraps', async ({
   expect(await brokenWords(long)).toEqual([long]);
   await expectNoHorizontalOverflow(page, 'a long unbroken title');
 });
+
+// A grid track sized `auto` grows to its longest word, so a remembered event
+// with one long unbroken word pushed the start page wider than a phone.
+test('a remembered event with a long unbroken title fits a phone', async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.use.hasTouch, 'phone width: touch projects only');
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'owl.events',
+      JSON.stringify([
+        {
+          id: '3Hk9TqXw5RdE',
+          title: 'Chess night',
+          emoji: 'soccer',
+          role: 'participant',
+        },
+        {
+          id: 'Cm4Pz8WnJ2yA',
+          title:
+            'Garden party Donaudampfschifffahrtsgesellschaftskapitaensmuetze',
+          emoji: 'drinks',
+          role: 'organiser',
+        },
+      ])
+    );
+  });
+  await page.goto('/en');
+  await expect(page.getByRole('link', { name: /Chess night/ })).toBeVisible();
+  await expectNoHorizontalOverflow(page, 'the start page with a long title');
+});
