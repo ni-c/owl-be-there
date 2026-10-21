@@ -115,11 +115,16 @@ export class Db {
   /**
    * Fold the write-ahead log back into the database file and truncate it.
    * Returns false when a reader (the command line, say) kept it from finishing
-   * within the busy timeout; the log is then folded in by a later checkpoint.
+   * within `waitMs`; the log is then folded in by a later checkpoint.
    */
-  checkpoint(): boolean {
-    const row = this.get<{ busy: number }>('PRAGMA wal_checkpoint(TRUNCATE)');
-    return row === undefined || Number(row.busy) === 0;
+  checkpoint(waitMs = 5000): boolean {
+    this.db.exec(`PRAGMA busy_timeout = ${Math.trunc(waitMs)}`);
+    try {
+      const row = this.get<{ busy: number }>('PRAGMA wal_checkpoint(TRUNCATE)');
+      return row === undefined || Number(row.busy) === 0;
+    } finally {
+      this.db.exec('PRAGMA busy_timeout = 5000');
+    }
   }
 
   /**

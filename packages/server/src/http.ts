@@ -25,10 +25,21 @@ export const closed = (): ApiError =>
 export const nameTaken = (): ApiError =>
   new ApiError(409, 'name_taken', 'Someone already has that name');
 
-export class ValidationError extends ApiError {
-  readonly issues: { path: string; message: string }[];
+/**
+ * One refused field. `code` is the zod issue code (`too_small`, `custom`, …);
+ * `reason` names a shared refinement (`ISSUE_REASON`), when there is one.
+ */
+export interface ValidationIssue {
+  path: string;
+  code: string;
+  message: string;
+  reason?: string;
+}
 
-  constructor(issues: { path: string; message: string }[]) {
+export class ValidationError extends ApiError {
+  readonly issues: ValidationIssue[];
+
+  constructor(issues: ValidationIssue[]) {
     super(400, 'validation_failed', 'The request is not valid');
     this.issues = issues;
   }
@@ -42,10 +53,16 @@ export function parseBody<S extends z.ZodType>(
   const result = schema.safeParse(body ?? {});
   if (result.success) return result.data;
   throw new ValidationError(
-    result.error.issues.map((issue) => ({
-      path: issue.path.join('.'),
-      message: issue.message,
-    }))
+    result.error.issues.map((issue) => {
+      const reason =
+        issue.code === 'custom' ? issue.params?.['reason'] : undefined;
+      return {
+        path: issue.path.join('.'),
+        code: issue.code,
+        message: issue.message,
+        ...(typeof reason === 'string' ? { reason } : {}),
+      };
+    })
   );
 }
 
@@ -56,6 +73,16 @@ export function header(
 ): string | undefined {
   const value = request.headers[name];
   return Array.isArray(value) ? value[0] : value;
+}
+
+/** Whether an If-None-Match value (`*`, or a list, weak or not) names `etag`. */
+export function matchesEtag(value: string | undefined, etag: string): boolean {
+  if (value === undefined) return false;
+  const wanted = etag.replace(/^W\//, '');
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .some((part) => part === '*' || part.replace(/^W\//, '') === wanted);
 }
 
 /**

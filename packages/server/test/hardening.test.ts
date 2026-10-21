@@ -14,6 +14,7 @@ import {
   adminHeaders,
   sessionRequest,
   setStatus,
+  patchEvent,
 } from './helpers.js';
 
 const DAYS = ['2027-03-05', ...WEEKEND];
@@ -27,18 +28,10 @@ afterEach(async () => {
   await t.app.close();
 });
 
-const patch = (id: string, token: string, payload: Record<string, unknown>) =>
-  t.app.inject({
-    method: 'PATCH',
-    url: `/api/events/${id}`,
-    headers: adminHeaders(token),
-    payload,
-  });
-
 describe('editing the days', () => {
   it('needs the days the edit started from', async () => {
     const { id, adminToken } = await createEvent(t.app);
-    const without = await patch(id, adminToken, { days: WEEKEND });
+    const without = await patchEvent(t.app, id, adminToken, { days: WEEKEND });
     expect(without.statusCode).toBe(400);
     expect(without.json().issues[0].path).toBe('baseDays');
   });
@@ -47,11 +40,15 @@ describe('editing the days', () => {
     const { id, adminToken } = await createEvent(t.app);
     const reversed = [...DAYS].reverse();
     expect(
-      (await patch(id, adminToken, { days: WEEKEND, baseDays: reversed }))
-        .statusCode
+      (
+        await patchEvent(t.app, id, adminToken, {
+          days: WEEKEND,
+          baseDays: reversed,
+        })
+      ).statusCode
     ).toBe(200);
     // A second tab still holds the three days it loaded.
-    const stale = await patch(id, adminToken, {
+    const stale = await patchEvent(t.app, id, adminToken, {
       days: ['2027-03-05'],
       baseDays: DAYS,
     });
@@ -62,9 +59,9 @@ describe('editing the days', () => {
 
   it('leaves details alone without a base', async () => {
     const { id, adminToken } = await createEvent(t.app);
-    expect((await patch(id, adminToken, { title: 'Renamed' })).statusCode).toBe(
-      200
-    );
+    expect(
+      (await patchEvent(t.app, id, adminToken, { title: 'Renamed' })).statusCode
+    ).toBe(200);
   });
 
   it('gives a new revision to exactly those who lose marks', async () => {
@@ -79,7 +76,7 @@ describe('editing the days', () => {
       snapshot.participants.find((p: { name: string }) => p.name === name)!
         .rev as number;
 
-    await patch(id, adminToken, {
+    await patchEvent(t.app, id, adminToken, {
       days: ['2027-03-05', '2027-03-06'],
       baseDays: DAYS,
     });
@@ -103,26 +100,30 @@ describe('a chosen date and a new duration', () => {
   it('moves the end with the duration while the block still fits', async () => {
     const { id, adminToken } = await createEvent(t.app);
     await finalize(id, adminToken, '2027-03-06');
-    const longer = await patch(id, adminToken, { durationDays: 2 });
+    const longer = await patchEvent(t.app, id, adminToken, { durationDays: 2 });
     expect(longer.json().event).toMatchObject({
       status: 'finalized',
       finalStart: '2027-03-06',
       finalEnd: '2027-03-07',
     });
-    const shorter = await patch(id, adminToken, { durationDays: 1 });
+    const shorter = await patchEvent(t.app, id, adminToken, {
+      durationDays: 1,
+    });
     expect(shorter.json().event).toMatchObject({
       finalStart: '2027-03-06',
       finalEnd: '2027-03-06',
     });
     // The same duration again changes nothing.
-    const same = await patch(id, adminToken, { durationDays: 1 });
+    const same = await patchEvent(t.app, id, adminToken, { durationDays: 1 });
     expect(same.json().event.finalEnd).toBe('2027-03-06');
   });
 
   it('drops the date once the block no longer fits', async () => {
     const { id, adminToken } = await createEvent(t.app);
     await finalize(id, adminToken, '2027-03-06');
-    const response = await patch(id, adminToken, { durationDays: 3 });
+    const response = await patchEvent(t.app, id, adminToken, {
+      durationDays: 3,
+    });
     expect(response.json().event).toMatchObject({
       status: 'closed',
       finalStart: null,
@@ -198,7 +199,7 @@ describe('how far ahead days may lie', () => {
     // Within one span of the first day, but the clock has run on, and by more
     // than the day of slack.
     t.clock.advanceDays(-(LIMITS.horizon + 2));
-    const response = await patch(id, adminToken, {
+    const response = await patchEvent(t.app, id, adminToken, {
       days: [...DAYS, '2027-03-08'],
       baseDays: DAYS,
     });
@@ -337,6 +338,27 @@ describe('guessing passwords', () => {
 });
 
 describe('password length', () => {
+  it('counts the minimum on the NFC form', async () => {
+    const { id } = await createEvent(t.app);
+    // Six code points, but five once composed.
+    const decomposed = 'e\u0301' + 'abcd';
+    expect(decomposed.normalize('NFC')).toHaveLength(5);
+    const short = await sessionRequest(t.app, id, {
+      name: 'Max',
+      password: decomposed,
+    });
+    expect(short.statusCode).toBe(400);
+    expect(short.json().error).toBe('password_too_short');
+    expect(
+      (
+        await sessionRequest(t.app, id, {
+          name: 'Max',
+          password: decomposed + 'e',
+        })
+      ).statusCode
+    ).toBe(200);
+  });
+
   it('needs six characters for a new password', async () => {
     const { id } = await createEvent(t.app);
     const short = await sessionRequest(t.app, id, {
@@ -581,7 +603,7 @@ describe('hashing passwords', () => {
       'abcdef9'
     );
     expect(refused.statusCode).toBe(429);
-    expect(refused.json().error).toBe('slow_down');
+    expect(refused.json().error).toBe('rate_limited');
     // Another network, and a person's first password at login, are counted on
     // their own; the window ends.
     expect(

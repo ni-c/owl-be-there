@@ -12,6 +12,7 @@ import {
   type TestApp,
   adminHeaders,
   setStatus,
+  patchEvent,
 } from './helpers.js';
 
 let t: TestApp;
@@ -202,6 +203,34 @@ describe('reading an event', () => {
     expect(newer.statusCode).toBe(200);
   });
 
+  it.each([
+    ['a weak validator', 'W/"v1"'],
+    ['a list', '"v0", "v1"'],
+    ['a weak validator in a list', '"v0",W/"v1"'],
+    ['a star', '*'],
+  ])('answers 304 to %s', async (_name, value) => {
+    const { id } = await createEvent(t.app);
+    const response = await t.app.inject({
+      method: 'GET',
+      url: `/api/events/${id}`,
+      headers: { 'if-none-match': value },
+    });
+    expect(response.statusCode).toBe(304);
+  });
+
+  it.each(['', '"v2"', 'W/"v2", "v0"', '"v1x"', 'v1'])(
+    'answers 200 to the If-None-Match value %j',
+    async (value) => {
+      const { id } = await createEvent(t.app);
+      const response = await t.app.inject({
+        method: 'GET',
+        url: `/api/events/${id}`,
+        headers: { 'if-none-match': value },
+      });
+      expect(response.statusCode).toBe(200);
+    }
+  );
+
   it('never extends an event by reading it', async () => {
     const { id } = await createEvent(t.app);
     const before = getEvent(t.db, id)!;
@@ -246,21 +275,45 @@ describe('the organiser', () => {
     }
   });
 
+  it('leaves version and retention alone when a PATCH changes nothing', async () => {
+    const { id, adminToken } = await createEvent(t.app, { title: 'Same' });
+    const before = getEvent(t.db, id)!;
+    t.clock.advanceDays(30);
+    const snapshot = await getSnapshot(t.app, id);
+    for (const payload of [
+      {},
+      { title: 'Same' },
+      {
+        days: [...snapshot.event.days].reverse(),
+        baseDays: snapshot.event.days,
+      },
+    ]) {
+      expect(
+        (await patchEvent(t.app, id, adminToken, payload)).statusCode
+      ).toBe(200);
+      const after = getEvent(t.db, id)!;
+      expect(after.version).toBe(before.version);
+      expect(after.last_write_at).toBe(before.last_write_at);
+      expect(after.expires_on).toBe(before.expires_on);
+    }
+    expect(
+      (await patchEvent(t.app, id, adminToken, { title: 'Other' })).statusCode
+    ).toBe(200);
+    const changed = getEvent(t.db, id)!;
+    expect(changed.version).toBe(before.version + 1);
+    expect(changed.expires_on).not.toBe(before.expires_on);
+  });
+
   it('edits the details and clears optional ones', async () => {
     const { id, adminToken } = await createEvent(t.app, {
       location: 'North field',
     });
-    const response = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        title: ' New title ',
-        location: null,
-        emoji: 'tennis',
-        minCount: 3,
-        creatorName: 'Sam',
-      },
+    const response = await patchEvent(t.app, id, adminToken, {
+      title: ' New title ',
+      location: null,
+      emoji: 'tennis',
+      minCount: 3,
+      creatorName: 'Sam',
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().event).toMatchObject({
@@ -278,14 +331,9 @@ describe('the organiser', () => {
     const max = await join(t.app, id, 'Max');
     expect((await mark(t.app, id, max, WEEKEND)).statusCode).toBe(200);
     t.clock.time += 1000;
-    const response = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        days: ['2027-03-06', '2027-03-08'],
-        baseDays: ['2027-03-05', ...WEEKEND],
-      },
+    const response = await patchEvent(t.app, id, adminToken, {
+      days: ['2027-03-06', '2027-03-08'],
+      baseDays: ['2027-03-05', ...WEEKEND],
     });
     expect(response.statusCode).toBe(200);
     const participant = response.json().participants[0];
@@ -296,24 +344,14 @@ describe('the organiser', () => {
   it('keeps past days but refuses new ones in the past', async () => {
     const { id, adminToken } = await createEvent(t.app);
     t.clock.advanceDays(10);
-    const keep = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        days: ['2027-03-05', '2027-03-20'],
-        baseDays: ['2027-03-05', ...WEEKEND],
-      },
+    const keep = await patchEvent(t.app, id, adminToken, {
+      days: ['2027-03-05', '2027-03-20'],
+      baseDays: ['2027-03-05', ...WEEKEND],
     });
     expect(keep.statusCode).toBe(200);
-    const add = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        days: ['2027-03-05', '2027-03-06', '2027-03-20'],
-        baseDays: ['2027-03-05', '2027-03-20'],
-      },
+    const add = await patchEvent(t.app, id, adminToken, {
+      days: ['2027-03-05', '2027-03-06', '2027-03-20'],
+      baseDays: ['2027-03-05', '2027-03-20'],
     });
     expect(add.statusCode).toBe(400);
     expect(add.json().message).toBe('past');
@@ -321,11 +359,8 @@ describe('the organiser', () => {
 
   it('refuses a duration the days cannot hold', async () => {
     const { id, adminToken } = await createEvent(t.app);
-    const response = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: { durationDays: 4 },
+    const response = await patchEvent(t.app, id, adminToken, {
+      durationDays: 4,
     });
     expect(response.json().error).toBe('no_block');
   });
@@ -367,14 +402,9 @@ describe('the organiser', () => {
       status: 'finalized',
       start: '2027-03-07',
     });
-    const response = await t.app.inject({
-      method: 'PATCH',
-      url: `/api/events/${id}`,
-      headers: adminHeaders(adminToken),
-      payload: {
-        days: ['2027-03-05', '2027-03-06'],
-        baseDays: ['2027-03-05', ...WEEKEND],
-      },
+    const response = await patchEvent(t.app, id, adminToken, {
+      days: ['2027-03-05', '2027-03-06'],
+      baseDays: ['2027-03-05', ...WEEKEND],
     });
     expect(response.json().event).toMatchObject({
       status: 'closed',
@@ -533,7 +563,7 @@ describe('the calendar file', () => {
     for (const [language, note] of [
       ['es', 'Fecha elegida con Owl Be There'],
       ['fr', 'Date choisie avec Owl Be There'],
-      ['pt', 'Data escolhida com Owl Be There'],
+      ['pt', 'Data definida com o Owl Be There'],
       ['it', 'Data scelta con Owl Be There'],
       ['ja', 'Owl Be Thereで決めた日程'],
       ['nl', 'Datum gekozen met Owl Be There'],

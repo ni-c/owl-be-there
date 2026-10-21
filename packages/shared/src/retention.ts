@@ -7,6 +7,9 @@ import {
 } from './dates.js';
 import { RETENTION_DAYS } from './limits.js';
 
+/** The longest an answered event outlives its last change, whatever its days. */
+export const ANSWERED_MAX_DAYS = 730;
+
 export interface RetentionInput {
   /** The UTC day of the last change. */
   lastWriteDay: ISODate;
@@ -26,7 +29,9 @@ export interface RetentionInput {
  * day after the last relevant day is the earliest it may go, so a group can
  * still look up the result on the day itself.
  *
- * An event nobody has answered gets no such extension. Anyone can create one
+ * The extension stops about two years after the last change, so one request
+ * cannot park an answered junk event for years. An event nobody has answered
+ * gets no such extension. Anyone can create one
  * with days years ahead, and it would otherwise take up room for years.
  */
 export function expiresOn({
@@ -40,9 +45,11 @@ export function expiresOn({
     finalEnd === null
       ? lastCandidateDay
       : maxISODate(finalEnd, lastCandidateDay);
+  const extended = later(lastRelevant, 1);
+  const cap = later(lastWriteDay, ANSWERED_MAX_DAYS);
   return maxISODate(
     later(lastWriteDay, RETENTION_DAYS),
-    later(lastRelevant, 1)
+    extended < cap ? extended : cap
   );
 }
 

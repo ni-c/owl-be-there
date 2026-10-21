@@ -43,8 +43,9 @@ export function parseAddress(
   raw: string
 ): { ok: true; value: string | null } | { ok: false; reason: string } {
   // Anything that is not a printable character — control characters, bidi
-  // overrides, zero-width marks — except the line break.
-  if (/[^\P{C}\n\r]/u.test(raw)) {
+  // overrides, zero-width marks — except the line break and the joiners
+  // (ZWNJ, ZWJ) that Persian and Indic spellings need.
+  if (/[^\P{C}\n\r\u200C\u200D]/u.test(raw)) {
     return {
       ok: false,
       reason: 'must not contain control or invisible characters',

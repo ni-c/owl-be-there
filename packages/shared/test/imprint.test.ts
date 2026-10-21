@@ -66,8 +66,30 @@ describe('parseAddress', () => {
     });
   });
 
+  it('keeps the joiners Persian and Indic spellings need', () => {
+    // ZWNJ in a Persian street name, ZWJ in a Devanagari one.
+    for (const address of [
+      'خیابان می\u200Cخواهم 5, تهران',
+      'कर्\u200Dमा मार्ग 7, दिल्ली',
+    ]) {
+      expect(parseAddress(address)).toEqual({ ok: true, value: address });
+    }
+  });
+
   it('refuses control, bidi and zero-width characters', () => {
-    for (const bad of ['\t', '\u0000', '\u007f', '‮', '​', '﻿']) {
+    for (const bad of [
+      '\t',
+      '\u0000',
+      '\u007f',
+      '‮',
+      '​',
+      '﻿',
+      '\u200E',
+      '\u200F',
+      '\u2060',
+      '\u00AD',
+      '\u061C',
+    ]) {
       expect(parseAddress(`A${bad}B`).ok, JSON.stringify(bad)).toBe(false);
     }
   });

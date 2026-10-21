@@ -11,7 +11,14 @@ import { buildWeeks } from './grid.js';
 import { heatLevel, heatOf, respondentOf, tally } from './ranking.js';
 import type { EventSnapshotData } from './schemas.js';
 import { escapeMarkup } from './text.js';
-import { isRtl, LOCALES, previewStatus, SERVER_TEXTS } from './texts.js';
+import {
+  APP_NAME,
+  isRtl,
+  LOCALES,
+  previewStatus,
+  SERVER_TEXTS,
+} from './texts.js';
+import { weekdayColumnHeading } from './weekday.js';
 
 /**
  * The picture link previews show for an event: its title, the state of the
@@ -52,7 +59,7 @@ export interface PreviewOptions {
   owl: string | null;
 }
 
-export interface PreviewCell {
+interface PreviewCell {
   day: ISODate;
   /** 0–5 for a candidate day, null for a day around it. */
   level: number | null;
@@ -87,7 +94,8 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
       heatOf(tally(people, [day]), respondents),
     ])
   );
-  const firstWeekday = event.language === 'ja' ? 6 : 0;
+  const firstWeekday =
+    event.language === 'ja' || event.language === 'ko' ? 6 : 0;
   const chosen = (day: ISODate): boolean =>
     event.finalStart !== null &&
     event.finalEnd !== null &&
@@ -126,6 +134,13 @@ export function previewCalendar(data: EventSnapshotData): PreviewCalendar {
 /** CJK and other full-width scripts, which break between any two characters. */
 const isFullWidth = (char: string): boolean => char.codePointAt(0)! >= 0x2e80;
 
+/** Joiners, variation selectors and tags: no glyph of their own. */
+const INVISIBLE =
+  /\u200B|\u200C|\u200D|\u2060|[\uFE00-\uFE0F]|[\u{E0000}-\u{E007F}]/u;
+/** Symbols only the CJK font draws, a full em wide; Nunito has (c), (r), TM and the minus. */
+const CJK_SYMBOL =
+  /(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u2190-\u2211\u2216-\u2BFF\u{1F100}-\u{1F2FF}]/u;
+
 /**
  * Rough width of a character in em: SVG has no text measuring. The four wide
  * Latin letters are measured from the rendered font at weight 800, Cyrillic
@@ -133,9 +148,11 @@ const isFullWidth = (char: string): boolean => char.codePointAt(0)! >= 0x2e80;
  * to one average.
  */
 function charWidth(char: string): number {
-  if (isFullWidth(char)) return 1;
-  if (char === ' ') return 0.26;
+  if (INVISIBLE.test(char)) return 0;
   if (/\p{scx=Arabic}/u.test(char)) return 0.65;
+  if (isFullWidth(char) || CJK_SYMBOL.test(char)) return 1;
+  if (char === ' ') return 0.26;
+  if (/\p{scx=Greek}/u.test(char)) return 0.7;
   if (char === 'W') return 1.1;
   if (char === 'M') return 0.95;
   if (char === 'm') return 0.9;
@@ -147,6 +164,15 @@ function charWidth(char: string): number {
   if (/[A-ZÄÖÜÉÈÀ0-9@#%&]/.test(char)) return 0.68;
   return 0.54;
 }
+
+/** Characters that do not begin a line in CJK text: closing marks, stops, the long vowel mark, small kana. */
+const NO_LINE_START = new Set([
+  ...'、。，．：；！？）］｝〕〉》」』】〙〗〟’”‥…・ー々〻ゝゞヽヾ',
+  ...'ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ',
+  ...'),.!?:;]}',
+]);
+/** Characters that do not end a line: opening marks. */
+const NO_LINE_END = new Set([...'（［｛〔〈《「『【〘〖〝‘“([{']);
 
 /**
  * Break text into at most `maxLines` lines that fit `maxWidth` pixels at
@@ -181,6 +207,18 @@ export function wrapText(
         while (run > start && !isFullWidth(chars[run - 1]!)) run -= 1;
         if (run > start) end = run;
       }
+      // "28日(日)": the day with its number moves down, not "(日)" alone.
+      if (chars[end] === '(' && isFullWidth(chars[end - 1] ?? '')) {
+        let k = end - 1;
+        while (k > start && /\p{Nd}/u.test(chars[k - 1]!)) k -= 1;
+        if (k > start) end = k;
+      }
+      // Kinsoku: a closing mark never starts a line, an opening one never ends it.
+      while (
+        end > start + 1 &&
+        (NO_LINE_START.has(chars[end]!) || NO_LINE_END.has(chars[end - 1]!))
+      )
+        end -= 1;
       lines.push(chars.slice(start, end).join('').trimEnd());
       start = wordBreak ? lastSpace + 1 : char === ' ' ? i + 1 : end;
       width = 0;
@@ -204,14 +242,25 @@ export function wrapText(
 }
 
 /**
- * Noto Sans Arabic has no en or em dash and no middle dot, and resvg cannot
- * borrow one glyph from Nunito inside Arabic text: the whole line comes out
- * as boxes. A line with Arabic letters gets the hyphen and the Arabic comma.
+ * The bundled Noto Sans Arabic has no en or em dash, middle dot, parentheses,
+ * plus sign, question mark, ellipsis or section sign, and resvg cannot borrow
+ * one glyph from Nunito inside Arabic text: the whole line comes out as boxes.
+ * A line with Arabic letters gets the hyphen, the Arabic comma and question
+ * mark; "(5)" becomes ", 5," and a lone bracket, plus or section sign goes.
  */
 export function arabicPunctuation(line: string): string {
-  return /\p{scx=Arabic}/u.test(line)
-    ? line.replace(/[–—]/g, '-').replace(/\s?·/g, '،')
-    : line;
+  if (!/\p{scx=Arabic}/u.test(line)) return line;
+  return line
+    .replace(
+      /\s*\(([^()]*)\)\s*/g,
+      (all, inner: string, at: number, whole: string) =>
+        `${at === 0 ? '' : '، '}${inner.trim()}${at + all.length >= whole.length ? '' : '، '}`
+    )
+    .replace(/[–—]/g, '-')
+    .replace(/\s?·/g, '،')
+    .replace(/\?/g, '؟')
+    .replace(/…/g, '...')
+    .replace(/[()+§]/g, '');
 }
 
 /**
@@ -267,7 +316,7 @@ export function previewSvg(
       `<image href="${e(options.owl)}" x="${rtl ? 1060 : left}" y="56" width="68" height="70"/>`
     );
   parts.push(
-    `<text x="${options.owl ? (rtl ? left - 84 : left + 84) : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}"${textAttributes}>${e(texts.appName)}</text>`
+    `<text x="${options.owl ? (rtl ? left - 84 : left + 84) : left}" y="104" font-size="34" font-weight="800" fill="${PREVIEW_COLOURS.brand}"${textAttributes}>${e(APP_NAME)}</text>`
   );
 
   // Title, up to three lines, then the state of the poll.
@@ -321,12 +370,9 @@ export function previewSvg(
   const headY = top + 84;
   // An event has at least one candidate day, so there is a first week.
   const rowStart = weeks[0]![0]!.day;
-  // Urdu's narrow weekday names are Latin letters: it takes the short ones, in
-  // a size that fits the widest into a cell.
+  // The app's column headings, in a size that fits the widest into a cell.
   const names = Array.from({ length: 7 }, (_, index) =>
-    formatDay(addDays(rowStart, index), locale, {
-      weekday: locale.startsWith('ur') ? 'short' : 'narrow',
-    })
+    weekdayColumnHeading(addDays(rowStart, index), locale)
   );
   const headSize = Math.min(
     22,
@@ -380,8 +426,9 @@ export function previewSvg(
 }
 
 /**
- * "October 2026", or "October – November 2026" across months. Japanese is put
- * together by hand: ICU writes the range as "2026/10～2026/11".
+ * "October 2026", or "October – November 2026" across months. Japanese and
+ * Chinese are put together by hand: ICU writes the ranges as "2026/10～2026/11"
+ * and "2026/10 – 2026/11".
  */
 export function monthRange(
   first: ISODate,
@@ -391,13 +438,22 @@ export function monthRange(
   const format = (options: Intl.DateTimeFormatOptions) =>
     dayFormatter(locale, options);
   const full = format({ month: 'long', year: 'numeric' });
-  if (!locale.startsWith('ja'))
+  const joiner = locale.startsWith('ja')
+    ? '～'
+    : locale.startsWith('zh')
+      ? '至'
+      : null;
+  if (joiner === null)
     return full.formatRange(utcDateOf(first), utcDateOf(last));
   const start = full.format(utcDateOf(first));
+  // Within a year the end drops it; Chinese month names in words ("十一月")
+  // are numerals again with the year on.
   const end = (
-    first.slice(0, 4) === last.slice(0, 4) ? format({ month: 'long' }) : full
+    first.slice(0, 4) === last.slice(0, 4) ? format({ month: 'numeric' }) : full
   ).format(utcDateOf(last));
-  return first.slice(0, 7) === last.slice(0, 7) ? start : `${start}～${end}`;
+  return first.slice(0, 7) === last.slice(0, 7)
+    ? start
+    : `${start}${joiner}${end}`;
 }
 
 /** The estimated width of a text in pixels, the way `wrapText` counts. */

@@ -61,7 +61,64 @@ describe('nameKey', () => {
   });
 
   it('handles the dotted capital I without crashing', () => {
-    expect(nameKey('İlkay')).toBe('i̇lkay');
+    expect(nameKey('İlkay')).toBe('ilkay');
+  });
+});
+
+describe('nameKey folding', () => {
+  // Each pair is one name typed two ways.
+  const pairs = [
+    ['Arabic and Persian yeh', 'علي', 'علی'],
+    ['alef maksura', 'مصطفى', 'مصطفي'],
+    ['Arabic and Persian kaf', 'كريم', 'کریم'],
+    ['alef with hamza above', 'أحمد', 'احمد'],
+    ['alef with hamza below', 'إبراهيم', 'ابراهيم'],
+    ['alef with madda', 'آمنة', 'امنه'],
+    ['teh marbuta', 'فاطمة', 'فاطمه'],
+    ['tashkeel', 'مُحَمَّد', 'محمد'],
+    ['tatweel', 'محمـــد', 'محمد'],
+    ['superscript alef', 'رحمٰن', 'رحمن'],
+    ['dotted capital I', 'İrem', 'Irem'],
+    ['dotted capital I, decomposed', 'I\u0307rem', 'irem'],
+    ['dotless i', 'Ismail', 'ısmaıl'],
+    ['Turkish İ and ı together', 'İSMAİL', 'ısmaıl'],
+    ['sharp s', 'Straße', 'STRASSE'],
+    ['capital sharp s', 'STRAẞE', 'strasse'],
+    ['blank filler as a space', 'Anna\u3164B', 'Anna B'],
+    ['halfwidth filler as a space', 'Anna\uFFA0B', 'Anna B'],
+    ['blank Braille as a space', 'Anna\u2800B', 'Anna B'],
+  ] as const;
+
+  it.each(pairs)('treats %s as one name', (_label, a, b) => {
+    expect(nameKey(a)).toBe(nameKey(b));
+  });
+
+  it('is idempotent on a folded key', () => {
+    for (const [, a, b] of pairs) {
+      expect(nameKey(nameKey(a))).toBe(nameKey(a));
+      expect(nameKey(nameKey(b))).toBe(nameKey(b));
+    }
+  });
+
+  it('keeps names that differ apart', () => {
+    // Hiragana and katakana are not folded.
+    expect(nameKey('さくら')).not.toBe(nameKey('サクラ'));
+    expect(nameKey('Anna B')).not.toBe(nameKey('AnnaB'));
+    expect(nameKey('Anna\u3164B')).not.toBe(nameKey('AnnaB'));
+    // Different letters stay different.
+    expect(nameKey('علي')).not.toBe(nameKey('عله'));
+    expect(nameKey('Mass')).not.toBe(nameKey('Mas'));
+  });
+
+  it('keeps a filler that carries a mark, and drops the zero-width ones', () => {
+    expect(nameKey('A\u3164\u0301B')).not.toBe(nameKey('A B'));
+    expect(nameKey('Ma\u1160x')).toBe('max');
+    expect(nameKey('Ma\u115Fx')).toBe('max');
+  });
+
+  it('gives a name of only marks or tatweel an empty key', () => {
+    expect(nameKey('\u0640\u064E\u064F')).toBe('');
+    expect(nameKey('\u3164 \u2800')).toBe('');
   });
 });
 
@@ -102,6 +159,19 @@ describe('mixesScripts', () => {
     expect(mixesScripts('Max \u041E\u043B\u044C\u0433\u0430 Ma\u0445')).toBe(
       true
     );
+  });
+
+  it('finds Armenian, Cherokee, Coptic and Lisu look-alikes in a Latin word', () => {
+    expect(mixesScripts('M\u0585x')).toBe(true);
+    expect(mixesScripts('\u13AAnna')).toBe(true);
+    expect(mixesScripts('M\u2C81x')).toBe(true);
+    expect(mixesScripts('M\uA4EEx')).toBe(true);
+  });
+
+  it('leaves Latin next to Han, Kana and Hangul alone', () => {
+    expect(mixesScripts('Max\u592A\u90CE')).toBe(false);
+    expect(mixesScripts('Max\u3042')).toBe(false);
+    expect(mixesScripts('Max\uD55C')).toBe(false);
   });
 
   it('leaves single-script words and mixed names alone', () => {

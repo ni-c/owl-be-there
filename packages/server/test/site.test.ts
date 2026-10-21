@@ -12,6 +12,7 @@ import {
   FEATURES,
   LANGUAGES,
   RETENTION_DAYS,
+  persianNumber,
   SERVER_TEXTS,
 } from '@owl/shared';
 import { HOME_TEXTS } from '@owl/shared/home-texts';
@@ -208,85 +209,44 @@ describe('pages', () => {
     ).toMatch(/Der Termin steht: Sa\., 6\. März 2027/);
   });
 
-  it('previews Spanish events in Spanish', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'es' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('Marca los días que te vienen bien');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain('Ya hay fecha: sáb, 6 de marzo de 2027');
-  });
-
-  it('previews French events in French', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'fr' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('Indique les jours où tu es libre');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain('La date est fixée : sam. 6 mars 2027');
-  });
-
-  it('previews Portuguese events in Portuguese', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'pt' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('Marca os dias em que podes');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain(
-      'A data está marcada: sábado, 6 de março de 2027'
-    );
-  });
-
-  it('previews Italian events in Italian', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'it' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('Segna i giorni in cui ci sei');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain('La data è decisa: sab 6 marzo 2027');
-  });
-
-  it('previews Japanese events in Japanese', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'ja' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('行ける日を選んでね');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain('日程決定：2027年3月6日(土)');
-  });
-
-  it('previews Dutch events in Dutch', async () => {
-    t = await testApp();
-    const { id, adminToken } = await createEvent(t.app, { language: 'nl' });
-    const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(open.body).toContain('Vul in wanneer je kunt');
-    await setStatus(t.app, id, adminToken, {
-      status: 'finalized',
-      start: '2027-03-06',
-    });
-    const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
-    expect(decided.body).toContain('De datum staat vast: za 6 maart 2027');
-  });
+  it.each([
+    [
+      'es',
+      'Marca los días que te vienen bien',
+      'Ya hay fecha: sáb, 6 de marzo de 2027',
+    ],
+    [
+      'fr',
+      'Indique les jours où tu es libre',
+      'La date est fixée\u00A0: sam. 6 mars 2027',
+    ],
+    [
+      'pt',
+      'Marca os dias em que podes',
+      'A data está definida: sábado, 6 de março de 2027',
+    ],
+    [
+      'it',
+      'Segna i giorni in cui ci sei',
+      'La data è decisa: sab 6 marzo 2027',
+    ],
+    ['ja', '行ける日を選んでね', '日程決定：2027年3月6日(土)'],
+    ['nl', 'Vul in wanneer je kunt', 'De datum staat vast: za 6 maart 2027'],
+  ])(
+    'previews %s events in their language',
+    async (language, openText, decidedText) => {
+      t = await testApp();
+      const { id, adminToken } = await createEvent(t.app, { language });
+      const open = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+      expect(open.body).toContain(openText);
+      await setStatus(t.app, id, adminToken, {
+        status: 'finalized',
+        start: '2027-03-06',
+      });
+      const decided = await t.app.inject({ method: 'GET', url: `/e/${id}` });
+      expect(decided.body).toContain(decidedText);
+    }
+  );
 
   describe('the preview of a closed poll', () => {
     const description = async (id: string): Promise<string> => {
@@ -535,15 +495,15 @@ describe('pages', () => {
       const privacy = answers.find(
         (entry) => entry.name === HOME_TEXTS[language]['home.faq.privacy.q']
       );
-      expect(privacy?.acceptedAnswer.text, language).toContain(
-        String(RETENTION_DAYS)
-      );
+      const days =
+        language === 'fa'
+          ? persianNumber.format(RETENTION_DAYS)
+          : String(RETENTION_DAYS);
+      expect(privacy?.acceptedAnswer.text, language).toContain(days);
       expect(body, language).toContain(
         `<p>${escapeMarkup(HOME_TEXTS[language]['home.faq.privacy.a'])}</p>`
       );
-      expect(HOME_TEXTS[language]['home.faq.privacy.a']).toContain(
-        String(RETENTION_DAYS)
-      );
+      expect(HOME_TEXTS[language]['home.faq.privacy.a']).toContain(days);
     }
   });
 
@@ -917,6 +877,8 @@ describe('pages', () => {
       mkdirSync(dir, { recursive: true });
       cpSync(CLIENT_DIR, dir, { recursive: true });
       writeFileSync(joinPath(dir, 'favicon.svg'), '<svg/>');
+      mkdirSync(joinPath(dir, 'fonts'), { recursive: true });
+      writeFileSync(joinPath(dir, 'fonts', 'owl-v2.woff2'), 'wOF2');
       mkdirSync(joinPath(dir, 'assets-old'));
       writeFileSync(joinPath(dir, 'assets-old', 'old.js'), '//');
       return dir;
@@ -932,16 +894,53 @@ describe('pages', () => {
         icon: await get('/favicon.svg'),
         index: await get('/index.html'),
         old: await get('/assets-old/old.js'),
+        font: await get('/fonts/owl-v2.woff2'),
       };
     };
 
-    it('makes only the hashed assets immutable', async () => {
+    it('makes only the hashed assets and the versioned fonts immutable', async () => {
       expect(await cacheControl(clientAt('dist'))).toEqual({
         asset: IMMUTABLE,
+        font: IMMUTABLE,
         icon: 'no-cache',
         index: 'no-cache',
         old: 'no-cache',
       });
+    });
+
+    it('serves the precompressed copy when the client accepts it', async () => {
+      const dir = clientAt('dist');
+      const { brotliCompressSync, gzipSync } = await import('node:zlib');
+      const body = 'console.log("owl");\n'.repeat(50);
+      writeFileSync(joinPath(dir, 'assets', 'big.js'), body);
+      writeFileSync(
+        joinPath(dir, 'assets', 'big.js.br'),
+        brotliCompressSync(body)
+      );
+      writeFileSync(joinPath(dir, 'assets', 'big.js.gz'), gzipSync(body));
+      t = await testApp({ env: { CLIENT_DIR: dir } });
+      const get = (encoding?: string) =>
+        t!.app.inject({
+          method: 'GET',
+          url: '/assets/big.js',
+          headers: encoding ? { 'accept-encoding': encoding } : {},
+        });
+      const br = await get('gzip, br');
+      expect(br.headers['content-encoding']).toBe('br');
+      expect(br.headers['cache-control']).toBe(IMMUTABLE);
+      expect(br.headers['content-type']).toContain('javascript');
+      const gz = await get('gzip');
+      expect(gz.headers['content-encoding']).toBe('gzip');
+      const plain = await get();
+      expect(plain.headers['content-encoding']).toBeUndefined();
+      expect(plain.body).toBe(body);
+      // The API is never compressed.
+      const api = await t!.app.inject({
+        method: 'GET',
+        url: '/api/instance',
+        headers: { 'accept-encoding': 'br, gzip' },
+      });
+      expect(api.headers['content-encoding']).toBeUndefined();
     });
 
     it('does not mind a client directory with assets in its own path', async () => {
@@ -953,6 +952,7 @@ describe('pages', () => {
         expect(await cacheControl(clientAt(...parts)), parts.join('/')).toEqual(
           {
             asset: IMMUTABLE,
+            font: IMMUTABLE,
             icon: 'no-cache',
             index: 'no-cache',
             old: 'no-cache',
@@ -1053,7 +1053,7 @@ describe('preview pictures', () => {
 
   it('embeds the owl and the Japanese font when the client has them', async () => {
     t = await testApp();
-    // The client's public folder: favicon.svg and fonts/noto-sans-cjk-jp-*.
+    // The client's public folder: favicon.svg and fonts/noto-sans-cjk-jp-*-v2.
     const client = joinPath(import.meta.dirname, '../../client/public');
     const latin = snapshot(t.db, (await createEvent(t.app)).id)!;
     const japanese = snapshot(

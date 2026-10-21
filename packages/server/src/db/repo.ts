@@ -156,19 +156,6 @@ function participantView(
   };
 }
 
-/** One participant as the API shows them, without building the whole snapshot. */
-export function participantViewOf(
-  db: Db,
-  eventId: string,
-  row: ParticipantRow
-): ParticipantViewData {
-  return participantView(
-    row,
-    getDays(db, eventId),
-    marksOf(db, eventId, row.id)
-  );
-}
-
 /** How many events keep their last snapshot in memory. */
 const SNAPSHOT_CACHE_SIZE = 32;
 
@@ -565,8 +552,11 @@ export function deleteParticipant(
  * or a text out must not wait for one. Inside a larger transaction nothing is
  * written yet, so there is nothing to fold in.
  */
+/** How long a request waits for readers before it leaves the checkpoint to later. */
+export const REQUEST_CHECKPOINT_MS = 100;
+
 function scrub(db: Db): void {
-  if (!db.inTransaction) db.checkpoint();
+  if (!db.inTransaction) db.checkpoint(REQUEST_CHECKPOINT_MS);
 }
 
 export interface EventPatch {
@@ -605,7 +595,8 @@ export function updateEvent(
   eventId: string,
   patch: EventPatch,
   now: number
-): void {
+): boolean {
+  if (isNoOp(db, eventId, patch)) return false;
   db.tx(() => {
     for (const [key, column] of Object.entries(COLUMNS) as [
       Exclude<keyof EventPatch, 'days'>,
@@ -674,6 +665,27 @@ export function updateEvent(
     touch(db, eventId, now);
   });
   if (TEXT_FIELDS.some((key) => patch[key] !== undefined)) scrub(db);
+  return true;
+}
+
+/** Whether a patch leaves the event as it is: no new version, no retention. */
+function isNoOp(db: Db, eventId: string, patch: EventPatch): boolean {
+  const event = getEvent(db, eventId)!;
+  const same = (
+    Object.entries(COLUMNS) as [keyof typeof COLUMNS, string][]
+  ).every(
+    ([key, column]) =>
+      patch[key] === undefined ||
+      patch[key] === (event as unknown as Record<string, unknown>)[column]
+  );
+  if (!same) return false;
+  if (!patch.days) return true;
+  const current = getDays(db, eventId).map((row) => row.day);
+  const wanted = [...patch.days].sort();
+  return (
+    wanted.length === current.length &&
+    wanted.every((day, index) => day === current[index])
+  );
 }
 
 /** The details that are free text: a rewrite leaves the old words behind. */

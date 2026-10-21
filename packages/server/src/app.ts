@@ -75,7 +75,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
  * `rawPacket`. A request the parser refuses is logged at `trace` with the
  * bytes it received — the event link and the tokens in its headers.
  */
-export function serializeError(error: Error): {
+function serializeError(error: Error): {
   [key: string]: unknown;
   type: string;
   message: string;
@@ -322,10 +322,7 @@ export async function buildApp(
         message: error.message,
       });
     }
-    app.log.error(
-      { err: { message: error.message, stack: error.stack } },
-      'request failed'
-    );
+    app.log.error({ err: error }, 'request failed');
     return reply
       .code(500)
       .send({ error: 'internal', message: 'Something went wrong' });

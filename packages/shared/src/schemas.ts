@@ -3,7 +3,13 @@ import { isValidISODate } from './dates.js';
 import { EMOJI_KEYS } from './emoji.js';
 import { ID_PATTERN } from './ids.js';
 import { LIMITS } from './limits.js';
-import { cleanLine, cleanText, mixesScripts, nameKey } from './text.js';
+import {
+  charCount,
+  cleanLine,
+  cleanText,
+  mixesScripts,
+  nameKey,
+} from './text.js';
 import { LANGUAGES } from './texts.js';
 
 /*
@@ -24,13 +30,27 @@ import { LANGUAGES } from './texts.js';
  */
 const blank = (text: string): boolean => text !== '' && nameKey(text) === '';
 
+/**
+ * Stable names for the refinements a client words itself, carried as the
+ * `params.reason` of a zod custom issue and sent on by the server as `reason`.
+ */
+export const ISSUE_REASON = {
+  invisible: 'invisible',
+  mixedScripts: 'mixed_scripts',
+} as const;
+
+export type IssueReason = (typeof ISSUE_REASON)[keyof typeof ISSUE_REASON];
+
 const cleaned = (clean: (text: string) => string, max: number, min = 0) =>
   z
     .string()
     .max(max * 4)
     .transform(clean)
     .pipe(z.string().min(min).max(max))
-    .refine((text) => !blank(text), 'Needs a visible character');
+    .refine((text) => !blank(text), {
+      message: 'Needs a visible character',
+      params: { reason: ISSUE_REASON.invisible },
+    });
 
 const line = (max: number) => cleaned(cleanLine, max);
 
@@ -38,24 +58,24 @@ const requiredLine = (max: number) => cleaned(cleanLine, max, 1);
 
 const paragraph = (max: number) => cleaned(cleanText, max);
 
-export const IsoDay = z
-  .string()
-  .refine(isValidISODate, 'Not a valid YYYY-MM-DD date');
+const IsoDay = z.string().refine(isValidISODate, 'Not a valid YYYY-MM-DD date');
 
-export const Id = z.string().regex(ID_PATTERN, 'Not a valid id');
+const Id = z.string().regex(ID_PATTERN, 'Not a valid id');
 
-export const Name = requiredLine(LIMITS.name).refine(
-  (name) => !mixesScripts(name),
-  'A word must not mix Latin letters with Cyrillic or Greek ones'
-);
+const Name = requiredLine(LIMITS.name).refine((name) => !mixesScripts(name), {
+  message: 'A word must not mix Latin letters with Cyrillic or Greek ones',
+  params: { reason: ISSUE_REASON.mixedScripts },
+});
 
 /** A password being set. Logging in accepts any length up to the maximum. */
 export const NewPassword = z
   .string()
-  .min(LIMITS.passwordMin)
-  .max(LIMITS.passwordMax);
+  .max(LIMITS.passwordMax)
+  .refine((value) => charCount(value.normalize('NFC')) >= LIMITS.passwordMin, {
+    message: `Too small: expected at least ${LIMITS.passwordMin} characters`,
+  });
 
-export const Emoji = z.enum(EMOJI_KEYS);
+const Emoji = z.enum(EMOJI_KEYS);
 
 export const LanguageSchema = z.enum(LANGUAGES);
 
@@ -130,9 +150,9 @@ export const RosterBody = z.strictObject({
 
 /* ------------------------------------------------------------ responses */
 
-export const EventStatus = z.enum(['open', 'closed', 'finalized']);
+const EventStatus = z.enum(['open', 'closed', 'finalized']);
 
-export const ParticipantView = z.object({
+const ParticipantView = z.object({
   id: Id,
   name: z.string(),
   note: z.string().nullable(),
@@ -146,7 +166,7 @@ export const ParticipantView = z.object({
   unseen: z.array(IsoDay),
 });
 
-export const EventView = z.object({
+const EventView = z.object({
   id: Id,
   title: z.string(),
   description: z.string().nullable(),
@@ -187,7 +207,6 @@ export const MarksConflict = z.object({
 });
 
 export const UpdateParticipantResponse = z.object({
-  participant: ParticipantView,
   token: z.string().nullable(),
 });
 

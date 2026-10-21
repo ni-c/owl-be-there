@@ -26,12 +26,12 @@ import {
   getEvent,
   getParticipant,
   insertParticipant,
-  participantViewOf,
   replaceMarks,
   statusOf,
   updateParticipant,
   type EventRow,
   type ParticipantRow,
+  REQUEST_CHECKPOINT_MS,
 } from '../db/repo.js';
 import {
   ApiError,
@@ -45,9 +45,9 @@ import { assertRoom, eventOr404, published } from './events.js';
 
 type ParticipantParams = { Params: { id: string; pid: string } };
 
-/** Counted in code points, like every other length limit; three emoji are three. */
+/** Counted in code points of the NFC form scrypt hashes; three emoji are three. */
 function checkPasswordLength(password: string): void {
-  if (charCount(password) < LIMITS.passwordMin) {
+  if (charCount(password.normalize('NFC')) < LIMITS.passwordMin) {
     throw new ApiError(
       400,
       'password_too_short',
@@ -140,7 +140,7 @@ export function registerParticipantRoutes(
     if (wait > 0) {
       throw new ApiError(
         429,
-        'slow_down',
+        'rate_limited',
         `Too many passwords set; wait ${Math.ceil(wait / 1000)} seconds`
       );
     }
@@ -354,10 +354,10 @@ export function registerParticipantRoutes(
         );
       });
       // The old name or note must not outlive the change in the log.
-      if (name !== undefined || body.note !== undefined) ctx.db.checkpoint();
+      if (name !== undefined || body.note !== undefined)
+        ctx.db.checkpoint(REQUEST_CHECKPOINT_MS);
       published(ctx, event.id);
       return {
-        participant: participantViewOf(ctx.db, event.id, updated),
         // A changed password revokes the old token; the person who changed it
         // gets the new one. The organiser resetting someone's password does not.
         token:

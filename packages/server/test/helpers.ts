@@ -140,6 +140,18 @@ export async function getSnapshot(app: FastifyInstance, id: string) {
   return response.json();
 }
 
+/** One participant as the snapshot shows them. */
+export async function participantOf(
+  app: FastifyInstance,
+  id: string,
+  participantId: string
+) {
+  const snapshot = await getSnapshot(app, id);
+  return snapshot.participants.find(
+    (p: { id: string }) => p.id === participantId
+  );
+}
+
 /** The header that carries the organiser key. */
 export const adminHeaders = (token: string): Record<string, string> => ({
   [ADMIN_HEADER]: token,
@@ -171,4 +183,33 @@ export const sessionRequest = (
     url: `/api/events/${id}/session`,
     payload,
     ...extra,
+  });
+
+/** `PATCH /api/events/:id` as the organiser: edit the days. */
+export const patchEvent = (
+  app: FastifyInstance,
+  id: string,
+  adminToken: string,
+  payload: Record<string, unknown>
+): Promise<LightMyRequestResponse> =>
+  app.inject({
+    method: 'PATCH',
+    url: `/api/events/${id}`,
+    headers: adminHeaders(adminToken),
+    payload,
+  });
+
+/** `PATCH /api/events/:id/participants/:pid`; `headers` carry the participant's token or the organiser key. */
+export const patchParticipant = (
+  app: FastifyInstance,
+  id: string,
+  pid: string,
+  headers: Record<string, string>,
+  payload: Record<string, unknown>
+): Promise<LightMyRequestResponse> =>
+  app.inject({
+    method: 'PATCH',
+    url: `/api/events/${id}/participants/${pid}`,
+    headers,
+    payload,
   });

@@ -22,7 +22,7 @@ export const FAQ_TOPICS = [
   'privacy',
 ] as const;
 
-export type FaqTopic = (typeof FAQ_TOPICS)[number];
+type FaqTopic = (typeof FAQ_TOPICS)[number];
 
 /** The start page's own texts in one language: `home/<code>.ts`. */
 export type HomeTexts = Record<HomeKey, string>;

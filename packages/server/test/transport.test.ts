@@ -1,5 +1,5 @@
 import { connect } from 'node:net';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { migrate } from '../src/db/migrations.js';
@@ -219,6 +219,31 @@ describe('logging a request the parser refuses', () => {
       expect(text).not.toContain('AAAAAAAAAAAA');
     } finally {
       await app.close();
+    }
+  });
+
+  it('logs the error of a 500 with its type and own properties', async () => {
+    const t = await testApp({ env: { LOG_LEVEL: 'info' } });
+    try {
+      vi.spyOn(t.db, 'get').mockImplementation(() => {
+        throw Object.assign(new Error('disk gone'), { code: 'EIO' });
+      });
+      const response = await t.app.inject({
+        method: 'GET',
+        url: '/api/events/AAAAAAAAAAAA',
+      });
+      expect(response.statusCode).toBe(500);
+      const line = JSON.parse(
+        t.logs.filter((entry) => entry.includes('request failed')).at(-1)!
+      );
+      expect(line.err).toMatchObject({
+        type: 'Error',
+        message: 'disk gone',
+        code: 'EIO',
+      });
+    } finally {
+      vi.restoreAllMocks();
+      await t.app.close();
     }
   });
 

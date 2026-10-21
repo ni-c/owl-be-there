@@ -25,16 +25,31 @@ import {
   findParticipantByKey,
   getDays,
   getEvent,
-  getParticipant,
   listEvents,
-  participantViewOf,
   purgeEmpty,
+  snapshot,
   replaceMarks,
   sweepExpired,
   updateEvent,
 } from '../src/db/repo.js';
 import { NAME_KEY_VERSION, rekeyParticipants } from '../src/db/rekey.js';
 import { Db } from '../src/db/sqlite.js';
+
+const insertEvent = (
+  db: Db,
+  id: string,
+  language: string,
+  title: string,
+  emoji: string
+): number =>
+  db.run(
+    `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
+     VALUES (?, 'h', ?, ?, ?, 1, 0, 0, '2027-04-01')`,
+    id,
+    title,
+    emoji,
+    language
+  );
 
 const fresh = (): Db => {
   const db = new Db(':memory:');
@@ -109,90 +124,24 @@ describe('migrate', () => {
     expect(db.get<{ foreign_keys: number }>('PRAGMA foreign_keys')).toEqual({
       foreign_keys: 1,
     });
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('spanish', 'h', 'Partido', 'soccer', 'es', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('french', 'h', 'Match', 'soccer', 'fr', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('portuguese', 'h', 'Jogo', 'soccer', 'pt', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('italian', 'h', 'Partita', 'soccer', 'it', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('japanese', 'h', '試合', 'soccer', 'ja', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('dutch', 'h', 'Wedstrijd', 'soccer', 'nl', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('polish', 'h', 'Kolacja', 'party', 'pl', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('czech', 'h', 'Večeře', 'party', 'cs', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('norwegian', 'h', 'Middag', 'party', 'nb', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('chinese', 'h', '聚餐', 'party', 'zh-Hant', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('simplified', 'h', '聚餐', 'party', 'zh-Hans', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('turkish', 'h', 'Akşam yemeği', 'party', 'tr', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('indonesian', 'h', 'Makan malam', 'party', 'id', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(() =>
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('danish', 'h', 'Kamp', 'soccer', 'da', 1, 0, 0, '2027-04-01')`
-      )
-    ).toThrow();
+    const added: [string, string, string, string][] = [
+      ['spanish', 'es', 'Partido', 'soccer'],
+      ['french', 'fr', 'Match', 'soccer'],
+      ['portuguese', 'pt', 'Jogo', 'soccer'],
+      ['italian', 'it', 'Partita', 'soccer'],
+      ['japanese', 'ja', '試合', 'soccer'],
+      ['dutch', 'nl', 'Wedstrijd', 'soccer'],
+      ['polish', 'pl', 'Kolacja', 'party'],
+      ['czech', 'cs', 'Večeře', 'party'],
+      ['norwegian', 'nb', 'Middag', 'party'],
+      ['chinese', 'zh-Hant', '聚餐', 'party'],
+      ['simplified', 'zh-Hans', '聚餐', 'party'],
+      ['turkish', 'tr', 'Akşam yemeği', 'party'],
+      ['indonesian', 'id', 'Makan malam', 'party'],
+    ];
+    for (const [id, language, title, emoji] of added)
+      expect(insertEvent(db, id, language, title, emoji), language).toBe(1);
+    expect(() => insertEvent(db, 'danish', 'da', 'Kamp', 'soccer')).toThrow();
     expect(() =>
       db.run(
         "INSERT INTO event_days (event_id, day, added_at) VALUES ('missing', '2027-03-07', 0)"
@@ -249,54 +198,18 @@ describe('migrate', () => {
     expect(
       db.get<{ foreign_keys: number }>('PRAGMA foreign_keys')?.foreign_keys
     ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('new', 'h', '聚餐', 'party', 'zh-Hant', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('polish', 'h', 'Kolacja', 'party', 'pl', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('czech', 'h', 'Večeře', 'party', 'cs', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('norwegian', 'h', 'Middag', 'party', 'nb', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('swedish', 'h', 'Middag', 'party', 'sv', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('finnish', 'h', 'Illallinen', 'party', 'fi', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('russian', 'h', 'Ужин', 'party', 'ru', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
-    expect(
-      db.run(
-        `INSERT INTO events (id, admin_hash, title, emoji, language, duration_days, created_at, last_write_at, expires_on)
-         VALUES ('arabic', 'h', 'عشاء', 'party', 'ar', 1, 0, 0, '2027-04-01')`
-      )
-    ).toBe(1);
+    const added: [string, string, string, string][] = [
+      ['new', 'zh-Hant', '聚餐', 'party'],
+      ['polish', 'pl', 'Kolacja', 'party'],
+      ['czech', 'cs', 'Večeře', 'party'],
+      ['norwegian', 'nb', 'Middag', 'party'],
+      ['swedish', 'sv', 'Middag', 'party'],
+      ['finnish', 'fi', 'Illallinen', 'party'],
+      ['russian', 'ru', 'Ужин', 'party'],
+      ['arabic', 'ar', 'عشاء', 'party'],
+    ];
+    for (const [id, language, title, emoji] of added)
+      expect(insertEvent(db, id, language, title, emoji), language).toBe(1);
   });
 
   it('enforces the schema rules', () => {
@@ -581,7 +494,7 @@ describe('replaceMarks and the days a save knew', () => {
       return { markedAt: row.marks_at, rev: row.rev };
     };
     const unseen = () =>
-      participantViewOf(db, 'e', getParticipant(db, 'e', 'p')!).unseen;
+      snapshot(db, 'e')!.participants.find((p) => p.id === 'p')!.unseen;
     return { db, save, state, unseen };
   };
 
@@ -1254,6 +1167,87 @@ describe('rekeyParticipants', () => {
     expect(rekeyParticipants(db)).toEqual({ updated: 0, skipped: 0 });
   });
 
+  it('rekeys a version 2 database for every folded pair, never failing', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    const old = (name: string) => name.normalize('NFKC').toLowerCase();
+    const names = [
+      '\u0130rem',
+      'Stra\u00dfe',
+      '\u06a9\u0631\u06cc\u0645',
+      '\u0645\u0635\u0637\u0641\u0649',
+      '\u0623\u062d\u0645\u062f',
+      '\u0641\u0627\u0637\u0645\u0629',
+      '\u0645\u064f\u062d\u0645\u062f',
+    ];
+    names.forEach((name, index) =>
+      person(db, `p${index}`, 'one', name, old(name), index)
+    );
+    const result = rekeyParticipants(db);
+    expect(result).toEqual({ updated: names.length, skipped: 0 });
+    names.forEach((name, index) => {
+      expect(findParticipantByKey(db, 'one', nameKey(name))?.id).toBe(
+        `p${index}`
+      );
+    });
+  });
+
+  it('lets the older of two moving names take the key, whatever the row order', () => {
+    // Two spellings of Muhammad with different vowel marks: one name now.
+    const marked = '\u0645\u064f\u062d\u0645\u0651\u062f';
+    const other = '\u0645\u064e\u062d\u0645\u0651\u062f';
+    for (const [olderId, youngerId] of [
+      ['x', 'y'],
+      ['y', 'x'],
+    ] as const) {
+      const db = seeded();
+      db.exec('PRAGMA user_version = 2');
+      person(db, olderId, 'one', marked, marked, 1);
+      person(db, youngerId, 'one', other, other, 2);
+      expect(rekeyParticipants(db)).toEqual({ updated: 1, skipped: 1 });
+      expect(keyOf(db, olderId)).toBe('\u0645\u062d\u0645\u062f');
+      expect(keyOf(db, youngerId)).toBe(other);
+    }
+  });
+
+  it('leaves an entry on its key when an older one cannot move to it', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    // Persian yeh against Arabic yeh: the Arabic entry already holds the key.
+    const persian = '\u0639\u0644\u06cc';
+    const arabic = '\u0639\u0644\u064a';
+    person(db, 'older', 'one', persian, persian, 1);
+    person(db, 'holder', 'one', arabic, arabic, 2);
+    expect(rekeyParticipants(db)).toEqual({ updated: 0, skipped: 1 });
+    expect(keyOf(db, 'older')).toBe(persian);
+    expect(keyOf(db, 'holder')).toBe(arabic);
+  });
+
+  it('moves an entry onto a key another is leaving, in one run', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    const arabic = '\u0639\u0644\u064a';
+    // `stale` holds a key that no rule gives it; `moving` is about to take it.
+    person(db, 'moving', 'one', '\u0639\u0644\u06cc', '\u0639\u0644\u06cc', 1);
+    person(db, 'stale', 'one', 'Bob', arabic, 2);
+    expect(rekeyParticipants(db)).toEqual({ updated: 2, skipped: 0 });
+    expect(keyOf(db, 'moving')).toBe(arabic);
+    expect(keyOf(db, 'stale')).toBe('bob');
+  });
+
+  it('is idempotent: a second run at the same version changes nothing', () => {
+    const db = seeded();
+    db.exec('PRAGMA user_version = 2');
+    person(db, 'a', 'one', '\u0130rem', 'i\u0307rem', 1);
+    person(db, 'b', 'one', 'Irem', 'irem', 2);
+    const first = rekeyParticipants(db);
+    const keys = [keyOf(db, 'a'), keyOf(db, 'b')];
+    // The younger Irem already holds the key, so the older \u0130rem stays.
+    expect(first).toEqual({ updated: 0, skipped: 1 });
+    expect(rekeyParticipants(db)).toEqual({ updated: 0, skipped: 0 });
+    expect([keyOf(db, 'a'), keyOf(db, 'b')]).toEqual(keys);
+  });
+
   it('leaves a database that is already at version 2 as it is', () => {
     const db = seeded();
     db.exec('PRAGMA user_version = 2');
@@ -1289,7 +1283,12 @@ describe('rekeyParticipants', () => {
       ['\u3164', ''],
       ['\u2800x', 'x'],
       ['\u000bz\u000c', 'z'],
-      ['Stra\u00dfe', 'stra\u00dfe'],
+      ['Stra\u00dfe', 'strasse'],
+      ['\u0130rem', 'irem'],
+      ['\u0643\u0631\u064a\u0645', '\u0643\u0631\u064a\u0645'],
+      ['\u06a9\u0631\u06cc\u0645', '\u0643\u0631\u064a\u0645'],
+      ['\u0645\u064f\u062d\u0640\u0645\u062f', '\u0645\u062d\u0645\u062f'],
+      ['Anna\u3164B', 'anna b'],
       ['Jose\u200d\u0301', 'jos\u00e9'],
       ['a \u00a8b', 'a \u0308b'],
     ];

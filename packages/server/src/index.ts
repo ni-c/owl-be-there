@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { buildApp } from './app.js';
 import { loadSecret } from './auth/secret.js';
 import { ConfigError, loadConfig } from './config.js';
-import { migrate } from './db/migrations.js';
+import { MigrationError, migrate } from './db/migrations.js';
 import { rekeyParticipants } from './db/rekey.js';
 import { Db } from './db/sqlite.js';
 
@@ -28,7 +28,16 @@ async function main(): Promise<void> {
   // The database and the secret are for this process alone.
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const db = new Db(join(config.dataDir, 'owl.db'));
-  migrate(db);
+  try {
+    migrate(db);
+  } catch (error) {
+    if (error instanceof MigrationError) {
+      console.error(error.message);
+      db.close();
+      process.exit(2);
+    }
+    throw error;
+  }
   const rekeyed = rekeyParticipants(db);
   const secret = loadSecret(config.dataDir, config.secret);
   let app;

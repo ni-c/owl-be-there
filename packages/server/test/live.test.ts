@@ -187,10 +187,11 @@ describe('how long an event lives', () => {
     const { id } = await createEvent(t.app, { days: [farDay] });
     const max = await join(t.app, id, 'Max');
     expect((await mark(t.app, id, max, [farDay])).statusCode).toBe(200);
-    expect(getEvent(t.db, id)!.expires_on).toBe(addDays(farDay, 1));
+    const capped = addDays('2027-03-01', 730);
+    expect(getEvent(t.db, id)!.expires_on).toBe(capped);
     // Marks that say "no" to every day are an answer too.
     expect((await mark(t.app, id, max, [], [], 1)).statusCode).toBe(200);
-    expect(getEvent(t.db, id)!.expires_on).toBe(addDays(farDay, 1));
+    expect(getEvent(t.db, id)!.expires_on).toBe(capped);
     // The only person with marks goes: the event is unanswered again.
     t.clock.advanceDays(10);
     const removed = await t.app.inject({

@@ -1,15 +1,27 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { isRtl, LANGUAGES, LOCALES, SERVER_TEXTS } from '@owl/shared';
+import {
+  isRtl,
+  LANGUAGES,
+  LOCALES,
+  previewSvg,
+  SERVER_TEXTS,
+} from '@owl/shared';
 import { Resvg } from '@resvg/resvg-wasm';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { migrate } from '../src/db/migrations.js';
 import { snapshot } from '../src/db/repo.js';
 import { Db } from '../src/db/sqlite.js';
-import { drawableTitle, PreviewBusy, PreviewRenderer } from '../src/preview.js';
+import {
+  coverageOf,
+  drawableTitle,
+  PreviewBusy,
+  PreviewRenderer,
+  type Covers,
+} from '../src/preview.js';
 import {
   CLIENT_DIR,
   createEvent,
@@ -323,7 +335,7 @@ describe('a failed start', () => {
     const { id } = await createEvent(t.app, { title: '忘年会' });
     const data = snapshot(t.db, id)!;
     const { PreviewRenderer: Renderer, reads } = await flakyRenderer({
-      read: (path) => path.includes('noto-sans-cjk-jp-regular'),
+      read: (path) => path.includes('noto-sans-cjk-jp-regular-v2'),
     });
     const renderer = new Renderer(REAL_CLIENT, 'owl.example.org', 5, {
       budget: null,
@@ -333,7 +345,7 @@ describe('a failed start', () => {
     const without = await renderer.render(versionOf(data, 1));
     const withFont = await renderer.render(versionOf(data, 2));
     expect(
-      reads.filter((p) => p.includes('noto-sans-cjk-jp-regular'))
+      reads.filter((p) => p.includes('noto-sans-cjk-jp-regular-v2'))
     ).toHaveLength(2);
     expect(withFont.equals(without)).toBe(false);
   }, 30_000);
@@ -381,9 +393,9 @@ describe('titles in scripts the fonts may not cover', () => {
     const arabic = await pictureOf('عشاء الفريق', REAL_CLIENT);
     expect(arabic.subarray(0, 8)).toEqual(PNG);
     expect(arabic.equals(baseline)).toBe(false);
-    expect(drawableTitle('عشاء الفريق', 'Owl Be There', false, true)).toBe(
-      'عشاء الفريق'
-    );
+    expect(
+      drawableTitle('عشاء الفريق', 'Owl Be There', await fontCovers('arabic'))
+    ).toBe('عشاء الفريق');
   });
 
   it('draws Simplified Chinese titles with the bundled SC font', async () => {
@@ -544,9 +556,94 @@ describe('titles in scripts the fonts may not cover', () => {
   }, 30_000);
 });
 
+/** The fonts a picture loads, unpacked the way the renderer does. */
+const FONT_FILES = {
+  latin: ['../fonts/nunito-400.woff2', '../fonts/nunito-800.woff2'],
+  cjk: ['../../client/public/fonts/noto-sans-cjk-jp-regular-v2.woff2'],
+  arabic: [
+    '../../client/public/fonts/owl-noto-sans-arabic-regular-v2.woff2',
+    '../../client/public/fonts/owl-noto-sans-arabic-bold-v2.woff2',
+  ],
+} as const;
+
+async function fontBytes(kind: keyof typeof FONT_FILES): Promise<Uint8Array[]> {
+  const wawoff2 = createRequire(import.meta.url)('wawoff2') as {
+    decompress(woff2: Uint8Array): Promise<Uint8Array>;
+  };
+  return Promise.all(
+    FONT_FILES[kind].map(async (path) =>
+      (
+        await wawoff2.decompress(await readFile(new URL(path, import.meta.url)))
+      ).slice()
+    )
+  );
+}
+
+/** What Nunito and the named other fonts draw between them. */
+async function fontCovers(
+  ...kinds: (keyof typeof FONT_FILES)[]
+): Promise<Covers> {
+  const fonts = await fontBytes('latin');
+  for (const kind of kinds)
+    if (kind !== 'latin') fonts.push(...(await fontBytes(kind)));
+  return coverageOf(fonts);
+}
+
+describe('coverageOf', () => {
+  it('agrees with an independent read of each font', async () => {
+    for (const kind of ['latin', 'cjk', 'arabic'] as const) {
+      const fonts = await fontBytes(kind);
+      const covers = coverageOf(fonts);
+      const expected = new Set(fonts.flatMap((f) => [...mappedCodePoints(f)]));
+      expect(expected.size, kind).toBeGreaterThan(100);
+      for (const code of expected)
+        expect(covers(code), `${kind} ${code}`).toBe(true);
+    }
+  });
+
+  it('answers false for what no font has, and for nothing at all', async () => {
+    const latin = coverageOf(await fontBytes('latin'));
+    expect(latin('a'.codePointAt(0)!)).toBe(true);
+    expect(latin(0x1f389)).toBe(false);
+    expect(latin(0x05d0)).toBe(false);
+    expect(latin(0x2605)).toBe(false);
+    expect(latin(0x10ffff)).toBe(false);
+    expect(coverageOf([])('a'.codePointAt(0)!)).toBe(false);
+    // Bytes that are no font: nothing mapped, nothing thrown.
+    expect(coverageOf([new Uint8Array(0)])(65)).toBe(false);
+    expect(coverageOf([new Uint8Array(40)])(65)).toBe(false);
+    // Reading the same font again gives the same answers.
+    const fonts = await fontBytes('arabic');
+    expect(coverageOf(fonts)(0x627)).toBe(coverageOf(fonts)(0x627));
+  });
+
+  it('confirms what the Arabic font lacks, and what the CJK font adds', async () => {
+    const arabic = coverageOf(await fontBytes('arabic'));
+    for (const char of '()+?…–—§·')
+      expect(arabic(char.codePointAt(0)!), char).toBe(false);
+    for (const char of '-،:.0٠ ')
+      expect(arabic(char.codePointAt(0)!), char).toBe(true);
+    const cjk = coverageOf(await fontBytes('cjk'));
+    for (const char of '★♥→αΩ忘안')
+      expect(cjk(char.codePointAt(0)!), char).toBe(true);
+    // The red heart and the sparkles are not in the CJK font.
+    for (const char of '\u2764\u2728')
+      expect(cjk(char.codePointAt(0)!), char).toBe(false);
+  });
+});
+
 describe('drawableTitle', () => {
   const app = 'Owl Be There';
-  const drawn = (title: string, cjk = false) => drawableTitle(title, app, cjk);
+  let latin: Covers;
+  let withCjk: Covers;
+  let withArabic: Covers;
+  beforeAll(async () => {
+    latin = await fontCovers();
+    withCjk = await fontCovers('cjk');
+    withArabic = await fontCovers('arabic');
+  });
+  const drawn = (title: string, cjk = false) =>
+    drawableTitle(title, app, cjk ? withCjk : latin);
 
   it('leaves titles of covered scripts, digits and punctuation alone', () => {
     for (const title of [
@@ -579,9 +676,9 @@ describe('drawableTitle', () => {
       ['★ 2027 ♥', ' 2027 '],
       [`${FLAG_DE} Fest`, ' Fest'],
       [`${THUMBS_UP}${SKIN_TONE} ok`, ' ok'],
-      // The variation selectors stay, and resvg draws nothing for them.
-      [`${KEYCAP_ONE} Platz`, '1\uFE0F Platz'],
-      ['\u2764\uFE0F Liebe', '\uFE0F Liebe'],
+      // The variation selector and the keycap go with the emoji they belong to.
+      [`${KEYCAP_ONE} Platz`, '1 Platz'],
+      ['\u2764\uFE0F Liebe', ' Liebe'],
     ] as const)
       expect(drawn(title), title).toBe(expected);
   });
@@ -621,7 +718,7 @@ describe('drawableTitle', () => {
     expect(drawn(`忘年会 ${PARTY_POPPER}`, true)).toBe('忘年会 ');
     expect(drawn(`忘年会${FLAG_DE}`, true)).toBe('忘年会');
     expect(drawn(`${THUMBS_UP}${SKIN_TONE} 忘年会`, true)).toBe(' 忘年会');
-    expect(drawn(KEYCAP_ONE, true)).toBe('1\uFE0F');
+    expect(drawn(KEYCAP_ONE, true)).toBe('1');
     expect(drawn(PARTY_POPPER, true)).toBe(app);
     expect(drawn(SKIN_TONE, true)).toBe(app);
   });
@@ -642,6 +739,90 @@ describe('drawableTitle', () => {
     expect(drawn('שלום 2026')).toBe('… 2026');
   });
 
+  it('draws an accented letter the font lacks as base and accent', () => {
+    // The CJK font has alpha and the combining acute, but not alpha with tonos.
+    expect(drawn('ά', true)).toBe('\u03B1\u0301');
+    expect(drawn('Έ ά', true)).toBe('Ε\u0301 α\u0301');
+    expect(drawn('ά')).toBe(app);
+    // Nunito has these as one glyph: left alone, in either form.
+    expect(drawn('é')).toBe('é');
+    expect(drawn('e\u0301')).toBe('é');
+  });
+
+  it('drops invisible leftovers of emoji, and keeps the Persian half-space', () => {
+    const zwj = '\u200D';
+    expect(drawn(`a ${PARTY_POPPER}${zwj}${CAKE}${zwj} b`)).toBe('a  b');
+    expect(drawn(`a\uFE0F b\uFE0E`)).toBe('a b');
+    expect(drawn('a \u{E0067}\u{E007F} b')).toBe('a  b');
+    expect(drawn(`${PARTY_POPPER}${zwj}${PARTY_POPPER}`)).toBe(app);
+    expect(drawn(`2027${zwj}${PARTY_POPPER}${zwj}`)).toBe('2027');
+    // A joiner between letters stays, as does the half-space of Persian.
+    expect(drawn(`a${zwj}b`)).toBe(`a${zwj}b`);
+    expect(drawableTitle('می\u200Cخواهم', app, withArabic)).toBe(
+      'می\u200Cخواهم'
+    );
+  });
+
+  it('draws what the fonts have and drops what they lack, whatever the Unicode range', () => {
+    // Letters of no font, punctuation of no font, a control character.
+    expect(drawn('a\u0007b')).toBe('ab');
+    expect(drawn('a \u2E2E b')).toBe('a  b');
+    expect(drawn('\u00B6\u2E2E')).toBe(app);
+    // The CJK font has the ideographic comma; Nunito has not.
+    expect(drawn('a、b')).toBe('ab');
+    expect(drawn('a、b', true)).toBe('a、b');
+    // The red heart and the sparkles box in the CJK font: dropped.
+    expect(drawn('忘年会 \u2764\uFE0F\u2728', true)).toBe('忘年会 ');
+  });
+
+  it('draws Arabic only with the Arabic font, and leaves its parentheses to arabicPunctuation', () => {
+    expect(drawableTitle('عشاء الفريق', app, latin)).toBe(app);
+    expect(drawableTitle('عشاء الفريق ٢٠٢٦', app, withArabic)).toBe(
+      'عشاء الفريق ٢٠٢٦'
+    );
+    expect(drawableTitle('Hi عشاء', app, latin)).toBe('Hi …');
+  });
+
+  it('leaves no glyph the Arabic font lacks in any line of an Arabic picture', async () => {
+    // A line with Arabic letters is drawn by that font alone: one glyph it
+    // lacks turns the whole line into boxes.
+    const covers = coverageOf(await fontBytes('arabic'));
+    const days = Array.from({ length: 10 }, (_, i) => `2026-11-${10 + i}`);
+    const lines: string[] = [];
+    for (const answers of [0, 1, 2, 3, 10, 11, 100]) {
+      const data = {
+        event: {
+          id: 'AAAAAAAAAAAA',
+          title: 'عشاء (الفريق)؟ …',
+          description: null,
+          language: 'ar',
+          status: 'open',
+          finalStart: null,
+          finalEnd: null,
+          days,
+          version: 1,
+        },
+        participants: Array.from({ length: answers }, (_, i) => ({
+          id: `p${i}`,
+          name: `n${i}`,
+          days: {},
+          answered: true,
+        })),
+      } as unknown as Parameters<typeof previewSvg>[0];
+      const svg = previewSvg(data, { host: 'owlbethere.app', owl: null });
+      for (const m of svg.matchAll(/<text [^>]*>([^<]*)</gu))
+        lines.push(m[1]!.replaceAll('&amp;', '&'));
+    }
+    const arabic = lines.filter((line) => /\p{scx=Arabic}/u.test(line));
+    expect(arabic.length).toBeGreaterThan(20);
+    for (const line of arabic)
+      for (const char of line)
+        expect(
+          covers(char.codePointAt(0)!) || /\s/u.test(char),
+          `${line} ${char}`
+        ).toBe(true);
+  });
+
   it('counts the marks that follow a lost letter as lost', () => {
     expect(drawn('שָׁלוֹם')).toBe(app);
     expect(drawn('Hello שָׁלוֹם')).toBe('Hello …');
@@ -650,7 +831,8 @@ describe('drawableTitle', () => {
   it("draws the CJK font's scripts only when the font is loaded", () => {
     expect(drawn('忘年会')).toBe(app);
     expect(drawn('忘年会', true)).toBe('忘年会');
-    expect(drawn('안녕 Γειά ー', true)).toBe('안녕 Γειά ー');
+    expect(drawn('안녕 Γειά ー', true)).toBe('안녕 Γει\u03B1\u0301 ー');
+    expect(drawn('Γεια ー', true)).toBe('Γεια ー');
     expect(drawn('Привет 日本', true)).toBe('Привет 日本');
     // The CJK font has no Hebrew either.
     expect(drawn('שלום 日本', true)).toBe('… 日本');
