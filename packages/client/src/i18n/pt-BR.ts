@@ -77,7 +77,7 @@ export const ptBr: Dictionary = {
   'error.past': 'Esse dia já passou.',
   'error.tooFar': 'Isso é longe demais. Escolha dias nos próximos cinco anos.',
   'error.slowDown':
-    'Senhas erradas demais para este nome. Espere alguns minutos.',
+    'Muitas senhas erradas para este nome. Espere alguns minutos.',
   'error.daysChanged':
     'Os dias foram alterados em outro lugar enquanto isso. Confira e salve de novo.',
   'error.generic': 'Não deu certo. Tente de novo.',
@@ -104,7 +104,7 @@ export const ptBr: Dictionary = {
   'event.minCount_one': 'precisa de {count} pessoa',
   'event.minCount_other': 'precisa de {count} pessoas',
   'event.adminRefused':
-    'Este link de organização não foi aceito. As ferramentas de organização saíram deste dispositivo; abra de novo o link de organização completo para recuperá-las.',
+    'Este link de organização não foi aceito. As ferramentas de organização foram removidas deste dispositivo; abra de novo o link de organização completo para recuperá-las.',
   'event.expires':
     'Este evento será excluído automaticamente em {date}, a menos que algo mude até lá.',
   'event.share': 'Compartilhar',
@@ -181,7 +181,7 @@ export const ptBr: Dictionary = {
   'cal.past': 'passou',
   'cal.othersCan_one': 'mais {count} pessoa pode',
   'cal.othersCan_other': 'mais {count} pessoas podem',
-  'cal.heat': '{yes} podem, {maybe} talvez, {no} não podem',
+  'cal.heat': 'Podem: {yes}; talvez: {maybe}; não podem: {no}',
   'cal.gap': 'Semanas sem dias possíveis foram puladas',
   'cal.changed_one': '{count} dia alterado',
   'cal.changed_other': '{count} dias alterados',
@@ -193,7 +193,7 @@ export const ptBr: Dictionary = {
   'group.legendFew': 'poucas',
   'group.legendAll': 'todas',
   'group.best': 'Melhores dias',
-  'group.count': '{yes} de {total} podem',
+  'group.count': 'Podem: {yes} de {total}',
   'group.maybeCount': '+{count} talvez',
   'group.enough': 'pessoas suficientes',
   'group.enoughMaybe': 'suficientes com os “talvez”',

@@ -67,11 +67,11 @@ export const zhHant = {
   'error.rangeTooLong': '日期範圍最多一年。',
   'error.noDays': '請至少選擇一天。',
   'error.tooManyDays': '最多可選 {max} 天。',
-  'error.noBlock': '沒有連續 {count} 天的候選日期。',
+  'error.noBlock': '沒有連續 {count} 天的候選日。',
   'error.past': '這一天已經過了。',
   'error.tooFar': '日期太遠了，請選擇未來五年內的日期。',
   'error.slowDown': '這個名字的密碼錯誤次數太多，請過幾分鐘再試。',
-  'error.daysChanged': '候選日期已在其他地方變更。請檢查後再儲存。',
+  'error.daysChanged': '候選日已在其他地方變更。請檢查後再儲存。',
   'error.generic': '操作失敗，請再試一次。',
   'error.offline': '你似乎已離線，請稍後再試。',
   'error.rateLimited': '操作太頻繁，請稍等片刻。',
@@ -257,7 +257,7 @@ export const zhHant = {
     'Owl Be There 只儲存安排活動所需的資料。以下說明儲存內容及刪除時間。',
   'privacy.stored.title': '儲存哪些資料',
   'privacy.stored.event':
-    '每項活動會儲存名稱、圖示、候選日期及設定。說明、地點和主辦人姓名均可選填。',
+    '每項活動會儲存名稱、圖示、候選日及設定。說明、地點和主辦人姓名均可選填。',
   'privacy.stored.person':
     '每位參加者會儲存姓名和標記的日期；如有填寫備註或設定密碼，也會儲存備註與密碼雜湊值。',
   'privacy.stored.nothingElse':

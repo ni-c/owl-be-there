@@ -25,13 +25,13 @@ export const es: Dictionary = {
   'home.forget': 'Quitar {title} de esta lista',
   'home.forgetOrganiser.title': '¿Quitar este evento de este dispositivo?',
   'home.forgetOrganiser.text':
-    'Este dispositivo guarda el enlace de organización de «{title}». Al quitar el evento, ese enlace se borra aquí: sin una copia no podrás cerrar la votación, elegir la fecha ni borrar el evento desde este dispositivo.',
+    'Este dispositivo guarda el enlace de organización de «{title}». Al quitar el evento, ese enlace se borra aquí: sin una copia no podrás cerrar la encuesta, elegir la fecha ni borrar el evento desde este dispositivo.',
   'home.forgetOrganiser.yes': 'Quitar de este dispositivo',
   'home.creationDisabled': 'Ahora mismo no puedes crear eventos aquí.',
 
   'create.title': 'Planear un evento',
   'create.step': 'Paso {current} de {total}',
-  'create.what': '¿Qué plan tenéis?',
+  'create.what': '¿Qué plan tienes?',
   'create.titleLabel': 'Título',
   'create.titlePlaceholder': 'Fútbol en el parque',
   'create.emoji': 'Icono',
@@ -50,7 +50,7 @@ export const es: Dictionary = {
   'create.weekdaysHint': 'Si no marcas ninguno, se incluyen todos los días.',
   'create.duration': 'Días seguidos',
   'create.durationHint':
-    '¿Buscáis un fin de semana entero? Elige 2. Buscaremos dos días seguidos que os vengan bien.',
+    '¿Quieres un fin de semana entero? Elige 2. Buscaremos dos días seguidos que encajen.',
   'create.fineTune': 'Toca o arrastra en el calendario para quitar días.',
   'create.dayCount_one': '{count} día para elegir',
   'create.dayCount_other': '{count} días para elegir',
@@ -91,7 +91,7 @@ export const es: Dictionary = {
   'error.rosterTooMany': 'Como máximo, {max} nombres de una vez.',
   'error.busy':
     'El servidor está ocupado en este momento. Inténtalo de nuevo en un rato.',
-  'error.changed': 'Esta entrada se acaba de modificar. Inténtalo de nuevo.',
+  'error.changed': 'Esta respuesta se acaba de modificar. Inténtalo de nuevo.',
   'error.invalid':
     'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.',
 
@@ -178,8 +178,8 @@ export const es: Dictionary = {
   'cal.yes': 'puede',
   'cal.maybe': 'quizá',
   'cal.no': 'sin marcar',
-  'cal.off': 'no disponible para elegir',
-  'cal.on': 'disponible para elegir',
+  'cal.off': 'no propuesto',
+  'cal.on': 'propuesto',
   'cal.new': 'nuevo',
   'cal.past': 'pasado',
   'cal.othersCan_one': 'puede {count} persona más',
@@ -242,7 +242,7 @@ export const es: Dictionary = {
   'admin.fillIn': 'Responder',
   'admin.resetPassword': 'Quitar contraseña',
   'admin.resetPasswordConfirm':
-    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta entrada.',
+    '¿Quitar la contraseña de {name}? Después, cualquiera con el enlace podrá cambiar esta respuesta.',
   'admin.remove': 'Quitar',
   'admin.removeConfirm': '¿Quitar a {name} y todos sus días?',
   'admin.delete': 'Borrar evento',
@@ -312,7 +312,7 @@ export const es: Dictionary = {
 
   'imprint.title': 'Aviso legal',
   'imprint.provider.title':
-    'Identificación del proveedor según § 5 DDG y § 18 Abs. 1 MStV',
+    'Identificación del proveedor según § 5 DDG y § 18, apartado 1, MStV',
   'imprint.contact.title': 'Contacto',
   'imprint.contact.label': 'Correo electrónico:',
   'imprint.about.title': 'Sobre Owl Be There',

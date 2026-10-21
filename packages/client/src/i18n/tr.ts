@@ -135,8 +135,8 @@ export const tr = {
   'mine.hello': 'Merhaba {name}!',
   'mine.notYou': 'Sen değil misin?',
   'mine.brush': 'Günleri şöyle işaretle',
-  'mine.brushYes': 'Katılabilirim',
-  'mine.brushMaybe': 'Belki katılabilirim',
+  'mine.brushYes': 'Müsaitim',
+  'mine.brushMaybe': 'Belki',
   'mine.hint':
     'Bir güne dokun veya birkaç gün boyunca sürükle. İşareti kaldırmak için yeniden dokun.',
   'mine.undo': 'Geri al',
@@ -201,7 +201,7 @@ export const tr = {
   'group.hiddenHint': 'Bir kişiyi hesaptan çıkarmak için adına dokun.',
   'group.showAll': 'Herkesi hesaba kat',
   'group.waiting': 'Henüz yanıt vermeyenler: {names}',
-  'group.noBlocks': 'Uygun bir ardışık gün aralığı kalmadı.',
+  'group.noBlocks': 'Uygun art arda gün aralığı kalmadı.',
 
   'day.can': 'Katılabilir',
   'day.maybe': 'Belki katılabilir',

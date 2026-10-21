@@ -50,7 +50,7 @@ export const es419: Dictionary = {
   'create.weekdaysHint': 'Si no marcas ninguno, se incluyen todos los días.',
   'create.duration': 'Días seguidos',
   'create.durationHint':
-    '¿Buscan un fin de semana completo? Elige 2. Buscaremos dos días seguidos que les queden bien.',
+    '¿Es un fin de semana completo? Elige 2. Buscaremos dos días seguidos que funcionen para el grupo.',
   'create.fineTune': 'Toca o arrastra en el calendario para quitar días.',
   'create.dayCount_one': '{count} día posible',
   'create.dayCount_other': '{count} días posibles',
@@ -196,7 +196,7 @@ export const es419: Dictionary = {
   'group.legendFew': 'pocos',
   'group.legendAll': 'todos',
   'group.best': 'Mejores días',
-  'group.count': 'Pueden {yes} de {total}',
+  'group.count': 'Pueden: {yes} de {total}',
   'group.maybeCount': '+{count} tal vez',
   'group.enough': 'gente suficiente',
   'group.enoughMaybe': 'suficientes contando los “tal vez”',

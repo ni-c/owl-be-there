@@ -79,7 +79,7 @@ export const pl = {
   'error.noBlock': 'Brak ciągu {count} dni do wyboru.',
   'error.past': 'Ten dzień już minął.',
   'error.tooFar':
-    'To zbyt odległy termin. Wybierz dni w ciągu najbliższych pięciu lat.',
+    'To za daleko w przyszłości. Wybierz dni w ciągu najbliższych pięciu lat.',
   'error.slowDown':
     'Zbyt wiele błędnych haseł dla tego imienia. Spróbuj ponownie za kilka minut.',
   'error.daysChanged':

@@ -12,7 +12,7 @@ export const ja: Dictionary = {
   'home.example.text':
     'Annaになって都合のいい日を選ぶと、グループのカレンダーが変わります。',
   'home.example.eventTitle': 'チームの食事会',
-  'home.example.hint': '試すための架空の予定だよ。何も保存されません。',
+  'home.example.hint': '試すための架空の予定です。何も保存されません。',
   'home.example.reset': '最初から',
   'home.example.noteBen':
     '平日は厳しいです。木曜なら月の半ば以降でたぶん大丈夫。',
@@ -22,11 +22,11 @@ export const ja: Dictionary = {
   'event.planOwn.text': '1分で自分の予定を作れるよ。アカウントは不要。',
   'home.myEvents': '自分の予定',
   'home.organiser': '主催者',
-  'home.forget': '{title}をこの一覧から削除',
-  'home.forgetOrganiser.title': 'この端末からこの予定を削除しますか？',
+  'home.forget': '「{title}」をこの一覧から外す',
+  'home.forgetOrganiser.title': 'この端末からこの予定を外しますか？',
   'home.forgetOrganiser.text':
-    'この端末には「{title}」の主催者用リンクが保存されています。予定を削除すると、このリンクもここから消えます。コピーがないと、この端末から投票を締め切ったり、日程を決めたり、予定を削除したりできなくなります。',
-  'home.forgetOrganiser.yes': 'この端末から削除',
+    'この端末には「{title}」の主催者用リンクが保存されています。予定をこの端末から外すと、このリンクもここから消えます。コピーがないと、この端末から投票を締め切ったり、日程を決めたり、予定を削除したりできなくなります。',
+  'home.forgetOrganiser.yes': 'この端末から外す',
   'home.creationDisabled': '今はここで新しい予定を作れません。',
 
   'create.title': '予定を立てる',
@@ -37,7 +37,7 @@ export const ja: Dictionary = {
   'create.emoji': 'アイコン',
   'create.description': '説明（任意）',
   'create.descriptionHint':
-    'リンクは文字として表示されるよ。開くことはできません。',
+    'リンクは文字として表示されます。開くことはできません。',
   'create.location': '場所（任意）',
   'create.locationPlaceholder': '北側のグラウンド',
   'create.creator': 'あなたの名前（任意）',
@@ -77,7 +77,7 @@ export const ja: Dictionary = {
   'error.tooFar': '先すぎます。5年以内の日を選んでね。',
   'error.slowDown': 'この名前のパスワードを何度も間違えました。数分待ってね。',
   'error.daysChanged':
-    'その間に別の場所で日程が変更されました。確認してもう一度保存してね。',
+    'その間に別の場所で候補日が変更されました。確認してもう一度保存してね。',
   'error.generic': 'うまくいかなかったよ。もう一度試してね。',
   'error.offline': 'オフラインのようです。あとで試してね。',
   'error.rateLimited': '操作が少し速すぎるみたい。少し待ってね。',
@@ -88,7 +88,7 @@ export const ja: Dictionary = {
   'error.rosterTooMany': '一度に追加できるのは{max}人までです。',
   'error.busy':
     'サーバーが混み合っています。しばらくしてからもう一度試してね。',
-  'error.changed': 'この名前の内容がたった今変更されました。もう一度試してね。',
+  'error.changed': 'この回答がたった今変更されました。もう一度試してね。',
   'error.invalid': '入力に正しくない部分があります。確認してもう一度試してね。',
 
   'event.loading': '予定を読み込み中…',
@@ -110,7 +110,7 @@ export const ja: Dictionary = {
   'event.tabGroup': 'グループ',
   'event.answers_one': '{count}人が回答',
   'event.answers_other': '{count}人が回答',
-  'event.closed': '回答は締め切られました。',
+  'event.closed': '投票は締め切られました。',
   'event.decided': '日程が決まったよ！',
   'event.addToCalendar': 'カレンダーに追加',
   'event.icsFile': 'カレンダーファイル',
@@ -128,7 +128,7 @@ export const ja: Dictionary = {
   'who.protected': '「{name}」は保護されています。パスワードを入力してね。',
   'who.wrongPassword': 'パスワードが違います。',
   'who.passwordTooShort': '{min}文字以上で入力してね。',
-  'who.closed': '回答は締め切られました。新しい名前は追加できません。',
+  'who.closed': '投票は締め切られました。新しい名前は追加できません。',
   'who.full': 'この予定は定員に達しています。',
 
   'mine.hello': '{name}さん、こんにちは！',
@@ -151,7 +151,7 @@ export const ja: Dictionary = {
   'mine.saving': '保存中…',
   'mine.retrying': 'オフラインです。再試行します…',
   'mine.failed': '保存できませんでした。',
-  'mine.closed': '回答は締め切られました。都合は変更できません。',
+  'mine.closed': '投票は締め切られました。都合は変更できません。',
   'mine.entry': '回答を編集',
   'mine.rename': '名前',
   'mine.setPassword': 'パスワードを設定',
@@ -215,16 +215,16 @@ export const ja: Dictionary = {
   'share.native': '共有…',
   'share.qr': '読み取って開く',
   'share.inviteText':
-    '{emoji} {title} — いつ空いてる？ 都合のいい日を入れてね：{url}',
+    '{emoji} {title} — いつ空いてる？ 都合のいい日を入れてね: {url}',
   'share.adminTitle': '主催者用リンク',
   'share.adminWarning':
     'このリンクは共有しないでね。持っている人は予定を変更・削除できるよ。別の端末から管理するときにも必要なので、大切に保管してね。',
 
   'admin.title': '主催者メニュー',
-  'admin.close': '回答を締め切る',
-  'admin.reopen': '回答を再開する',
+  'admin.close': '投票を締め切る',
+  'admin.reopen': '投票を再開する',
   'admin.unchoose': '決定した日を取り消す',
-  'admin.chooseHint': 'みんなの都合にある「おすすめの日」から選んでね。',
+  'admin.chooseHint': '「グループ」表示の「おすすめの日」から選んでね。',
   'admin.edit': '詳細',
   'admin.days': '日付',
   'admin.addDays': 'この日まで候補を追加',
@@ -234,11 +234,11 @@ export const ja: Dictionary = {
   'admin.fillIn': '代わりに回答',
   'admin.resetPassword': 'パスワードを削除',
   'admin.resetPasswordConfirm':
-    '{name}さんのパスワードを削除する？削除すると、リンクを知っている人なら誰でもこの回答を変更できます。',
+    '{name}さんのパスワードを削除しますか？ 削除すると、リンクを知っている人なら誰でもこの回答を変更できます。',
   'admin.remove': '削除',
   'admin.removeConfirm': '{name}さんとその回答を削除する？',
   'admin.delete': '予定を削除',
-  'admin.deleteConfirm': 'この予定を全員から削除する？ 元には戻せません。',
+  'admin.deleteConfirm': 'この予定を全員から削除しますか？ 元には戻せません。',
   'admin.deleteYes': '完全に削除',
   'admin.saved': '保存しました',
   'admin.lossTitle': '変更を保存しますか？',
@@ -263,14 +263,14 @@ export const ja: Dictionary = {
 
   'privacy.title': 'プライバシー',
   'privacy.intro':
-    'Owl Be Thereは予定の調整に必要な情報だけを保存するよ。何を保存し、いつ削除するかを説明します。',
+    'Owl Be Thereは予定の調整に必要な情報だけを保存します。何を保存し、いつ削除するかを説明します。',
   'privacy.stored.title': '保存する情報',
   'privacy.stored.event':
     '予定ごとに、タイトル、アイコン、候補日、設定を保存します。説明、場所、主催者名は任意です。',
   'privacy.stored.person':
     '参加者ごとに名前と選んだ日を保存します。入力された場合はコメントとパスワードのハッシュも保存します。',
   'privacy.stored.nothingElse':
-    'アカウント、メールアドレス、Cookie、アクセス解析はありません。アプリは外部サービスに接続せず、IPアドレスも保存しません。唯一の例外は Google カレンダーのリンクで、クリックすると予定のタイトル、説明、場所、リンクを入れた Google が開きます。',
+    'アカウント、メールアドレス、Cookie、アクセス解析はありません。アプリは外部サービスに接続せず、IPアドレスも保存しません。唯一の例外は Google カレンダーのリンクで、クリックすると予定のタイトル、説明、場所、リンクが入力された状態で Google カレンダーが開きます。',
   'privacy.visible.title': '誰が見られる？',
   'privacy.visible.text':
     '予定のリンクを持つ人は、名前と選んだ日を見られます。検索エンジンには予定のページを登録しないよう伝えています。',
@@ -298,7 +298,7 @@ export const ja: Dictionary = {
   'privacy.source':
     'Owl Be Thereはオープンソースです。コードを読んだり、自分で設置したりできます。',
 
-  'imprint.title': '法的表示',
+  'imprint.title': '運営者情報',
   'imprint.provider.title':
     'DDG第5条およびMStV第18条第1項に基づく事業者表示（Anbieterkennzeichnung）',
   'imprint.contact.title': '連絡先',
@@ -311,7 +311,7 @@ export const ja: Dictionary = {
     '消費者仲裁機関による紛争解決手続（VSBG第36条）に参加する義務はなく、参加する意思もありません。',
   'imprint.liability.title': 'コンテンツとリンクに関する責任',
   'imprint.liability.text':
-    'このアプリの内容は注意を払って作成しています。リンク先の外部サイトについては、それぞれの提供者が責任を負います。リンクを設置した時点では、法令違反は認められませんでした。アンケートに主催者や参加者が入力した内容については、入力した本人が責任を負います。',
+    'このアプリの内容は注意を払って作成しています。リンク先の外部サイトについては、それぞれの提供者が責任を負います。リンクを設置した時点では、法令違反は認められませんでした。投票に主催者や参加者が入力した内容については、入力した本人が責任を負います。',
 
   'notFound.title': 'このページが見つかりません。',
   'notFound.home': 'ホームに戻る',

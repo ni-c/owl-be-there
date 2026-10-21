@@ -22,7 +22,7 @@ export const HOME: HomeTexts = {
     'Owl Be There ist für ganze Tage gemacht: Alle markieren die Tage, an denen sie können, und die Heatmap zeigt auf einen Blick, welcher Tag am besten passt. Es gibt keine Konten und kein Tracking, und alte Events werden automatisch gelöscht.',
   'home.faq.days.q': 'Können wir ein ganzes Wochenende suchen?',
   'home.faq.days.a':
-    'Ja. Fragt nach zwei oder mehr Tagen am Stück, dann zeigt Owl Be There die Blöcke, an denen die meisten können – auf Wunsch mit einer Mindestzahl an Leuten.',
+    'Ja. Wählt zwei oder mehr Tage am Stück, dann zeigt Owl Be There die Blöcke, an denen die meisten können – auf Wunsch mit einer Mindestzahl an Leuten.',
   'home.faq.messenger.q': 'Wie lade ich die Gruppe ein?',
   'home.faq.messenger.a':
     'Schick den Link in euren Gruppenchat oder zeig den QR-Code. WhatsApp, Signal und andere Messenger zeigen eine Vorschau mit dem Titel und den möglichen Tagen. Niemand muss etwas installieren.',

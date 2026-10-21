@@ -22,11 +22,11 @@ export const ko: Dictionary = {
   'event.planOwn.text': '계정 없이 1분 만에 내 모임을 만들 수 있어요.',
   'home.myEvents': '내 모임',
   'home.organiser': '주최자',
-  'home.forget': '목록에서 {title} 삭제',
-  'home.forgetOrganiser.title': '이 기기에서 이 모임을 삭제할까요?',
+  'home.forget': '목록에서 “{title}” 제거',
+  'home.forgetOrganiser.title': '이 기기에서 이 모임을 제거할까요?',
   'home.forgetOrganiser.text':
-    '이 기기에는 “{title}”의 주최자 링크가 저장되어 있어요. 모임을 삭제하면 이 링크도 여기서 함께 지워져요. 링크 사본이 없으면 이 기기에서 더 이상 투표를 마감하거나, 날짜를 확정하거나, 모임을 삭제할 수 없어요.',
-  'home.forgetOrganiser.yes': '이 기기에서 삭제',
+    '이 기기에는 “{title}”의 주최자 링크가 저장되어 있어요. 이 기기에서 모임을 제거하면 이 링크도 함께 지워져요. 링크 사본이 없으면 이 기기에서 더 이상 투표를 마감하거나, 날짜를 확정하거나, 모임을 삭제할 수 없어요.',
+  'home.forgetOrganiser.yes': '이 기기에서 제거',
   'home.creationDisabled': '지금은 여기서 새 모임을 만들 수 없어요.',
 
   'create.title': '모임 만들기',
@@ -173,7 +173,7 @@ export const ko: Dictionary = {
   'cal.no': '표시 안 함',
   'cal.off': '후보일 아님',
   'cal.on': '후보일',
-  'cal.new': '새',
+  'cal.new': '신규',
   'cal.past': '지남',
   'cal.othersCan_one': '다른 {count}명 가능',
   'cal.othersCan_other': '다른 {count}명 가능',
@@ -271,7 +271,7 @@ export const ko: Dictionary = {
   'privacy.stored.person':
     '참여자마다 이름과 표시한 날짜를 저장해요. 코멘트와 비밀번호 해시는 입력한 경우에만 저장해요.',
   'privacy.stored.nothingElse':
-    '계정, 이메일 주소, 쿠키, 분석 도구는 없어요. 앱은 다른 서비스에 요청을 보내지 않고 IP 주소도 저장하지 않아요. 유일한 예외는 Google 캘린더 링크예요. 클릭하면 모임의 제목, 설명, 장소, 링크가 담긴 Google이 열려요.',
+    '계정, 이메일 주소, 쿠키, 분석 도구는 없어요. 앱은 다른 서비스에 요청을 보내지 않고 IP 주소도 저장하지 않아요. 유일한 예외는 Google 캘린더 링크예요. 클릭하면 모임의 제목, 설명, 장소, 링크가 채워진 Google 캘린더가 열려요.',
   'privacy.visible.title': '누가 볼 수 있나요',
   'privacy.visible.text':
     '모임 링크가 있는 사람은 누구나 이름과 표시한 날짜를 볼 수 있어요. 검색 엔진에는 모임 페이지를 색인하지 말라고 알려요.',

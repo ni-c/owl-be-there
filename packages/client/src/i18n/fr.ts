@@ -13,27 +13,27 @@ export const fr: Dictionary = {
     'Indique tes jours à la place d’Anna et regarde le calendrier du groupe changer.',
   'home.example.eventTitle': 'Dîner d’équipe',
   'home.example.hint':
-    'Un événement fictif pour essayer : rien n’est enregistré.',
+    'Un événement fictif pour essayer : rien n’est enregistré.',
   'home.example.reset': 'Recommencer',
   'home.example.noteBen':
     'En semaine, c’est compliqué — le jeudi peut-être, à partir du milieu du mois.',
   'home.example.noteMax':
     'Chorale le jeudi jusqu’au milieu du mois, après je suis libre.',
-  'event.planOwn.title': 'Tu organises quelque chose ?',
+  'event.planOwn.title': 'Tu organises quelque chose ?',
   'event.planOwn.text': 'Crée ton propre événement en une minute, sans compte.',
   'home.myEvents': 'Tes événements',
   'home.organiser': 'tu organises',
   'home.forget': 'Retirer {title} de cette liste',
-  'home.forgetOrganiser.title': 'Retirer cet événement de cet appareil ?',
+  'home.forgetOrganiser.title': 'Retirer cet événement de cet appareil ?',
   'home.forgetOrganiser.text':
-    'Cet appareil conserve le lien d’organisation de « {title} ». Si tu retires l’événement, ce lien est supprimé ici : sans copie, tu ne pourras plus clore le sondage, choisir la date ni supprimer l’événement depuis cet appareil.',
+    'Cet appareil conserve le lien d’organisation de « {title} ». Si tu retires l’événement, ce lien est supprimé ici : sans copie, tu ne pourras plus fermer le sondage, choisir la date ni supprimer l’événement depuis cet appareil.',
   'home.forgetOrganiser.yes': 'Retirer de cet appareil',
   'home.creationDisabled':
     'Tu ne peux pas créer d’événement ici pour le moment.',
 
   'create.title': 'Organiser un événement',
   'create.step': 'Étape {current} sur {total}',
-  'create.what': 'C’est quoi le programme ?',
+  'create.what': 'C’est quoi le programme ?',
   'create.titleLabel': 'Titre',
   'create.titlePlaceholder': 'Foot au parc',
   'create.emoji': 'Icône',
@@ -44,20 +44,20 @@ export const fr: Dictionary = {
   'create.locationPlaceholder': 'Terrain nord',
   'create.creator': 'Ton nom (facultatif)',
   'create.creatorHint':
-    'Ton nom apparaîtra après « organisé par ». Tu pourras indiquer tes jours ensuite.',
-  'create.when': 'Quand est-ce que ça pourrait avoir lieu ?',
+    'Ton nom apparaîtra après « organisé par ». Tu pourras indiquer tes jours ensuite.',
+  'create.when': 'Quand est-ce que ça pourrait avoir lieu ?',
   'create.from': 'Du',
   'create.to': 'Au',
   'create.weekdays': 'Seulement ces jours de la semaine',
   'create.weekdaysHint': 'Si tu ne choisis rien, tous les jours sont inclus.',
   'create.duration': 'Jours d’affilée',
   'create.durationHint':
-    'Vous prévoyez tout un week-end ? Choisis 2. On cherchera deux jours d’affilée qui conviennent.',
+    'Tu prévois tout un week-end ? Choisis 2. On cherchera deux jours d’affilée qui conviennent.',
   'create.fineTune':
     'Appuie ou glisse dans le calendrier pour retirer des jours.',
   'create.dayCount_one': '{count} jour au choix',
   'create.dayCount_other': '{count} jours au choix',
-  'create.who': 'Qui vient ?',
+  'create.who': 'Qui vient ?',
   'create.roster': 'Noms (facultatif)',
   'create.rosterHint':
     'Un nom par ligne. Chacun choisira le sien ensuite. Tu verras qui n’a pas encore répondu.',
@@ -93,7 +93,7 @@ export const fr: Dictionary = {
   'error.rosterLine': 'Un nom peut comporter {max} caractères au maximum.',
   'error.rosterTooMany': '{max} noms au maximum à la fois.',
   'error.busy': 'Le serveur est occupé en ce moment. Réessaie dans un instant.',
-  'error.changed': 'Cette entrée vient d’être modifiée. Réessaie.',
+  'error.changed': 'Cette réponse vient d’être modifiée. Réessaie.',
   'error.invalid':
     'Certaines informations ne sont pas valides. Vérifie-les et réessaie.',
 
@@ -109,7 +109,7 @@ export const fr: Dictionary = {
   'event.minCount_one': 'nécessite {count} personne',
   'event.minCount_other': 'nécessite {count} personnes',
   'event.adminRefused':
-    'Ce lien d’organisation n’a pas été accepté. Les outils d’organisation ont été retirés de cet appareil ; rouvre le lien complet pour les retrouver.',
+    'Ce lien d’organisation n’a pas été accepté. Les outils d’organisation ont été retirés de cet appareil ; rouvre le lien complet pour les retrouver.',
   'event.expires':
     'L’événement sera supprimé automatiquement le {date} si rien ne change d’ici là.',
   'event.share': 'Partager',
@@ -119,13 +119,13 @@ export const fr: Dictionary = {
   'event.answers_one': '{count} réponse',
   'event.answers_other': '{count} réponses',
   'event.closed': 'Le sondage est fermé.',
-  'event.decided': 'La date est fixée !',
+  'event.decided': 'La date est fixée !',
   'event.addToCalendar': 'Ajouter au calendrier',
   'event.icsFile': 'Fichier calendrier',
   'event.google': 'Google Agenda',
 
-  'who.title': 'Comment tu t’appelles ?',
-  'who.pick': 'Choisis ton nom :',
+  'who.title': 'Comment tu t’appelles ?',
+  'who.pick': 'Choisis ton nom :',
   'who.someoneElse': 'Quelqu’un d’autre',
   'who.name': 'Ton nom',
   'who.password': 'Mot de passe',
@@ -134,14 +134,14 @@ export const fr: Dictionary = {
     'Sans mot de passe, toute personne ayant le lien peut saisir ton nom et modifier tes jours.',
   'who.continue': 'Continuer',
   'who.protected':
-    '« {name} » est protégé. Saisis le mot de passe pour continuer.',
+    '« {name} » est protégé. Saisis le mot de passe pour continuer.',
   'who.wrongPassword': 'Ce mot de passe est incorrect.',
   'who.passwordTooShort': 'Saisis au moins {min} caractères.',
   'who.closed': 'Le sondage est fermé. On ne peut plus ajouter de nom.',
   'who.full': 'Cet événement est complet.',
 
-  'mine.hello': 'Salut {name} !',
-  'mine.notYou': 'Ce n’est pas toi ?',
+  'mine.hello': 'Salut {name} !',
+  'mine.notYou': 'Ce n’est pas toi ?',
   'mine.brush': 'Marquer les jours comme',
   'mine.brushYes': 'Disponible',
   'mine.brushMaybe': 'Peut-être',
@@ -151,7 +151,7 @@ export const fr: Dictionary = {
   'mine.all': 'Tous',
   'mine.none': 'Aucun',
   'mine.noneWork': 'Aucun de ces jours ne me convient',
-  'mine.noneSaved': 'Enregistré : aucun de ces jours ne te convient.',
+  'mine.noneSaved': 'Enregistré : aucun de ces jours ne te convient.',
   'mine.note': 'Remarque (facultatif)',
   'mine.notePlaceholder': 'Par ex. seulement après 18 h',
   'mine.newDays_one': '{count} nouveau jour a été ajouté. Jette un œil.',
@@ -167,7 +167,7 @@ export const fr: Dictionary = {
   'mine.newPassword': 'Nouveau mot de passe',
   'mine.removePassword': 'Retirer le mot de passe',
   'mine.deleteEntry': 'Supprimer ma réponse',
-  'mine.deleteConfirm': 'Supprimer ta réponse et tous tes jours ?',
+  'mine.deleteConfirm': 'Supprimer ta réponse et tous tes jours ?',
   'mine.save': 'Enregistrer',
   'mine.cancel': 'Annuler',
   'mine.editingFor': 'Tu réponds pour {name}',
@@ -182,12 +182,12 @@ export const fr: Dictionary = {
   'cal.no': 'non marqué',
   'cal.off': 'pas proposé',
   'cal.on': 'proposé',
-  'cal.new': 'nouveau',
+  'cal.new': 'nouv.',
   'cal.past': 'passé',
   'cal.othersCan_one': '{count} autre personne est disponible',
   'cal.othersCan_other': '{count} autres personnes sont disponibles',
   'cal.heat':
-    'Disponibles : {yes} ; peut-être : {maybe} ; indisponibles : {no}',
+    'Disponibles : {yes} ; peut-être : {maybe} ; indisponibles : {no}',
   'cal.gap': 'Semaines sans jour proposé masquées',
   'cal.changed_one': '{count} jour modifié',
   'cal.changed_other': '{count} jours modifiés',
@@ -199,16 +199,16 @@ export const fr: Dictionary = {
   'group.legendFew': 'peu',
   'group.legendAll': 'tout le monde',
   'group.best': 'Meilleurs jours',
-  'group.count': 'Disponibles : {yes} sur {total}',
+  'group.count': 'Disponibles : {yes} sur {total}',
   'group.maybeCount': '+{count} peut-être',
   'group.enough': 'assez de monde',
-  'group.enoughMaybe': 'assez avec les « peut-être »',
+  'group.enoughMaybe': 'assez avec les « peut-être »',
   'group.choose': 'Fixer cette date',
   'group.chosen': 'Date fixée',
   'group.people': 'Personnes prises en compte',
   'group.hiddenHint': 'Appuie sur un nom pour ne pas compter cette personne.',
   'group.showAll': 'Compter tout le monde',
-  'group.waiting': 'Pas encore de réponse de : {names}',
+  'group.waiting': 'Pas encore de réponse de : {names}',
   'group.noBlocks': 'Il ne reste plus de jours d’affilée qui conviennent.',
 
   'day.can': 'Disponibles',
@@ -219,14 +219,14 @@ export const fr: Dictionary = {
   'day.close': 'Fermer',
 
   'share.title': 'Partager avec le groupe',
-  'share.created': 'C’est prêt ! Envoie le lien aux autres.',
+  'share.created': 'C’est prêt ! Envoie le lien aux autres.',
   'share.link': 'Lien pour tout le monde',
   'share.copy': 'Copier',
-  'share.copied': 'Copié !',
+  'share.copied': 'Copié !',
   'share.native': 'Partager…',
   'share.qr': 'Scanner pour ouvrir',
   'share.inviteText':
-    '{emoji} {title} — tu es libre quand ? Indique tes jours ici : {url}',
+    '{emoji} {title} — tu es libre quand ? Indique tes jours ici : {url}',
   'share.adminTitle': 'Ton lien d’organisation',
   'share.adminWarning':
     'Ne partage pas ce lien. Toute personne qui l’a peut modifier ou supprimer l’événement. Garde-le bien. Il te servira pour gérer l’événement depuis un autre appareil.',
@@ -236,7 +236,7 @@ export const fr: Dictionary = {
   'admin.reopen': 'Rouvrir le sondage',
   'admin.unchoose': 'Annuler la date choisie',
   'admin.chooseHint':
-    'Choisis une date dans « Meilleurs jours », dans la vue du groupe.',
+    'Choisis une date dans « Meilleurs jours », dans la vue du groupe.',
   'admin.edit': 'Détails',
   'admin.days': 'Jours',
   'admin.addDays': 'Ajouter des jours jusqu’au',
@@ -246,15 +246,15 @@ export const fr: Dictionary = {
   'admin.fillIn': 'Répondre',
   'admin.resetPassword': 'Retirer le mot de passe',
   'admin.resetPasswordConfirm':
-    'Retirer le mot de passe de {name} ? Toute personne ayant le lien pourra alors modifier cette entrée.',
+    'Retirer le mot de passe de « {name} » ? Toute personne ayant le lien pourra alors modifier cette réponse.',
   'admin.remove': 'Retirer',
-  'admin.removeConfirm': 'Retirer {name} et tous ses jours ?',
+  'admin.removeConfirm': 'Retirer {name} et tous ses jours ?',
   'admin.delete': 'Supprimer l’événement',
   'admin.deleteConfirm':
-    'Supprimer cet événement pour tout le monde ? C’est irréversible.',
+    'Supprimer cet événement pour tout le monde ? C’est irréversible.',
   'admin.deleteYes': 'Supprimer définitivement',
   'admin.saved': 'Enregistré',
-  'admin.lossTitle': 'Enregistrer les modifications ?',
+  'admin.lossTitle': 'Enregistrer les modifications ?',
   'admin.lossMarks_one':
     'Cela supprime définitivement {count} réponse sur les jours retirés.',
   'admin.lossMarks_other':
@@ -285,7 +285,7 @@ export const fr: Dictionary = {
   'privacy.stored.person':
     'Pour chaque personne, nous gardons son nom et les jours marqués. Nous gardons aussi une remarque et une empreinte du mot de passe si elle en ajoute.',
   'privacy.stored.nothingElse':
-    'Il n’y a pas de compte, d’adresse e-mail, de cookies ni de statistiques. L’application ne contacte aucun autre service et ne garde pas les adresses IP. La seule exception est le lien vers Google Agenda : en cliquant dessus, Google s’ouvre avec le titre, la description, le lieu et le lien de l’événement.',
+    'Il n’y a pas de compte, d’adresse e-mail, de cookies ni de statistiques. L’application ne contacte aucun autre service et ne garde pas les adresses IP. La seule exception est le lien vers Google Agenda : en cliquant dessus, Google s’ouvre avec le titre, la description, le lieu et le lien de l’événement.',
   'privacy.visible.title': 'Qui peut voir ces données',
   'privacy.visible.text':
     'Toute personne ayant le lien d’un événement peut voir les noms et les jours marqués. Les moteurs de recherche reçoivent la consigne de ne pas indexer ces pages.',
@@ -309,15 +309,15 @@ export const fr: Dictionary = {
   'privacy.instance.failed':
     'Les informations sur l’exploitant n’ont pas pu être chargées. Recharge la page pour réessayer.',
   'privacy.operator.title': 'Qui gère cette instance',
-  'privacy.operator.contact': 'Contact : {contact}',
+  'privacy.operator.contact': 'Contact : {contact}',
   'privacy.source':
     'Owl Be There est un logiciel libre. Tu peux consulter son code ou l’héberger toi-même.',
 
   'imprint.title': 'Mentions légales',
   'imprint.provider.title':
-    'Identification du fournisseur selon § 5 DDG et § 18 Abs. 1 MStV',
+    'Identification du fournisseur selon § 5 DDG et § 18, al. 1, MStV',
   'imprint.contact.title': 'Contact',
-  'imprint.contact.label': 'E-mail :',
+  'imprint.contact.label': 'E-mail :',
   'imprint.about.title': 'À propos d’Owl Be There',
   'imprint.about.text':
     'Owl Be There est un projet privé, non commercial, et son utilisation est gratuite. Il n’y a ni publicité ni contenu payant.',
@@ -326,7 +326,7 @@ export const fr: Dictionary = {
     'Il n’existe ni obligation ni volonté de participer à une procédure de règlement des litiges devant un organisme de médiation de la consommation (§ 36 VSBG).',
   'imprint.liability.title': 'Responsabilité pour les contenus et les liens',
   'imprint.liability.text':
-    'Les contenus de cette application ont été élaborés avec soin. Pour les sites externes vers lesquels pointent des liens, c’est leur fournisseur respectif qui est responsable ; au moment de la création des liens, aucune infraction n’était apparente. Les organisateurs et les participants sont eux-mêmes responsables de ce qu’ils saisissent dans les sondages.',
+    'Les contenus de cette application ont été élaborés avec soin. Pour les sites externes vers lesquels pointent des liens, c’est leur fournisseur respectif qui est responsable ; au moment de la création des liens, aucune infraction n’était apparente. Les organisateurs et les participants sont eux-mêmes responsables de ce qu’ils saisissent dans les sondages.',
 
   'notFound.title': 'On ne trouve pas cette page.',
   'notFound.home': 'Retour à l’accueil',

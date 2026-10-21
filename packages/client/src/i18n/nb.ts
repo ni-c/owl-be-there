@@ -73,7 +73,7 @@ export const nb = {
   'error.noDays': 'Velg minst én dag.',
   'error.tooManyDays': 'Høyst {max} dager.',
   'error.noBlock': 'Det finnes ikke {count} dager på rad å velge mellom.',
-  'error.past': 'Den dagen har allerede vært.',
+  'error.past': 'Den dagen har allerede passert.',
   'error.tooFar':
     'Det er for langt frem i tid. Velg dager innen de neste fem årene.',
   'error.slowDown':

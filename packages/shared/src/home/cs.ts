@@ -25,7 +25,7 @@ export const HOME: HomeTexts = {
     'Ano. Zadejte dva nebo více po sobě jdoucích dnů a Owl Be There seřadí úseky podle počtu dostupných lidí. Případně můžete nastavit i minimální počet účastníků.',
   'home.faq.messenger.q': 'Jak pozvu ostatní?',
   'home.faq.messenger.a':
-    'Pošli odkaz do skupinového chatu nebo ukaž QR kód. WhatsApp, Signal a další komunikátory zobrazí náhled s názvem a možnými termíny. Nikdo nemusí nic instalovat.',
+    'Pošli odkaz do skupinového chatu nebo ukaž QR kód. WhatsApp, Signal a další komunikátory zobrazí náhled s názvem a možnými dny. Nikdo nemusí nic instalovat.',
   'home.faq.privacy.q': 'Co se stane s našimi údaji?',
   'home.faq.privacy.a': `Ukládají se jen jména a dny, které zadáte: žádné e-mailové adresy, IP adresy ani cookies. Události se automaticky mažou, obvykle ${RETENTION_DAYS} dnů po poslední změně.`,
 };

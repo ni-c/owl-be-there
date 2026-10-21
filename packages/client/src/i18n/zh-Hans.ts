@@ -67,11 +67,11 @@ export const zhHans = {
   'error.rangeTooLong': '日期范围最多一年。',
   'error.noDays': '请至少选择一天。',
   'error.tooManyDays': '最多可选 {max} 天。',
-  'error.noBlock': '没有连续 {count} 天的候选日期。',
+  'error.noBlock': '没有连续 {count} 天的候选日。',
   'error.past': '这一天已经过去了。',
   'error.tooFar': '日期太远了，请选择未来五年内的日期。',
   'error.slowDown': '这个名字的密码错误次数太多，请过几分钟再试。',
-  'error.daysChanged': '候选日期已在其他地方更改。请检查后重新保存。',
+  'error.daysChanged': '候选日已在其他地方更改。请检查后重新保存。',
   'error.generic': '操作失败，请重试。',
   'error.offline': '你似乎已离线，请稍后重试。',
   'error.rateLimited': '操作太频繁，请稍等片刻。',
@@ -218,7 +218,7 @@ export const zhHans = {
   'admin.chooseHint': '在“群组”视图的“最合适的日期”中选择。',
   'admin.edit': '活动详情',
   'admin.days': '日期',
-  'admin.addDays': '添加候选日期至',
+  'admin.addDays': '添加候选日至',
   'admin.people': '参与者',
   'admin.addNames': '添加名字',
   'admin.addNamesHint': '每行一个名字',
@@ -257,7 +257,7 @@ export const zhHans = {
     'Owl Be There 只保存安排活动所需的数据。以下说明保存的内容及删除时间。',
   'privacy.stored.title': '保存哪些数据',
   'privacy.stored.event':
-    '每个活动会保存标题、图标、候选日期和设置。描述、地点和组织者姓名均可选填。',
+    '每个活动会保存标题、图标、候选日和设置。描述、地点和组织者姓名均可选填。',
   'privacy.stored.person':
     '每位参与者会保存姓名和标记的日期；如有填写备注或设置密码，也会保存备注和密码哈希值。',
   'privacy.stored.nothingElse':

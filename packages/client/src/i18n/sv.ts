@@ -297,9 +297,9 @@ export const sv = {
   'privacy.backups_other':
     'Säkerhetskopior sparas i {count} dagar. Därefter finns inte heller ett raderat evenemang kvar i dem.',
   'privacy.backups.none': 'Inga säkerhetskopior sparas.',
-  'privacy.instance.loading': 'Läser in uppgifter om operatören…',
+  'privacy.instance.loading': 'Läser in uppgifter om den som driver tjänsten…',
   'privacy.instance.failed':
-    'Det gick inte att läsa in uppgifterna om operatören. Läs in sidan igen och försök på nytt.',
+    'Det gick inte att läsa in uppgifterna om den som driver tjänsten. Ladda om sidan och försök igen.',
   'privacy.operator.title': 'Vem som driver den här instansen',
   'privacy.operator.contact': 'Kontakt: {contact}',
   'privacy.source':

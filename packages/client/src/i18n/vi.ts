@@ -16,7 +16,7 @@ export const vi = {
   'home.example.noteBen':
     'Ngày thường mình hơi kẹt — thứ Năm thì có lẽ được, từ giữa tháng.',
   'home.example.noteMax':
-    'Thứ Năm mình tập hợp xướng đến giữa tháng, sau đó thì rảnh.',
+    'Thứ Năm mình bận tập hát với dàn hợp xướng đến giữa tháng, sau đó thì rảnh.',
   'event.planOwn.title': 'Bạn muốn tự lên kế hoạch?',
   'event.planOwn.text':
     'Tạo sự kiện của riêng bạn trong một phút, không cần tài khoản.',
@@ -298,7 +298,7 @@ export const vi = {
   'privacy.instance.loading': 'Đang tải thông tin đơn vị vận hành…',
   'privacy.instance.failed':
     'Không tải được thông tin đơn vị vận hành. Hãy tải lại trang để thử lại.',
-  'privacy.operator.title': 'Ai vận hành phiên bản này',
+  'privacy.operator.title': 'Ai vận hành dịch vụ này',
   'privacy.operator.contact': 'Liên hệ: {contact}',
   'privacy.source':
     'Owl Be There là mã nguồn mở. Bạn có thể đọc mã hoặc tự chạy nó.',

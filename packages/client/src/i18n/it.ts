@@ -16,7 +16,7 @@ export const it: Dictionary = {
     'Un evento inventato per provare: non viene salvato nulla.',
   'home.example.reset': 'Ricomincia',
   'home.example.noteBen':
-    'In settimana sono pieno — il giovedì forse, da metà mese.',
+    'In settimana sono molto impegnato — il giovedì forse, da metà mese.',
   'home.example.noteMax':
     'Il giovedì ho il coro fino a metà mese, poi sono libero.',
   'event.planOwn.title': 'Organizzi qualcosa anche tu?',
@@ -60,7 +60,7 @@ export const it: Dictionary = {
   'create.roster': 'Nomi (facoltativi)',
   'create.rosterHint':
     'Un nome per riga. Ognuno sceglierà il proprio più tardi. Vedrai chi deve ancora rispondere.',
-  'create.minCount': 'Persone necessarie (facoltativo)',
+  'create.minCount': 'Persone necessarie (facoltative)',
   'create.minCountHint':
     'Metteremo in evidenza i giorni con abbastanza persone.',
   'create.back': 'Indietro',
@@ -92,7 +92,7 @@ export const it: Dictionary = {
   'error.rosterLine': 'Un nome può avere al massimo {max} caratteri.',
   'error.rosterTooMany': 'Al massimo {max} nomi alla volta.',
   'error.busy': 'Il server è occupato al momento. Riprova tra un attimo.',
-  'error.changed': 'Questa voce è stata appena modificata. Riprova.',
+  'error.changed': 'Questa risposta è stata appena modificata. Riprova.',
   'error.invalid': 'Alcuni dati non sono validi. Controllali e riprova.',
 
   'event.loading': 'Caricamento dell’evento…',
@@ -116,7 +116,7 @@ export const it: Dictionary = {
   'event.tabGroup': 'Gruppo',
   'event.answers_one': '{count} risposta',
   'event.answers_other': '{count} risposte',
-  'event.closed': 'Le risposte sono chiuse.',
+  'event.closed': 'Il sondaggio è chiuso.',
   'event.decided': 'La data è decisa!',
   'event.addToCalendar': 'Aggiungi al calendario',
   'event.icsFile': 'File di calendario',
@@ -134,7 +134,7 @@ export const it: Dictionary = {
   'who.protected': '«{name}» è protetto. Inserisci la password per continuare.',
   'who.wrongPassword': 'La password non è corretta.',
   'who.passwordTooShort': 'Inserisci almeno {min} caratteri.',
-  'who.closed': 'Le risposte sono chiuse. Non si possono aggiungere nomi.',
+  'who.closed': 'Il sondaggio è chiuso. Non si possono aggiungere nomi.',
   'who.full': 'Questo evento è al completo.',
 
   'mine.hello': 'Ciao {name}!',
@@ -151,15 +151,15 @@ export const it: Dictionary = {
   'mine.noneSaved': 'Salvato: non puoi in nessuno di questi giorni.',
   'mine.note': 'Nota (facoltativa)',
   'mine.notePlaceholder': 'Per es. solo dopo le 18',
-  'mine.newDays_one': 'È stato aggiunto {count} giorno. Dagli un’occhiata.',
+  'mine.newDays_one': 'È stato aggiunto {count} giorno. Dai un’occhiata.',
   'mine.newDays_other':
-    'Sono stati aggiunti {count} giorni. Dagli un’occhiata.',
+    'Sono stati aggiunti {count} giorni. Dai un’occhiata.',
   'mine.saved': 'Salvato',
   'mine.saving': 'Salvataggio in corso…',
   'mine.retrying': 'Offline. Riproviamo…',
   'mine.failed': 'Non siamo riusciti a salvare.',
   'mine.closed':
-    'Le risposte sono chiuse. Non puoi più cambiare i tuoi giorni.',
+    'Il sondaggio è chiuso. Non puoi più cambiare i tuoi giorni.',
   'mine.entry': 'Modifica la risposta',
   'mine.rename': 'Nome',
   'mine.setPassword': 'Imposta una password',
@@ -179,8 +179,8 @@ export const it: Dictionary = {
   'cal.yes': 'può',
   'cal.maybe': 'forse',
   'cal.no': 'non segnato',
-  'cal.off': 'non disponibile tra le opzioni',
-  'cal.on': 'tra le opzioni',
+  'cal.off': 'non proposto',
+  'cal.on': 'proposto',
   'cal.new': 'nuovo',
   'cal.past': 'passato',
   'cal.othersCan_one': 'altra persona disponibile: {count}',
@@ -229,8 +229,8 @@ export const it: Dictionary = {
     'Tieni questo link per te. Chi lo ha può modificare o eliminare l’evento. Conservalo: ti servirà per gestire l’evento da un altro dispositivo.',
 
   'admin.title': 'Strumenti per organizzare',
-  'admin.close': 'Chiudi le risposte',
-  'admin.reopen': 'Riapri le risposte',
+  'admin.close': 'Chiudi il sondaggio',
+  'admin.reopen': 'Riapri il sondaggio',
   'admin.unchoose': 'Annulla la data scelta',
   'admin.chooseHint':
     'Scegli una data in «Giorni migliori», nella vista del gruppo.',
@@ -243,7 +243,7 @@ export const it: Dictionary = {
   'admin.fillIn': 'Rispondi',
   'admin.resetPassword': 'Rimuovi la password',
   'admin.resetPasswordConfirm':
-    'Rimuovere la password di {name}? Poi chiunque abbia il link potrà modificare questa voce.',
+    'Rimuovere la password di {name}? Poi chiunque abbia il link potrà modificare questa risposta.',
   'admin.remove': 'Rimuovi',
   'admin.removeConfirm': 'Rimuovere {name} e tutti i suoi giorni?',
   'admin.delete': 'Elimina evento',
@@ -312,12 +312,12 @@ export const it: Dictionary = {
 
   'imprint.title': 'Note legali',
   'imprint.provider.title':
-    'Identificazione del fornitore ai sensi del § 5 DDG e del § 18 Abs. 1 MStV',
+    'Identificazione del fornitore ai sensi del § 5 DDG e del § 18, comma 1, MStV',
   'imprint.contact.title': 'Contatto',
   'imprint.contact.label': 'E-mail:',
   'imprint.about.title': 'Su Owl Be There',
   'imprint.about.text':
-    'Owl Be There è un progetto privato, senza scopo commerciale, e si può usare gratuitamente. Non ci sono pubblicità né contenuti a pagamento.',
+    'Owl Be There è un progetto privato, senza scopo commerciale, e si può usare gratuitamente. Non c’è pubblicità né ci sono contenuti a pagamento.',
   'imprint.dispute.title': 'Risoluzione delle controversie dei consumatori',
   'imprint.dispute.text':
     'Non sussiste alcun obbligo né alcuna disponibilità a partecipare a una procedura di risoluzione delle controversie dinanzi a un organismo di conciliazione dei consumatori (§ 36 VSBG).',

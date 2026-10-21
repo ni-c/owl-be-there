@@ -139,7 +139,7 @@ export const id = {
   'mine.notYou': 'Bukan kamu?',
   'mine.brush': 'Tandai hari sebagai',
   'mine.brushYes': 'Bisa hadir',
-  'mine.brushMaybe': 'Mungkin bisa',
+  'mine.brushMaybe': 'Mungkin',
   'mine.hint':
     'Ketuk satu hari atau seret melintasi beberapa hari. Ketuk lagi untuk menghapus tanda.',
   'mine.undo': 'Urungkan',

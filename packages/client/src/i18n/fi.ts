@@ -169,7 +169,7 @@ export const fi = {
   'mine.stopEditing': 'Valmis',
 
   'cal.label': 'Kalenteri',
-  'cal.weekdayAll': 'Kaikki {weekday}t',
+  'cal.weekdayAll': 'Joka {weekday}',
   'cal.weekToggle': 'Viikko {number}',
   'cal.week': 'V{number}',
   'cal.yes': 'pääsee',

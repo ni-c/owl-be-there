@@ -261,7 +261,7 @@ export const fa = {
 
   'footer.language': 'زبان',
   'language.loadFailed':
-    'بارگیری {language} ممکن نشد. اتصالت را بررسی کن و صفحه را دوباره بارگیری کن.',
+    'بارگذاری {language} ممکن نشد. اتصالت را بررسی کن و صفحه را تازه کن.',
   'footer.theme': 'پوسته',
   'footer.privacy': 'حریم خصوصی',
   'footer.imprint': 'اطلاعات حقوقی',

@@ -9,7 +9,7 @@ export const HOME: HomeTexts = {
     'El calendario se convierte en un mapa de calor y muestra los días en que puede venir más gente. También sirve para fines de semana o torneos de varios días.',
   'home.feature.private.title': 'Sin cuentas',
   'home.feature.private.text':
-    'Basta con tu nombre. Sin correo electrónico, cookies ni seguimiento. Los eventos antiguos se borran automáticamente.',
+    'Basta con un nombre. Sin correo electrónico, cookies ni seguimiento. Los eventos antiguos se borran automáticamente.',
   'home.faq.title': 'Preguntas',
   'home.faq.free.q': '¿Cuesta algo?',
   'home.faq.free.a':
@@ -19,7 +19,7 @@ export const HOME: HomeTexts = {
     'No. Cada persona elige un nombre y listo. Quien organiza el evento recibe un enlace privado para gestionarlo.',
   'home.faq.doodle.q': '¿En qué se diferencia de Doodle?',
   'home.faq.doodle.a':
-    'Owl Be There está pensado para días completos: cada persona marca los días en que puede y el mapa de calor muestra de un vistazo qué día va mejor. No hay cuentas ni rastreo, y los eventos antiguos se borran solos.',
+    'Owl Be There está pensado para días completos: cada persona marca los días en que puede y el mapa de calor muestra de un vistazo qué día va mejor. No hay cuentas ni seguimiento, y los eventos antiguos se borran solos.',
   'home.faq.days.q': '¿Podemos buscar un fin de semana entero?',
   'home.faq.days.a':
     'Sí. Pedid dos o más días seguidos y Owl Be There ordena los bloques en los que puede más gente, con un mínimo de asistentes si lo necesitáis.',
