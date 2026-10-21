@@ -2,19 +2,18 @@ import { isRtl, LOCALES, type Language } from '@owl/shared';
 import {
   createContext,
   useContext,
+  useLayoutEffect,
   useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { formattingLocale } from '../lib/locale.ts';
 import { startLanguage, type LanguageStore } from '../lib/languageStore.ts';
 import { readLanguage, writeLanguage } from '../lib/prefs.ts';
 import { ReloadGuard } from '../lib/reloadGuard.ts';
 import { browserBacking } from '../lib/storage.ts';
 import { dictionaries } from './dictionaries.ts';
 import type { CountedKey, Pack, TranslationKey } from './en.ts';
-
-export type { CountedKey } from './en.ts';
-export { detectLanguage } from '../lib/languageStore.ts';
 
 export type Params = Record<string, string | number>;
 
@@ -25,12 +24,13 @@ export function interpolate(text: string, params: Params = {}): string {
   );
 }
 
-/** The functions that turn a language's texts into strings. */
-export function translatorFor(language: Language, pack: Pack) {
+/**
+ * The functions that turn a language's texts into strings; numbers are
+ * written the way `locale` writes them, plural forms chosen by the language.
+ */
+function translatorFor(language: Language, pack: Pack, locale: string) {
   const plural = new Intl.PluralRules(LOCALES[language]);
-  const digits = new Intl.NumberFormat(LOCALES[language], {
-    useGrouping: false,
-  });
+  const digits = new Intl.NumberFormat(locale, { useGrouping: false });
   /** A number in the language's own digits: Persian writes ۲۳, as its dates do. */
   const number = (value: number): string => digits.format(value);
   const localized = (params: Params = {}): Params =>
@@ -60,10 +60,13 @@ export function translatorFor(language: Language, pack: Pack) {
 }
 
 /** The translator for a language whose texts are loaded; it throws otherwise. */
-export function translator(language: Language) {
+export function translator(
+  language: Language,
+  locale: string = LOCALES[language]
+) {
   const pack = dictionaries.peek(language);
   if (!pack) throw new Error(`The ${language} texts are not loaded`);
-  return translatorFor(language, pack);
+  return translatorFor(language, pack, locale);
 }
 
 /**
@@ -93,6 +96,7 @@ interface I18n {
   choice: Language;
   /** A language whose texts could not be loaded; or null. */
   loadFailed: Language | null;
+  /** What dates and numbers are formatted in: the browser's region where it fits. */
   locale: string;
   setLanguage(language: Language): void;
   t(key: TranslationKey, params?: Params): string;
@@ -111,19 +115,29 @@ export function I18nProvider({
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   // Only the shown language rebuilds the texts, not a choice still loading.
-  const texts = useMemo(() => translator(state.language), [state.language]);
-  const value = useMemo<I18n>(() => {
+  const locale = useMemo(
+    () => formattingLocale(state.language, navigator.languages),
+    [state.language]
+  );
+  const texts = useMemo(
+    () => translator(state.language, locale),
+    [state.language, locale]
+  );
+  useLayoutEffect(() => {
     document.documentElement.lang = state.language;
     document.documentElement.dir = isRtl(state.language) ? 'rtl' : 'ltr';
-    return {
+  }, [state.language]);
+  const value = useMemo<I18n>(
+    () => ({
       language: state.language,
       choice: state.choice,
       loadFailed: state.failed,
-      locale: LOCALES[state.language],
+      locale,
       setLanguage: store.request,
       ...texts,
-    };
-  }, [state, store, texts]);
+    }),
+    [state, store, texts, locale]
+  );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/cs';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const cs = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.cs,
   ...HOME,
   'home.cta': 'Naplánovat událost',
@@ -89,6 +88,15 @@ export const cs = {
   'error.rosterTooMany': 'Najednou lze přidat nejvýše {max} jmen.',
   'error.busy': 'Server je právě vytížený. Zkus to za chvíli.',
   'error.changed': 'Tento záznam se právě změnil. Zkus to znovu.',
+  'error.textInvisible': 'Tady musí být aspoň jeden viditelný znak.',
+  'error.rosterInvisible': 'Řádek {line} neobsahuje žádný viditelný znak.',
+  'error.rosterMixed':
+    'Řádek {line}: jedno slovo míchá latinku s azbukou nebo řečtinou.',
+  'error.nameInvisible': 'Jméno musí mít aspoň jeden viditelný znak.',
+  'error.nameMixed':
+    'Jedno slovo ve jménu míchá latinku s azbukou nebo řečtinou.',
+  'error.createLimit':
+    'Z této sítě bylo nedávno vytvořeno hodně akcí. Zkus to prosím později.',
   'error.invalid':
     'Některé údaje nejsou platné. Zkontroluj je a zkus to znovu.',
 
@@ -128,6 +136,8 @@ export const cs = {
     'Bez hesla může kdokoli s odkazem zadat tvoje jméno a změnit tvoje dny.',
   'who.continue': 'Pokračovat',
   'who.protected': 'Záznam „{name}“ je chráněný. Pro pokračování zadej heslo.',
+  'who.hasPassword': 'chráněno heslem',
+  'who.answered': 'odpověděl(a)',
   'who.wrongPassword': 'Heslo není správné.',
   'who.passwordTooShort': 'Heslo musí mít alespoň {min} znaků.',
   'who.closed': 'Hlasování je uzavřeno. Nová jména se už nemohou připojit.',

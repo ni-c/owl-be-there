@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/es-419';
 import type { Dictionary } from './en.ts';
 
 export const es419: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['es-419'],
 
   ...HOME,
@@ -92,6 +91,15 @@ export const es419: Dictionary = {
   'error.busy':
     'El servidor está ocupado en este momento. Inténtalo de nuevo en un rato.',
   'error.changed': 'Esta respuesta acaba de cambiar. Inténtalo de nuevo.',
+  'error.textInvisible': 'Aquí hace falta al menos un carácter visible.',
+  'error.rosterInvisible': 'La línea {line} no tiene ningún carácter visible.',
+  'error.rosterMixed':
+    'Línea {line}: una palabra mezcla letras latinas con cirílicas o griegas.',
+  'error.nameInvisible': 'El nombre necesita al menos un carácter visible.',
+  'error.nameMixed':
+    'Una palabra del nombre mezcla letras latinas con cirílicas o griegas.',
+  'error.createLimit':
+    'Desde esta red se han creado muchos eventos hace poco. Inténtalo de nuevo más tarde.',
   'error.invalid':
     'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.',
 
@@ -133,6 +141,8 @@ export const es419: Dictionary = {
   'who.continue': 'Continuar',
   'who.protected':
     '“{name}” está protegido. Escribe la contraseña para continuar.',
+  'who.hasPassword': 'protegido con contraseña',
+  'who.answered': 'ya respondió',
   'who.wrongPassword': 'La contraseña no es correcta.',
   'who.passwordTooShort': 'Escribe al menos {min} caracteres.',
   'who.closed': 'La encuesta está cerrada. Ya no se pueden agregar nombres.',

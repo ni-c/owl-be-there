@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/fr';
 import type { Dictionary } from './en.ts';
 
 export const fr: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.fr,
 
   ...HOME,
@@ -94,6 +93,16 @@ export const fr: Dictionary = {
   'error.rosterTooMany': '{max} noms au maximum à la fois.',
   'error.busy': 'Le serveur est occupé en ce moment. Réessaie dans un instant.',
   'error.changed': 'Cette réponse vient d’être modifiée. Réessaie.',
+  'error.textInvisible': 'Il faut au moins un caractère visible ici.',
+  'error.rosterInvisible':
+    'La ligne {line} ne contient aucun caractère visible.',
+  'error.rosterMixed':
+    'Ligne {line} : un mot mélange des lettres latines avec des lettres cyrilliques ou grecques.',
+  'error.nameInvisible': 'Le nom doit contenir au moins un caractère visible.',
+  'error.nameMixed':
+    'Un mot du nom mélange des lettres latines avec des lettres cyrilliques ou grecques.',
+  'error.createLimit':
+    'Beaucoup d’événements ont été créés récemment depuis ce réseau. Réessaie plus tard.',
   'error.invalid':
     'Certaines informations ne sont pas valides. Vérifie-les et réessaie.',
 
@@ -135,6 +144,8 @@ export const fr: Dictionary = {
   'who.continue': 'Continuer',
   'who.protected':
     '« {name} » est protégé. Saisis le mot de passe pour continuer.',
+  'who.hasPassword': 'protégé par mot de passe',
+  'who.answered': 'a répondu',
   'who.wrongPassword': 'Ce mot de passe est incorrect.',
   'who.passwordTooShort': 'Saisis au moins {min} caractères.',
   'who.closed': 'Le sondage est fermé. On ne peut plus ajouter de nom.',

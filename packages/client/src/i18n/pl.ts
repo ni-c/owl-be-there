@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/pl';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const pl = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.pl,
   ...HOME,
   'home.cta': 'Zaplanuj wydarzenie',
@@ -94,6 +93,15 @@ export const pl = {
   'error.rosterTooMany': 'Najwyżej {max} imion naraz.',
   'error.busy': 'Serwer jest teraz zajęty. Spróbuj ponownie za chwilę.',
   'error.changed': 'Ten wpis został właśnie zmieniony. Spróbuj ponownie.',
+  'error.textInvisible': 'Potrzebny jest przynajmniej jeden widoczny znak.',
+  'error.rosterInvisible': 'Wiersz {line} nie zawiera widocznego znaku.',
+  'error.rosterMixed':
+    'Wiersz {line}: jedno słowo miesza litery łacińskie z cyrylicą lub greką.',
+  'error.nameInvisible': 'Imię musi mieć przynajmniej jeden widoczny znak.',
+  'error.nameMixed':
+    'Jedno słowo w imieniu miesza litery łacińskie z cyrylicą lub greką.',
+  'error.createLimit':
+    'Z tej sieci niedawno utworzono wiele wydarzeń. Spróbuj ponownie później.',
   'error.invalid':
     'Niektóre dane są nieprawidłowe. Sprawdź je i spróbuj ponownie.',
 
@@ -134,6 +142,8 @@ export const pl = {
   'who.continue': 'Kontynuuj',
   'who.protected':
     'Wpis „{name}” jest chroniony. Podaj hasło, aby kontynuować.',
+  'who.hasPassword': 'chronione hasłem',
+  'who.answered': 'odpowiedział(a)',
   'who.wrongPassword': 'Nieprawidłowe hasło.',
   'who.passwordTooShort': 'Hasło musi mieć co najmniej {min} znaków.',
   'who.closed': 'Głosowanie jest zamknięte. Nowe osoby nie mogą dołączyć.',
@@ -361,7 +371,16 @@ export const pl = {
 } satisfies Dictionary;
 
 export const plFew = {
+  'create.dayCount': '{count} dni do wyboru',
+  'event.duration': '{count} dni z rzędu',
   'event.minCount': 'wymagane co najmniej {count} osoby',
+  'event.answers': '{count} odpowiedzi',
   'mine.newDays': 'Dodano {count} nowe dni. Sprawdź je.',
   'cal.othersCan': 'jeszcze {count} osoby mogą przyjść',
+  'cal.changed': 'Zmieniono {count} dni',
+  'admin.lossMarks': 'To trwale usunie {count} odpowiedzi z usuniętych dni.',
+  'privacy.logs':
+    'Serwer WWW zapisuje odwiedziny wraz z adresami IP, aby zapobiegać nadużyciom. Dzienniki są usuwane po {count} dniach.',
+  'privacy.backups':
+    'Kopie zapasowe są przechowywane przez {count} dni. Potem usunięte wydarzenie znika również z nich.',
 } satisfies Partial<Record<CountedKey, string>>;

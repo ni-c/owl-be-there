@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/nl';
 import type { Dictionary } from './en.ts';
 
 export const nl: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.nl,
 
   ...HOME,
@@ -91,8 +90,18 @@ export const nl: Dictionary = {
   'error.numberRange': 'Voer een getal in van {min} tot {max}.',
   'error.rosterLine': 'Een naam mag hoogstens {max} tekens lang zijn.',
   'error.rosterTooMany': 'Maximaal {max} namen tegelijk.',
-  'error.busy': 'De server heeft het even druk. Probeer het zo meteen nog eens.',
+  'error.busy':
+    'De server heeft het even druk. Probeer het zo meteen nog eens.',
   'error.changed': 'Deze invoer is zojuist gewijzigd. Probeer het nog eens.',
+  'error.textInvisible': 'Hier moet minstens één zichtbaar teken staan.',
+  'error.rosterInvisible': 'Regel {line} bevat geen zichtbaar teken.',
+  'error.rosterMixed':
+    'Regel {line}: een woord mengt Latijnse letters met Cyrillische of Griekse.',
+  'error.nameInvisible': 'De naam heeft minstens één zichtbaar teken nodig.',
+  'error.nameMixed':
+    'Een woord in de naam mengt Latijnse letters met Cyrillische of Griekse.',
+  'error.createLimit':
+    'Vanaf dit netwerk zijn onlangs veel evenementen aangemaakt. Probeer het later opnieuw.',
   'error.invalid':
     'Sommige gegevens zijn niet geldig. Controleer ze en probeer het nog eens.',
 
@@ -134,10 +143,11 @@ export const nl: Dictionary = {
   'who.continue': 'Verder',
   'who.protected':
     '‘{name}’ is beveiligd. Vul het wachtwoord in om verder te gaan.',
+  'who.hasPassword': 'met wachtwoord beveiligd',
+  'who.answered': 'heeft geantwoord',
   'who.wrongPassword': 'Dat wachtwoord klopt niet.',
   'who.passwordTooShort': 'Gebruik minstens {min} tekens.',
-  'who.closed':
-    'De poll is gesloten. Nieuwe namen kunnen niet meedoen.',
+  'who.closed': 'De poll is gesloten. Nieuwe namen kunnen niet meedoen.',
   'who.full': 'Dit evenement zit vol.',
 
   'mine.hello': 'Hoi {name}!',

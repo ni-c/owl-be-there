@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/zh-Hans';
 import type { Dictionary } from './en.ts';
 
 export const zhHans = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['zh-Hans'],
   ...HOME,
   'home.cta': '创建活动',
@@ -82,6 +81,13 @@ export const zhHans = {
   'error.rosterTooMany': '一次最多添加 {max} 个名字。',
   'error.busy': '服务器繁忙，请稍后重试。',
   'error.changed': '这份回复刚刚被修改，请重试。',
+  'error.textInvisible': '这里至少需要一个可见字符。',
+  'error.rosterInvisible': '第 {line} 行没有可见字符。',
+  'error.rosterMixed':
+    '第 {line} 行：一个词里混用了拉丁字母和西里尔或希腊字母。',
+  'error.nameInvisible': '名字至少需要一个可见字符。',
+  'error.nameMixed': '名字中的一个词混用了拉丁字母和西里尔或希腊字母。',
+  'error.createLimit': '最近从这个网络创建了很多活动，请稍后再试。',
   'error.invalid': '部分数据无效，请检查后重试。',
 
   'event.loading': '正在加载活动…',
@@ -119,6 +125,8 @@ export const zhHans = {
     '如果没有密码，任何拿到链接的人都能使用你的名字并更改你标记的日期。',
   'who.continue': '继续',
   'who.protected': '“{name}”受密码保护。请输入密码以继续。',
+  'who.hasPassword': '受密码保护',
+  'who.answered': '已回答',
   'who.wrongPassword': '密码不正确。',
   'who.passwordTooShort': '密码至少需要 {min} 个字符。',
   'who.closed': '日期投票已关闭，无法添加新参与者。',
@@ -206,7 +214,7 @@ export const zhHans = {
   'share.copied': '已复制！',
   'share.native': '分享…',
   'share.qr': '扫描二维码以打开',
-  'share.inviteText': '{emoji} {title} — 你哪天有空？请标记方便的日期：{url}',
+  'share.inviteText': '{emoji} {title} — 你哪天有空？请标记方便的日期: {url}',
   'share.adminTitle': '你的组织者链接',
   'share.adminWarning':
     '请勿分享这个链接。任何持有链接的人都能修改或删除活动。请妥善保存；从其他设备管理活动时会用到。',

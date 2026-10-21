@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/pt';
 import type { Dictionary } from './en.ts';
 
 export const pt: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.pt,
 
   ...HOME,
@@ -93,6 +92,15 @@ export const pt: Dictionary = {
   'error.busy':
     'O servidor está ocupado neste momento. Tenta outra vez daqui a pouco.',
   'error.changed': 'Esta resposta acabou de ser alterada. Tenta outra vez.',
+  'error.textInvisible': 'Aqui é preciso pelo menos um carácter visível.',
+  'error.rosterInvisible': 'A linha {line} não tem nenhum carácter visível.',
+  'error.rosterMixed':
+    'Linha {line}: uma palavra mistura letras latinas com cirílicas ou gregas.',
+  'error.nameInvisible': 'O nome precisa de pelo menos um carácter visível.',
+  'error.nameMixed':
+    'Uma palavra do nome mistura letras latinas com cirílicas ou gregas.',
+  'error.createLimit':
+    'Foram criados muitos eventos recentemente a partir desta rede. Tenta outra vez mais tarde.',
   'error.invalid':
     'Alguns dados não são válidos. Verifica-os e tenta outra vez.',
 
@@ -133,6 +141,8 @@ export const pt: Dictionary = {
     'Sem palavra-passe, qualquer pessoa com o link pode escrever o teu nome e alterar os teus dias.',
   'who.continue': 'Continuar',
   'who.protected': '«{name}» está protegido. Introduz a palavra-passe.',
+  'who.hasPassword': 'protegido por palavra-passe',
+  'who.answered': 'já respondeu',
   'who.wrongPassword': 'A palavra-passe está errada.',
   'who.passwordTooShort': 'Introduz pelo menos {min} caracteres.',
   'who.closed': 'A votação está encerrada. Não é possível adicionar nomes.',

@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/zh-Hant';
 import type { Dictionary } from './en.ts';
 
 export const zhHant = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES['zh-Hant'],
   ...HOME,
   'home.cta': '規劃活動',
@@ -82,6 +81,13 @@ export const zhHant = {
   'error.rosterTooMany': '一次最多新增 {max} 個名字。',
   'error.busy': '伺服器目前忙碌，請稍後再試。',
   'error.changed': '這筆回覆剛剛被修改，請再試一次。',
+  'error.textInvisible': '這裡至少需要一個可見字元。',
+  'error.rosterInvisible': '第 {line} 行沒有可見字元。',
+  'error.rosterMixed':
+    '第 {line} 行：一個詞裡混用了拉丁字母與西里爾或希臘字母。',
+  'error.nameInvisible': '名字至少需要一個可見字元。',
+  'error.nameMixed': '名字中的一個詞混用了拉丁字母與西里爾或希臘字母。',
+  'error.createLimit': '最近從這個網路建立了很多活動，請稍後再試。',
   'error.invalid': '部分資料無效，請檢查後再試。',
 
   'event.loading': '正在載入活動…',
@@ -119,6 +125,8 @@ export const zhHant = {
     '如果沒有密碼，任何拿到連結的人都能以你的名字修改你標記的日期。',
   'who.continue': '繼續',
   'who.protected': '「{name}」受密碼保護。請輸入密碼以繼續。',
+  'who.hasPassword': '受密碼保護',
+  'who.answered': '已回答',
   'who.wrongPassword': '密碼不正確。',
   'who.passwordTooShort': '密碼至少需要 {min} 個字元。',
   'who.closed': '日期投票已關閉，無法新增參加者。',
@@ -206,7 +214,7 @@ export const zhHant = {
   'share.copied': '已複製！',
   'share.native': '分享…',
   'share.qr': '掃描以開啟',
-  'share.inviteText': '{emoji} {title} — 你哪天有空？請標記方便的日期：{url}',
+  'share.inviteText': '{emoji} {title} — 你哪天有空？請標記方便的日期: {url}',
   'share.adminTitle': '你的主辦人連結',
   'share.adminWarning':
     '請勿分享這個連結。任何持有連結的人都能修改或刪除活動。請妥善保存；要從其他裝置管理活動時會用到。',

@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/uk';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const uk = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.uk,
   ...HOME,
   'home.cta': 'Запланувати подію',
@@ -89,6 +88,15 @@ export const uk = {
   'error.rosterTooMany': 'Щонайбільше {max} імен за раз.',
   'error.busy': 'Сервер зараз перевантажений. Спробуй трохи пізніше.',
   'error.changed': 'Цю відповідь щойно змінили. Спробуй ще раз.',
+  'error.textInvisible': 'Тут потрібен хоча б один видимий символ.',
+  'error.rosterInvisible': 'У рядку {line} немає жодного видимого символа.',
+  'error.rosterMixed':
+    'Рядок {line}: в одному слові змішано латинські літери з кирилицею або грецькими.',
+  'error.nameInvisible': 'В імені потрібен хоча б один видимий символ.',
+  'error.nameMixed':
+    'В одному слові імені змішано латинські літери з кирилицею або грецькими.',
+  'error.createLimit':
+    'З цієї мережі нещодавно створили багато подій. Спробуй пізніше.',
   'error.invalid': 'Деякі дані неправильні. Перевір їх і спробуй ще раз.',
 
   'event.loading': 'Завантажуємо подію…',
@@ -128,6 +136,8 @@ export const uk = {
   'who.continue': 'Продовжити',
   'who.protected':
     'Ім’я «{name}» захищене паролем. Введи пароль, щоб продовжити.',
+  'who.hasPassword': 'захищено паролем',
+  'who.answered': 'відповів(ла)',
   'who.wrongPassword': 'Пароль неправильний.',
   'who.passwordTooShort': 'Щонайменше {min} символів, будь ласка.',
   'who.closed': 'Голосування закрито. Нові імена додати не можна.',
@@ -237,7 +247,8 @@ export const uk = {
   'admin.resetPasswordConfirm':
     'Прибрати пароль учасника «{name}»? Тоді будь-хто з посиланням на подію зможе змінити цю відповідь.',
   'admin.remove': 'Прибрати',
-  'admin.removeConfirm': 'Прибрати учасника «{name}» разом із позначеними днями?',
+  'admin.removeConfirm':
+    'Прибрати учасника «{name}» разом із позначеними днями?',
   'admin.delete': 'Видалити подію',
   'admin.deleteConfirm': 'Видалити цю подію для всіх? Скасувати це не вийде.',
   'admin.deleteYes': 'Видалити назавжди',

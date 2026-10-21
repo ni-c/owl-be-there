@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ru';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const ru = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ru,
   ...HOME,
   'home.cta': 'Создать событие',
@@ -89,6 +88,15 @@ export const ru = {
   'error.rosterTooMany': 'За раз можно добавить не больше {max} имён.',
   'error.busy': 'Сервер сейчас занят. Попробуй чуть позже.',
   'error.changed': 'Эту запись только что изменили. Попробуй ещё раз.',
+  'error.textInvisible': 'Здесь нужен хотя бы один видимый символ.',
+  'error.rosterInvisible': 'В строке {line} нет ни одного видимого символа.',
+  'error.rosterMixed':
+    'Строка {line}: в одном слове смешаны латинские буквы с кириллицей или греческими.',
+  'error.nameInvisible': 'В имени нужен хотя бы один видимый символ.',
+  'error.nameMixed':
+    'В одном слове имени смешаны латинские буквы с кириллицей или греческими.',
+  'error.createLimit':
+    'С этой сети недавно создали много событий. Попробуй позже.',
   'error.invalid': 'Что-то введено неверно. Проверь и попробуй ещё раз.',
 
   'event.loading': 'Загружаем событие…',
@@ -127,6 +135,8 @@ export const ru = {
     'Без пароля любой, у кого есть ссылка, сможет выбрать твоё имя и изменить твои дни.',
   'who.continue': 'Продолжить',
   'who.protected': 'Запись «{name}» защищена. Введи пароль.',
+  'who.hasPassword': 'защищено паролем',
+  'who.answered': 'ответил(а)',
   'who.wrongPassword': 'Неверный пароль.',
   'who.passwordTooShort': 'Нужно не меньше {min} символов.',
   'who.closed': 'Голосование закрыто. Новые участники не могут присоединиться.',

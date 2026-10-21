@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/it';
 import type { Dictionary } from './en.ts';
 
 export const it: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.it,
 
   ...HOME,
@@ -93,6 +92,15 @@ export const it: Dictionary = {
   'error.rosterTooMany': 'Al massimo {max} nomi alla volta.',
   'error.busy': 'Il server è occupato al momento. Riprova tra un attimo.',
   'error.changed': 'Questa risposta è stata appena modificata. Riprova.',
+  'error.textInvisible': 'Serve almeno un carattere visibile.',
+  'error.rosterInvisible': 'La riga {line} non contiene caratteri visibili.',
+  'error.rosterMixed':
+    'Riga {line}: una parola mescola lettere latine con lettere cirilliche o greche.',
+  'error.nameInvisible': 'Il nome deve avere almeno un carattere visibile.',
+  'error.nameMixed':
+    'Una parola del nome mescola lettere latine con lettere cirilliche o greche.',
+  'error.createLimit':
+    'Da questa rete sono stati creati molti eventi di recente. Riprova più tardi.',
   'error.invalid': 'Alcuni dati non sono validi. Controllali e riprova.',
 
   'event.loading': 'Caricamento dell’evento…',
@@ -132,6 +140,8 @@ export const it: Dictionary = {
     'Senza password, chiunque abbia il link può usare il tuo nome e cambiare i tuoi giorni.',
   'who.continue': 'Continua',
   'who.protected': '«{name}» è protetto. Inserisci la password per continuare.',
+  'who.hasPassword': 'protetto da password',
+  'who.answered': 'ha risposto',
   'who.wrongPassword': 'La password non è corretta.',
   'who.passwordTooShort': 'Inserisci almeno {min} caratteri.',
   'who.closed': 'Il sondaggio è chiuso. Non si possono aggiungere nomi.',
@@ -152,14 +162,12 @@ export const it: Dictionary = {
   'mine.note': 'Nota (facoltativa)',
   'mine.notePlaceholder': 'Per es. solo dopo le 18',
   'mine.newDays_one': 'È stato aggiunto {count} giorno. Dai un’occhiata.',
-  'mine.newDays_other':
-    'Sono stati aggiunti {count} giorni. Dai un’occhiata.',
+  'mine.newDays_other': 'Sono stati aggiunti {count} giorni. Dai un’occhiata.',
   'mine.saved': 'Salvato',
   'mine.saving': 'Salvataggio in corso…',
   'mine.retrying': 'Offline. Riproviamo…',
   'mine.failed': 'Non siamo riusciti a salvare.',
-  'mine.closed':
-    'Il sondaggio è chiuso. Non puoi più cambiare i tuoi giorni.',
+  'mine.closed': 'Il sondaggio è chiuso. Non puoi più cambiare i tuoi giorni.',
   'mine.entry': 'Modifica la risposta',
   'mine.rename': 'Nome',
   'mine.setPassword': 'Imposta una password',

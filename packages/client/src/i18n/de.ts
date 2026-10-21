@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/de';
 import type { Dictionary } from './en.ts';
 
 export const de: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.de,
 
   ...HOME,
@@ -94,6 +93,15 @@ export const de: Dictionary = {
     'Der Server ist gerade ausgelastet. Versuch es gleich noch mal.',
   'error.changed':
     'Dieser Eintrag wurde gerade geändert. Versuch es bitte noch mal.',
+  'error.textInvisible': 'Hier muss mindestens ein sichtbares Zeichen stehen.',
+  'error.rosterInvisible': 'Zeile {line} enthält kein sichtbares Zeichen.',
+  'error.rosterMixed':
+    'Zeile {line}: Ein Wort mischt lateinische mit kyrillischen oder griechischen Buchstaben.',
+  'error.nameInvisible': 'Der Name braucht mindestens ein sichtbares Zeichen.',
+  'error.nameMixed':
+    'Ein Wort im Namen mischt lateinische mit kyrillischen oder griechischen Buchstaben.',
+  'error.createLimit':
+    'Aus diesem Netz wurden zuletzt viele Events angelegt. Versuch es später noch einmal.',
   'error.invalid':
     'Einige Angaben sind ungültig. Prüf sie bitte und versuch es noch mal.',
 
@@ -134,6 +142,8 @@ export const de: Dictionary = {
     'Ohne Passwort kann jede Person mit dem Link deinen Namen eingeben und deine Tage ändern.',
   'who.continue': 'Weiter',
   'who.protected': '„{name}“ ist geschützt. Gib bitte das Passwort ein.',
+  'who.hasPassword': 'mit Passwort geschützt',
+  'who.answered': 'hat geantwortet',
   'who.wrongPassword': 'Das Passwort stimmt nicht.',
   'who.passwordTooShort': 'Bitte mindestens {min} Zeichen.',
   'who.closed':

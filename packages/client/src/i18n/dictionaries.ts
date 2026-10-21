@@ -1,9 +1,13 @@
-import { LANGUAGES, type Language } from '@owl/shared';
+import type { Language } from '@owl/shared';
 import { createLazyCache } from '../lib/lazyCache.ts';
 import { de } from './de.ts';
 import { en, type Pack } from './en.ts';
 
-type LazyLanguage = Exclude<Language, 'en' | 'de'>;
+/** The languages that ship with the app; every other one is a chunk. */
+const STATIC = ['en', 'de'] as const satisfies readonly Language[];
+export const STATIC_LANGUAGES: readonly Language[] = STATIC;
+
+type LazyLanguage = Exclude<Language, (typeof STATIC)[number]>;
 
 /**
  * Every language but English and German, each its own chunk. The calls are
@@ -46,8 +50,3 @@ export const dictionaries = createLazyCache<Language, Pack>(LOADERS, {
   en: { texts: en },
   de: { texts: de },
 });
-
-/** Every language at once, for tests that translate synchronously. */
-export async function preloadAllDictionaries(): Promise<void> {
-  await Promise.all(LANGUAGES.map((language) => dictionaries.load(language)));
-}

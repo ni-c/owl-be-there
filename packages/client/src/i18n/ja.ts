@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ja';
 import type { Dictionary } from './en.ts';
 
 export const ja: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ja,
 
   ...HOME,
@@ -89,6 +88,15 @@ export const ja: Dictionary = {
   'error.busy':
     'サーバーが混み合っています。しばらくしてからもう一度試してね。',
   'error.changed': 'この回答がたった今変更されました。もう一度試してね。',
+  'error.textInvisible': '見える文字を1文字以上入力してね。',
+  'error.rosterInvisible': '{line}行目に見える文字がありません。',
+  'error.rosterMixed':
+    '{line}行目：1つの単語にラテン文字とキリル文字またはギリシャ文字が混ざっています。',
+  'error.nameInvisible': '名前には見える文字が1文字以上必要です。',
+  'error.nameMixed':
+    '名前の単語にラテン文字とキリル文字またはギリシャ文字が混ざっています。',
+  'error.createLimit':
+    'このネットワークから最近たくさんの予定が作成されました。しばらくしてからもう一度試してね。',
   'error.invalid': '入力に正しくない部分があります。確認してもう一度試してね。',
 
   'event.loading': '予定を読み込み中…',
@@ -126,6 +134,8 @@ export const ja: Dictionary = {
     'パスワードがないと、リンクを持つ人があなたの名前で回答して、都合を変えられるよ。',
   'who.continue': '続ける',
   'who.protected': '「{name}」は保護されています。パスワードを入力してね。',
+  'who.hasPassword': 'パスワードで保護されています',
+  'who.answered': '回答済み',
   'who.wrongPassword': 'パスワードが違います。',
   'who.passwordTooShort': '{min}文字以上で入力してね。',
   'who.closed': '投票は締め切られました。新しい名前は追加できません。',

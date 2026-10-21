@@ -1,4 +1,4 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/en';
 
 /**
@@ -7,7 +7,6 @@ import { HOME } from '@owl/shared/home/en';
  * texts come in `_one` / `_other` pairs, chosen by `Intl.PluralRules`.
  */
 export const en = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.en,
 
   ...HOME,
@@ -93,6 +92,15 @@ export const en = {
   'error.rosterTooMany': 'At most {max} names at a time.',
   'error.busy': 'The server is busy right now. Please try again in a moment.',
   'error.changed': 'This entry was changed just now. Please try again.',
+  'error.textInvisible': 'This needs at least one visible character.',
+  'error.rosterInvisible': 'Line {line} has no visible character.',
+  'error.rosterMixed':
+    'Line {line}: a word mixes Latin letters with Cyrillic or Greek ones.',
+  'error.nameInvisible': 'The name needs at least one visible character.',
+  'error.nameMixed':
+    'A word in the name mixes Latin letters with Cyrillic or Greek ones.',
+  'error.createLimit':
+    'Many events were created from this network recently. Please try again later.',
   'error.invalid':
     'Some of the details are not valid. Please check them and try again.',
 
@@ -133,6 +141,8 @@ export const en = {
     'Without a password, anyone with the link can enter your name and change your days.',
   'who.continue': 'Continue',
   'who.protected': '“{name}” is protected. Enter the password to continue.',
+  'who.hasPassword': 'password-protected',
+  'who.answered': 'answered',
   'who.wrongPassword': 'That password is not right.',
   'who.passwordTooShort': 'At least {min} characters, please.',
   'who.closed': 'The poll is closed. No new names can join.',
@@ -366,7 +376,7 @@ export type CountedKey = {
 }[TranslationKey];
 
 /** A language's counted texts for the plural categories beyond one and other. */
-export type PluralForms = Partial<
+type PluralForms = Partial<
   Record<Intl.LDMLPluralRule, Partial<Record<CountedKey, string>>>
 >;
 

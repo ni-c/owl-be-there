@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ar';
 import type { CountedKey, Dictionary } from './en.ts';
 
 export const ar = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ar,
   ...HOME,
   'home.cta': 'أنشئ حدثاً',
@@ -88,6 +87,15 @@ export const ar = {
   'error.rosterTooMany': 'يمكن إضافة {max} اسماً كحد أقصى في المرة الواحدة.',
   'error.busy': 'الخادم مشغول الآن. حاول بعد قليل.',
   'error.changed': 'تغيّرت هذه الإجابة للتو. حاول مجدداً.',
+  'error.textInvisible': 'يلزم وجود حرف واحد مرئي على الأقل هنا.',
+  'error.rosterInvisible': 'السطر {line} لا يحتوي على أي حرف مرئي.',
+  'error.rosterMixed':
+    'السطر {line}: كلمة واحدة تخلط الحروف اللاتينية بحروف سيريلية أو يونانية.',
+  'error.nameInvisible': 'يحتاج الاسم إلى حرف مرئي واحد على الأقل.',
+  'error.nameMixed':
+    'كلمة في الاسم تخلط الحروف اللاتينية بحروف سيريلية أو يونانية.',
+  'error.createLimit':
+    'أُنشئت أحداث كثيرة من هذه الشبكة مؤخراً. حاول مرة أخرى لاحقاً.',
   'error.invalid': 'بعض البيانات غير صحيحة. راجعها وحاول مجدداً.',
 
   'event.loading': 'جارٍ تحميل الحدث…',
@@ -125,6 +133,8 @@ export const ar = {
     'من دون كلمة مرور، يستطيع أي شخص لديه الرابط استخدام اسمك وتغيير أيامك.',
   'who.continue': 'متابعة',
   'who.protected': 'الإجابة باسم «{name}» محمية. أدخل كلمة المرور.',
+  'who.hasPassword': 'محمي بكلمة مرور',
+  'who.answered': 'أجاب',
   'who.wrongPassword': 'كلمة المرور غير صحيحة.',
   'who.passwordTooShort': 'يلزم {min} أحرف على الأقل.',
   'who.closed': 'أُغلق التصويت. لا يمكن لمشاركين جدد الانضمام.',

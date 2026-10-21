@@ -1,9 +1,8 @@
-import { APP_NAME, TAGLINES } from '@owl/shared';
+import { TAGLINES } from '@owl/shared';
 import { HOME } from '@owl/shared/home/ko';
 import type { Dictionary } from './en.ts';
 
 export const ko: Dictionary = {
-  'app.name': APP_NAME,
   'app.tagline': TAGLINES.ko,
 
   ...HOME,
@@ -88,6 +87,15 @@ export const ko: Dictionary = {
   'error.rosterTooMany': '한 번에 최대 {max}명까지 추가할 수 있어요.',
   'error.busy': '지금 서버가 혼잡해요. 잠시 후 다시 시도하세요.',
   'error.changed': '이 응답이 방금 바뀌었어요. 다시 시도하세요.',
+  'error.textInvisible': '눈에 보이는 문자가 하나 이상 있어야 해요.',
+  'error.rosterInvisible': '{line}번째 줄에 눈에 보이는 문자가 없어요.',
+  'error.rosterMixed':
+    '{line}번째 줄: 한 단어에 라틴 문자와 키릴 문자 또는 그리스 문자가 섞여 있어요.',
+  'error.nameInvisible': '이름에는 눈에 보이는 문자가 하나 이상 있어야 해요.',
+  'error.nameMixed':
+    '이름의 한 단어에 라틴 문자와 키릴 문자 또는 그리스 문자가 섞여 있어요.',
+  'error.createLimit':
+    '이 네트워크에서 최근 이벤트가 많이 만들어졌어요. 나중에 다시 시도해 주세요.',
   'error.invalid': '올바르지 않은 정보가 있어요. 확인하고 다시 시도하세요.',
 
   'event.loading': '모임을 불러오는 중…',
@@ -127,6 +135,8 @@ export const ko: Dictionary = {
   'who.continue': '계속',
   'who.protected':
     '“{name}” 이름은 보호되어 있어요. 계속하려면 비밀번호를 입력하세요.',
+  'who.hasPassword': '비밀번호로 보호됨',
+  'who.answered': '응답함',
   'who.wrongPassword': '비밀번호가 맞지 않아요.',
   'who.passwordTooShort': '{min}자 이상 입력하세요.',
   'who.closed': '투표가 마감되었어요. 새 이름을 추가할 수 없어요.',
