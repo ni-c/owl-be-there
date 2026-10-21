@@ -1,5 +1,6 @@
 import {
   addDays,
+  ISSUE_REASON,
   checkCandidateDays,
   LIMITS,
   type CandidateProblem,
@@ -10,6 +11,7 @@ import { translator } from '../src/i18n/index.tsx';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { CANDIDATE_PROBLEM_KEY } from '../src/lib/dayEdit.ts';
 import {
+  createErrorMessage,
   errorMessage,
   isForbidden,
   sessionRevoked,
@@ -48,15 +50,13 @@ describe('errorMessage for the codes the server sends', () => {
     );
   });
 
-  it('reads the run length from the server’s message when the caller gives none', () => {
+  it('does not read the run length out of the server’s English message', () => {
     const error = failure(
       400,
       'no_block',
       'No 12 consecutive candidate days to choose from'
     );
-    expect(errorMessage(error, t)).toBe(
-      'There are no 12 days in a row to choose from.'
-    );
+    expect(errorMessage(error, t)).toBe(en['error.generic']);
   });
 
   it('does not show a placeholder when it has no run length at all', () => {
@@ -89,7 +89,7 @@ describe('errorMessage for the codes the server sends', () => {
         invalid([
           {
             path: 'days',
-            message: 'Too big: expected array to have <=186 items',
+            code: 'too_big',
           },
         ]),
         t
@@ -100,19 +100,19 @@ describe('errorMessage for the codes the server sends', () => {
         invalid([
           {
             path: 'days',
-            message: 'Too small: expected array to have >=1 items',
+            code: 'too_small',
           },
         ]),
         t
       )
     ).toBe(en['error.noDays']);
     expect(
-      errorMessage(invalid([{ path: 'title', message: 'Required' }]), t)
+      errorMessage(invalid([{ path: 'title', code: 'invalid_type' }]), t)
     ).toBe(en['error.invalid']);
     // A day that is no date has a path of its own, below the list.
-    expect(
-      errorMessage(invalid([{ path: 'days.3', message: 'Not a date' }]), t)
-    ).toBe(en['error.invalid']);
+    expect(errorMessage(invalid([{ path: 'days.3', code: 'custom' }]), t)).toBe(
+      en['error.invalid']
+    );
   });
 
   it('copes with a validation_failed that carries no usable issues', () => {
@@ -230,5 +230,88 @@ describe('sessionRevoked', () => {
     ).toBe(false);
     expect(sessionRevoked(null, { participant: 'tok' })).toBe(false);
     expect(sessionRevoked(undefined, { participant: 'tok' })).toBe(false);
+  });
+});
+
+describe('errorMessage for names the server refuses', () => {
+  const refused = (path: string, reason: string, code = 'custom') =>
+    failure(400, 'validation_failed', 'Invalid request', {
+      issues: [{ path, code, reason, message: 'ignored' }],
+    });
+  const INVISIBLE = ISSUE_REASON.invisible;
+  const MIXED = ISSUE_REASON.mixedScripts;
+
+  it('names the field of a title, location or creator name', () => {
+    for (const path of ['title', 'location', 'creatorName'])
+      expect(errorMessage(refused(path, INVISIBLE), t)).toBe(
+        en['error.textInvisible']
+      );
+  });
+
+  it('names the line of a roster entry, from the wizard and from the add route', () => {
+    for (const path of ['roster.0', 'names.0'])
+      expect(errorMessage(refused(path, INVISIBLE), t)).toBe(
+        'Line 1 has no visible character.'
+      );
+    expect(errorMessage(refused('names.11', MIXED), t)).toBe(
+      'Line 12: a word mixes Latin letters with Cyrillic or Greek ones.'
+    );
+  });
+
+  it('names a single name', () => {
+    expect(errorMessage(refused('name', INVISIBLE), t)).toBe(
+      en['error.nameInvisible']
+    );
+    expect(errorMessage(refused('name', MIXED), t)).toBe(en['error.nameMixed']);
+  });
+
+  it('keeps the generic text for anything it does not recognise', () => {
+    expect(errorMessage(refused('title', 'other'), t)).toBe(
+      en['error.invalid']
+    );
+    expect(errorMessage(refused('roster.x', INVISIBLE), t)).toBe(
+      en['error.invalid']
+    );
+    expect(errorMessage(refused('nickname', MIXED), t)).toBe(
+      en['error.invalid']
+    );
+  });
+
+  it('does not read the English message', () => {
+    const error = failure(400, 'validation_failed', 'x', {
+      issues: [
+        { path: 'name', code: 'custom', message: 'Needs a visible character' },
+      ],
+    });
+    expect(errorMessage(error, t)).toBe(en['error.invalid']);
+    expect(errorMessage(refused('name', INVISIBLE, 'too_small'), t)).toBe(
+      en['error.invalid']
+    );
+  });
+
+  it('finds the refused name among other issues', () => {
+    const error = failure(400, 'validation_failed', 'x', {
+      issues: [
+        { path: 'emoji', code: 'invalid_value' },
+        { path: 'roster.2', code: 'custom', reason: MIXED },
+      ],
+    });
+    expect(errorMessage(error, t)).toContain('Line 3');
+  });
+});
+
+describe('createErrorMessage', () => {
+  it('says the creation limit for a 429, not "wait a moment"', () => {
+    expect(createErrorMessage(failure(429, 'rate_limited'), t)).toBe(
+      en['error.createLimit']
+    );
+  });
+
+  it('leaves every other failure to errorMessage', () => {
+    expect(createErrorMessage(failure(503, 'busy'), t)).toBe(en['error.busy']);
+    expect(createErrorMessage(new NetworkFailure(null), t)).toBe(
+      en['error.offline']
+    );
+    expect(createErrorMessage(new Error('x'), t)).toBe(en['error.generic']);
   });
 });

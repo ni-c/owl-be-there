@@ -80,6 +80,7 @@ export function Owl({ mood = 'happy', size = 120, bob = false }: OwlProps) {
         <text
           x="96"
           y="22"
+          direction="ltr"
           fontSize="16"
           fontWeight="800"
           fill="var(--owl-muted)"
@@ -94,6 +95,7 @@ export function Owl({ mood = 'happy', size = 120, bob = false }: OwlProps) {
         <text
           x="98"
           y="26"
+          direction="ltr"
           fontSize="20"
           fontWeight="900"
           fill="var(--owl-brand)"

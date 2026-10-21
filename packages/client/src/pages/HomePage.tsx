@@ -5,7 +5,7 @@ import {
   type Feature,
   type InstanceInfoData,
 } from '@owl/shared';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from '../App.tsx';
 import { CreateWizard } from '../components/CreateWizard.tsx';
 import { ExampleDemo } from '../components/ExampleDemo.tsx';
@@ -13,6 +13,8 @@ import { CloseIcon, LockIcon, StarIcon } from '../components/icons.tsx';
 import { Owl } from '../components/Owl.tsx';
 import { Button, Card, Dialog, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
+import { isolate } from '../lib/bidi.ts';
+import { scrollBehavior } from '../lib/motion.ts';
 import { forgetEvent, readMyEvents, type MyEvent } from '../lib/prefs.ts';
 
 // A missing icon is a compile error when a feature is added to FEATURES.
@@ -30,20 +32,40 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
   const [forgetting, setForgetting] = useState<MyEvent | null>(null);
   const wizardRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
   const forgottenAt = useRef(0);
+  const cancelled = useRef(false);
   const creationDisabled = instance?.creationEnabled === false;
 
   const start = () => {
     setCreating(true);
-    requestAnimationFrame(() =>
-      wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    );
+    requestAnimationFrame(() => {
+      wizardRef.current?.focus({ preventScroll: true });
+      wizardRef.current?.scrollIntoView({
+        behavior: scrollBehavior(),
+        block: 'start',
+      });
+    });
   };
+
+  // The start button is gone while the wizard is open: give focus back to it.
+  useEffect(() => {
+    if (!creating && cancelled.current) {
+      cancelled.current = false;
+      startRef.current?.focus();
+    }
+  }, [creating]);
 
   const forget = (event: MyEvent) => {
     forgottenAt.current = myEvents.findIndex((mine) => mine.id === event.id);
     forgetEvent(event.id);
     setMyEvents(readMyEvents());
+    // A one-tap removal has no dialog to return focus: land on the neighbour.
+    if (event.role !== 'organiser') {
+      requestAnimationFrame(() =>
+        (afterForget() ?? document.querySelector<HTMLElement>('main'))?.focus()
+      );
+    }
   };
 
   // The opener is gone: the entry that took its place, else the last one.
@@ -56,7 +78,7 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
     <div className="flex flex-col gap-10">
       <section className="grid items-center gap-6 pt-4 sm:grid-cols-[1fr_auto] sm:pt-10">
         <div className="flex flex-col gap-5">
-          <h1 className="text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+          <h1 className="text-4xl leading-tight font-black sm:text-5xl ltr:tracking-tight rtl:leading-normal [&:lang(vi)]:leading-snug">
             {t('app.tagline')}
           </h1>
           <p className="max-w-2xl text-lg leading-relaxed text-muted">
@@ -67,7 +89,12 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
           ) : (
             !creating && (
               <div>
-                <Button variant="primary" size="lg" onClick={start}>
+                <Button
+                  ref={startRef}
+                  variant="primary"
+                  size="lg"
+                  onClick={start}
+                >
                   {t('home.cta')}
                 </Button>
               </div>
@@ -81,8 +108,19 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
       </section>
 
       {creating && !creationDisabled && (
-        <div ref={wizardRef} className="scroll-mt-4">
-          <CreateWizard onCancel={() => setCreating(false)} />
+        <div
+          ref={wizardRef}
+          tabIndex={-1}
+          role="region"
+          aria-label={t('create.title')}
+          className="scroll-mt-4 outline-none"
+        >
+          <CreateWizard
+            onCancel={() => {
+              cancelled.current = true;
+              setCreating(false);
+            }}
+          />
         </div>
       )}
 
@@ -103,7 +141,9 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
                     {EMOJIS[event.emoji]}
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <span className="wrap-anywhere">{event.title}</span>
+                    <span className="wrap-anywhere" dir="auto">
+                      {event.title}
+                    </span>
                     {event.role === 'organiser' && (
                       <span className="text-sm font-semibold text-muted">
                         {t('home.organiser')}
@@ -138,7 +178,9 @@ export function HomePage({ instance }: { instance: InstanceInfoData | null }) {
         <div className="flex flex-col gap-5">
           <p className="leading-relaxed wrap-anywhere">
             {forgetting &&
-              t('home.forgetOrganiser.text', { title: forgetting.title })}
+              t('home.forgetOrganiser.text', {
+                title: isolate(forgetting.title),
+              })}
           </p>
           <div className="flex flex-wrap justify-end gap-2">
             <Button onClick={() => setForgetting(null)}>

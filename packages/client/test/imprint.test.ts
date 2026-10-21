@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   IMPRINT_PATH,
   imprintLink,
+  imprintOperator,
   looksLikeEmail,
   mailtoHref,
 } from '../src/lib/imprint.ts';
@@ -99,5 +100,29 @@ describe('the imprint route', () => {
     for (const bad of ['/imprint//', '/imprints', '/Imprint', '/de/imprint']) {
       expect(parseRoute(bad), bad).toEqual({ page: 'not-found' });
     }
+  });
+});
+
+describe('imprintOperator', () => {
+  const full = {
+    operatorName: 'Ada',
+    operatorAddress: 'Street 1, Town',
+    operatorContact: 'ada@example.org',
+  };
+
+  it('returns the three details when all are stated', () => {
+    expect(imprintOperator(full)).toEqual({
+      name: 'Ada',
+      address: 'Street 1, Town',
+      contact: 'ada@example.org',
+    });
+  });
+
+  it('is null for no info and for any missing or empty detail', () => {
+    expect(imprintOperator(null)).toBeNull();
+    expect(imprintOperator({})).toBeNull();
+    expect(imprintOperator({ ...full, operatorName: '' })).toBeNull();
+    expect(imprintOperator({ ...full, operatorAddress: null })).toBeNull();
+    expect(imprintOperator({ ...full, operatorContact: '' })).toBeNull();
   });
 });

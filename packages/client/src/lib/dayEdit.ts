@@ -24,6 +24,33 @@ export const CANDIDATE_PROBLEM_KEY: Record<CandidateProblem, TranslationKey> = {
   span: 'error.rangeTooLong',
 };
 
+/** The latest day a candidate day may be: `LIMITS.horizon` days from today. */
+export function latestCandidateDay(today: ISODate): ISODate {
+  return addDays(today, LIMITS.horizon);
+}
+
+/** The latest day the days editor can reach: bound by the span and the horizon. */
+export function latestEditableDay(first: ISODate, today: ISODate): ISODate {
+  return minISODate(addDays(first, LIMITS.span - 1), latestCandidateDay(today));
+}
+
+/**
+ * Why the editor's "add days up to" date cannot be reached in full, as a
+ * dictionary key, or null. The calendar stops at `latestEditableDay`.
+ */
+export function untilProblemKey(
+  first: ISODate,
+  until: string,
+  today: ISODate
+): TranslationKey | null {
+  if (!isValidISODate(until)) return null;
+  if (compareISODate(until, latestCandidateDay(today)) > 0)
+    return 'error.tooFar';
+  if (compareISODate(until, latestEditableDay(first, today)) > 0)
+    return 'error.rangeTooLong';
+  return null;
+}
+
 /** A text for the reader, as a dictionary key and its placeholders. */
 export interface Problem {
   key: TranslationKey;
@@ -62,27 +89,25 @@ export function rangeProblemKey(
   const problem = checkCandidateDays(
     [from, to],
     today,
-    addDays(today, LIMITS.horizon)
+    latestCandidateDay(today)
   );
   return problem && CANDIDATE_PROBLEM_KEY[problem];
 }
 
 /**
  * The days the editor's calendar shows: the existing days, extended up to the
- * date typed in — as far as an event may span.
+ * date typed in — as far as an event may span and reach ahead, the limits
+ * `extendSelection` applies too.
  */
 export function visibleRange(
   first: ISODate,
   last: ISODate,
-  until: string
+  until: string,
+  today: ISODate
 ): ISODate[] {
   const end = isValidISODate(until) ? maxISODate(until, last) : last;
-  return expandRange(
-    first,
-    diffDays(first, end) + 1 <= LIMITS.span
-      ? end
-      : addDays(first, LIMITS.span - 1)
-  );
+  const limit = maxISODate(last, latestEditableDay(first, today));
+  return expandRange(first, minISODate(end, limit));
 }
 
 /**
@@ -109,17 +134,13 @@ export function extendSelection(
   }
 ): Map<ISODate, Mark> {
   const { first, last, until, today, shownEnd } = range;
-  const shown = visibleRange(first, last, until);
+  const shown = visibleRange(first, last, until, today);
   const end = shown[shown.length - 1]!;
   const next = new Map<ISODate, Mark>();
   for (const [day, mark] of selection)
     if (compareISODate(day, end) <= 0) next.set(day, mark);
   if (!isValidISODate(until) || compareISODate(until, last) <= 0) return next;
-  const limit = minISODate(
-    addDays(first, LIMITS.span - 1),
-    addDays(today, LIMITS.horizon)
-  );
-  const upTo = minISODate(until, limit);
+  const upTo = minISODate(until, latestEditableDay(first, today));
   // A date typed before the last day drops the added days; they return as chosen.
   const shownLast = maxISODate(last, shownEnd ?? last);
   for (const day of expandRange(
@@ -135,6 +156,11 @@ export function extendSelection(
 /** The days to save: those of the calendar shown that are still selected. */
 export function daysToSave(shown: readonly ISODate[], selection: Marks) {
   return shown.filter((day) => selection.has(day));
+}
+
+/** Whether two sorted day lists are the same. */
+export function sameDays(a: readonly ISODate[], b: readonly ISODate[]) {
+  return a.length === b.length && a.every((day, i) => day === b[i]);
 }
 
 export interface SavingImpact {

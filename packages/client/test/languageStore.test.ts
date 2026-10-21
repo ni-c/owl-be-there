@@ -4,20 +4,7 @@ import { en, type Pack } from '../src/i18n/en.ts';
 import { createLazyCache } from '../src/lib/lazyCache.ts';
 import { LanguageStore, startLanguage } from '../src/lib/languageStore.ts';
 import { ReloadGuard } from '../src/lib/reloadGuard.ts';
-import type { Backing } from '../src/lib/storage.ts';
-
-class MemorySession implements Backing {
-  readonly map = new Map<string, string>();
-  getItem(key: string): string | null {
-    return this.map.get(key) ?? null;
-  }
-  setItem(key: string, value: string): void {
-    this.map.set(key, value);
-  }
-  removeItem(key: string): void {
-    this.map.delete(key);
-  }
-}
+import { MemoryStorage } from './browser.ts';
 
 const PACK: Pack = { texts: en };
 
@@ -44,7 +31,7 @@ function harness(
   });
   const remember = vi.fn<(language: Language) => void>();
   const reloadPage = vi.fn<() => void>();
-  const session = new MemorySession();
+  const session = new MemoryStorage();
   const guard = new ReloadGuard({
     session,
     reloadPage,

@@ -13,8 +13,12 @@ import {
   daysToSave,
   extendSelection,
   isLossy,
+  latestCandidateDay,
+  latestEditableDay,
   rangeProblemKey,
+  sameDays,
   savingImpact,
+  untilProblemKey,
   visibleRange,
   type SavingImpact,
 } from '../src/lib/dayEdit.ts';
@@ -166,21 +170,97 @@ describe('rangeProblemKey', () => {
 describe('visibleRange', () => {
   const first = march(5);
   const last = march(7);
+  const today = march(1);
 
   it('shows the existing days when the end is not later', () => {
-    expect(visibleRange(first, last, march(7))).toEqual([5, 6, 7].map(march));
-    expect(visibleRange(first, last, march(6))).toEqual([5, 6, 7].map(march));
-    expect(visibleRange(first, last, '')).toEqual([5, 6, 7].map(march));
-    expect(visibleRange(first, last, '2027-3-9')).toEqual([5, 6, 7].map(march));
+    const shown = (until: string) => visibleRange(first, last, until, today);
+    expect(shown(march(7))).toEqual([5, 6, 7].map(march));
+    expect(shown(march(6))).toEqual([5, 6, 7].map(march));
+    expect(shown('')).toEqual([5, 6, 7].map(march));
+    expect(shown('2027-3-9')).toEqual([5, 6, 7].map(march));
   });
 
   it('extends up to the end and stops at what an event may span', () => {
-    expect(visibleRange(first, last, march(9))).toEqual(
+    expect(visibleRange(first, last, march(9), today)).toEqual(
       [5, 6, 7, 8, 9].map(march)
     );
-    const far = visibleRange(first, last, '2031-01-01');
+    const far = visibleRange(first, last, '2031-01-01', today);
     expect(far).toHaveLength(LIMITS.span);
     expect(far[0]).toBe(first);
+  });
+
+  it('stops where extendSelection stops, at the horizon', () => {
+    // The first day is so far ahead that the horizon comes before the span.
+    const early = '2030-06-01';
+    const late = addDays(early, LIMITS.span - 1);
+    const lastEditable = latestEditableDay(early, '2026-01-01');
+    expect(compareISODate(lastEditable, late)).toBeLessThan(0);
+    const shown = visibleRange(early, early, late, '2026-01-01');
+    expect(shown[shown.length - 1]).toBe(lastEditable);
+    const selection = extendSelection(all([early]), {
+      first: early,
+      last: early,
+      until: late,
+      today: '2026-01-01',
+    });
+    // The selection is capped at LIMITS.days, but never reaches past the calendar.
+    expect(sorted(selection).every((day) => shown.includes(day))).toBe(true);
+  });
+
+  it('never cuts the days that exist', () => {
+    const past = '2026-01-01';
+    expect(visibleRange(first, last, '', past)).toEqual([5, 6, 7].map(march));
+  });
+});
+
+describe('latestCandidateDay and latestEditableDay', () => {
+  it('reaches the horizon from today', () => {
+    expect(latestCandidateDay(march(1))).toBe(
+      addDays(march(1), LIMITS.horizon)
+    );
+  });
+
+  it('is the earlier of the span and the horizon', () => {
+    // First day today: the horizon (five years) is farther than the span (a year).
+    expect(latestEditableDay(march(1), march(1))).toBe(
+      addDays(march(1), LIMITS.span - 1)
+    );
+    // First day near the horizon: the horizon is the nearer one.
+    expect(latestEditableDay('2030-06-01', '2026-01-01')).toBe(
+      latestCandidateDay('2026-01-01')
+    );
+  });
+});
+
+describe('untilProblemKey', () => {
+  const first = march(5);
+  const today = march(1);
+
+  it('says nothing for an empty, invalid or reachable date', () => {
+    expect(untilProblemKey(first, '', today)).toBeNull();
+    expect(untilProblemKey(first, '2027-3-9', today)).toBeNull();
+    expect(untilProblemKey(first, march(9), today)).toBeNull();
+    expect(
+      untilProblemKey(first, latestEditableDay(first, today), today)
+    ).toBeNull();
+  });
+
+  it('names the span at its first day over and the horizon beyond it', () => {
+    const over = addDays(latestEditableDay(first, today), 1);
+    expect(untilProblemKey(first, over, today)).toBe('error.rangeTooLong');
+    const beyond = addDays(latestCandidateDay(today), 1);
+    expect(untilProblemKey(first, beyond, today)).toBe('error.tooFar');
+  });
+});
+
+describe('sameDays', () => {
+  it('compares day lists by content, not identity', () => {
+    expect(sameDays([], [])).toBe(true);
+    expect(sameDays([march(5), march(6)], [march(5), march(6)])).toBe(true);
+    expect(sameDays([march(5)], [])).toBe(false);
+    expect(sameDays([], [march(5)])).toBe(false);
+    expect(sameDays([march(5), march(6)], [march(5), march(7)])).toBe(false);
+    expect(sameDays([march(5), march(6)], [march(6), march(5)])).toBe(false);
   });
 });
 

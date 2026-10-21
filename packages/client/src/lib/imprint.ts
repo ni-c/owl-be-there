@@ -29,3 +29,17 @@ export function looksLikeEmail(contact: string): boolean {
 export function mailtoHref(contact: string): string | null {
   return looksLikeEmail(contact) ? `mailto:${contact}` : null;
 }
+
+/** The operator's details for the legal notice, or null when it lacks any. */
+export function imprintOperator(
+  info: Partial<ImprintFields> | null
+): { name: string; address: string; contact: string } | null {
+  if (!hasImprint(info)) return null;
+  const { operatorName, operatorAddress, operatorContact } = info ?? {};
+  if (!operatorName || !operatorAddress || !operatorContact) return null;
+  return {
+    name: operatorName,
+    address: operatorAddress,
+    contact: operatorContact,
+  };
+}

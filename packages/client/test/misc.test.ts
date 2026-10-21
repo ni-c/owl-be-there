@@ -1,34 +1,16 @@
+import { APP_NAME, LANGUAGES } from '@owl/shared';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ar, arForms } from '../src/i18n/ar.ts';
-import { cs, csFew } from '../src/i18n/cs.ts';
-import { de } from '../src/i18n/de.ts';
+import { arForms } from '../src/i18n/ar.ts';
+import { csFew } from '../src/i18n/cs.ts';
+import { dictionaries } from '../src/i18n/dictionaries.ts';
 import { en } from '../src/i18n/en.ts';
-import { es } from '../src/i18n/es.ts';
-import { es419 } from '../src/i18n/es-419.ts';
-import { fa } from '../src/i18n/fa.ts';
-import { fi } from '../src/i18n/fi.ts';
-import { fr } from '../src/i18n/fr.ts';
-import { id } from '../src/i18n/id.ts';
-import { it as italian } from '../src/i18n/it.ts';
-import { ja } from '../src/i18n/ja.ts';
-import { ko } from '../src/i18n/ko.ts';
-import { nb } from '../src/i18n/nb.ts';
-import { nl } from '../src/i18n/nl.ts';
-import { pl, plFew } from '../src/i18n/pl.ts';
-import { pt } from '../src/i18n/pt.ts';
-import { ptBr } from '../src/i18n/pt-BR.ts';
-import { ru, ruFew } from '../src/i18n/ru.ts';
-import { sv } from '../src/i18n/sv.ts';
-import { tr } from '../src/i18n/tr.ts';
-import { uk, ukFew } from '../src/i18n/uk.ts';
-import { ur } from '../src/i18n/ur.ts';
-import { vi as vietnamese } from '../src/i18n/vi.ts';
-import { zhHans } from '../src/i18n/zh-Hans.ts';
-import { zhHant } from '../src/i18n/zh-Hant.ts';
-import { preloadAllDictionaries } from '../src/i18n/dictionaries.ts';
-import { detectLanguage, interpolate, translator } from '../src/i18n/index.tsx';
+import { interpolate, translator } from '../src/i18n/index.tsx';
+import { plFew } from '../src/i18n/pl.ts';
+import { ruFew } from '../src/i18n/ru.ts';
+import { ukFew } from '../src/i18n/uk.ts';
 import { ApiFailure, NetworkFailure } from '../src/lib/api.ts';
 import { errorMessage } from '../src/lib/errors.ts';
+import { detectLanguage } from '../src/lib/languageStore.ts';
 import {
   firstWeekdayFor,
   longWeekdayHeadings,
@@ -43,6 +25,7 @@ import {
   placeOf,
   subscribeToRoute,
 } from '../src/lib/route.ts';
+import { preloadAllDictionaries } from './dictionaries.ts';
 import { installBrowser } from './browser.ts';
 
 // translator() needs a language's texts loaded; here, every language.
@@ -56,33 +39,8 @@ describe('i18n', () => {
   it('has every English text in each translation, with the same placeholders', () => {
     const placeholders = (text: string) =>
       [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
-    for (const dictionary of [
-      ar,
-      cs,
-      de,
-      es,
-      es419,
-      fa,
-      fi,
-      fr,
-      id,
-      italian,
-      ja,
-      ko,
-      nb,
-      nl,
-      pl,
-      pt,
-      ptBr,
-      ru,
-      sv,
-      tr,
-      uk,
-      ur,
-      vietnamese,
-      zhHans,
-      zhHant,
-    ]) {
+    for (const language of LANGUAGES) {
+      const dictionary = dictionaries.peek(language)!.texts;
       expect(Object.keys(dictionary).sort()).toEqual(Object.keys(en).sort());
       for (const key of Object.keys(en) as (keyof typeof en)[]) {
         expect(placeholders(dictionary[key]), key).toEqual(
@@ -485,6 +443,11 @@ describe('weekdayHeading', () => {
     // Urdu's letters are Latin, so it keeps the short names.
     expect(weekdayHeading(0, 'ur-PK')).toBe('پیر');
     expect(weekdayHeading(0, 'vi-VN')).toBe('T2');
+    // Portugal's short names are full words in ICU; the abbreviations stand in.
+    expect(weekdayName(0, 'pt-PT', 'short')).toBe('segunda');
+    expect(weekdayHeading(0, 'pt-PT')).toBe('seg.');
+    expect(weekdayHeading(6, 'pt-PT')).toBe('dom.');
+    expect(weekdayHeading(0, 'pt-BR')).toBe('seg.');
   });
 
   it('shrinks the headings for the long Urdu names only', () => {
@@ -594,9 +557,9 @@ describe('routes', () => {
   });
 
   it('gives each of those titles a text in every language, none like the start page title or another', () => {
-    const dictionaries = { de, en, es, fr, it: italian, ja, nl, pt };
-    for (const [language, dictionary] of Object.entries(dictionaries)) {
-      const name = dictionary['app.name'];
+    for (const language of LANGUAGES) {
+      const dictionary = dictionaries.peek(language)!.texts;
+      const name = APP_NAME;
       const titles = [`${name} — ${dictionary['app.tagline']}`];
       for (const path of ['/privacy', '/imprint', '/nope']) {
         const heading = dictionary[headingKey(parseRoute(path))!];

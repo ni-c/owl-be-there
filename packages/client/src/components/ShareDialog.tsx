@@ -1,9 +1,10 @@
 import { EMOJIS, type EventViewData } from '@owl/shared';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/index.tsx';
 import { CopyIcon, ShareIcon } from './icons.tsx';
 import { Owl } from './Owl.tsx';
 import { Button, Dialog, Notice } from './ui.tsx';
+import { isolateIfRtl } from '../lib/bidi.ts';
 import { eventLink } from '../lib/links.ts';
 import { qrPath } from '../lib/qrPath.ts';
 import { shareData } from '../lib/shareData.ts';
@@ -22,10 +23,13 @@ function CopyField({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const id = useId();
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
   const copyValue = async () => {
     if (await copy(value)) {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 2000);
     } else {
       (document.getElementById(id) as HTMLInputElement | null)?.select();
     }
@@ -46,13 +50,14 @@ function CopyField({ label, value }: { label: string; value: string }) {
         />
         <Button
           onClick={() => void copyValue()}
-          aria-label={`${t('share.copy')}: ${label}`}
+          aria-label={`${copied ? t('share.copied') : t('share.copy')}: ${label}`}
         >
           <CopyIcon size={18} />
-          <span aria-live="polite">
-            {copied ? t('share.copied') : t('share.copy')}
-          </span>
+          {copied ? t('share.copied') : t('share.copy')}
         </Button>
+        <span role="status" className="sr-only">
+          {copied ? t('share.copied') : ''}
+        </span>
       </div>
     </div>
   );
@@ -108,7 +113,7 @@ export function ShareDialog({
   const url = eventLink(publicUrl, event.id, window.location.origin);
   const invitation = t('share.inviteText', {
     emoji: EMOJIS[event.emoji],
-    title: event.title,
+    title: isolateIfRtl(event.title),
     url,
   });
   const canShare = typeof navigator.share === 'function';

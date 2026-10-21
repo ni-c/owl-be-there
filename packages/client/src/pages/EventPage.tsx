@@ -1,10 +1,10 @@
 import {
+  APP_NAME,
   EMOJIS,
   emojiIcon,
   formatDay,
   formatDayRange,
   googleCalendarUrl,
-  todayLocal,
   type EventSnapshotData,
 } from '@owl/shared';
 import {
@@ -33,7 +33,10 @@ import { Link } from '../App.tsx';
 import { Button, buttonClass, Card, Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { api, calendarFileUrl } from '../lib/api.ts';
-import { setFavicon } from '../lib/favicon.ts';
+import { OWL_ICON, setFavicon } from '../lib/favicon.ts';
+import { isolate } from '../lib/bidi.ts';
+import { scrollToTop } from '../lib/motion.ts';
+import { useToday } from '../hooks/useToday.ts';
 import { useEventStore } from '../hooks/useEventStore.ts';
 import type { EventStore } from '../lib/eventStore.ts';
 import { firstWeekdayFor } from '../lib/locale.ts';
@@ -66,7 +69,13 @@ export function EventPage({
   const { store, state } = useEventStore(id);
   const [adminToken, setAdminToken] = useState(() => readAdminToken(id));
   const [adminRefused, setAdminRefused] = useState(false);
-  const [candidate, setCandidate] = useState<string | null>(null);
+  // A fresh object per link, so the same link pasted again is checked again.
+  const [candidate, setCandidate] = useState<{ key: string } | null>(null);
+  // Why a key from the link was not taken up: the server said no, or could
+  // not be asked.
+  const [linkProblem, setLinkProblem] = useState<'refused' | 'offline' | null>(
+    null
+  );
   // The key the server last accepted, so it is not asked about twice.
   const verified = useRef<string | null>(null);
 
@@ -84,7 +93,7 @@ export function EventPage({
     const take = () => {
       if (!window.location.hash.startsWith('#admin=')) return;
       const taken = takeAdminTokenFromFragment(id);
-      if (taken !== null) setCandidate(taken);
+      if (taken !== null) setCandidate({ key: taken });
       const stored = readAdminToken(id);
       setAdminToken(stored);
       // A refusal clears the stored key, so one stored now came from this link.
@@ -100,16 +109,23 @@ export function EventPage({
   useEffect(() => {
     if (candidate === null) return;
     let current = true;
+    setLinkProblem(null);
     api
-      .checkAdmin(id, candidate)
+      .checkAdmin(id, candidate.key)
       .then((valid) => {
-        if (!valid || !current) return;
-        verified.current = candidate;
-        writeAdminToken(id, candidate);
-        setAdminToken(candidate);
+        if (!current) return;
+        if (!valid) {
+          setLinkProblem('refused');
+          return;
+        }
+        verified.current = candidate.key;
+        writeAdminToken(id, candidate.key);
+        setAdminToken(candidate.key);
         setAdminRefused(false);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (current) setLinkProblem('offline');
+      });
     return () => {
       current = false;
     };
@@ -158,11 +174,11 @@ export function EventPage({
     if (loaded) {
       rememberEvent(loaded, adminToken ? 'organiser' : 'participant');
       // The emoji is the tab's icon; in the title it would show twice.
-      document.title = `${loaded.title} · ${t('app.name')}`;
+      document.title = `${loaded.title} · ${APP_NAME}`;
       setFavicon(emojiIcon(EMOJIS[loaded.emoji]));
     } else {
       // Not the title of the page this one replaced.
-      document.title = `${t('app.name')} — ${t('app.tagline')}`;
+      document.title = `${APP_NAME} — ${t('app.tagline')}`;
     }
   }, [loaded, adminToken, t]);
 
@@ -170,7 +186,10 @@ export function EventPage({
   // key or the session kept for it.
   const gone = state.status === 'not-found' || state.status === 'deleted';
   useEffect(() => {
-    if (gone) forgetEvent(id);
+    if (!gone) return;
+    forgetEvent(id);
+    // The emoji of an event that is no more would stay in the tab.
+    setFavicon(OWL_ICON);
   }, [gone, id]);
 
   if (state.status === 'loading') {
@@ -186,24 +205,7 @@ export function EventPage({
     state.status === 'deleted' ||
     state.status === 'error'
   ) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <Owl
-          mood={state.status === 'error' ? 'confused' : 'sleeping'}
-          size={150}
-        />
-        <h1 className="text-3xl font-black">
-          {state.status === 'deleted'
-            ? t('event.deleted')
-            : state.status === 'error'
-              ? t('error.generic')
-              : t('event.notFound.title')}
-        </h1>
-        {state.status === 'not-found' && (
-          <p className="max-w-lg text-muted">{t('event.notFound.text')}</p>
-        )}
-      </div>
-    );
+    return <EndState status={state.status} />;
   }
 
   return (
@@ -214,6 +216,7 @@ export function EventPage({
       adminToken={adminToken}
       onAdminLost={loseAdmin}
       adminRefused={adminRefused}
+      linkProblem={linkProblem}
       session={session}
       onSession={changeSession}
       shareOpen={shareOpen}
@@ -235,6 +238,7 @@ interface EventViewProps {
   adminToken: string | null;
   onAdminLost(): void;
   adminRefused: boolean;
+  linkProblem: 'refused' | 'offline' | null;
   session: Session | null;
   onSession(session: Session | null): void;
   shareOpen: boolean;
@@ -243,13 +247,37 @@ interface EventViewProps {
   publicUrl: string | null;
 }
 
+/** The page that replaces the event; focused, so it is read out when it appears. */
+function EndState({ status }: { status: 'not-found' | 'deleted' | 'error' }) {
+  const { t } = useI18n();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, [status]);
+  return (
+    <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <Owl mood={status === 'error' ? 'confused' : 'sleeping'} size={150} />
+      <h1 ref={heading} tabIndex={-1} className="text-3xl font-black">
+        {status === 'deleted'
+          ? t('event.deleted')
+          : status === 'error'
+            ? t('error.generic')
+            : t('event.notFound.title')}
+      </h1>
+      {status === 'not-found' && (
+        <p className="max-w-lg text-muted">{t('event.notFound.text')}</p>
+      )}
+    </div>
+  );
+}
+
 function EventView(props: EventViewProps) {
   const { data, stale, store, adminToken, session, onSession } = props;
   const { t, locale } = useI18n();
   const [tab, setTab] = useState<EventTab>('mine');
   const [editingFor, setEditingFor] = useState<string | null>(null);
   const firstWeekday = useMemo(() => firstWeekdayFor(navigator.language), []);
-  const today = todayLocal();
+  const today = useToday();
   const { event } = data;
   const answered = data.participants.filter((p) => p.answered).length;
   // Once someone has answered, a quiet word that they can plan their own.
@@ -275,7 +303,7 @@ function EventView(props: EventViewProps) {
       onStopEditing={() => setEditingFor(null)}
     />
   );
-  const group = <GroupView {...shared} />;
+  const group = <GroupView {...shared} onAdminLost={props.onAdminLost} />;
 
   return (
     <div className="flex flex-col gap-5">
@@ -283,6 +311,13 @@ function EventView(props: EventViewProps) {
       {stale && <Notice>{t('event.stale')}</Notice>}
       {props.adminRefused && (
         <Notice tone="error">{t('event.adminRefused')}</Notice>
+      )}
+      {props.linkProblem && (
+        <Notice tone="error">
+          {props.linkProblem === 'offline'
+            ? t('error.offline')
+            : t('error.forbidden')}
+        </Notice>
       )}
       <StatusBanner data={data} publicUrl={props.publicUrl} />
 
@@ -305,7 +340,7 @@ function EventView(props: EventViewProps) {
           onFillIn={(participantId) => {
             setEditingFor(participantId);
             setTab('mine');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            scrollToTop();
           }}
         />
       )}
@@ -354,10 +389,14 @@ function EventHeader({
   const { t, tn } = useI18n();
   const { event } = data;
   const meta = [
-    event.location && { icon: <PinIcon size={16} />, text: event.location },
+    event.location && {
+      icon: <PinIcon size={16} />,
+      text: event.location,
+      user: true,
+    },
     event.creatorName && {
       icon: <UserIcon size={16} />,
-      text: t('event.organisedBy', { name: event.creatorName }),
+      text: t('event.organisedBy', { name: isolate(event.creatorName) }),
     },
     event.durationDays > 1 && {
       icon: <ClockIcon size={16} />,
@@ -367,13 +406,15 @@ function EventHeader({
       icon: <UsersIcon size={16} />,
       text: tn('event.minCount', event.minCount),
     },
-  ].filter(Boolean) as { icon: ReactNode; text: string }[];
+  ].filter(Boolean) as { icon: ReactNode; text: string; user?: boolean }[];
   return (
     <header className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <h1 className="flex min-w-0 items-start gap-3 text-3xl leading-tight font-black sm:text-4xl">
           <span aria-hidden="true">{EMOJIS[event.emoji]}</span>
-          <span className="min-w-0 wrap-anywhere">{event.title}</span>
+          <span dir="auto" className="min-w-0 wrap-anywhere">
+            {event.title}
+          </span>
         </h1>
         <Button variant="primary" onClick={onShare} className="shrink-0">
           <ShareIcon />
@@ -388,14 +429,17 @@ function EventHeader({
               className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1 text-sm font-bold wrap-anywhere"
             >
               {item.icon}
-              {item.text}
+              {item.user ? <bdi>{item.text}</bdi> : item.text}
             </li>
           ))}
         </ul>
       )}
       {event.description && (
         // Plain text on purpose: nothing an organiser writes becomes a link.
-        <p className="leading-relaxed wrap-anywhere whitespace-pre-line text-muted">
+        <p
+          dir="auto"
+          className="leading-relaxed wrap-anywhere whitespace-pre-line text-muted"
+        >
           {event.description}
         </p>
       )}
@@ -429,9 +473,7 @@ function StatusBanner({
     <section className="flex flex-col items-center gap-4 rounded-3xl border-2 border-brand bg-brand-soft p-5 text-center sm:flex-row sm:text-start">
       <Owl mood="celebrating" size={96} />
       <div className="flex flex-1 flex-col gap-1">
-        <p className="text-sm font-extrabold tracking-wide text-muted uppercase">
-          {t('event.decided')}
-        </p>
+        <p className="text-base font-black text-muted">{t('event.decided')}</p>
         <p className="text-2xl font-black">{when}</p>
       </div>
       <div

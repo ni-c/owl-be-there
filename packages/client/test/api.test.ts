@@ -168,13 +168,44 @@ describe('api', () => {
     );
     expect(
       await api.putMarks(EVENT_ID, PID, { baseRev: 0, yes: [], maybe: [] }, {})
-    ).toEqual({ ok: false, rev: 2 });
+    ).toEqual({ ok: false, rev: 2, yes: ['2027-03-06'], maybe: [] });
     await expect(
       api.putMarks(EVENT_ID, PID, { baseRev: 0, yes: [], maybe: [] }, {})
     ).rejects.toMatchObject({ code: 'closed' });
     await expect(
       api.putMarks(EVENT_ID, PID, { baseRev: 0, yes: [], maybe: [] }, {})
     ).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('sends a participant update with keepalive only when asked to', async () => {
+    const body = {
+      participant: {
+        id: PID,
+        name: 'Max',
+        note: 'x',
+        source: 'self',
+        answered: false,
+        hasPassword: false,
+        rev: 1,
+        yes: [],
+        maybe: [],
+        unseen: [],
+      },
+      token: null,
+    };
+    const calls = mockFetch(jsonResponse(200, body), jsonResponse(200, body));
+    await api.updateParticipant(EVENT_ID, PID, { note: 'x' }, {});
+    await api.updateParticipant(
+      EVENT_ID,
+      PID,
+      { note: 'x' },
+      {},
+      {
+        keepalive: true,
+      }
+    );
+    expect(calls[0]!.init.keepalive).toBeUndefined();
+    expect(calls[1]!.init.keepalive).toBe(true);
   });
 
   it('sends the organiser key for every organiser call', async () => {

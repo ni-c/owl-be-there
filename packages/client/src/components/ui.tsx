@@ -1,4 +1,5 @@
 import {
+  type ComponentProps,
   useEffect,
   useId,
   useRef,
@@ -43,7 +44,7 @@ export function Button({
   size = 'md',
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ComponentProps<'button'> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
 }) {
@@ -171,7 +172,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="inline-flex rounded-full border-2 border-line bg-sunken p-1"
+      className="inline-flex max-w-full rounded-full border-2 border-line bg-sunken p-1"
     >
       {options.map((option) => {
         const checked = option.value === value;
@@ -191,7 +192,7 @@ export function Segmented<T extends string>({
               )
             }
             tabIndex={checked ? 0 : -1}
-            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 font-bold transition ${
+            className={`inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-full px-3 py-1 text-center leading-tight font-bold transition sm:px-4 ${
               checked
                 ? 'bg-surface text-ink shadow-card'
                 : 'text-muted hover:text-ink'
@@ -307,13 +308,16 @@ export function Dialog({
       {open && (
         <div className="flex max-h-[85dvh] flex-col">
           <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
-            <h2 id={titleId} className="text-lg font-extrabold">
+            <h2
+              id={titleId}
+              className="min-w-0 text-lg font-extrabold wrap-anywhere"
+            >
               {title}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="grid size-11 place-items-center rounded-full hover:bg-sunken"
+              className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-sunken"
               aria-label={t('day.close')}
             >
               <CloseIcon />

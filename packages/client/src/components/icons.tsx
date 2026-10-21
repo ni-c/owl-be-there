@@ -4,9 +4,12 @@ import type { ReactNode } from 'react';
 function Icon({
   children,
   size = 20,
+  mirror = false,
 }: {
   children: ReactNode;
   size?: number | undefined;
+  /** Flip in right-to-left layouts, for icons that point or lean. */
+  mirror?: boolean;
 }) {
   return (
     <svg
@@ -20,6 +23,7 @@ function Icon({
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
+      className={mirror ? 'rtl:-scale-x-100' : undefined}
     >
       {children}
     </svg>
@@ -62,7 +66,7 @@ export const CopyIcon = ({ size }: P) => (
   </Icon>
 );
 export const UndoIcon = ({ size }: P) => (
-  <Icon size={size}>
+  <Icon size={size} mirror>
     <path d="M9 14 4 9l5-5" />
     <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
   </Icon>
@@ -119,7 +123,7 @@ export const StarIcon = ({ size }: P) => (
   </Icon>
 );
 export const NoteIcon = ({ size }: P) => (
-  <Icon size={size}>
+  <Icon size={size} mirror>
     <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
   </Icon>
 );

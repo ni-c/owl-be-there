@@ -15,8 +15,14 @@ const REFETCH_DELAY_MS = 400;
 const POLL_MS = 30_000;
 /** How long to poll before trying the live stream again. */
 const STREAM_RETRY_MS = 5 * 60_000;
+/** How long a stream may stay CONNECTING before polling takes over. */
+const STREAM_OPEN_MS = 15_000;
+/** Errors in a row without ever opening that count as a dead stream. */
+const STREAM_CONNECT_ERRORS = 2;
 /** The longest pause between attempts to catch up with an announced version. */
 const CATCH_UP_MAX_MS = 30_000;
+/** EventSource.CONNECTING, which the test doubles do not define. */
+const CONNECTING = 0;
 
 /**
  * One event as the client knows it: the latest snapshot, kept fresh by the
@@ -30,8 +36,11 @@ export class EventStore extends Observable<EventState> {
   private etag: string | null = null;
   private source: EventSource | null = null;
   private refetchTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The pending refetch timer is a (possibly long) catch-up wait. */
+  private refetchIsCatchUp = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private streamRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private openTimer: ReturnType<typeof setTimeout> | null = null;
   private fetching: Promise<void> | null = null;
   private stopped = false;
   private unlisten: (() => void) | null = null;
@@ -57,10 +66,12 @@ export class EventStore extends Observable<EventState> {
     this.stopped = true;
     this.source?.close();
     this.source = null;
+    this.clearOpenTimer();
     if (this.refetchTimer) clearTimeout(this.refetchTimer);
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.streamRetryTimer) clearTimeout(this.streamRetryTimer);
     this.refetchTimer = null;
+    this.refetchIsCatchUp = false;
     this.pollTimer = null;
     this.streamRetryTimer = null;
     this.unlisten?.();
@@ -99,7 +110,13 @@ export class EventStore extends Observable<EventState> {
       return false;
     } catch (error) {
       if (this.stopped) return false;
-      if (error instanceof ApiFailure && error.status === 404) {
+      // Only the API's own "no such event" means gone; a proxy's 404 page
+      // is a failure like any other.
+      if (
+        error instanceof ApiFailure &&
+        error.status === 404 &&
+        error.code === 'not_found'
+      ) {
         this.set(
           this.state.status === 'ready'
             ? { status: 'deleted' }
@@ -182,28 +199,64 @@ export class EventStore extends Observable<EventState> {
       const version = parseVersion((message as MessageEvent<string>).data);
       if (version === null) return;
       this.announced = Math.max(this.announced, version);
-      if (version > this.shownVersion()) this.scheduleRefetch();
+      if (version > this.shownVersion()) {
+        // A fresh announcement overrides a long catch-up pause.
+        if (this.refetchIsCatchUp) this.cancelRefetch();
+        this.scheduleRefetch();
+      }
     });
     source.addEventListener('deleted', () => {
       this.markDeleted();
     });
+    let connectErrors = 0;
+    source.addEventListener('open', () => {
+      connectErrors = 0;
+      this.clearOpenTimer();
+    });
+    // A request that never completes (blocked, aborted, a proxy that swallows
+    // it) leaves the source CONNECTING for good and never reports CLOSED.
+    this.clearOpenTimer();
+    this.openTimer = setTimeout(() => {
+      this.openTimer = null;
+      if (this.source === source && source.readyState === CONNECTING) {
+        this.giveUpStream(source);
+      }
+    }, STREAM_OPEN_MS);
     source.addEventListener('error', () => {
+      if (this.stopped || this.source !== source) return;
       // EventSource reconnects by itself after a dropped connection. Only a
       // refusal (429, 404, a proxy's 502 during a deploy) closes it for good;
-      // then poll instead, and try the stream again after a while.
-      if (source.readyState === EventSource.CLOSED && !this.stopped) {
-        this.source = null;
-        this.startPolling();
-        this.streamRetryTimer ??= setTimeout(() => {
-          this.streamRetryTimer = null;
-          if (this.stopped) return;
-          if (this.pollTimer) clearInterval(this.pollTimer);
-          this.pollTimer = null;
-          void this.refresh();
-          this.openStream();
-        }, STREAM_RETRY_MS);
+      // then poll instead, and try the stream again after a while. Errors in
+      // a row without ever opening mean the stream is not coming.
+      if (source.readyState === CONNECTING) connectErrors += 1;
+      if (
+        source.readyState === EventSource.CLOSED ||
+        connectErrors >= STREAM_CONNECT_ERRORS
+      ) {
+        this.giveUpStream(source);
       }
     });
+  }
+
+  private clearOpenTimer(): void {
+    if (this.openTimer) clearTimeout(this.openTimer);
+    this.openTimer = null;
+  }
+
+  /** Poll instead of the stream, and try the stream again after a while. */
+  private giveUpStream(source: EventSource): void {
+    this.clearOpenTimer();
+    source.close();
+    this.source = null;
+    this.startPolling();
+    this.streamRetryTimer ??= setTimeout(() => {
+      this.streamRetryTimer = null;
+      if (this.stopped) return;
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = null;
+      void this.refresh();
+      this.openStream();
+    }, STREAM_RETRY_MS);
   }
 
   private scheduleRefetch(
@@ -211,12 +264,23 @@ export class EventStore extends Observable<EventState> {
     onlyIfBehind = false
   ): void {
     if (this.refetchTimer) return;
+    this.refetchIsCatchUp = onlyIfBehind;
     this.refetchTimer = setTimeout(() => {
       this.refetchTimer = null;
+      this.refetchIsCatchUp = false;
       // A write may have caught up while a catch-up was waiting.
-      if (onlyIfBehind && !this.isBehind()) return;
+      if (onlyIfBehind && !this.isBehind()) {
+        this.catchUpMisses = 0;
+        return;
+      }
       void this.refresh();
     }, delay);
+  }
+
+  private cancelRefetch(): void {
+    if (this.refetchTimer) clearTimeout(this.refetchTimer);
+    this.refetchTimer = null;
+    this.refetchIsCatchUp = false;
   }
 
   /**
@@ -227,7 +291,15 @@ export class EventStore extends Observable<EventState> {
   private listenForReturn(): void {
     if (this.unlisten || typeof window === 'undefined') return;
     const check = (): void => {
-      if (!this.stopped) void this.refresh();
+      if (this.stopped) return;
+      void this.refresh();
+      // A stream that died silently never says so; a new one starts with the
+      // current version, and the catch-up logic does the rest.
+      if (this.source) {
+        this.source.close();
+        this.source = null;
+        this.openStream();
+      }
     };
     const onVisible = (): void => {
       if (document.visibilityState === 'visible') check();

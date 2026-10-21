@@ -26,6 +26,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useI18n } from '../i18n/index.tsx';
+import { shortcutKey } from '../lib/roving.ts';
 import {
   longWeekdayHeadings,
   weekdayHeading,
@@ -392,9 +393,35 @@ export function CalendarGrid(props: CalendarGridProps) {
     brush,
   ]);
 
+  // The brush and undo shortcuts work wherever the focus is inside the grid,
+  // on a weekday or week toggle that was just clicked as well as on a day.
+  const shortcut = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!paint || disabled) return;
+    const paintProps = props as PaintProps;
+    const modified = event.altKey || event.ctrlKey || event.metaKey;
+    const letter = shortcutKey(event.key, event.code);
+    if (!modified && letter === 'y') {
+      paintProps.onBrushChange?.('yes');
+    } else if (!modified && (letter === 'm' || event.key === '?')) {
+      paintProps.onBrushChange?.('maybe');
+    } else if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey &&
+      letter === 'z' &&
+      paintProps.onUndo
+    ) {
+      event.preventDefault();
+      paintProps.onUndo();
+    }
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = (event.target as HTMLElement).dataset.day;
-    if (!target) return;
+    if (!target) {
+      shortcut(event);
+      return;
+    }
     const steps: Record<string, [number, number]> = {
       ArrowLeft: [0, isRtl(language) ? 1 : -1],
       ArrowRight: [0, isRtl(language) ? -1 : 1],
@@ -425,7 +452,6 @@ export function CalendarGrid(props: CalendarGridProps) {
       return;
     }
     if (!paint || disabled) return;
-    const paintProps = props as PaintProps;
     if ((event.key === ' ' || event.key === 'Enter') && keyboardPreview) {
       event.preventDefault();
       commit(
@@ -439,23 +465,7 @@ export function CalendarGrid(props: CalendarGridProps) {
       setAnchor(null);
       return;
     }
-    if (!modified && (event.key === 'y' || event.key === 'Y')) {
-      paintProps.onBrushChange?.('yes');
-    } else if (
-      !modified &&
-      (event.key === 'm' || event.key === 'M' || event.key === '?')
-    ) {
-      paintProps.onBrushChange?.('maybe');
-    } else if (
-      (event.ctrlKey || event.metaKey) &&
-      !event.shiftKey &&
-      !event.altKey &&
-      event.key.toLowerCase() === 'z' &&
-      paintProps.onUndo
-    ) {
-      event.preventDefault();
-      paintProps.onUndo();
-    }
+    shortcut(event);
   };
 
   /* --------------------------------------------------------- the toggles */
@@ -464,6 +474,9 @@ export function CalendarGrid(props: CalendarGridProps) {
     if (!marks || disabled) return;
     const result = toggleDays(marks, targets, brush);
     commit(result.marks, result.changed);
+    // The toggle is not a tab stop; hand the focus back to the grid's day so
+    // the arrow keys and shortcuts carry on from there.
+    if (tabStop) focusDay(tabStop);
   };
 
   const weekdayTargets = (weekday: Weekday): ISODate[] =>
@@ -555,7 +568,7 @@ export function CalendarGrid(props: CalendarGridProps) {
               <div role="row" className="cal-row" key={row.start}>
                 <span
                   role="rowheader"
-                  className="flex flex-col items-center justify-center text-xs leading-tight text-muted"
+                  className="cal-rowhead flex flex-col items-center justify-center leading-tight text-muted"
                 >
                   {row.gapBefore && (
                     <span
@@ -567,7 +580,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                     </span>
                   )}
                   {row.monthLabel && (
-                    <span className="font-extrabold text-ink">
+                    <span className="cal-rowtext font-extrabold text-ink">
                       {monthName(row.monthLabel)}
                     </span>
                   )}
@@ -575,7 +588,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                     <button
                       type="button"
                       tabIndex={-1}
-                      className="rounded-md px-1 py-0.5 hover:bg-sunken hover:text-ink"
+                      className="cal-rowtext rounded-md px-0.5 py-0.5 hover:bg-sunken hover:text-ink"
                       onClick={() => toggleTargets(weekTargets)}
                       aria-label={`${t('cal.week', {
                         number: row.weekNumber,
@@ -584,7 +597,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                       {t('cal.week', { number: row.weekNumber })}
                     </button>
                   ) : (
-                    <span aria-hidden="true">
+                    <span aria-hidden="true" className="cal-rowtext">
                       {t('cal.week', { number: row.weekNumber })}
                     </span>
                   )}
@@ -631,9 +644,9 @@ export function CalendarGrid(props: CalendarGridProps) {
                           data-kind={past ? 'past' : 'day'}
                           data-best={props.highlighted.has(day)}
                           data-selected={props.selected.has(day)}
-                          aria-label={`${fullDate}: ${stateLabel(day)}`}
+                          aria-label={`${fullDate}: ${stateLabel(day)}${past ? `, ${t('cal.past')}` : ''}`}
                         >
-                          <span className="absolute top-1 start-1.5 text-[0.65rem] font-bold">
+                          <span className="absolute top-1 start-1.5 text-[0.625rem] font-bold">
                             {digits(number)}
                           </span>
                           {info && info.yes + info.maybe > 0 && (
@@ -644,7 +657,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                           )}
                           {info && info.maybe > 0 && (
                             <span
-                              className="cal-count text-[0.65rem] font-bold"
+                              className="cal-count text-[0.625rem] font-bold"
                               data-count={`+${digits(info.maybe)}?`}
                             />
                           )}
@@ -699,7 +712,7 @@ export function CalendarGrid(props: CalendarGridProps) {
                         {unseen && (
                           <span
                             aria-hidden="true"
-                            className="absolute -top-1 -end-1 rounded-full bg-brand px-1 text-[0.55rem] font-black text-brand-ink uppercase"
+                            className="cal-new absolute -top-1 -end-1 rounded-full bg-brand px-1 text-[0.625rem] leading-3 font-black text-brand-ink"
                           >
                             {t('cal.new')}
                           </span>

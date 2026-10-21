@@ -39,6 +39,17 @@ const flush = async () => {
   await vi.advanceTimersByTimeAsync(0);
 };
 
+/** A store that has loaded the snapshot of `version`, with its ETag. */
+async function started(version = 1) {
+  responses.push(
+    jsonResponse(200, eventSnapshot(version), { etag: snapshotEtag(version) })
+  );
+  const store = new EventStore(EVENT_ID);
+  store.start();
+  await flush();
+  return store;
+}
+
 describe('EventStore', () => {
   it('loads the event and tells subscribers', async () => {
     responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
@@ -54,10 +65,7 @@ describe('EventStore', () => {
   });
 
   it('refetches after a newer version is announced, and only then', async () => {
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     const source = FakeEventSource.instances[0]!;
     source.emit('changed', '{"version":1}');
     await vi.advanceTimersByTimeAsync(1000);
@@ -112,10 +120,7 @@ describe('EventStore', () => {
   });
 
   it('keeps the last state but marks it stale when a refetch fails, and recovers', async () => {
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     responses.push(new TypeError('offline'));
     await store.refresh();
     expect(store.getState()).toMatchObject({ status: 'ready', stale: true });
@@ -135,10 +140,7 @@ describe('EventStore', () => {
   });
 
   it('falls back to polling when the stream is refused', async () => {
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     const source = FakeEventSource.instances[0]!;
     source.readyState = FakeEventSource.CLOSED;
     source.emit('error');
@@ -148,10 +150,7 @@ describe('EventStore', () => {
   });
 
   it('tries the stream again after polling for a while, and polls no more once it is back', async () => {
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     const first = FakeEventSource.instances[0]!;
     first.readyState = FakeEventSource.CLOSED;
     first.emit('error');
@@ -165,11 +164,70 @@ describe('EventStore', () => {
     store.stop();
   });
 
+  it('polls when the stream never leaves CONNECTING', async () => {
+    const store = await started();
+    FakeEventSource.instances[0]!.readyState = 0;
+    await vi.advanceTimersByTimeAsync(14_000);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(2_000 + 30_000);
+    expect(requests.length).toBeGreaterThanOrEqual(2);
+    expect(FakeEventSource.instances[0]!.closed).toBe(true);
+    // ... and the stream is tried again later.
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(FakeEventSource.instances).toHaveLength(2);
+    store.stop();
+  });
+
+  it('keeps a stream that opens in time', async () => {
+    const store = await started();
+    const source = FakeEventSource.instances[0]!;
+    source.readyState = 0;
+    source.emit('open');
+    source.readyState = 1;
+    const before = requests.length;
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(requests).toHaveLength(before);
+    expect(source.closed).toBe(false);
+    store.stop();
+  });
+
+  it('polls after repeated errors while still CONNECTING, but not after one', async () => {
+    const store = await started();
+    const source = FakeEventSource.instances[0]!;
+    source.readyState = 0;
+    source.emit('error');
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(1);
+    source.emit('error');
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(2);
+    store.stop();
+  });
+
+  it('an open between errors resets the count', async () => {
+    const store = await started();
+    const source = FakeEventSource.instances[0]!;
+    source.readyState = 0;
+    source.emit('error');
+    source.emit('open');
+    source.emit('error');
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(1);
+    store.stop();
+  });
+
+  it('does not poll after stop when the stream never opened', async () => {
+    const store = await started();
+    FakeEventSource.instances[0]!.readyState = 0;
+    store.stop();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(requests).toHaveLength(1);
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
   it('does not retry the stream after stop', async () => {
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     const source = FakeEventSource.instances[0]!;
     source.readyState = FakeEventSource.CLOSED;
     source.emit('error');
@@ -180,10 +238,7 @@ describe('EventStore', () => {
 
   it('keeps a newer snapshot when an older GET lands after it', async () => {
     let answer: (response: Response) => void = () => undefined;
-    responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-    const store = new EventStore(EVENT_ID);
-    store.start();
-    await flush();
+    const store = await started();
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -355,6 +410,54 @@ describe('EventStore', () => {
       expect(requests).toHaveLength(4);
     });
 
+    it('lets a newer announcement replace a long catch-up wait', async () => {
+      const store = await startAt(1);
+      const source = FakeEventSource.instances[0]!;
+      source.emit('changed', '{"version":5}');
+      // Quick catch-up, then waits of 1 s, 2 s, 4 s: now in a long pause.
+      await vi.advanceTimersByTimeAsync(400 + 400 + 2000 + 4000);
+      const waiting = requests.length;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(requests).toHaveLength(waiting);
+      responses.push(jsonResponse(200, eventSnapshot(6), { etag: '"v6"' }));
+      source.emit('changed', '{"version":6}');
+      await vi.advanceTimersByTimeAsync(400);
+      expect(requests).toHaveLength(waiting + 1);
+      expect(version(store)).toBe(6);
+      store.stop();
+    });
+
+    it('keeps a pending refetch timer when a second announcement arrives', async () => {
+      const store = await startAt(1);
+      const source = FakeEventSource.instances[0]!;
+      source.emit('changed', '{"version":2}');
+      await vi.advanceTimersByTimeAsync(300);
+      responses.push(jsonResponse(200, eventSnapshot(3), { etag: '"v3"' }));
+      source.emit('changed', '{"version":3}');
+      await vi.advanceTimersByTimeAsync(100);
+      expect(requests).toHaveLength(2);
+      expect(version(store)).toBe(3);
+      store.stop();
+    });
+
+    it('starts the backoff over after a write caught up during a catch-up wait', async () => {
+      const store = await startAt(1);
+      const source = FakeEventSource.instances[0]!;
+      source.emit('changed', '{"version":2}');
+      await vi.advanceTimersByTimeAsync(400); // 304: still behind
+      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(1000); // a longer wait is now pending
+      store.apply(eventSnapshot(2));
+      await vi.advanceTimersByTimeAsync(2000); // the timer finds it caught up
+      const before = requests.length;
+      source.emit('changed', '{"version":9}');
+      await vi.advanceTimersByTimeAsync(400);
+      expect(requests).toHaveLength(before + 1);
+      await vi.advanceTimersByTimeAsync(400); // first miss again: quick
+      expect(requests).toHaveLength(before + 2);
+      store.stop();
+    });
+
     it('chases an announcement the first load missed, too', async () => {
       responses.push(new TypeError('offline'));
       const store = new EventStore(EVENT_ID);
@@ -375,20 +478,8 @@ describe('EventStore', () => {
         'if-none-match'
       ];
 
-    async function startedAt(version: number) {
-      responses.push(
-        jsonResponse(200, eventSnapshot(version), {
-          etag: snapshotEtag(version),
-        })
-      );
-      const store = new EventStore(EVENT_ID);
-      store.start();
-      await flush();
-      return store;
-    }
-
     it('ignores an older snapshot on both paths, and keeps the ETag of the newer one', async () => {
-      const store = await startedAt(3);
+      const store = await started(3);
       const shown = store.getState();
       let notified = 0;
       store.subscribe(() => (notified += 1));
@@ -406,7 +497,7 @@ describe('EventStore', () => {
     });
 
     it('takes a snapshot of the very version it shows, on both paths', async () => {
-      const store = await startedAt(3);
+      const store = await started(3);
       const shown = store.getState();
       let notified = 0;
       store.subscribe(() => (notified += 1));
@@ -431,14 +522,14 @@ describe('EventStore', () => {
       await written.refresh();
       expect(ifNoneMatch(0)).toBe(snapshotEtag(0));
 
-      const loaded = await startedAt(0);
+      const loaded = await started(0);
       expect(loaded.getState()).toMatchObject({ status: 'ready' });
       written.stop();
       loaded.stop();
     });
 
     it('sends the ETag of an own write next, and a 304 leaves the state untouched', async () => {
-      const store = await startedAt(1);
+      const store = await started(1);
       store.apply(eventSnapshot(2));
       const written = store.getState();
       responses.push(jsonResponse(304, null));
@@ -471,14 +562,6 @@ describe('EventStore', () => {
       const state = store.getState();
       return state.status === 'ready' && state.stale;
     };
-
-    async function started() {
-      responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-      const store = new EventStore(EVENT_ID);
-      store.start();
-      await flush();
-      return store;
-    }
 
     it('is retried after a second, and the stale flag clears on success', async () => {
       const store = await started();
@@ -644,14 +727,6 @@ describe('EventStore', () => {
       browser = installBrowser();
     });
 
-    async function started() {
-      responses.push(jsonResponse(200, eventSnapshot(1), { etag: '"v1"' }));
-      const store = new EventStore(EVENT_ID);
-      store.start();
-      await flush();
-      return store;
-    }
-
     it('fetches again when the page becomes visible, and not when it is hidden', async () => {
       const store = await started();
       expect(requests).toHaveLength(1);
@@ -716,6 +791,49 @@ describe('EventStore', () => {
       browser.document.dispatch('visibilitychange');
       await flush();
       expect(requests).toHaveLength(before + 1);
+    });
+
+    it('reopens the live stream on return, and not after stop or without one', async () => {
+      const store = await started();
+      const first = FakeEventSource.instances[0]!;
+      browser.window.dispatch('online');
+      await flush();
+      expect(first.closed).toBe(true);
+      expect(FakeEventSource.instances).toHaveLength(2);
+      // The closed stream's late error does not start polling or a retry.
+      first.emit('error');
+      store.stop();
+      browser.window.dispatch('online');
+      expect(FakeEventSource.instances).toHaveLength(2);
+    });
+
+    it('leaves a refused stream to its own retry timer on return', async () => {
+      const store = await started();
+      const first = FakeEventSource.instances[0]!;
+      first.readyState = FakeEventSource.CLOSED;
+      first.emit('error');
+      browser.window.dispatch('online');
+      await flush();
+      expect(FakeEventSource.instances).toHaveLength(1);
+      store.stop();
+    });
+
+    it("does not treat a 404 that is not the API's as a deleted event", async () => {
+      const store = await started();
+      responses.push(new Response('<html>', { status: 404 }));
+      await store.refresh();
+      expect(store.getState()).toMatchObject({ status: 'ready', stale: true });
+      responses.push(jsonResponse(404, { error: 'other' }));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(store.getState().status).toBe('ready');
+      store.stop();
+
+      responses.push(new Response('nginx', { status: 404 }));
+      const first = new EventStore(EVENT_ID);
+      first.start();
+      await flush();
+      expect(first.getState()).toEqual({ status: 'error' });
+      first.stop();
     });
 
     it('stops listening once the event turns out to be gone', async () => {

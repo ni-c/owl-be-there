@@ -1,8 +1,9 @@
 import { RETENTION_DAYS } from '@owl/shared';
-import { Card, Notice } from '../components/ui.tsx';
-import { Owl } from '../components/Owl.tsx';
+import { LegalPage, LegalSection } from '../components/LegalPage.tsx';
+import { Notice } from '../components/ui.tsx';
 import { useI18n } from '../i18n/index.tsx';
 import { instanceNotice, type InstanceState } from '../lib/instanceStore.ts';
+import { isolate } from '../lib/bidi.ts';
 import { retentionNote } from '../lib/retentionText.ts';
 
 /**
@@ -24,63 +25,57 @@ export function PrivacyPage({ instance: state }: { instance: InstanceState }) {
     if (!note) return null;
     return note.kind === 'none' ? t(`${key}.none`) : tn(key, note.days);
   };
-  const section = (
-    title: string,
-    ...paragraphs: (string | false | null | undefined)[]
-  ) => (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-xl font-extrabold">{title}</h2>
-      {paragraphs.filter(Boolean).map((text) => (
-        <p key={text as string} className="leading-relaxed">
-          {text}
-        </p>
-      ))}
-    </section>
-  );
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Owl mood="thinking" size={88} />
-        <h1 className="text-3xl font-black">{t('privacy.title')}</h1>
-      </div>
-      <Card className="flex flex-col gap-6">
-        <p className="text-lg leading-relaxed">{t('privacy.intro')}</p>
-        {section(
-          t('privacy.stored.title'),
+    <LegalPage title={t('privacy.title')}>
+      <p className="text-lg leading-relaxed">{t('privacy.intro')}</p>
+      <LegalSection
+        title={t('privacy.stored.title')}
+        paragraphs={[
           t('privacy.stored.event'),
           t('privacy.stored.person'),
-          t('privacy.stored.nothingElse')
-        )}
-        {section(t('privacy.visible.title'), t('privacy.visible.text'))}
-        {section(t('privacy.device.title'), t('privacy.device.text'))}
-        {section(
-          t('privacy.retention.title'),
+          t('privacy.stored.nothingElse'),
+        ]}
+      />
+      <LegalSection
+        title={t('privacy.visible.title')}
+        paragraphs={[t('privacy.visible.text')]}
+      />
+      <LegalSection
+        title={t('privacy.device.title')}
+        paragraphs={[t('privacy.device.text')]}
+      />
+      <LegalSection
+        title={t('privacy.retention.title')}
+        paragraphs={[
           t('privacy.retention.text', {
             days: instance?.retentionDays ?? RETENTION_DAYS,
           }),
           retention('privacy.logs', instance?.logRetentionDays),
-          retention('privacy.backups', instance?.backupRetentionDays)
-        )}
-        {status !== 'loaded' && (
-          <Notice tone={status === 'failed' ? 'error' : 'info'}>
-            {t(
-              status === 'failed'
-                ? 'privacy.instance.failed'
-                : 'privacy.instance.loading'
-            )}
-          </Notice>
-        )}
-        {(instance?.operatorName || instance?.operatorContact) &&
-          section(
-            t('privacy.operator.title'),
-            instance.operatorName,
+          retention('privacy.backups', instance?.backupRetentionDays),
+        ]}
+      />
+      {status !== 'loaded' && (
+        <Notice tone={status === 'failed' ? 'error' : 'info'}>
+          {t(
+            status === 'failed'
+              ? 'privacy.instance.failed'
+              : 'privacy.instance.loading'
+          )}
+        </Notice>
+      )}
+      {(instance?.operatorName || instance?.operatorContact) && (
+        <LegalSection
+          title={t('privacy.operator.title')}
+          paragraphs={[
+            instance.operatorName && <bdi>{instance.operatorName}</bdi>,
             instance.operatorContact &&
               t('privacy.operator.contact', {
-                contact: instance.operatorContact,
-              })
-          )}
-        <p className="text-muted">{t('privacy.source')}</p>
-      </Card>
-    </div>
+                contact: isolate(instance.operatorContact),
+              }),
+          ]}
+        />
+      )}
+      <p className="text-muted wrap-anywhere">{t('privacy.source')}</p>
+    </LegalPage>
   );
 }
