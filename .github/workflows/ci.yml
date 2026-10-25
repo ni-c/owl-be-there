@@ -94,14 +94,16 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --ignore-scripts
-      # Keyed on the Playwright version, because that is what decides which
-      # browser builds are wanted.
+      # Keyed on the Playwright version and the runner image (runner.os is
+      # "Linux" on every Ubuntu), because together they decide the browser builds.
       - id: playwright-version
-        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+          echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.image }}-${{ steps.playwright-version.outputs.version }}
       # Always this one command: with the browsers cached it only installs the
       # system libraries, which the cache does not hold. A separate
       # `install-deps` step for the cache-hit case hung for over an hour.
