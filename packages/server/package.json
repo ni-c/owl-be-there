@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
-    "@fastify/static": "^10.1.6",
+    "@fastify/static": "^10.1.8",
     "@owl/shared": "*",
     "@resvg/resvg-wasm": "2.6.2",
     "fastify": "^5.12.5",
