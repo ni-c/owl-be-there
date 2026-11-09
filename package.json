@@ -40,7 +40,8 @@
   "overrides": {
     "eslint-plugin-jsx-a11y": {
       "eslint": "$eslint"
-    }
+    },
+    "minimatch@^10": "^11.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
