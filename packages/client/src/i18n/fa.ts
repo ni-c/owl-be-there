@@ -47,8 +47,7 @@ export const fa = {
   'create.from': 'از',
   'create.to': 'تا',
   'create.weekdays': 'فقط در این روزهای هفته',
-  'create.weekdaysHint':
-    'اگر هیچ‌کدام را انتخاب نکنی، همهٔ روزها حساب می‌شوند.',
+  'create.weekdaysHint': 'اگر هیچ‌کدام را انتخاب نکنی، همهٔ روزها حساب می‌شوند.',
   'create.duration': 'روزهای پشت سر هم',
   'create.durationHint':
     'دنبال یک آخر هفتهٔ کامل هستی؟ دو را انتخاب کن تا دو روز مناسب پشت سر هم پیدا کنیم.',
