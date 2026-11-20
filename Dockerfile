@@ -20,7 +20,7 @@
 # becomes the active LTS line on 2026-10-28. Currently Node v26.12.0.
 
 # --------------------------------------------------------------------- build
-FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 WORKDIR /app
 
 # The manifests alone first, so editing a source file does not re-run the
@@ -46,7 +46,7 @@ RUN npm run build \
   && mkdir /data-template
 
 # ---------------------------------------------------------- production deps
-FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS deps
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/package.json
@@ -57,7 +57,7 @@ COPY packages/client/package.json packages/client/package.json
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund --workspace @owl/server
 
 # ------------------------------------------------------------------- runtime
-FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS runtime
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runtime
 
 # Expires the layer below once a day, so a security fix in the Alpine base
 # reaches the image without waiting for a new base digest. CI passes the date.
